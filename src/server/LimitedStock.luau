@@ -3,7 +3,7 @@
 --
 -- One DataStore key per item holds:
 --   Sold          copies sold so far (serials 1..Stock)
---   ReservedGiven admin copies given so far (serials Stock+1..Stock+Reserved)
+--   ReservedGiven copies given after the shop stock ran out (serials Stock+1..Stock+Reserved)
 --   Owners        userId -> serial (one per player; also makes Claim safe to retry)
 --   Holds         userId -> unix time a reservation expires
 --
@@ -153,8 +153,10 @@ function LimitedStock.Claim(player: Player, itemId: string): number?
 	return if ok then serial else nil
 end
 
--- Gives one of the admin-reserved copies. Returns the serial, or nil + why not.
-function LimitedStock.GiveReserved(player: Player, itemId: string): (number?, string?)
+-- Gives a copy from the shop stock as a gift (Corny's Give button), so the
+-- "X left" count goes down like a sale. Once the shop stock is gone it uses
+-- the reserved copies. Returns the serial, or nil + why not.
+function LimitedStock.Gift(player: Player, itemId: string): (number?, string?)
 	local item = Config.LimitedItems[itemId]
 	if not item then
 		return nil, "Not a limited item."
@@ -166,13 +168,19 @@ function LimitedStock.GiveReserved(player: Player, itemId: string): (number?, st
 		serial, reason = nil, nil
 		if record.Owners[key] then
 			reason = player.DisplayName .. " already owns one."
-		elseif record.ReservedGiven >= item.Reserved then
-			reason = "All " .. item.Reserved .. " reserved copies are already given out."
-		else
+		elseif record.Sold + activeHolds(record, key) < item.Stock then
+			record.Sold += 1
+			serial = record.Sold
+			record.Owners[key] = record.Sold
+		elseif record.ReservedGiven < item.Reserved then
 			record.ReservedGiven += 1
 			serial = item.Stock + record.ReservedGiven
 			record.Owners[key] = serial :: number
+		else
+			reason = "None left to give: all " .. (item.Stock + item.Reserved) .. " are taken."
 		end
+		record.Holds[key] = nil
+		publishLeft(itemId, record)
 	end)
 	if not ok then
 		return nil, "DataStore busy, try again."

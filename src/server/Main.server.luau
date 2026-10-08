@@ -1604,7 +1604,7 @@ do
 
 		-- Live stock sign above it.
 		local signGui = Instance.new("BillboardGui")
-		signGui.Size = UDim2.fromScale(13, 4)
+		signGui.Size = UDim2.fromScale(13, 5.5)
 		signGui.StudsOffsetWorldSpace = Vector3.new(0, 11, 0)
 		signGui.MaxDistance = 400
 		signGui.LightInfluence = 0
@@ -1621,12 +1621,12 @@ do
 		local function updateSign()
 			local left = ReplicatedStorage:GetAttribute("LimitedLeft_" .. brainrot.Id) :: number?
 			local stock = if left then left else item.Stock
+			-- The stock always shows, even before she's on sale.
 			sign.Text = string.format(
-				"LIMITED EVENT\n%s\n%s",
+				"LIMITED EVENT\n%s\n%s\n%s",
 				brainrot.DisplayName,
-				if item.ProductId == 0 then "Coming soon!"
-					elseif stock <= 0 then "SOLD OUT"
-					else string.format("%d / %d left  -  R$ %d  -  1%% MAGIC!", stock, item.Stock, item.PriceRobux)
+				if stock <= 0 then "SOLD OUT" else string.format("%d / %d LEFT", stock, item.Stock),
+				if item.ProductId == 0 then "Coming soon!" else string.format("R$ %d  -  1%% MAGIC!", item.PriceRobux)
 			)
 		end
 		ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. brainrot.Id):Connect(updateSign)
@@ -3038,10 +3038,15 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				local brainrot, mutation = Config.Decode(tostring(value))
 				local index = plot and freeSlot(plot, session)
 				if brainrot and brainrot.Limited then
-					if ownsLimited(session, brainrot.Id) then
+					-- Only Corny can hand out limited brainrots. Each one comes out
+					-- of the shop stock, so the "X left" count goes down.
+					local giver = founderOf(admin)
+					if not giver or giver.Id ~= Config.LimitedGiver then
+						notify(admin, "Only " .. Config.LimitedGiver .. " can give limited brainrots.")
+					elseif ownsLimited(session, brainrot.Id) then
 						notify(admin, player.DisplayName .. " already owns " .. brainrot.DisplayName .. ".")
 					else
-						local serial, why = LimitedStock.GiveReserved(player, brainrot.Id)
+						local serial, why = LimitedStock.Gift(player, brainrot.Id)
 						if serial then
 							local rolled = grantLimited(player, session, brainrot, serial)
 							Announce:FireAllClients("limited", player.DisplayName, brainrot.Id, tostring(serial), rolled)

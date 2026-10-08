@@ -36,7 +36,7 @@ export type LimitedItem = {
 	ProductId: number, -- developer product (0 = not on sale yet)
 	PriceRobux: number, -- shown in the shop; the real price is set on the product
 	Stock: number, -- copies for sale
-	Reserved: number, -- extra copies only admins can give (serials after Stock)
+	Reserved: number, -- extra copies Corny can still give once the shop stock is gone
 }
 
 export type GamePass = {
@@ -639,6 +639,10 @@ function Config.AdminAbuseStatus(now: number): (string?, number)
 	end
 	return nil, 0
 end
+
+-- The only one who can give limited brainrots from the admin panel (a
+-- founder Id). Each gift comes out of the shop stock.
+Config.LimitedGiver = "Corny"
 
 Config.LimitedItems = {
 	CignaGlamourina = { ProductId = 0, PriceRobux = 50, Stock = 500, Reserved = 2 },

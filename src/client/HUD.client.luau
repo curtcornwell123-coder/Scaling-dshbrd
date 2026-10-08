@@ -1441,6 +1441,8 @@ local function brainrotValue(id: string): string
 end
 
 local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base.  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
+-- Limited brainrots: only Corny sees these rows (the server checks too).
+local limitedGiveRows: { Frame } = {}
 for i, brainrot in Config.Brainrots do
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, 0, 0, 36)
@@ -1449,21 +1451,33 @@ for i, brainrot in Config.Brainrots do
 	corner(row, 8)
 	row.Parent = listCard
 	local color = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
-	text(row, {
+	local nameLabel = text(row, {
 		Position = UDim2.fromOffset(10, 4),
 		Size = UDim2.new(1, -270, 1, -8),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = color,
 		Text = brainrot.DisplayName,
 	})
+	local limitedItem = Config.LimitedItems[brainrot.Id]
+	if brainrot.Limited and limitedItem then
+		row.Visible = false
+		table.insert(limitedGiveRows, row)
+		-- Shows how many are left; each gift takes one from the shop stock.
+		local function showLeft()
+			local left = ReplicatedStorage:GetAttribute("LimitedLeft_" .. brainrot.Id) :: number?
+			nameLabel.Text = string.format("%s (%d left)", brainrot.DisplayName, left or limitedItem.Stock)
+		end
+		ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. brainrot.Id):Connect(showLeft)
+		showLeft()
+	end
 	local buttons: { { Label: string, Color: Color3, Action: string } } = {
 		{ Label = "Give", Color = GREEN, Action = "Brainrot" },
 		{ Label = "Spawn", Color = ORANGE, Action = "Spawn" },
 		{ Label = "Drop", Color = PURPLE, Action = "DropBrainrot" },
 	}
 	if brainrot.Limited then
-		-- Limited brainrots can only be handed out from the reserved copies.
-		buttons = { { Label = "Give #", Color = GREEN, Action = "Brainrot" } }
+		-- Limited brainrots come out of the stock, one per player.
+		buttons = { { Label = "Gift", Color = GREEN, Action = "Brainrot" } }
 	end
 	for j, info in buttons do
 		local b = smallButton(row, info.Label, info.Color, 80, function()
@@ -1545,6 +1559,9 @@ local function render()
 	cashLabel.Text = Config.FormatCash(data.Cash)
 	adminButton.Visible = data.IsAdmin == true
 	founderTab.Button.Visible = data.IsFounder == true
+	for _, row in limitedGiveRows do
+		row.Visible = data.FounderId == Config.LimitedGiver
+	end
 	if founderTab.Page.Visible and not data.IsFounder then
 		selectTab(playersTab)
 	end
