@@ -133,6 +133,37 @@ local function deserialize(data: any): HumanoidDescription?
 	return desc
 end
 
+-- Event music a founder pasted in the admin panel (an uploaded sound id),
+-- saved for good. Shared with clients as ReplicatedStorage attributes
+-- "EventMusic_<eventId>"; empty means the event's MusicId in Config.
+function Founders.LoadEventMusic()
+	local store = lookStore
+	if not store then
+		return
+	end
+	for eventId in Config.FounderEvents do
+		local ok, id = pcall(function()
+			return store:GetAsync("music_" .. eventId)
+		end)
+		if ok and type(id) == "number" then
+			ReplicatedStorage:SetAttribute("EventMusic_" .. eventId, if id > 0 then "rbxassetid://" .. id else "")
+		end
+	end
+end
+
+-- Saves a founder event's music (0 = back to the default). Returns whether
+-- it was saved for every server (it's used in this one either way).
+function Founders.SaveEventMusic(eventId: string, soundId: number): boolean
+	ReplicatedStorage:SetAttribute("EventMusic_" .. eventId, if soundId > 0 then "rbxassetid://" .. soundId else "")
+	local store = lookStore
+	if not store then
+		return false
+	end
+	return (pcall(function()
+		store:SetAsync("music_" .. eventId, soundId)
+	end))
+end
+
 -- Loads the saved event looks (call once when the server starts).
 function Founders.LoadEventLooks()
 	for _, founder in Config.Founders do

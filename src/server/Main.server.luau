@@ -2366,6 +2366,7 @@ end
 -- brainrots onto the map.
 
 task.spawn(Founders.LoadEventLooks)
+task.spawn(Founders.LoadEventMusic)
 local foundersFolder = Instance.new("Folder")
 foundersFolder.Name = "Founders"
 foundersFolder.Parent = workspace:FindFirstChild("BrainrotHeist")
@@ -2598,6 +2599,8 @@ local function runFounderEvent(eventId: string, minutes: number)
 		return
 	end
 	founderEventRunning = eventId
+	-- Pick up music changed in another server since this one started.
+	Founders.LoadEventMusic()
 	ReplicatedStorage:SetAttribute("FounderEvent", eventId)
 	ReplicatedStorage:SetAttribute("FounderEventEndsAt", workspace:GetServerTimeNow() + minutes * 60)
 	Announce:FireAllClients("founder", event.Founder, "", eventId)
@@ -3193,6 +3196,27 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		end
 		Founders.ResetEventLook(founder.Id)
 		notify(admin, "Your event giant will wear your normal avatar again.")
+		return
+	elseif action == "SetEventMusic" then
+		local founder = founderOf(admin)
+		if not founder then
+			notify(admin, "Only the founders can set event music.")
+			return
+		end
+		-- Their own event; accepts the number or a pasted link with it.
+		local eventId: string? = nil
+		for id, event in Config.FounderEvents do
+			if event.Founder == founder.Id then
+				eventId = id
+			end
+		end
+		local soundId = tonumber(string.match(tostring(value), "%d+") or "") or 0
+		if not eventId then
+			return
+		end
+		local saved = Founders.SaveEventMusic(eventId, soundId)
+		local what = if soundId > 0 then "Your event music is now sound " .. soundId else "Your event music is back to the default"
+		notify(admin, what .. (if saved then " (saved for every server)." else " (this server only: it couldn't be saved)."))
 		return
 	elseif action == "FounderEventStop" then
 		if not founderOf(admin) then

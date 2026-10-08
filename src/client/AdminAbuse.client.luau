@@ -1402,7 +1402,9 @@ local function onFounderEvent()
 		stopChaos()
 	end
 	if event then
-		startEventMusic(event.MusicId)
+		-- Music a founder set in the admin panel wins over the default.
+		local custom = ReplicatedStorage:GetAttribute("EventMusic_" .. eventId) :: string?
+		startEventMusic(if custom and custom ~= "" then custom else event.MusicId)
 	else
 		stopEventMusic()
 	end

@@ -54,8 +54,10 @@ end)
 
 -- Quiet while a founder event plays its own song.
 local function eventMusicPlaying(): boolean
-	local event = Config.FounderEvents[ReplicatedStorage:GetAttribute("FounderEvent") :: string? or ""]
-	return event ~= nil and event.MusicId ~= nil and event.MusicId ~= ""
+	local eventId = ReplicatedStorage:GetAttribute("FounderEvent") :: string? or ""
+	local event = Config.FounderEvents[eventId]
+	local custom = ReplicatedStorage:GetAttribute("EventMusic_" .. eventId) :: string?
+	return event ~= nil and ((custom ~= nil and custom ~= "") or (event.MusicId ~= nil and event.MusicId ~= ""))
 end
 
 local function update()

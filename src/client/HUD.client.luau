@@ -2000,6 +2000,14 @@ do
 		end)
 	end
 
+	local music = section(founderPage, 3, "MY EVENT MUSIC", "Upload a song on create.roblox.com (Audio), then paste its ID here. It plays in your event in every server. Leave it empty and press SET to go back to the default.", Color3.fromRGB(70, 255, 120))
+	local musicRow = controls(music, 1)
+	local musicBox = inputBox(musicRow, "", "Paste sound ID", 260)
+	smallButton(musicRow, "SET", Color3.fromRGB(60, 180, 120), 120, function()
+		send("SetEventMusic", musicBox.Text)
+		musicBox.Text = ""
+	end)
+
 	local look = section(founderPage, 2, "MY EVENT GIANT'S LOOK", "Pick what your giant wears in your event. It saves for good, in every server.", GOLD)
 	local saveLookRow = controls(look, 1)
 	smallButton(saveLookRow, "USE WHAT I'M WEARING NOW", GOLD, 330, function()
