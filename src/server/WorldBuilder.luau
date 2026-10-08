@@ -543,8 +543,8 @@ local function buildCave(parent: Instance, name: string, mouthPosition: Vector3,
 	local halfWidth = 9 -- tunnel half-width; the belt and rails fit inside
 	local height = 15 -- tunnel height
 
-	-- The cave itself is the rounded hill from buildCaveHill; these parts are
-	-- the dressing just inside its mouth.
+	-- The rock and tunnel are built by buildCaveHill; these parts are the
+	-- dressing inside the tunnel.
 	block(cave, "CaveFloor", Vector3.new(CAVE_DEPTH, 0.6, halfWidth * 2), CFrame.new(centerX, 0.3, 0), darkRock, Enum.Material.Slate)
 	local rng = Random.new(seed)
 
@@ -590,22 +590,9 @@ local function buildCave(parent: Instance, name: string, mouthPosition: Vector3,
 end
 
 -- Scenery -----------------------------------------------------------------------
--- Cartoon scenery to match the brainrots: flat bright grass, stone paths,
--- ponds, round trees and a wooden fence around the edge.
+-- Flat bright grass, stone paths, ponds, trees, rocky caves at the conveyor
+-- ends and a wooden fence around the edge.
 
--- A smooth stretched ball (a block with a sphere mesh).
-local function blob(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, collide: boolean?): Part
-	local p = block(parent, name, size, cframe, color, Enum.Material.SmoothPlastic)
-	local mesh = Instance.new("SpecialMesh")
-	mesh.MeshType = Enum.MeshType.Sphere
-	mesh.Parent = p
-	p.CanCollide = collide == true
-	p.CanQuery = collide == true
-	p.CanTouch = false
-	return p
-end
-
-local HILL_GREEN = Color3.fromRGB(96, 182, 82)
 
 -- Flat, bright grass for the whole map.
 local LAKES = { Vector3.new(-150, 0, 265), Vector3.new(170, 0, -255) }
@@ -644,28 +631,6 @@ local function buildLakes(parent: Instance)
 	end
 end
 
--- A low, rounded grassy mound at one end of the conveyor with a dark cartoon cave
--- hole (framed by chunky boulders) that the conveyor runs into.
-local function buildCaveHill(parent: Instance, rng: Random, mouthX: number, facing: number)
-	local inward = -facing -- direction from the mouth into the hill
-	local hill = Instance.new("Model")
-	hill.Name = "CaveHill"
-	hill.Parent = parent
-	blob(hill, "Hill", Vector3.new(84, 58, 86), CFrame.new(mouthX + inward * 40, -6, 0), HILL_GREEN, true)
-	-- Grey rock patches on the grass
-	for _ = 1, 5 do
-		blob(hill, "Rock", Vector3.new(rng:NextNumber(6, 12), rng:NextNumber(4, 8), rng:NextNumber(6, 12)), CFrame.new(mouthX + inward * rng:NextNumber(18, 50), rng:NextNumber(10, 18), rng:NextNumber(-28, 28)), Color3.fromRGB(150, 150, 165))
-	end
-	-- The cave hole on the face of the hill, framed by boulders
-	local face = CFrame.lookAt(Vector3.new(mouthX + inward * 3, 7, 0), Vector3.new(mouthX - inward * 10, 7, 0))
-	blob(hill, "CaveHole", Vector3.new(19, 16, 5), face, Color3.fromRGB(28, 22, 38))
-	for k = 0, 8 do
-		local angle = math.rad(-10 + k * 25)
-		local offset = Vector3.new(math.cos(angle) * 10.5, math.sin(angle) * 9, 0)
-		blob(hill, "CaveRock", Vector3.new(4.5, 4, 4) * rng:NextNumber(0.9, 1.25), face * CFrame.new(offset.X, offset.Y - 1, -1), Color3.fromRGB(140, 135, 150))
-	end
-end
-
 -- Trees ------------------------------------------------------------------------
 
 local function treeAt(parent: Instance, rng: Random, position: Vector3, pine: boolean)
@@ -697,6 +662,99 @@ local function treeAt(parent: Instance, rng: Random, position: Vector3, pine: bo
 			leaves.CanCollide = false
 		end
 	end
+end
+
+-- A rugged rock outcrop at one end of the conveyor, with a dark tunnel the
+-- conveyor runs into and a wooden mine-shaft frame with lanterns at the
+-- mouth. `facing` is the direction the mouth opens (+1 = toward +X).
+local ROCK_COLORS = {
+	Color3.fromRGB(118, 112, 106),
+	Color3.fromRGB(102, 98, 95),
+	Color3.fromRGB(132, 125, 116),
+}
+
+local function buildCaveHill(parent: Instance, rng: Random, mouthX: number, facing: number)
+	local inward = -facing -- direction from the mouth into the rock
+	local hill = Instance.new("Model")
+	hill.Name = "CaveRocks"
+	hill.Parent = parent
+	-- Position `depth` studs into the rock, `y` up, `z` across.
+	local function at(depth: number, y: number, z: number): CFrame
+		return CFrame.new(mouthX + inward * depth, y, z)
+	end
+	local function tilt(x: number, y: number, z: number): CFrame
+		return CFrame.Angles(math.rad(x), math.rad(y), math.rad(z))
+	end
+	local function rock(cframe: CFrame, size: Vector3, mossy: boolean?)
+		local color = ROCK_COLORS[rng:NextInteger(1, #ROCK_COLORS)]
+		block(hill, "Rock", size, cframe, color, Enum.Material.Rock)
+		if mossy then
+			block(hill, "Moss", Vector3.new(size.X * 0.8, 0.8, size.Z * 0.75), cframe * CFrame.new(0, size.Y / 2 + 0.2, 0), Color3.fromRGB(88, 140, 70), Enum.Material.Grass)
+		end
+	end
+
+	-- Big masses either side of the tunnel, one over it and one behind.
+	-- (No turning around Y near the tunnel, so nothing pokes into it.)
+	rock(at(24, 12, -27.5) * tilt(4, 0, 2), Vector3.new(44, 24, 30), true)
+	rock(at(26, 13, 28) * tilt(-4, 0, -3), Vector3.new(46, 26, 30), true)
+	rock(at(22, 25, 0) * tilt(0, 0, 2), Vector3.new(40, 14, 34), true)
+	rock(at(48, 14, 0) * tilt(0, 5, 0), Vector3.new(30, 30, 58), true)
+	-- Craggy peaks on top
+	rock(at(34, 33, -6) * tilt(5, 20, 8), Vector3.new(26, 14, 28))
+	rock(at(30, 36, 10) * tilt(-6, -15, 5), Vector3.new(18, 10, 18), true)
+	rock(at(44, 31, -20) * tilt(10, 30, -6), Vector3.new(16, 9, 16), true)
+	-- Boulders around the front
+	rock(at(6, 6, -20) * tilt(10, 25, 15), Vector3.new(12, 12, 12))
+	rock(at(6, 6, 20) * tilt(-12, -20, 8), Vector3.new(12, 12, 12))
+	rock(at(4, 3, -31) * tilt(0, 40, 10), Vector3.new(10, 7, 10))
+	rock(at(5, 3, 32) * tilt(5, -30, 0), Vector3.new(9, 6, 9))
+	rock(at(8, 20, -19) * tilt(0, 15, -10), Vector3.new(14, 10, 16), true)
+	rock(at(9, 21, 19) * tilt(0, -20, 12), Vector3.new(14, 10, 14), true)
+	-- Loose stones on the grass, clear of the walkways
+	for _ = 1, 8 do
+		local side = if rng:NextNumber() < 0.5 then -1 else 1
+		local size = rng:NextNumber(2.5, 5)
+		rock(at(rng:NextNumber(-6, 50), size * 0.3, side * rng:NextNumber(36, 48)) * tilt(rng:NextNumber(0, 40), rng:NextNumber(0, 360), rng:NextNumber(0, 40)), Vector3.new(size, size * 0.8, size * 1.1))
+	end
+
+	-- The tunnel: dark rock walls and ceiling, fading into blackness.
+	local tunnelRock = Color3.fromRGB(52, 48, 47)
+	for _, z in { -10.5, 10.5 } do
+		block(hill, "TunnelWall", Vector3.new(24, 18, 1), at(12, 9, z), tunnelRock, Enum.Material.Slate)
+	end
+	block(hill, "TunnelCeiling", Vector3.new(24, 1, 22), at(12, 17.5, 0), tunnelRock, Enum.Material.Slate)
+	local back = block(hill, "TunnelDark", Vector3.new(1, 18, 22), at(24, 9, 0), Color3.fromRGB(8, 6, 10), Enum.Material.SmoothPlastic)
+	back.CanCollide = false
+
+	-- Wooden mine-shaft frames at the mouth and a little way in.
+	local wood = Color3.fromRGB(110, 75, 45)
+	for _, depth in { -0.5, 9 } do
+		for _, z in { -9.3, 9.3 } do
+			block(hill, "MinePost", Vector3.new(1.6, 17, 1.6), at(depth, 8.5, z), wood, Enum.Material.WoodPlanks)
+		end
+		block(hill, "MineBeam", Vector3.new(1.8, 1.8, 22), at(depth, 17.6, 0), wood:Lerp(Color3.new(0, 0, 0), 0.1), Enum.Material.WoodPlanks)
+	end
+	-- Corner braces on the front frame
+	for _, z in { -1, 1 } do
+		block(hill, "MineBrace", Vector3.new(1.2, 1.2, 5), at(-0.5, 15.4, z * 7.2) * tilt(z * 45, 0, 0), wood, Enum.Material.WoodPlanks)
+	end
+	-- Two warm lanterns hanging from the beam
+	for _, z in { -6.5, 6.5 } do
+		block(hill, "LanternChain", Vector3.new(0.2, 1.4, 0.2), at(-1.2, 16, z), Color3.fromRGB(40, 40, 40), Enum.Material.Metal)
+		local lantern = block(hill, "Lantern", Vector3.new(0.9, 1.2, 0.9), at(-1.2, 14.8, z), Color3.fromRGB(255, 190, 90), Enum.Material.Neon)
+		lantern.CanCollide = false
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(255, 180, 90)
+		light.Range = 16
+		light.Brightness = 1.5
+		light.Parent = lantern
+	end
+
+	-- A few pines growing on top
+	treeAt(hill, rng, at(42, 29, -16).Position, true)
+	treeAt(hill, rng, at(46, 29, 14).Position, true)
+	treeAt(hill, rng, at(28, 24, -34).Position, true)
+	treeAt(hill, rng, at(30, 26, 36).Position, true)
 end
 
 -- Leafy trees and firs on the open grass around the bases.

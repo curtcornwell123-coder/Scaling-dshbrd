@@ -4,7 +4,7 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
 
 ## How it plays
 
-1. **Buy.** Brainrots walk out of a cave in a grassy mound and ride a conveyor down the middle of the map, disappearing into a cave at the far end. Hold **E** next to one to buy it, and it walks to your base.
+1. **Buy.** Brainrots walk out of a rocky mine cave and ride a conveyor down the middle of the map, disappearing into a cave at the far end. Hold **E** next to one to buy it, and it walks to your base.
 2. **Earn.** Each brainrot on a pedestal makes cash every second. The cash piles up on the green **COLLECT** pad, so step on it to bank it.
 3. **Steal.** Walk into someone else's base and hold **E** on a brainrot. It goes over your head, you move slower, and you have to run it back to your own base.
 4. **Defend.** Everyone has a **Slap** tool. Slap a thief and the brainrot runs back home.
@@ -138,6 +138,11 @@ There's a weekly **admin abuse** event. Everyone sees a countdown during the hou
 
 When it starts, everyone gets a huge intro: a white flash and red camera flash, a camera shake, spinning red and gold light rays, a giant rainbow **ADMIN ABUSE!** title that slams in (with the admin's name if one started it), falling confetti and a volley of fireworks over the map. While it runs, the lighting gently cycles party colors and fireworks keep popping. An "ADMIN ABUSE IS OVER" card shows when it ends. (All of it is in `src/client/AdminAbuse.client.luau`.)
 
+**Admin abuse boosts and gift** (tune them in `Config.AdminAbuseBoosts` and `Config.AdminAbuseGift`):
+- While it's live, everyone gets **2x cash**, **Server Luck** and walks faster (22 instead of 16; carrying stays slow so stealing stays fair).
+- Everyone online gets a gift, shown on a pop-up card: **3 Diamonds, 150 Shards and a free brainrot** (rolled with Brainrot Rain luck). It's once per player per week, so starting admin abuse again the same week doesn't hand out more. Players who join while it's live still get theirs.
+- Why 3 Diamonds: normally the only way to get Diamonds is 1 a week from weekly quests. 3 a week from admin abuse makes it a big reward worth showing up for, while Gold walls (4) and Galaxy walls (9) still take some effort.
+
 ## Quests, Shards, Diamonds and the Diamond Shop
 
 Fair progression for free-to-play players. None of this can be bought with Robux.
@@ -159,7 +164,7 @@ Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around a
 
 - No mountains: the map is wide-open, flat bright grass with lots of room between the bases. A wooden fence runs around the edge, with an invisible wall behind it so nobody can leave. Round leafy trees, firs and two cartoon ponds fill the open grass, and a light haze fades the distance.
 - Stone paths: a walkway along each side of the conveyor, with a branch to every base's door, the shop tent and the event statue. Gentle color grading, bloom and sun rays make it all a bit richer.
-- The conveyor's caves are dark cartoon holes in low grassy mounds, framed by boulders, with glowing crystals and stalactites inside.
+- The conveyor's caves are rugged, mossy rock outcrops with pine trees on top. Each has a dark tunnel with a wooden mine-shaft entrance, hanging lanterns, glowing crystals and stalactites.
 - All floating text (name tags, signs) is sized in the world, so it shrinks with distance like a real sign instead of covering the screen.
 
 ## Base looks

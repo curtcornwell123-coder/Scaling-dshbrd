@@ -63,6 +63,7 @@ type SaveData = {
 	Skin: string, -- equipped wall skin
 	Quests: QuestState,
 	CashBoostUntil: number, -- unix time the Diamond Shop 2x Cash boost ends
+	AbuseGiftWeek: number, -- the week this player last got the admin abuse gift
 }
 
 type QuestState = {
@@ -180,8 +181,18 @@ local function isSlotUnlocked(session: Session, index: number): boolean
 	return session.Data.Stories >= story
 end
 
+-- True while the weekly admin abuse runs, or one an admin started by hand.
+local function adminAbuseLive(): boolean
+	local now = workspace:GetServerTimeNow()
+	local manualEnd = ReplicatedStorage:GetAttribute("AdminAbuseEndsAt") :: number?
+	return (manualEnd ~= nil and manualEnd > now) or Config.AdminAbuseStatus(now) == "live"
+end
+
 local function incomeMultiplier(session: Session): number
 	local multiplier = Config.RebirthMultiplier(session.Data.Rebirths)
+	if adminAbuseLive() then
+		multiplier *= Config.AdminAbuseBoosts.Income
+	end
 	if session.Owns.DoubleCash then
 		multiplier *= 2
 	end
@@ -237,19 +248,16 @@ local function isNotable(brainrot: Config.Brainrot, mutationId: string?): boolea
 	return Config.Rarities[brainrot.Rarity].Order >= 4 or (mutation ~= nil and mutation.Chance <= 0.6)
 end
 
--- True while the weekly admin abuse runs, or one an admin started by hand.
-local function adminAbuseLive(): boolean
-	local now = workspace:GetServerTimeNow()
-	local manualEnd = ReplicatedStorage:GetAttribute("AdminAbuseEndsAt") :: number?
-	return (manualEnd ~= nil and manualEnd > now) or Config.AdminAbuseStatus(now) == "live"
-end
-
 local function luckMultiplier(): number
+	local luck = 1
 	local endsAt = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number?
 	if endsAt and workspace:GetServerTimeNow() < endsAt then
-		return Config.ServerLuckMultiplier
+		luck = Config.ServerLuckMultiplier
 	end
-	return 1
+	if adminAbuseLive() then
+		luck = math.max(luck, Config.AdminAbuseBoosts.Luck)
+	end
+	return luck
 end
 
 -- Player data --------------------------------------------------------------
@@ -271,6 +279,7 @@ local function defaultData(): SaveData
 		Skins = { "Classic" },
 		Skin = "Classic",
 		CashBoostUntil = 0,
+		AbuseGiftWeek = -1,
 		Quests = { Day = -1, Week = -1, Daily = {}, Weekly = {}, DailyDone = {}, WeeklyDone = {} },
 	}
 end
@@ -331,6 +340,9 @@ local function sanitize(raw: any): SaveData
 	end
 	if type(raw.CashBoostUntil) == "number" then
 		data.CashBoostUntil = raw.CashBoostUntil
+	end
+	if type(raw.AbuseGiftWeek) == "number" then
+		data.AbuseGiftWeek = raw.AbuseGiftWeek
 	end
 	if type(raw.Skin) == "string" and table.find(data.Skins, raw.Skin) then
 		data.Skin = raw.Skin
@@ -777,7 +789,7 @@ local function setCarrying(player: Player, text: string?)
 	player:SetAttribute("Carrying", text)
 	local _, humanoid = getRoot(player)
 	if humanoid then
-		humanoid.WalkSpeed = if text then Config.CarryWalkSpeed else Config.NormalWalkSpeed
+		humanoid.WalkSpeed = if text then Config.CarryWalkSpeed elseif adminAbuseLive() then Config.AdminAbuseBoosts.WalkSpeed else Config.NormalWalkSpeed
 	end
 end
 
@@ -1021,6 +1033,63 @@ deliverUnclaimed = function(player: Player, session: Session)
 		end
 	end
 end
+
+-- Admin abuse rewards --------------------------------------------------------
+-- While admin abuse is live everyone earns more, gets Server Luck and walks
+-- faster (see incomeMultiplier, luckMultiplier and setCarrying). Everyone
+-- online also gets a gift, once per week.
+
+local function giveAbuseGift(player: Player, session: Session)
+	local _, week = Config.QuestPeriods(workspace:GetServerTimeNow())
+	local data = session.Data
+	if data.AbuseGiftWeek == week then
+		return
+	end
+	data.AbuseGiftWeek = week
+	local gift = Config.AdminAbuseGift
+	data.Diamonds += gift.Diamonds
+	data.Shards += gift.Shards
+	local brainrot = Config.RollConveyor(rng, gift.BrainrotLuck, false)
+	local mutation = Config.RollMutation(rng, gift.BrainrotLuck)
+	local plot = session.Plot
+	local index = plot and freeSlot(plot, session)
+	if plot and index then
+		placeBrainrot(plot, index, brainrot.Id, mutation, nil, true)
+	else
+		table.insert(data.Unclaimed, Config.Encode(brainrot.Id, mutation))
+		notify(player, "Your gift brainrot will appear as soon as you have a free slot!")
+	end
+	Announce:FireClient(player, "abusegift", "", brainrot.Id, string.format("%d,%d", gift.Diamonds, gift.Shards), mutation)
+	push(player)
+	task.spawn(save, player)
+end
+
+task.spawn(function()
+	local wasLive = false
+	while true do
+		local live = adminAbuseLive()
+		if live ~= wasLive then
+			-- Boosts switched on or off: refresh walk speeds and income displays.
+			for player, session in sessions do
+				if session.Loaded then
+					if not carries[player] then
+						setCarrying(player, nil)
+					end
+					push(player)
+				end
+			end
+		end
+		if live then
+			for player, session in sessions do
+				if session.Loaded then
+					giveAbuseGift(player, session)
+				end
+			end
+		end
+		wasLive = live
+		task.wait(1)
+	end
+end)
 
 -- Removes brainrots from a base. `keepLimited` keeps Robux brainrots (used
 -- for rebirths and admin clears; they were paid for).
@@ -1668,6 +1737,12 @@ local function onCharacter(player: Player, character: Model)
 	end
 	giveSlap(player)
 	updateVipTag(player)
+	if adminAbuseLive() then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.WalkSpeed = Config.AdminAbuseBoosts.WalkSpeed
+		end
+	end
 end
 
 local function checkAdmin(player: Player): boolean

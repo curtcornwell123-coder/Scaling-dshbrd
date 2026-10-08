@@ -402,6 +402,22 @@ Config.AdminAbuse = {
 	CountdownMinutes = 60,
 }
 
+-- What everyone gets during admin abuse.
+Config.AdminAbuseBoosts = {
+	Income = 2, -- x2 cash for everyone while it's live (stacks with other boosts)
+	Luck = 2, -- Server Luck for everyone while it's live (same as the bought one)
+	WalkSpeed = 22, -- normal walking speed while it's live (16 normally; carrying is unchanged)
+}
+-- A gift for every player who's online during admin abuse, at most once a
+-- week (so starting it again the same week doesn't give a second one).
+-- Diamonds normally come only from weekly quests (1 a week), so 3 is a big
+-- treat that still keeps Diamond Shop items worth working for.
+Config.AdminAbuseGift = {
+	Diamonds = 3,
+	Shards = 150,
+	BrainrotLuck = 5, -- one free brainrot, rolled with the same luck as Brainrot Rain
+}
+
 local WEEK = 7 * 24 * 3600
 
 -- US rule: daylight time runs from the 2nd Sunday of March to the 1st Sunday

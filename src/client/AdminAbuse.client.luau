@@ -44,9 +44,14 @@ end
 
 -- The admin who started it (sent with the "abuse" announcement).
 local startedBy: string? = nil
-Announce.OnClientEvent:Connect(function(kind: string, who: string)
+local introPlaying = false
+local showGift: (string, string?, number, number) -> ()
+Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: string, extra: string?, mutationId: string?)
 	if kind == "abuse" then
 		startedBy = who
+	elseif kind == "abusegift" then
+		local diamonds, shards = string.match(extra or "", "^(%d+),(%d+)$")
+		task.spawn(showGift, brainrotId, mutationId, tonumber(diamonds) or 0, tonumber(shards) or 0)
 	end
 end)
 
@@ -231,6 +236,7 @@ end
 -- The big intro --------------------------------------------------------------
 
 local function playIntro()
+	introPlaying = true
 	-- 1. White flash, and the world flashes red.
 	local flash = Instance.new("Frame")
 	flash.BackgroundColor3 = Color3.new(1, 1, 1)
@@ -371,6 +377,68 @@ local function playIntro()
 	for _, item: GuiObject in { title, subtitle, rays, backdrop } :: { GuiObject } do
 		item:Destroy()
 	end
+	introPlaying = false
+end
+
+-- The gift card: pops up after the intro showing what you got.
+showGift = function(brainrotId: string, mutationId: string?, diamonds: number, shards: number)
+	task.wait(0.5)
+	while introPlaying do
+		task.wait(0.2)
+	end
+	local brainrot = Config.GetBrainrot(brainrotId)
+	local mutation = Config.GetMutation(mutationId)
+	local brainrotName = if brainrot then brainrot.DisplayName else "a brainrot"
+	if mutation then
+		brainrotName = string.upper(mutation.DisplayName) .. " " .. brainrotName
+	end
+	local rarityColor = if brainrot then Config.Rarities[brainrot.Rarity].Color else GOLD
+
+	local card = Instance.new("Frame")
+	card.AnchorPoint = Vector2.new(0.5, 0.5)
+	card.Position = UDim2.fromScale(0.5, 0.45)
+	card.Size = UDim2.fromOffset(420, 250)
+	card.BackgroundColor3 = Color3.fromRGB(30, 20, 45)
+	card.ZIndex = 8
+	card.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 18)
+	corner.Parent = card
+	local border = Instance.new("UIStroke")
+	border.Thickness = 4
+	border.Color = GOLD
+	border.Parent = card
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0
+	scale.Parent = card
+
+	local function line(y: number, height: number, label: string, color: Color3)
+		local t = Instance.new("TextLabel")
+		t.BackgroundTransparency = 1
+		t.Position = UDim2.new(0, 16, 0, y)
+		t.Size = UDim2.new(1, -32, 0, height)
+		t.Font = Enum.Font.FredokaOne
+		t.Text = label
+		t.TextScaled = true
+		t.TextColor3 = color
+		t.ZIndex = 9
+		t.Parent = card
+		local s = Instance.new("UIStroke")
+		s.Thickness = 2
+		s.Parent = t
+	end
+	line(14, 46, "ADMIN ABUSE GIFT!", GOLD)
+	line(72, 36, string.format("+%d Diamonds", diamonds), Color3.fromRGB(120, 180, 255))
+	line(112, 36, string.format("+%d Shards", shards), Color3.fromRGB(140, 220, 255))
+	line(152, 36, "+ " .. brainrotName, rarityColor)
+	line(200, 30, "2x Cash, Server Luck & Speed while it lasts!", Color3.fromRGB(120, 255, 140))
+
+	tween(scale, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
+	confetti(60, 3)
+	task.wait(5)
+	tween(scale, 0.3, { Scale = 0 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+	task.wait(0.35)
+	card:Destroy()
 end
 
 -- A smaller "it's over" card when it ends.
