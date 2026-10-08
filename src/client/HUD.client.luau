@@ -1271,6 +1271,9 @@ end
 smallButton(founderRow, "End Founder Event", GREY, 190, function()
 	send("FounderEventStop", nil)
 end)
+smallButton(founderRow, "Save My Event Look", GOLD, 210, function()
+	send("SaveEventLook", nil)
+end)
 
 -- Mutation picker for Give / Spawn / Drop below.
 adminHeader(10, "BRAINROTS")

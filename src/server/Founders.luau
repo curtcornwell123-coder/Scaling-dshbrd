@@ -2,10 +2,15 @@
 -- Giant founders, scaled up into giants the server can move around.
 --  * Admin abuse: each founder's normal Roblox avatar (from the UserId or
 --    Username in Config.Founders). Founders without one don't appear.
---  * Their own events: a special outfit. That's the outfit's id (OutfitId in
---    Config.FounderEvents) if set, otherwise for Corny a look-alike of the
---    event outfit from his screenshots.
+--  * Their own events: their special event look. In order:
+--      1. the look they saved with "Save My Event Look" in the admin panel
+--         (an exact copy of their character at that moment, kept forever),
+--      2. the outfit id in Config.FounderEvents (OutfitId),
+--      3. their character right now, if they're in this server,
+--      4. their Roblox avatar,
+--      5. for Corny, a look-alike built from parts.
 
+local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -45,6 +50,125 @@ local function description(userId: number): HumanoidDescription?
 	if ok and result then
 		descriptions[userId] = result
 		return result
+	end
+	return nil
+end
+
+-- Saved event looks ------------------------------------------------------------
+-- A HumanoidDescription can't go in a DataStore, so its properties are
+-- copied into a plain table and back.
+
+local lookStore = DataStoreService:GetDataStore("BrainrotHeistFounderLooks")
+local savedLooks: { [string]: HumanoidDescription } = {}
+
+local NUMBER_PROPERTIES = {
+	"BodyTypeScale", "DepthScale", "HeadScale", "HeightScale", "ProportionScale", "WidthScale",
+	"Face", "Head", "LeftArm", "LeftLeg", "RightArm", "RightLeg", "Torso",
+	"GraphicTShirt", "Pants", "Shirt",
+	"ClimbAnimation", "FallAnimation", "IdleAnimation", "JumpAnimation", "RunAnimation", "SwimAnimation", "WalkAnimation", "MoodAnimation",
+}
+local COLOR_PROPERTIES = { "HeadColor", "LeftArmColor", "LeftLegColor", "RightArmColor", "RightLegColor", "TorsoColor" }
+
+local function serialize(desc: HumanoidDescription): { [string]: any }
+	local data: { [string]: any } = { Numbers = {}, Colors = {}, Accessories = {} }
+	for _, name in NUMBER_PROPERTIES do
+		data.Numbers[name] = (desc :: any)[name]
+	end
+	for _, name in COLOR_PROPERTIES do
+		data.Colors[name] = ((desc :: any)[name] :: Color3):ToHex()
+	end
+	for _, accessory in desc:GetAccessories(true) do
+		table.insert(data.Accessories, {
+			AssetId = accessory.AssetId,
+			AccessoryType = accessory.AccessoryType.Name,
+			IsLayered = accessory.IsLayered,
+			Order = accessory.Order,
+			Puffiness = accessory.Puffiness,
+		})
+	end
+	return data
+end
+
+local function deserialize(data: any): HumanoidDescription?
+	if type(data) ~= "table" or type(data.Numbers) ~= "table" then
+		return nil
+	end
+	local desc = Instance.new("HumanoidDescription")
+	pcall(function()
+		for _, name in NUMBER_PROPERTIES do
+			if type(data.Numbers[name]) == "number" then
+				(desc :: any)[name] = data.Numbers[name]
+			end
+		end
+		for _, name in COLOR_PROPERTIES do
+			if type(data.Colors[name]) == "string" then
+				(desc :: any)[name] = Color3.fromHex(data.Colors[name])
+			end
+		end
+		local accessories = {}
+		for _, entry in data.Accessories do
+			local accessoryType = (Enum.AccessoryType :: any)[entry.AccessoryType]
+			if type(entry.AssetId) == "number" and accessoryType then
+				table.insert(accessories, {
+					AssetId = entry.AssetId,
+					AccessoryType = accessoryType,
+					IsLayered = entry.IsLayered == true,
+					Order = entry.Order,
+					Puffiness = entry.Puffiness,
+				})
+			end
+		end
+		desc:SetAccessories(accessories, true)
+	end)
+	return desc
+end
+
+-- Loads the saved event looks (call once when the server starts).
+function Founders.LoadEventLooks()
+	for _, founder in Config.Founders do
+		local ok, data = pcall(function()
+			return lookStore:GetAsync("look_" .. founder.Id)
+		end)
+		local desc = if ok then deserialize(data) else nil
+		if desc then
+			savedLooks[founder.Id] = desc
+		end
+	end
+end
+
+-- Saves a founder's current character as their event look, for good.
+function Founders.SaveEventLook(founderId: string, character: Model): boolean
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return false
+	end
+	local ok, desc = pcall(function()
+		return humanoid:GetAppliedDescription()
+	end)
+	if not ok or not desc then
+		return false
+	end
+	local saved = pcall(function()
+		lookStore:SetAsync("look_" .. founderId, serialize(desc))
+	end)
+	savedLooks[founderId] = desc
+	return saved
+end
+
+-- The founder's character right now, if they're in this server.
+local function liveDescription(founder: Config.Founder): HumanoidDescription?
+	for _, player in Players:GetPlayers() do
+		local matches = (founder.UserId > 0 and player.UserId == founder.UserId)
+			or (founder.Username ~= "" and string.lower(player.Name) == string.lower(founder.Username))
+		local humanoid = matches and player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			local ok, desc = pcall(function()
+				return humanoid:GetAppliedDescription()
+			end)
+			if ok and desc then
+				return desc
+			end
+		end
 	end
 	return nil
 end
@@ -157,8 +281,8 @@ end
 -- Builds a giant founder, `scale` times normal size, standing on `ground`
 -- (feet at that point) facing `lookAt`. The root is anchored and every other
 -- part is welded to it, so moving the root moves the whole giant.
--- `eventOutfitId`: build them in their special event outfit instead of their
--- normal avatar (0 = no outfit id; Corny then gets his look-alike).
+-- `eventOutfitId`: build them in their special event look (see the top of
+-- this file) instead of their normal avatar.
 function Founders.CreateGiant(founderId: string, scale: number, parent: Instance, eventOutfitId: number?): Model?
 	local founder = Config.GetFounder(founderId)
 	if not founder then
@@ -167,9 +291,14 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 	local special = eventOutfitId ~= nil
 	local model: Model? = nil
 	local desc: HumanoidDescription? = nil
-	if eventOutfitId and eventOutfitId > 0 then
-		desc = outfitDescription(eventOutfitId)
-	elseif not special then
+	if special then
+		desc = savedLooks[founder.Id]
+		if not desc and eventOutfitId and eventOutfitId > 0 then
+			desc = outfitDescription(eventOutfitId)
+		end
+		desc = desc or liveDescription(founder)
+	end
+	if not desc then
 		local userId = resolveUserId(founder)
 		desc = if userId then description(userId) else nil
 	end
@@ -237,9 +366,47 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 	return giant
 end
 
--- How far the giant's root sits above its feet.
+-- How far the giant's root sits above its feet. Real avatars are measured
+-- through their joints, standing straight (their limbs aren't moved into
+-- place until physics runs, so measuring the parts themselves would sink the
+-- giant into the ground). Look-alikes are welded, so their parts are exact.
 function Founders.RootHeight(giant: Model): number
 	local root = giant.PrimaryPart :: BasePart
+	local placed: { [BasePart]: CFrame } = { [root] = root.CFrame }
+	local joints = {}
+	for _, d in giant:GetDescendants() do
+		if d:IsA("Motor6D") or d:IsA("Weld") then
+			table.insert(joints, d)
+		end
+	end
+	local changed = true
+	while changed do
+		changed = false
+		for _, joint in joints do
+			local p0, p1 = joint.Part0, joint.Part1
+			if p0 and p1 then
+				if placed[p0] and not placed[p1] then
+					placed[p1] = placed[p0] * joint.C0 * joint.C1:Inverse()
+					changed = true
+				elseif placed[p1] and not placed[p0] then
+					placed[p0] = placed[p1] * joint.C1 * joint.C0:Inverse()
+					changed = true
+				end
+			end
+		end
+	end
+	local lowest = math.huge
+	for part, cf in placed do
+		-- Body parts only (not hats, wings and other accessories)
+		if part ~= root and not part:FindFirstAncestorOfClass("Accessory") then
+			local size = part.Size
+			local extent = math.abs(cf.UpVector.Y) * size.Y / 2 + math.abs(cf.RightVector.Y) * size.X / 2 + math.abs(cf.LookVector.Y) * size.Z / 2
+			lowest = math.min(lowest, cf.Position.Y - extent)
+		end
+	end
+	if lowest < math.huge then
+		return root.Position.Y - lowest
+	end
 	local cf, size = giant:GetBoundingBox()
 	return root.Position.Y - (cf.Position.Y - size.Y / 2)
 end

@@ -2190,6 +2190,7 @@ end
 -- outfit (Config.FounderEvents), swaying, emoting and throwing cash and
 -- brainrots onto the map.
 
+task.spawn(Founders.LoadEventLooks)
 local foundersFolder = Instance.new("Folder")
 foundersFolder.Name = "Founders"
 foundersFolder.Parent = workspace:FindFirstChild("BrainrotHeist")
@@ -2599,6 +2600,16 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		local minutes = math.clamp(parseAmount(info.Minutes) or event.DurationMinutes, 1, 120)
 		task.spawn(runFounderEvent, eventId, minutes)
 		notify(admin, string.format("%s started for %d minutes.", event.Title, minutes))
+		return
+	elseif action == "SaveEventLook" then
+		local founder = founderOf(admin)
+		local character = admin.Character
+		if not founder or not character then
+			notify(admin, "Only the founders can save an event look.")
+			return
+		end
+		local saved = Founders.SaveEventLook(founder.Id, character)
+		notify(admin, if saved then "Saved! Your event giant will look exactly like you do now." else "Used your look for now, but it couldn't be saved. Try again.")
 		return
 	elseif action == "FounderEventStop" then
 		if not founderOf(admin) then
