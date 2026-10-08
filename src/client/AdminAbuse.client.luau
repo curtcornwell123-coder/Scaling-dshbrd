@@ -352,7 +352,10 @@ local function lilyPad(parent: Instance, rng: Random): Model
 	leaf.Material = Enum.Material.SmoothPlastic
 	leaf.CFrame = CFrame.Angles(0, 0, math.pi / 2)
 	leaf.Parent = pad
-	pad.PrimaryPart = leaf
+	-- The pad's pivot is a level point at its center (not the leaf itself,
+	-- which is a cylinder turned on its side to lie flat). Moving the pad
+	-- with an upright CFrame then keeps the leaf lying perfectly flat.
+	pad.WorldPivot = CFrame.identity
 	-- A soft glowing aura ring around the leaf, with a few sparkles rising off it
 	local aura = Instance.new("Part")
 	aura.Name = "Aura"
