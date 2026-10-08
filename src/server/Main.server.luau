@@ -2149,6 +2149,7 @@ local dropsFolder = Instance.new("Folder")
 dropsFolder.Name = "Drops"
 dropsFolder.Parent = workspace:FindFirstChild("BrainrotHeist")
 ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)
+ReplicatedStorage:SetAttribute("AdminAbuseSkipUntil", 0)
 
 local function randomDropPosition(): Vector3
 	while true do
@@ -3250,23 +3251,28 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		local what = if soundId > 0 then "Your event music is now sound " .. soundId else "Your event music is back to the default"
 		notify(admin, what .. (if saved then " (saved for every server)." else " (this server only: it couldn't be saved)."))
 		return
-	elseif action == "FounderEventStop" then
-		if not founderOf(admin) then
+	elseif action == "FounderEventStop" or action == "AbuseStop" then
+		-- Both END buttons end everything that's running: admin abuse (the
+		-- weekly one too) and, for a founder, their founder event.
+		local isFounder = founderOf(admin) ~= nil
+		if action == "FounderEventStop" and not isFounder then
 			notify(admin, "Only the founders can end founder events.")
 			return
 		end
-		stopFounderEvent()
-		notify(admin, "Founder event ended.")
-		return
-	elseif action == "AbuseStop" then
-		ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)
-		-- A founder's END also ends their founder event.
-		if founderEventRunning and founderOf(admin) then
-			stopFounderEvent()
-			notify(admin, "Admin abuse and the founder event ended.")
-		else
-			notify(admin, "Admin abuse ended.")
+		local ended = {}
+		if adminAbuseLive() then
+			ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)
+			local status, left = Config.AdminAbuseStatus(workspace:GetServerTimeNow())
+			if status == "live" then
+				ReplicatedStorage:SetAttribute("AdminAbuseSkipUntil", workspace:GetServerTimeNow() + left + 1)
+			end
+			table.insert(ended, "Admin abuse")
 		end
+		if founderEventRunning and isFounder then
+			stopFounderEvent()
+			table.insert(ended, "the founder event")
+		end
+		notify(admin, if #ended > 0 then table.concat(ended, " and ") .. " ended." else "Nothing is running right now.")
 		return
 	elseif action == "Luck" then
 		local minutes = parseAmount(value) or 0

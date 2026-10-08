@@ -625,7 +625,13 @@ function Config.AdminAbuseUtcOffset(now: number): number
 end
 
 -- Returns "live" + seconds left, "soon" + seconds until it starts, or nil.
+-- An admin can END this week's one early (the ReplicatedStorage attribute
+-- "AdminAbuseSkipUntil" holds when the skipped one would have finished).
 function Config.AdminAbuseStatus(now: number): (string?, number)
+	local skipUntil = game:GetService("ReplicatedStorage"):GetAttribute("AdminAbuseSkipUntil")
+	if type(skipUntil) == "number" and now < skipUntil then
+		return nil, 0
+	end
 	local schedule = Config.AdminAbuse
 	local t = os.date("!*t", math.floor(now + Config.AdminAbuseUtcOffset(now)))
 	local intoWeek = (t.wday - 1) * 86400 + t.hour * 3600 + t.min * 60 + t.sec
