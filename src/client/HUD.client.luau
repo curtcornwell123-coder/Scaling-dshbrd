@@ -295,8 +295,8 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 		showBanner(who .. " bought SERVER LUCK for everyone!", Color3.fromRGB(120, 255, 160))
 	elseif kind == "night" and mutation then
 		local nightEvent = Config.FounderEvents[ReplicatedStorage:GetAttribute("FounderEvent") :: string? or ""]
-		local who = if nightEvent then nightEvent.Founder else "the founder"
-		showBanner(string.format("NIGHT FALLS! %s mutations are x%s more likely until %s leaves!", string.upper(mutation.DisplayName), extra or "?", who), mutation.Color)
+		local nightFounder = if nightEvent then nightEvent.Founder else "the founder"
+		showBanner(string.format("NIGHT FALLS! %s mutations are x%s more likely until %s leaves!", string.upper(mutation.DisplayName), extra or "?", nightFounder), mutation.Color)
 	elseif kind == "rebirth" then
 		showBanner(who .. " reached Rebirth " .. (extra or "") .. "!", Color3.fromRGB(200, 140, 255))
 	end
