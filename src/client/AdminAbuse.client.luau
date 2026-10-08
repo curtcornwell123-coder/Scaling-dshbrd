@@ -66,9 +66,11 @@ fireworksFolder.Name = "AbuseFireworks"
 fireworksFolder.Parent = workspace
 
 -- One firework: a glowing rocket shoots up and bursts into colored sparks.
-local function firework(center: Vector3)
+-- `colors`: pick from these instead of any random color.
+local function firework(center: Vector3, colors: { Color3 }?)
 	local hue = math.random()
-	local color = Color3.fromHSV(hue, 0.85, 1)
+	local color = if colors then colors[math.random(1, #colors)] else Color3.fromHSV(hue, 0.85, 1)
+	local burstColor = if colors then colors[math.random(1, #colors)] else Color3.fromHSV((hue + 0.15) % 1, 0.6, 1)
 	local from = center + Vector3.new(math.random(-70, 70), 0, math.random(-70, 70))
 	local to = from + Vector3.new(math.random(-8, 8), math.random(55, 85), math.random(-8, 8))
 
@@ -104,7 +106,7 @@ local function firework(center: Vector3)
 		rocket.Transparency = 1
 		local burst = Instance.new("ParticleEmitter")
 		burst.Texture = SPARKLE
-		burst.Color = ColorSequence.new(color, Color3.fromHSV((hue + 0.15) % 1, 0.6, 1))
+		burst.Color = ColorSequence.new(color, burstColor)
 		burst.LightEmission = 1
 		burst.Rate = 0
 		burst.Lifetime = NumberRange.new(1.4, 2.2)
@@ -127,12 +129,12 @@ local function firework(center: Vector3)
 	end)
 end
 
-local function fireworksAroundMe(count: number, spread: number)
+local function fireworksAroundMe(count: number, spread: number, colors: { Color3 }?)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local center = if root then Vector3.new(root.Position.X, 0, root.Position.Z) else Vector3.zero
 	for _ = 1, count do
-		task.spawn(firework, center)
+		task.spawn(firework, center, colors)
 		task.wait(spread)
 	end
 end
@@ -155,7 +157,7 @@ end
 
 -- Confetti ------------------------------------------------------------------
 
-local function confetti(count: number, seconds: number)
+local function confetti(count: number, seconds: number, colors: { Color3 }?)
 	local layer = Instance.new("Frame")
 	layer.Name = "Confetti"
 	layer.BackgroundTransparency = 1
@@ -167,7 +169,7 @@ local function confetti(count: number, seconds: number)
 	for _ = 1, count do
 		local frame = Instance.new("Frame")
 		frame.BorderSizePixel = 0
-		frame.BackgroundColor3 = Color3.fromHSV(math.random(), 0.8, 1)
+		frame.BackgroundColor3 = if colors then colors[math.random(1, #colors)] else Color3.fromHSV(math.random(), 0.8, 1)
 		frame.Size = UDim2.fromOffset(math.random(8, 14), math.random(14, 22))
 		frame.AnchorPoint = Vector2.new(0.5, 0.5)
 		frame.ZIndex = 5
@@ -821,6 +823,10 @@ type Intro = {
 	Chips: { string }, -- little boxes that pop in under the title
 	Fireworks: number,
 	Confetti: number,
+	-- Alien style (Corny's event): green flashes, a sci-fi glitchy title,
+	-- scanlines, "INCOMING TRANSMISSION" and a UFO flying across, all in the
+	-- event's own colors instead of rainbow.
+	Alien: boolean?,
 }
 
 local function cycle(colors: { Color3 }): (number) -> ColorSequence
@@ -841,7 +847,7 @@ local function playIntro(intro: Intro)
 	for k = 0, 1 do
 		task.delay(k * 0.35, function()
 			local flash = Instance.new("Frame")
-			flash.BackgroundColor3 = Color3.new(1, 1, 1)
+			flash.BackgroundColor3 = if intro.Alien then intro.Colors[1] else Color3.new(1, 1, 1)
 			flash.BorderSizePixel = 0
 			flash.Size = UDim2.fromScale(1, 1)
 			flash.ZIndex = 10
@@ -877,7 +883,7 @@ local function playIntro(intro: Intro)
 	border.Color = Color3.new(1, 1, 1)
 	border.Parent = backdrop
 	local borderColors = Instance.new("UIGradient")
-	borderColors.Color = rainbow(0)
+	borderColors.Color = if intro.Alien then intro.Gradient(0) else rainbow(0)
 	borderColors.Parent = border
 
 	local rays = Instance.new("Frame")
@@ -920,7 +926,7 @@ local function playIntro(intro: Intro)
 	title.AnchorPoint = Vector2.new(0.5, 0.5)
 	title.Position = UDim2.fromScale(0.5, 0.36)
 	title.Size = UDim2.fromScale(0.9, 0.24)
-	title.Font = Enum.Font.FredokaOne
+	title.Font = if intro.Alien then Enum.Font.SciFi else Enum.Font.FredokaOne
 	title.Text = intro.Title
 	title.TextScaled = true
 	title.TextColor3 = Color3.new(1, 1, 1)
@@ -928,7 +934,7 @@ local function playIntro(intro: Intro)
 	title.Parent = gui
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = 6
-	stroke.Color = Color3.fromRGB(30, 0, 10)
+	stroke.Color = if intro.Alien then Color3.fromRGB(0, 30, 10) else Color3.fromRGB(30, 0, 10)
 	stroke.Parent = title
 	local colors = Instance.new("UIGradient")
 	colors.Color = intro.Gradient(0)
@@ -1007,9 +1013,93 @@ local function playIntro(intro: Intro)
 		end)
 	end
 
-	-- 5. Confetti and fireworks.
-	confetti(intro.Confetti, 7)
-	task.spawn(fireworksAroundMe, intro.Fireworks, 0.25)
+	-- Alien extras: scanlines, a glitching ghost of the title, the incoming
+	-- transmission line and a UFO crossing the screen.
+	local extras: { GuiObject } = {}
+	local ghost: TextLabel? = nil
+	if intro.Alien then
+		local scan = Instance.new("Frame")
+		scan.BackgroundTransparency = 1
+		scan.Size = UDim2.fromScale(1, 1)
+		scan.ClipsDescendants = true
+		scan.ZIndex = 3
+		scan.Parent = gui
+		for k = 0, 39 do
+			local line = Instance.new("Frame")
+			line.BorderSizePixel = 0
+			line.BackgroundColor3 = intro.Colors[1]
+			line.BackgroundTransparency = 0.88
+			line.Position = UDim2.fromScale(0, k / 40)
+			line.Size = UDim2.new(1, 0, 0, 2)
+			line.ZIndex = 3
+			line.Parent = scan
+		end
+		table.insert(extras, scan)
+
+		local transmission = Instance.new("TextLabel")
+		transmission.BackgroundTransparency = 1
+		transmission.AnchorPoint = Vector2.new(0.5, 0.5)
+		transmission.Position = UDim2.fromScale(0.5, 0.2)
+		transmission.Size = UDim2.fromScale(0.6, 0.05)
+		transmission.Font = Enum.Font.Arcade
+		transmission.TextScaled = true
+		transmission.TextColor3 = intro.Colors[1]
+		transmission.Text = ""
+		transmission.ZIndex = 6
+		transmission.Parent = gui
+		table.insert(extras, transmission)
+		task.spawn(function()
+			local message = "INCOMING TRANSMISSION..."
+			for n = 1, #message do
+				transmission.Text = string.sub(message, 1, n)
+				task.wait(0.04)
+			end
+		end)
+
+		local ghostLabel = title:Clone()
+		ghostLabel.ZIndex = 5
+		ghostLabel.TextTransparency = 0.5
+		ghostLabel.TextColor3 = intro.Colors[#intro.Colors]
+		for _, child in ghostLabel:GetChildren() do
+			if child:IsA("UIGradient") or child:IsA("UIStroke") then
+				child:Destroy()
+			end
+		end
+		ghostLabel.Visible = false
+		ghostLabel.Parent = gui
+		ghost = ghostLabel
+		table.insert(extras, ghostLabel)
+
+		-- A UFO with a little tractor beam, flying across behind the title.
+		local ufo = Instance.new("TextLabel")
+		ufo.BackgroundTransparency = 1
+		ufo.AnchorPoint = Vector2.new(0.5, 0.5)
+		ufo.Position = UDim2.fromScale(-0.15, 0.12)
+		ufo.Size = UDim2.fromOffset(110, 110)
+		ufo.Text = "🛸"
+		ufo.TextScaled = true
+		ufo.ZIndex = 4
+		ufo.Parent = gui
+		local beam = Instance.new("Frame")
+		beam.AnchorPoint = Vector2.new(0.5, 0)
+		beam.Position = UDim2.fromScale(0.5, 0.8)
+		beam.Size = UDim2.fromOffset(70, 180)
+		beam.BackgroundColor3 = intro.Colors[1]
+		beam.BorderSizePixel = 0
+		beam.ZIndex = 3
+		beam.Parent = ufo
+		local beamFade = Instance.new("UIGradient")
+		beamFade.Rotation = 90
+		beamFade.Transparency = NumberSequence.new(0.35, 1)
+		beamFade.Parent = beam
+		table.insert(extras, ufo)
+		tween(ufo, 4.5, { Position = UDim2.fromScale(1.15, 0.16) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+	end
+
+	-- 5. Confetti and fireworks (in the event's colors for the alien intro).
+	local accentColors = if intro.Alien then intro.Colors else nil
+	confetti(intro.Confetti, 7, accentColors)
+	task.spawn(fireworksAroundMe, intro.Fireworks, 0.25, accentColors)
 
 	-- Animate: rays spin, the border and title cycle colors, the title pulses.
 	local started = os.clock()
@@ -1017,11 +1107,28 @@ local function playIntro(intro: Intro)
 		local t = os.clock() - started
 		rays.Rotation = t * 45
 		colors.Color = intro.Gradient(t * 0.5)
+		if intro.Alien then
+			borderColors.Color = intro.Gradient(t * 0.3)
+		end
 		borderColors.Rotation = (t * 120) % 360
 		border.Thickness = 12 + math.sin(t * 8) * 4
 		if t > 0.6 then
 			titleScale.Scale = 1 + math.sin(t * 6) * 0.06
 			title.Rotation = math.sin(t * 3) * 4
+		end
+		-- Alien glitch: every so often the title jumps and its ghost splits off.
+		local echo = ghost
+		if echo then
+			local glitching = math.random() < 0.12
+			local jitter = if glitching then UDim2.fromOffset(math.random(-14, 14), math.random(-6, 6)) else UDim2.new()
+			title.Position = UDim2.fromScale(0.5, 0.36) + jitter
+			echo.Position = title.Position + UDim2.fromOffset(if glitching then math.random(-20, 20) else 4, if glitching then math.random(-8, 8) else 3)
+			echo.Rotation = title.Rotation
+			echo.Visible = t > 0.6
+			local echoScale = echo:FindFirstChildOfClass("UIScale")
+			if echoScale then
+				echoScale.Scale = titleScale.Scale
+			end
 		end
 	end)
 
@@ -1033,6 +1140,9 @@ local function playIntro(intro: Intro)
 	tween(subStroke, 0.3, { Transparency = 1 })
 	tween(backdrop, 0.6, { BackgroundTransparency = 1 })
 	tween(border, 0.6, { Transparency = 1 })
+	for _, item in extras do
+		item.Visible = false
+	end
 	for _, chip in chipRow:GetChildren() do
 		if chip:IsA("TextLabel") then
 			tween(chip, 0.3, { BackgroundTransparency = 1, TextTransparency = 1 })
@@ -1041,6 +1151,9 @@ local function playIntro(intro: Intro)
 	task.wait(0.7)
 	animate:Disconnect()
 	for _, item: GuiObject in { title, subtitle, rays, backdrop, chipRow } :: { GuiObject } do
+		item:Destroy()
+	end
+	for _, item in extras do
 		item:Destroy()
 	end
 	introPlaying = false
@@ -1082,7 +1195,8 @@ local function founderIntro(eventId: string): Intro?
 		Tint = event.Colors[1]:Lerp(Color3.new(1, 1, 1), 0.4),
 		Chips = event.Chips,
 		Fireworks = 16,
-		Confetti = 180,
+		Confetti = if event.Alien then 120 else 180,
+		Alien = event.Alien,
 	}
 end
 

@@ -507,6 +507,7 @@ export type FounderEvent = {
 	-- percent chance of being tonight's pick) and is Boost times more likely
 	-- on everything that spawns or drops until morning.
 	NightMutations: { { Id: string, Chance: number, Boost: number } }?,
+	Alien: boolean?, -- alien-style intro (green, sci-fi, glitchy) instead of rainbow
 	Chaos: boolean?, -- sweeping green searchlights, pulsing lights, mini UFOs and abduction beams
 }
 Config.FounderEvents = {
@@ -517,7 +518,7 @@ Config.FounderEvents = {
 		-- outfit id here. Until then a look-alike of it is built from parts.
 		OutfitId = 0,
 		Title = "CORNY EVENT!",
-		Subtitle = "Giant Corny is here! Grab everything he throws!",
+		Subtitle = "Giant Corny has landed! Grab everything he throws!",
 		DurationMinutes = 5,
 		Scale = 19, -- about 120 studs tall
 		-- One UFO on each side, over the open grass just behind the bases.
@@ -534,7 +535,8 @@ Config.FounderEvents = {
 		BrainrotLuck = 4,
 		-- Sprinkles like his hat, rainbow like his pants.
 		Mutations = { { Id = "Candy", Chance = 45 }, { Id = "Rainbow", Chance = 8 } },
-		Colors = { Color3.fromRGB(255, 120, 190), Color3.fromRGB(120, 210, 255), Color3.fromRGB(255, 230, 90), Color3.fromRGB(130, 240, 130) },
+		-- Alien colors: neon green, toxic lime, teal, and an alien purple.
+		Colors = { Color3.fromRGB(70, 255, 120), Color3.fromRGB(190, 255, 70), Color3.fromRGB(0, 210, 180), Color3.fromRGB(170, 90, 255) },
 		Chips = { "NIGHT FALLS", "NIGHT MUTATION", "SPRINKLE DROPS", "CASH BAGS" },
 		Sky = "Green",
 		Night = true,
@@ -546,6 +548,7 @@ Config.FounderEvents = {
 			{ Id = "Cursed", Chance = 10, Boost = 6 },
 			{ Id = "Divine", Chance = 3, Boost = 8 },
 		},
+		Alien = true,
 		Chaos = true,
 		-- Theme song (from Roblox's licensed music library)
 		MusicId = "rbxassetid://1836281845",
