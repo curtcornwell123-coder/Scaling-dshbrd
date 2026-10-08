@@ -532,9 +532,10 @@ Config.FounderEvents = {
 		Chips = { "x2 LUCK", "BALLERINA GUARANTEED", "RARE MUTATION", "BALLET TIME" },
 		Sky = "Pink",
 		Water = true,
-		-- The Sugar Plum Fairy: find it in the Creator Store (Audio) and put
-		-- its id here, e.g. "rbxassetid://1234567890".
-		MusicId = "",
+		-- Theme song (from Roblox's licensed music library). To use the
+		-- original ballet track instead, upload assets/music/ballet_action.mp3
+		-- and put its id here.
+		MusicId = "rbxassetid://1836281845",
 	},
 } :: { [string]: FounderEvent }
 
