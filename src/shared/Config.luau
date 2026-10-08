@@ -108,6 +108,7 @@ export type Mutation = {
 	Chance: number, -- percent per conveyor spawn
 	Multiplier: number,
 	Color: Color3,
+	Exclusive: { string }?, -- only these brainrots can have it (never on the conveyor)
 }
 
 Config.Mutations = {
@@ -116,7 +117,12 @@ Config.Mutations = {
 	{ Id = "Sparkle", DisplayName = "Sparkle", Chance = 1.5, Multiplier = 4, Color = Color3.fromRGB(255, 250, 170) },
 	{ Id = "Lava", DisplayName = "Lava", Chance = 0.8, Multiplier = 5, Color = Color3.fromRGB(255, 100, 20) },
 	{ Id = "Rainbow", DisplayName = "Rainbow", Chance = 0.3, Multiplier = 10, Color = Color3.fromRGB(255, 120, 255) },
+	-- Event-only: 1% when you get Cigna Glamourina, or given by an admin.
+	{ Id = "Magic", DisplayName = "Magic", Chance = 0, Multiplier = 8, Color = Color3.fromRGB(190, 130, 255), Exclusive = { "CignaGlamourina" } },
 } :: { Mutation }
+
+Config.MagicChance = 1 -- percent, rolled when a limited event brainrot is granted
+Config.CurrentEvent = "CignaGlamourina" -- the brainrot shown on the event statue
 
 -- Economy ------------------------------------------------------------------
 
@@ -492,6 +498,15 @@ local function mutationMultiplier(mutationId: string?): number
 	return if mutation then mutation.Multiplier else 1
 end
 
+-- Exclusive mutations (like Magic) only go on the brainrots they name.
+function Config.MutationAllowed(brainrot: Brainrot, mutationId: string?): boolean
+	local mutation = Config.GetMutation(mutationId)
+	if not mutation then
+		return mutationId == nil
+	end
+	return mutation.Exclusive == nil or table.find(mutation.Exclusive, brainrot.Id) ~= nil
+end
+
 function Config.PriceOf(brainrot: Brainrot, mutationId: string?): number
 	return brainrot.Price * mutationMultiplier(mutationId)
 end
@@ -520,6 +535,10 @@ function Config.Decode(entry: string): (Brainrot?, string?, number?)
 	local mutationId, serialText = string.match(rest or "", "^([^:]*):?(.*)$")
 	local brainrot = id and byId[id]
 	local mutation = Config.GetMutation(mutationId)
+	-- Exclusive mutations (Magic) are dropped from brainrots that can't have them.
+	if mutation and mutation.Exclusive and not (brainrot and table.find(mutation.Exclusive, brainrot.Id)) then
+		mutation = nil
+	end
 	local serial = tonumber(serialText)
 	return brainrot, if mutation then mutation.Id else nil, if serial then math.floor(serial) else nil
 end
@@ -530,9 +549,11 @@ function Config.RollMutation(rng: Random, luck: number): string?
 	-- Rarest first, so luck can't push a common mutation past a rare one.
 	for i = #Config.Mutations, 1, -1 do
 		local mutation = Config.Mutations[i]
-		roll -= mutation.Chance * luck
-		if roll < 0 then
-			return mutation.Id
+		if not mutation.Exclusive then
+			roll -= mutation.Chance * luck
+			if roll < 0 then
+				return mutation.Id
+			end
 		end
 	end
 	return nil

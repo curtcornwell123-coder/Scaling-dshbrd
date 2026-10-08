@@ -4,6 +4,7 @@
 -- exploiters can't give themselves cash or brainrots.
 
 local DataStoreService = game:GetService("DataStoreService")
+local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
@@ -968,7 +969,14 @@ end
 
 -- Puts a paid brainrot in the base. If every pedestal is taken it waits in
 -- Unclaimed and appears as soon as a slot frees up.
-local function grantLimited(player: Player, session: Session, brainrot: Config.Brainrot, serial: number)
+local function grantLimited(player: Player, session: Session, brainrot: Config.Brainrot, serial: number): string?
+	-- Every copy rolls for a mutation: normal odds, plus 1% Magic (event-only).
+	local mutation: string? = nil
+	if Config.MutationAllowed(brainrot, "Magic") and rng:NextNumber(0, 100) < Config.MagicChance then
+		mutation = "Magic"
+	else
+		mutation = Config.RollMutation(rng, 1)
+	end
 	local plot = session.Plot
 	local index = plot and freeSlot(plot, session)
 	if plot and not index then
@@ -979,14 +987,19 @@ local function grantLimited(player: Player, session: Session, brainrot: Config.B
 			end
 		end
 	end
+	local name = fullName(brainrot, mutation)
 	if plot and index then
-		placeBrainrot(plot, index, brainrot.Id, nil, nil, true, serial)
-		notify(player, string.format("%s #%d is in your base!", brainrot.DisplayName, serial))
+		placeBrainrot(plot, index, brainrot.Id, mutation, nil, true, serial)
+		notify(player, string.format("%s #%d is in your base!", name, serial))
 	else
-		table.insert(session.Data.Unclaimed, Config.Encode(brainrot.Id, nil, serial))
-		notify(player, brainrot.DisplayName .. " will appear as soon as you have a free slot!")
+		table.insert(session.Data.Unclaimed, Config.Encode(brainrot.Id, mutation, serial))
+		notify(player, name .. " will appear as soon as you have a free slot!")
+	end
+	if mutation == "Magic" then
+		notify(player, "INCREDIBLE! You rolled the 1% MAGIC mutation!")
 	end
 	push(player)
+	return mutation
 end
 
 deliverUnclaimed = function(player: Player, session: Session)
@@ -1341,6 +1354,104 @@ RequestUpgrade.OnServerEvent:Connect(function(player: Player, kind: unknown)
 	end
 	onUpgrade(player, plot, kind)
 end)
+
+-- Event statue ---------------------------------------------------------------
+-- A big spinning statue of the current event brainrot next to the Diamond
+-- Shop. Tapping it buys it (same safe reserve-then-prompt flow as the shop).
+
+do
+	local brainrot = Config.GetBrainrot(Config.CurrentEvent)
+	local item = Config.LimitedItems[Config.CurrentEvent]
+	if brainrot and item then
+		local folder = Instance.new("Model")
+		folder.Name = "EventStatue"
+		folder.Parent = workspace:FindFirstChild("BrainrotHeist")
+		local base = world.ShopPosition + Vector3.new(-32, 0, 0)
+		local gold = Color3.fromRGB(255, 200, 60)
+		local rarityColor = Config.Rarities[brainrot.Rarity].Color
+
+		local function part(name: string, shape: Enum.PartType, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material): Part
+			local p = Instance.new("Part")
+			p.Name = name
+			p.Shape = shape
+			p.Anchored = true
+			p.Size = size
+			p.CFrame = cframe
+			p.Color = color
+			p.Material = material
+			p.TopSurface = Enum.SurfaceType.Smooth
+			p.BottomSurface = Enum.SurfaceType.Smooth
+			p.Parent = folder
+			return p
+		end
+		-- Round gold plinth with a glowing ring and a marble column
+		part("Plinth", Enum.PartType.Cylinder, Vector3.new(1.5, 14, 14), CFrame.new(base + Vector3.new(0, 0.75, 0)) * CFrame.Angles(0, 0, math.pi / 2), gold, Enum.Material.Foil)
+		local ring = part("GlowRing", Enum.PartType.Cylinder, Vector3.new(0.3, 14.6, 14.6), CFrame.new(base + Vector3.new(0, 1.2, 0)) * CFrame.Angles(0, 0, math.pi / 2), rarityColor, Enum.Material.Neon)
+		ring.CanCollide = false
+		part("Column", Enum.PartType.Cylinder, Vector3.new(4, 8, 8), CFrame.new(base + Vector3.new(0, 3.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(245, 240, 250), Enum.Material.Marble)
+
+		local statue = BrainrotModel.Create(brainrot, nil, CFrame.new(base + Vector3.new(0, 5.5, 0)) * CFrame.Angles(0, math.pi, 0), false, nil, false, 2.6)
+		local tag = statue.PrimaryPart and statue.PrimaryPart:FindFirstChild("Tag")
+		if tag then
+			tag:Destroy()
+		end
+		statue.Name = "Statue"
+		statue.Parent = folder
+		local root = statue.PrimaryPart :: BasePart
+		root:SetAttribute("SpinCenter", root.CFrame)
+		root:SetAttribute("SpinSpeed", 0.5)
+		CollectionService:AddTag(root, "Spinner")
+
+		-- Big invisible box around it to tap / click.
+		local hitbox = part("BuyHitbox", Enum.PartType.Block, Vector3.new(12, 24, 12), CFrame.new(base + Vector3.new(0, 14, 0)), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+		hitbox.Transparency = 1
+		hitbox.CanCollide = false
+		hitbox:SetAttribute("ItemId", brainrot.Id)
+		local click = Instance.new("ClickDetector")
+		click.MaxActivationDistance = 80
+		click.Parent = hitbox
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "BuyEventPrompt"
+		prompt.ActionText = "Buy (R$ " .. item.PriceRobux .. ")"
+		prompt.ObjectText = brainrot.DisplayName
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 16
+		prompt.RequiresLineOfSight = false
+		prompt:SetAttribute("Action", "BuyEvent")
+		prompt:SetAttribute("ItemId", brainrot.Id)
+		prompt.Parent = hitbox
+
+		-- Live stock sign above it.
+		local signGui = Instance.new("BillboardGui")
+		signGui.Size = UDim2.fromScale(16, 5)
+		signGui.StudsOffsetWorldSpace = Vector3.new(0, 15, 0)
+		signGui.MaxDistance = 400
+		signGui.LightInfluence = 0
+		signGui.Adornee = hitbox
+		signGui.Parent = hitbox
+		local sign = Instance.new("TextLabel")
+		sign.BackgroundTransparency = 1
+		sign.Size = UDim2.fromScale(1, 1)
+		sign.Font = Enum.Font.FredokaOne
+		sign.TextScaled = true
+		sign.TextColor3 = rarityColor
+		sign.TextStrokeTransparency = 0
+		sign.Parent = signGui
+		local function updateSign()
+			local left = ReplicatedStorage:GetAttribute("LimitedLeft_" .. brainrot.Id) :: number?
+			local stock = if left then left else item.Stock
+			sign.Text = string.format(
+				"LIMITED EVENT\n%s\n%s",
+				brainrot.DisplayName,
+				if item.ProductId == 0 then "Coming soon!"
+					elseif stock <= 0 then "SOLD OUT"
+					else string.format("%d / %d left  -  R$ %d  -  1%% MAGIC!", stock, item.Stock, item.PriceRobux)
+			)
+		end
+		ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. brainrot.Id):Connect(updateSign)
+		updateSign()
+	end
+end
 
 -- Conveyor -----------------------------------------------------------------
 
@@ -1759,7 +1870,7 @@ local function randomDropPosition(): Vector3
 		local side = if rng:NextNumber() < 0.5 then -1 else 1
 		local position = Vector3.new(x, 0.1, side * rng:NextNumber(12, 38))
 		local offset = position - world.ShopPosition
-		if math.abs(offset.X) > 18 or math.abs(offset.Z) > 12 then
+		if math.abs(offset.X) > 45 or math.abs(offset.Z) > 14 then
 			return position
 		end
 	end
@@ -2025,7 +2136,8 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 					else
 						local serial, why = LimitedStock.GiveReserved(player, brainrot.Id)
 						if serial then
-							grantLimited(player, session, brainrot, serial)
+							local rolled = grantLimited(player, session, brainrot, serial)
+							Announce:FireAllClients("limited", player.DisplayName, brainrot.Id, tostring(serial), rolled)
 							notify(admin, string.format("Gave %s #%d to %s", brainrot.DisplayName, serial, player.DisplayName))
 						else
 							notify(admin, why or "Couldn't give it.")
@@ -2049,6 +2161,38 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 					applyBaseLevels(plot, session)
 				end
 				notify(admin, string.format("%s: base level %d, lock level %d", player.DisplayName, data.WallLevel, data.LockLevel))
+			elseif action == "GiveMagic" then
+				-- Turns the player's event brainrot (the one Magic is made for) Magic.
+				local given = false
+				if plot then
+					for index, slot in plot.Slots do
+						local brainrot = Config.GetBrainrot(slot.Id)
+						if brainrot and Config.MutationAllowed(brainrot, "Magic") and slot.Mutation ~= "Magic" and not slot.StolenBy then
+							local following = table.find(session.FollowerModels, slot.Model)
+							slot.Model:Destroy()
+							placeBrainrot(plot, index, slot.Id, "Magic", nil, false, slot.Serial)
+							if following then
+								session.FollowerModels[following] = plot.Slots[index].Model
+							end
+							given = true
+						end
+					end
+				end
+				for i, entry in data.Unclaimed do
+					local brainrot, _, serial = Config.Decode(entry)
+					if brainrot and Config.MutationAllowed(brainrot, "Magic") then
+						data.Unclaimed[i] = Config.Encode(brainrot.Id, "Magic", serial)
+						given = true
+					end
+				end
+				if given then
+					notify(player, "An admin made your event brainrot MAGIC!")
+					notify(admin, "Gave Magic to " .. player.DisplayName)
+					Announce:FireAllClients("magic", player.DisplayName, Config.CurrentEvent, "")
+					updateFollowers(player)
+				else
+					notify(admin, player.DisplayName .. " doesn't own the event brainrot (or it's already Magic).")
+				end
 			elseif action == "Shards" or action == "Diamonds" then
 				local amount = math.floor(parseAmount(value) or 0)
 				if action == "Shards" then
@@ -2178,8 +2322,8 @@ MarketplaceService.ProcessReceipt = function(info)
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
 		if not ownsLimited(session, limitedId) then
-			grantLimited(player, session, brainrot, serial)
-			Announce:FireAllClients("limited", player.DisplayName, limitedId, tostring(serial))
+			local mutation = grantLimited(player, session, brainrot, serial)
+			Announce:FireAllClients("limited", player.DisplayName, limitedId, tostring(serial), mutation)
 		end
 	elseif product then
 		grantProduct(player, session, product.Key)

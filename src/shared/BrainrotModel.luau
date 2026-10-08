@@ -705,6 +705,11 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 				d.Material = Enum.Material.CrackedLava
 			elseif mutation.Id == "Rainbow" then
 				d.Color = Color3.fromHSV((i * 0.09) % 1, 0.75, 1)
+			elseif mutation.Id == "Magic" then
+				-- Keeps its look, tinted purple; Effects.client shimmers it to teal.
+				d:SetAttribute("BaseColor", d.Color)
+				d.Color = d.Color:Lerp(Color3.fromRGB(170, 110, 255), 0.35)
+				d.Reflectance = 0.15
 			end
 			if d:IsA("MeshPart") then
 				d.TextureID = ""
@@ -722,6 +727,43 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 	end
 	if mutation.Id == "Rainbow" then
 		CollectionService:AddTag(model, "RainbowBrainrot")
+	end
+	if mutation.Id == "Magic" then
+		CollectionService:AddTag(model, "MagicBrainrot")
+		-- Swirling magic stars and a ring of floating orbs.
+		local swirl = Instance.new("ParticleEmitter")
+		swirl.Name = "MagicSwirl"
+		swirl.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		swirl.Color = ColorSequence.new(Color3.fromRGB(190, 130, 255), Color3.fromRGB(90, 230, 255))
+		swirl.LightEmission = 0.6
+		swirl.Rate = 22
+		swirl.Lifetime = NumberRange.new(1, 1.8)
+		swirl.Speed = NumberRange.new(0.5, 1.5)
+		swirl.RotSpeed = NumberRange.new(-180, 180)
+		swirl.SpreadAngle = Vector2.new(180, 180)
+		swirl.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.4, 0.5), NumberSequenceKeypoint.new(1, 0) })
+		swirl.Parent = root
+		for k = 1, 6 do
+			local angle = k * math.pi / 3
+			local orb = Instance.new("Part")
+			orb.Name = "MagicOrb"
+			orb.Shape = Enum.PartType.Ball
+			orb.Size = V(0.35, 0.35, 0.35) * scale
+			orb.Material = Enum.Material.Neon
+			orb.Color = if k % 2 == 0 then Color3.fromRGB(190, 130, 255) else Color3.fromRGB(110, 230, 255)
+			orb.Anchored = false
+			orb.CanCollide = false
+			orb.CanQuery = false
+			orb.CanTouch = false
+			orb.Massless = true
+			orb.CFrame = root.CFrame * CF(math.cos(angle) * 2.2 * scale, 2.5 * scale + math.sin(angle * 2) * 0.4, math.sin(angle) * 2.2 * scale)
+			orb:SetAttribute("Keep", true)
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = root
+			weld.Part1 = orb
+			weld.Parent = orb
+			orb.Parent = model
+		end
 	end
 	if mutation.Id == "Sparkle" then
 		local sparkles = Instance.new("Sparkles")
@@ -811,10 +853,10 @@ end
 
 -- Creates the model at `cframe` (feet on the ground). `priceTag` shows the buy price.
 -- `mini` builds a small follower version: no name tag or lights.
-function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cframe: CFrame, priceTag: boolean, serial: number?, mini: boolean?): Model
+function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cframe: CFrame, priceTag: boolean, serial: number?, mini: boolean?, scaleOverride: number?): Model
 	local rarity = Config.Rarities[brainrot.Rarity]
 	local mutation = Config.GetMutation(mutationId)
-	local s = if mini then 0.4 else rarity.Scale
+	local s = scaleOverride or (if mini then 0.4 else rarity.Scale)
 
 	local model = Instance.new("Model")
 	model.Name = brainrot.Id

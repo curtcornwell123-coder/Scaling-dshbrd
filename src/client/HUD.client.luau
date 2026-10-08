@@ -287,7 +287,10 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 	elseif kind == "abuse" then
 		showBanner("ADMIN ABUSE HAS STARTED!", RED)
 	elseif kind == "limited" and brainrot then
-		showBanner(who .. " got " .. brainrot.DisplayName .. " #" .. (extra or "?") .. "!", Config.Rarities[brainrot.Rarity].Color)
+		local name = if mutation then string.upper(mutation.DisplayName) .. " " .. brainrot.DisplayName else brainrot.DisplayName
+		showBanner(who .. " got " .. name .. " #" .. (extra or "?") .. "!", color)
+	elseif kind == "magic" and brainrot then
+		showBanner(who .. "'s " .. brainrot.DisplayName .. " turned MAGIC!", Color3.fromRGB(190, 130, 255))
 	elseif kind == "luck" then
 		showBanner(who .. " bought SERVER LUCK for everyone!", Color3.fromRGB(120, 255, 160))
 	elseif kind == "rebirth" then
@@ -403,6 +406,20 @@ local function sectionHeader(order: number, label: string)
 	})
 end
 
+-- Reserves a limited item and opens the Robux prompt (server does the rest).
+local buyingLimited = false
+local function buyLimitedItem(itemId: string)
+	if buyingLimited then
+		return
+	end
+	buyingLimited = true
+	local ok, message = BuyLimited:InvokeServer(itemId)
+	buyingLimited = false
+	if not ok and message then
+		toast(message)
+	end
+end
+
 -- Limited event brainrots: live stock, one per player.
 local limitedButtons: { [string]: TextButton } = {}
 local limitedStock: { [string]: TextLabel } = {}
@@ -459,11 +476,8 @@ for i, itemId in limitedIds do
 				return
 			end
 			buy.Text = "..."
-			local ok, message = BuyLimited:InvokeServer(itemId)
+			buyLimitedItem(itemId)
 			buy.Text = "R$ " .. item.PriceRobux
-			if not ok and message then
-				toast(message)
-			end
 		end)
 	end
 end
@@ -1048,6 +1062,20 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt)
 		renderDiamondShop()
 	elseif action == "RobuxShop" then
 		toggleMenu(shopFrame)
+	elseif action == "BuyEvent" then
+		buyLimitedItem(prompt:GetAttribute("ItemId") :: string)
+	end
+end)
+
+-- Tapping / clicking the event statue buys it too.
+task.spawn(function()
+	local statue = workspace:WaitForChild("BrainrotHeist"):WaitForChild("EventStatue", 30)
+	local hitbox = statue and statue:WaitForChild("BuyHitbox", 10)
+	local click = hitbox and hitbox:FindFirstChildOfClass("ClickDetector")
+	if hitbox and click then
+		click.MouseClick:Connect(function()
+			buyLimitedItem(hitbox:GetAttribute("ItemId") :: string)
+		end)
 	end
 end)
 
@@ -1200,12 +1228,17 @@ text(dropRow, {
 adminHeader(10, "BRAINROTS")
 local mutationChoices = { "None" }
 for _, mutation in Config.Mutations do
-	table.insert(mutationChoices, mutation.Id)
+	if not mutation.Exclusive then
+		table.insert(mutationChoices, mutation.Id)
+	end
 end
 local mutationIndex = 1
 local mutationRow = adminRow(11, 40)
 text(mutationRow, { Size = UDim2.fromOffset(100, 30), Text = "Mutation" })
 local mutationButton = smallButton(mutationRow, "None", GREY, 160, function() end)
+smallButton(mutationRow, "Give MAGIC (event)", Color3.fromRGB(170, 110, 255), 220, function()
+	send("GiveMagic", nil)
+end)
 mutationButton.MouseButton1Click:Connect(function()
 	mutationIndex = mutationIndex % #mutationChoices + 1
 	local choice = mutationChoices[mutationIndex]

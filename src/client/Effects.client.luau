@@ -40,9 +40,21 @@ RunService.RenderStepped:Connect(function(dt)
 	for _, part in CollectionService:GetTagged("Spinner") do
 		local center = part:GetAttribute("SpinCenter")
 		if part:IsA("BasePart") and typeof(center) == "CFrame" then
+			local speed = part:GetAttribute("SpinSpeed")
 			part.CFrame = CFrame.new(center.Position + Vector3.new(0, math.sin(t * 1.5) * 0.6, 0))
-				* CFrame.Angles(0, t * 1.2, 0)
+				* CFrame.Angles(0, t * (if type(speed) == "number" then speed else 1.2), 0)
 				* center.Rotation
+		end
+	end
+
+	-- Magic mutation: a soft shimmer between purple and teal over its own colors.
+	local magicTint = Color3.fromRGB(170, 110, 255):Lerp(Color3.fromRGB(90, 220, 255), (math.sin(t * 1.2) + 1) / 2)
+	for _, model in CollectionService:GetTagged("MagicBrainrot") do
+		for _, part in model:GetDescendants() do
+			local base = part:GetAttribute("BaseColor")
+			if part:IsA("BasePart") and typeof(base) == "Color3" then
+				part.Color = base:Lerp(magicTint, 0.35)
+			end
 		end
 	end
 
