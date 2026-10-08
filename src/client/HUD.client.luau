@@ -608,10 +608,14 @@ local function renderUpgrades()
 		return
 	end
 	local longer = data.Owns and data.Owns.LongerLock
-	local function set(kind: string, now: string, nextText: string?, cost: number?)
+	local function set(kind: string, now: string, nextText: string?, cost: number?, needRebirths: number?)
 		local card = upgradeCards[kind]
 		card.Now.Text = now
-		if nextText and cost then
+		if nextText and cost and needRebirths and (data.Rebirths or 0) < needRebirths then
+			card.Next.Text = "Next: " .. nextText .. string.format(" (needs %d rebirth%s)", needRebirths, if needRebirths == 1 then "" else "s")
+			card.Button.Text = "REBIRTH\n" .. needRebirths .. "x FIRST"
+			card.Button.BackgroundColor3 = Color3.fromRGB(90, 90, 100)
+		elseif nextText and cost then
 			card.Next.Text = "Next: " .. nextText
 			local affordable = data.Cash >= cost
 			card.Button.Text = "UPGRADE\n" .. Config.FormatCash(cost)
@@ -635,7 +639,7 @@ local function renderUpgrades()
 	)
 
 	local nextLock = Config.LockLevels[data.LockLevel + 1]
-	set("Lock", string.format("Lasers stay on %ds", data.LockDuration or 0), nextLock and string.format("%ds", nextLock.Duration * (if longer then 2 else 1)), nextLock and nextLock.Cost)
+	set("Lock", string.format("Lasers stay on %ds", data.LockDuration or 0), nextLock and string.format("%ds", nextLock.Duration * (if longer then 2 else 1)), nextLock and nextLock.Cost, nextLock and nextLock.Rebirths)
 end
 
 -- Opening the panel from the post; it closes again if you walk away.

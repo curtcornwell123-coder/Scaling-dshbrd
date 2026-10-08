@@ -347,7 +347,8 @@ end
 -- Lock upgrades --------------------------------------------------------------
 -- How long the entrance lasers stay on. The Longer Lock gamepass doubles it.
 
-export type LockLevel = { Duration: number, Cost: number }
+-- Rebirths: how many times you must have rebirthed before you can buy it.
+export type LockLevel = { Duration: number, Cost: number, Rebirths: number? }
 
 Config.LockLevels = {
 	{ Duration = 30, Cost = 0 },
@@ -355,6 +356,11 @@ Config.LockLevels = {
 	{ Duration = 60, Cost = 50000 },
 	{ Duration = 90, Cost = 500000 },
 	{ Duration = 120, Cost = 5000000 },
+	-- Rebirth-only levels (kept through rebirths, like every lock upgrade)
+	{ Duration = 150, Cost = 25000000, Rebirths = 1 },
+	{ Duration = 180, Cost = 250000000, Rebirths = 2 },
+	{ Duration = 210, Cost = 2000000000, Rebirths = 4 },
+	{ Duration = 240, Cost = 40000000000, Rebirths = 6 },
 } :: { LockLevel }
 
 -- Stealing -----------------------------------------------------------------

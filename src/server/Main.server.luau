@@ -1161,6 +1161,10 @@ local function onUpgrade(player: Player, plot: Plot, kind: string)
 			notify(player, "Your lock is already maxed out!")
 			return
 		end
+		if nextLock.Rebirths and data.Rebirths < nextLock.Rebirths then
+			notify(player, string.format("Rebirth %d time%s to unlock the %ds lock!", nextLock.Rebirths, if nextLock.Rebirths == 1 then "" else "s", nextLock.Duration))
+			return
+		end
 		cost, name = nextLock.Cost, nextLock.Duration .. "s Lock"
 	else
 		return
