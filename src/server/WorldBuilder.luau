@@ -1,189 +1,239 @@
 --!strict
--- Builds the lobby: floor, spawn and one glowing crate per crate tier.
+-- Builds the map: a conveyor down the middle and player bases on both sides.
+-- Everything is made from parts so the place works from an empty Baseplate.
 
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local WorldBuilder = {}
 
-local function part(props: { [string]: any }): Part
+export type PlotParts = {
+	Index: number,
+	Model: Model,
+	CFrame: CFrame, -- center of the floor; LookVector points at the conveyor
+	Pedestals: { BasePart },
+	CollectPad: BasePart,
+	LockPad: BasePart,
+	Laser: BasePart,
+	OwnerLabel: TextLabel,
+	PendingLabel: TextLabel,
+	LockLabel: TextLabel,
+	SpawnCFrame: CFrame,
+}
+
+export type World = {
+	Plots: { PlotParts },
+	ConveyorStart: Vector3,
+	ConveyorEnd: Vector3,
+	CarriedFolder: Folder,
+	ConveyorFolder: Folder,
+}
+
+local PLOT_SIZE = 60
+local PLOT_DISTANCE = 75 -- from the conveyor to each plot's center
+local PLOT_SPACING = 70
+local WALL_HEIGHT = 10
+local ENTRANCE_WIDTH = 16
+local FLOOR_TOP = 1
+
+local PLOT_COLORS = {
+	Color3.fromRGB(255, 120, 120),
+	Color3.fromRGB(120, 180, 255),
+	Color3.fromRGB(140, 230, 140),
+	Color3.fromRGB(255, 210, 110),
+	Color3.fromRGB(200, 140, 255),
+	Color3.fromRGB(110, 230, 220),
+	Color3.fromRGB(255, 160, 210),
+	Color3.fromRGB(230, 230, 230),
+}
+
+local function block(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): Part
 	local p = Instance.new("Part")
+	p.Name = name
 	p.Anchored = true
+	p.Size = size
+	p.CFrame = cframe
+	p.Color = color
+	p.Material = material or Enum.Material.SmoothPlastic
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
-	for key, value in props do
-		(p :: any)[key] = value
-	end
+	p.Parent = parent
 	return p
 end
 
-local function ensureFloor()
-	if Workspace:FindFirstChild("Baseplate") or Workspace:FindFirstChild("CrateRushFloor") then
-		return
-	end
-	part({
-		Name = "CrateRushFloor",
-		Size = Vector3.new(256, 4, 256),
-		Position = Vector3.new(0, -2, 0),
-		Color = Color3.fromRGB(45, 48, 60),
-		Material = Enum.Material.SmoothPlastic,
-		Parent = Workspace,
-	})
+local function billboard(adornee: BasePart, size: Vector2, offset: Vector3, text: string, color: Color3): TextLabel
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(size.X, size.Y)
+	gui.StudsOffsetWorldSpace = offset
+	gui.MaxDistance = 120
+	gui.Adornee = adornee
+	gui.Parent = adornee
+
+	local l = Instance.new("TextLabel")
+	l.BackgroundTransparency = 1
+	l.Size = UDim2.fromScale(1, 1)
+	l.Font = Enum.Font.FredokaOne
+	l.TextScaled = true
+	l.TextColor3 = color
+	l.TextStrokeTransparency = 0
+	l.Text = text
+	l.Parent = gui
+	return l
 end
 
-local function ensureSpawn()
-	for _, child in Workspace:GetDescendants() do
-		if child:IsA("SpawnLocation") then
-			return
-		end
-	end
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Anchored = true
-	spawn.Size = Vector3.new(10, 1, 10)
-	spawn.Position = Vector3.new(0, 0.5, 30)
-	spawn.Color = Color3.fromRGB(230, 230, 240)
-	spawn.Material = Enum.Material.Neon
-	spawn.Duration = 0
-	spawn.Parent = Workspace
-end
+local function buildPlot(parent: Instance, index: number, center: Vector3): PlotParts
+	local cf = CFrame.lookAt(center, Vector3.new(center.X, center.Y, 0))
+	local color = PLOT_COLORS[(index - 1) % #PLOT_COLORS + 1]
+	local half = PLOT_SIZE / 2
 
-local function buildCrate(crate: Config.Crate, origin: CFrame, onOpen: (Player, string) -> ()): Model
 	local model = Instance.new("Model")
-	model.Name = crate.Id .. "Crate"
+	model.Name = "Plot" .. index
+	model:SetAttribute("PlotIndex", index)
+	model:SetAttribute("OwnerUserId", 0)
+	model:SetAttribute("Locked", false)
+	model.Parent = parent
 
-	local size = 7
-	local body = part({
-		Name = "Body",
-		Size = Vector3.new(size, size, size),
-		CFrame = origin * CFrame.new(0, size / 2 + 1, 0),
-		Color = crate.Color,
-		Material = Enum.Material.SmoothPlastic,
-		Parent = model,
-	})
-	model.PrimaryPart = body
-
-	-- Glowing edges
-	local edge = 0.6
-	local half = size / 2
-	for _, x in { -1, 1 } do
-		for _, z in { -1, 1 } do
-			part({
-				Name = "Edge",
-				Size = Vector3.new(edge, size + edge, edge),
-				CFrame = body.CFrame * CFrame.new(x * half, 0, z * half),
-				Color = crate.Color:Lerp(Color3.new(1, 1, 1), 0.35),
-				Material = Enum.Material.Neon,
-				Parent = model,
-			})
-		end
+	-- Local helper: x = right, y = up, z = toward the back of the base.
+	local function at(x: number, y: number, z: number): CFrame
+		return cf * CFrame.new(x, y, z)
 	end
-	for _, y in { -1, 1 } do
-		for _, axis in { "X", "Z" } do
-			for _, side in { -1, 1 } do
-				local offset = axis == "X" and Vector3.new(0, y * half, side * half)
-					or Vector3.new(side * half, y * half, 0)
-				local barSize = axis == "X" and Vector3.new(size, edge, edge) or Vector3.new(edge, edge, size)
-				part({
-					Name = "Edge",
-					Size = barSize,
-					CFrame = body.CFrame * CFrame.new(offset),
-					Color = crate.Color:Lerp(Color3.new(1, 1, 1), 0.35),
-					Material = Enum.Material.Neon,
-					Parent = model,
-				})
-			end
+
+	block(model, "Floor", Vector3.new(PLOT_SIZE, 1, PLOT_SIZE), at(0, FLOOR_TOP - 0.5, 0), color, Enum.Material.Plastic)
+
+	local wallColor = color:Lerp(Color3.new(0, 0, 0), 0.35)
+	local wallY = FLOOR_TOP + WALL_HEIGHT / 2
+	block(model, "WallBack", Vector3.new(PLOT_SIZE, WALL_HEIGHT, 2), at(0, wallY, half - 1), wallColor)
+	block(model, "WallLeft", Vector3.new(2, WALL_HEIGHT, PLOT_SIZE), at(-half + 1, wallY, 0), wallColor)
+	block(model, "WallRight", Vector3.new(2, WALL_HEIGHT, PLOT_SIZE), at(half - 1, wallY, 0), wallColor)
+	local frontWidth = (PLOT_SIZE - ENTRANCE_WIDTH) / 2
+	block(model, "WallFrontL", Vector3.new(frontWidth, WALL_HEIGHT, 2), at(-half + frontWidth / 2, wallY, -half + 1), wallColor)
+	block(model, "WallFrontR", Vector3.new(frontWidth, WALL_HEIGHT, 2), at(half - frontWidth / 2, wallY, -half + 1), wallColor)
+
+	local laser = block(model, "Laser", Vector3.new(ENTRANCE_WIDTH, WALL_HEIGHT, 0.6), at(0, wallY, -half + 1), Color3.fromRGB(255, 30, 30), Enum.Material.Neon)
+	laser.CanCollide = false
+	laser.Transparency = 1
+
+	-- Pedestals: two rows of six at the back of the base.
+	local pedestals: { BasePart } = {}
+	local columns = { -25, -15, -5, 5, 15, 25 }
+	local rows = { 8, 20 }
+	for r, z in rows do
+		for c, x in columns do
+			local i = (r - 1) * #columns + c
+			local pedestal = block(model, "Pedestal" .. i, Vector3.new(6, 1, 6), at(x, FLOOR_TOP + 0.5, z), Color3.fromRGB(60, 60, 70))
+			pedestal:SetAttribute("Slot", i)
+			pedestals[i] = pedestal
 		end
 	end
 
-	-- Pedestal
-	part({
-		Name = "Pedestal",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(1, size + 4, size + 4),
-		CFrame = origin * CFrame.new(0, 0.5, 0) * CFrame.Angles(0, 0, math.rad(90)),
-		Color = Color3.fromRGB(30, 30, 38),
-		Material = Enum.Material.Metal,
-		Parent = model,
-	})
+	local collectPad = block(model, "CollectPad", Vector3.new(8, 0.4, 8), at(12, FLOOR_TOP + 0.2, -12), Color3.fromRGB(60, 220, 90), Enum.Material.Neon)
+	local pendingLabel = billboard(collectPad, Vector2.new(220, 70), Vector3.new(0, 5, 0), "COLLECT\n$0", Color3.fromRGB(140, 255, 140))
 
-	local light = Instance.new("PointLight")
-	light.Color = crate.Color
-	light.Range = 18
-	light.Brightness = 2
-	light.Parent = body
+	local lockPad = block(model, "LockPad", Vector3.new(8, 0.4, 8), at(-12, FLOOR_TOP + 0.2, -12), Color3.fromRGB(230, 60, 60), Enum.Material.Neon)
+	local lockLabel = billboard(lockPad, Vector2.new(220, 70), Vector3.new(0, 5, 0), "STEP TO LOCK", Color3.fromRGB(255, 140, 140))
 
-	local sparkles = Instance.new("ParticleEmitter")
-	sparkles.Color = ColorSequence.new(crate.Color)
-	sparkles.LightEmission = 1
-	sparkles.Size = NumberSequence.new(0.3, 0)
-	sparkles.Lifetime = NumberRange.new(1, 2)
-	sparkles.Rate = 6
-	sparkles.Speed = NumberRange.new(1, 3)
-	sparkles.SpreadAngle = Vector2.new(180, 180)
-	sparkles.Parent = body
+	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + WALL_HEIGHT + 4, half - 1), wallColor)
+	signPost.Transparency = 1
+	signPost.CanCollide = false
+	local ownerLabel = billboard(signPost, Vector2.new(400, 80), Vector3.zero, "EMPTY BASE", Color3.new(1, 1, 1))
+	local labelGui = ownerLabel.Parent :: BillboardGui
+	labelGui.MaxDistance = 250
 
-	-- Label
-	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.fromOffset(220, 90)
-	billboard.StudsOffset = Vector3.new(0, size / 2 + 3, 0)
-	billboard.AlwaysOnTop = true
-	billboard.MaxDistance = 80
-	billboard.Parent = body
-
-	local title = Instance.new("TextLabel")
-	title.BackgroundTransparency = 1
-	title.Size = UDim2.new(1, 0, 0.55, 0)
-	title.Font = Enum.Font.FredokaOne
-	title.TextScaled = true
-	title.TextColor3 = crate.Color
-	title.TextStrokeTransparency = 0
-	title.Text = crate.DisplayName
-	title.Parent = billboard
-
-	local price = Instance.new("TextLabel")
-	price.BackgroundTransparency = 1
-	price.Position = UDim2.fromScale(0, 0.55)
-	price.Size = UDim2.new(1, 0, 0.45, 0)
-	price.Font = Enum.Font.FredokaOne
-	price.TextScaled = true
-	price.TextColor3 = Color3.fromRGB(255, 230, 120)
-	price.TextStrokeTransparency = 0
-	price.Text = "💰 " .. Config.FormatNumber(crate.Price)
-	price.Parent = billboard
-
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "Open"
-	prompt.ObjectText = crate.DisplayName .. " (" .. Config.FormatNumber(crate.Price) .. ")"
-	prompt.HoldDuration = 0.3
-	prompt.MaxActivationDistance = 12
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = body
-	prompt.Triggered:Connect(function(player)
-		onOpen(player, crate.Id)
-	end)
-
-	model:SetAttribute("CrateId", crate.Id)
-	return model
+	return {
+		Index = index,
+		Model = model,
+		CFrame = cf * CFrame.new(0, FLOOR_TOP, 0),
+		Pedestals = pedestals,
+		CollectPad = collectPad,
+		LockPad = lockPad,
+		Laser = laser,
+		OwnerLabel = ownerLabel,
+		PendingLabel = pendingLabel,
+		LockLabel = lockLabel,
+		SpawnCFrame = at(0, FLOOR_TOP + 4, -6) * CFrame.Angles(0, math.pi, 0),
+	}
 end
 
-function WorldBuilder.Build(onOpen: (Player, string) -> ())
-	ensureFloor()
-	ensureSpawn()
-
-	local folder = Instance.new("Folder")
-	folder.Name = "Crates"
-
-	local count = #Config.Crates
-	local spacing = 16
-	local startX = -spacing * (count - 1) / 2
-	for i, crate in Config.Crates do
-		local origin = CFrame.new(startX + (i - 1) * spacing, 0, 0)
-		buildCrate(crate, origin, onOpen).Parent = folder
+function WorldBuilder.Build(): World
+	local existing = workspace:FindFirstChild("BrainrotHeist")
+	if existing then
+		existing:Destroy()
 	end
 
-	folder.Parent = Workspace
+	local root = Instance.new("Folder")
+	root.Name = "BrainrotHeist"
+	root.Parent = workspace
+
+	Lighting.ClockTime = 14
+	Lighting.Brightness = 2
+
+	-- Ground under everything, in case the Baseplate was removed. Its top sits
+	-- slightly above the Baseplate's so the two surfaces don't flicker.
+	block(root, "Ground", Vector3.new(700, 2, 400), CFrame.new(0, -0.9, 0), Color3.fromRGB(90, 160, 80), Enum.Material.Grass)
+
+	-- Conveyor
+	local columnsPerSide = Config.PlotCount // 2
+	local length = columnsPerSide * PLOT_SPACING + 40
+	local conveyorFolder = Instance.new("Folder")
+	conveyorFolder.Name = "Conveyor"
+	conveyorFolder.Parent = root
+
+	block(conveyorFolder, "Belt", Vector3.new(length, 1, 12), CFrame.new(0, 0.5, 0), Color3.fromRGB(40, 40, 45), Enum.Material.DiamondPlate)
+	for _, z in { -6.5, 6.5 } do
+		block(conveyorFolder, "Rail", Vector3.new(length, 1.5, 1), CFrame.new(0, 1.25, z), Color3.fromRGB(255, 200, 40), Enum.Material.Neon)
+	end
+
+	local startX = -length / 2 + 6
+	local endX = length / 2 - 6
+	local sign = block(conveyorFolder, "ShopSign", Vector3.new(1, 1, 1), CFrame.new(startX, 14, 0), Color3.new(1, 1, 1))
+	sign.Transparency = 1
+	sign.CanCollide = false
+	local signLabel = billboard(sign, Vector2.new(420, 90), Vector3.zero, "BRAINROT CONVEYOR\nBuy one before it's gone!", Color3.fromRGB(255, 230, 80))
+	;(signLabel.Parent :: BillboardGui).MaxDistance = 300
+
+	-- Plots: half on each side of the conveyor, entrances facing it.
+	local plotsFolder = Instance.new("Folder")
+	plotsFolder.Name = "Plots"
+	plotsFolder.Parent = root
+
+	local plots = {}
+	for i = 1, Config.PlotCount do
+		local side = if i <= columnsPerSide then 1 else -1
+		local column = (i - 1) % columnsPerSide
+		local x = (column - (columnsPerSide - 1) / 2) * PLOT_SPACING
+		plots[i] = buildPlot(plotsFolder, i, Vector3.new(x, 0, side * PLOT_DISTANCE))
+	end
+
+	local spawn = Instance.new("SpawnLocation")
+	spawn.Name = "LobbySpawn"
+	spawn.Anchored = true
+	spawn.Size = Vector3.new(12, 1, 12)
+	spawn.CFrame = CFrame.new(startX - 20, 0.5, 0)
+	spawn.Color = Color3.fromRGB(255, 200, 40)
+	spawn.Material = Enum.Material.Neon
+	spawn.Neutral = true
+	spawn.Duration = 0
+	spawn.Parent = root
+	-- Any template spawn would drop players onto the conveyor; ours replaces it.
+	for _, other in workspace:GetChildren() do
+		if other:IsA("SpawnLocation") then
+			other.Enabled = false
+		end
+	end
+
+	local carried = Instance.new("Folder")
+	carried.Name = "Carried"
+	carried.Parent = root
+
+	return {
+		Plots = plots,
+		ConveyorStart = Vector3.new(startX, 1, 0),
+		ConveyorEnd = Vector3.new(endX, 1, 0),
+		CarriedFolder = carried,
+		ConveyorFolder = conveyorFolder,
+	}
 end
 
 return WorldBuilder

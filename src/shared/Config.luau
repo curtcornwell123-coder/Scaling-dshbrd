@@ -1,186 +1,210 @@
 --!strict
--- Shared game configuration: rarities, crates, pets and drop odds.
--- Edit this file to rebalance the game; server and client both read it.
+-- Shared game configuration: rarities, brainrots, conveyor odds, bases,
+-- rebirths and monetization. Server and client both read this file.
 
 local Config = {}
 
-export type RarityId = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic"
+export type RarityId = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret"
 
 export type Rarity = {
 	Id: RarityId,
-	DisplayName: string,
 	Color: Color3,
 	Order: number,
-	SellMultiplier: number,
+	Scale: number, -- model size multiplier
+	SpawnWeight: number, -- relative chance to appear on the conveyor
+	Announce: boolean, -- tell the whole server when one spawns
 }
 
-export type Pet = {
+export type Brainrot = {
 	Id: string,
 	DisplayName: string,
 	Rarity: RarityId,
-	Power: number, -- coins per second while equipped
-}
-
-export type Crate = {
-	Id: string,
-	DisplayName: string,
-	Color: Color3,
 	Price: number,
-	-- Percent chance per rarity. Must add up to 100.
-	Odds: { [RarityId]: number },
+	Income: number, -- cash per second while sitting in your base
+	Color: Color3,
+	Accent: Color3,
 }
 
-Config.RarityOrder = { "Common", "Rare", "Epic", "Legendary", "Mythic" } :: { RarityId }
+export type GamePass = {
+	Key: string,
+	Id: number, -- paste your gamepass ID here (0 = not set up yet)
+	Name: string,
+	Description: string,
+}
+
+export type Product = {
+	Key: string,
+	Id: number, -- paste your developer product ID here (0 = not set up yet)
+	Name: string,
+	Description: string,
+}
+
+Config.GameName = "Brainrot Heist"
+
+local rarityOrder: { RarityId } = { "Common", "Rare", "Epic", "Legendary", "Mythic", "Secret" }
+Config.RarityOrder = rarityOrder
 
 Config.Rarities = {
-	Common = {
-		Id = "Common",
-		DisplayName = "Common",
-		Color = Color3.fromRGB(70, 200, 90), -- green
-		Order = 1,
-		SellMultiplier = 5,
-	},
-	Rare = {
-		Id = "Rare",
-		DisplayName = "Rare",
-		Color = Color3.fromRGB(60, 140, 255), -- blue
-		Order = 2,
-		SellMultiplier = 8,
-	},
-	Epic = {
-		Id = "Epic",
-		DisplayName = "Epic",
-		Color = Color3.fromRGB(170, 80, 255), -- purple
-		Order = 3,
-		SellMultiplier = 12,
-	},
-	Legendary = {
-		Id = "Legendary",
-		DisplayName = "Legendary",
-		Color = Color3.fromRGB(255, 195, 40), -- gold
-		Order = 4,
-		SellMultiplier = 20,
-	},
-	Mythic = {
-		Id = "Mythic",
-		DisplayName = "Mythic",
-		Color = Color3.fromRGB(255, 45, 60), -- red
-		Order = 5,
-		SellMultiplier = 30,
-	},
+	Common = { Id = "Common", Color = Color3.fromRGB(70, 200, 90), Order = 1, Scale = 1, SpawnWeight = 60, Announce = false },
+	Rare = { Id = "Rare", Color = Color3.fromRGB(60, 140, 255), Order = 2, Scale = 1.15, SpawnWeight = 25, Announce = false },
+	Epic = { Id = "Epic", Color = Color3.fromRGB(170, 80, 255), Order = 3, Scale = 1.3, SpawnWeight = 10, Announce = false },
+	Legendary = { Id = "Legendary", Color = Color3.fromRGB(255, 195, 40), Order = 4, Scale = 1.5, SpawnWeight = 4, Announce = true },
+	Mythic = { Id = "Mythic", Color = Color3.fromRGB(255, 45, 60), Order = 5, Scale = 1.75, SpawnWeight = 0.9, Announce = true },
+	Secret = { Id = "Secret", Color = Color3.fromRGB(20, 20, 20), Order = 6, Scale = 2, SpawnWeight = 0.1, Announce = true },
 } :: { [RarityId]: Rarity }
 
-Config.Pets = {
-	-- Common (green)
-	{ Id = "Puppy", DisplayName = "Puppy", Rarity = "Common", Power = 1 },
-	{ Id = "Kitty", DisplayName = "Kitty", Rarity = "Common", Power = 1 },
-	{ Id = "Bunny", DisplayName = "Bunny", Rarity = "Common", Power = 2 },
-	{ Id = "Duckling", DisplayName = "Duckling", Rarity = "Common", Power = 2 },
-	-- Rare (blue)
-	{ Id = "Fox", DisplayName = "Fox", Rarity = "Rare", Power = 5 },
-	{ Id = "Owl", DisplayName = "Owl", Rarity = "Rare", Power = 6 },
-	{ Id = "Penguin", DisplayName = "Penguin", Rarity = "Rare", Power = 7 },
-	-- Epic (purple)
-	{ Id = "Dragonling", DisplayName = "Dragonling", Rarity = "Epic", Power = 20 },
-	{ Id = "Unicorn", DisplayName = "Unicorn", Rarity = "Epic", Power = 25 },
-	{ Id = "PhoenixChick", DisplayName = "Phoenix Chick", Rarity = "Epic", Power = 30 },
-	-- Legendary (gold)
-	{ Id = "GoldenGriffin", DisplayName = "Golden Griffin", Rarity = "Legendary", Power = 100 },
-	{ Id = "CrystalWolf", DisplayName = "Crystal Wolf", Rarity = "Legendary", Power = 125 },
-	-- Mythic (red)
-	{ Id = "InfernoDragon", DisplayName = "Inferno Dragon", Rarity = "Mythic", Power = 500 },
-	{ Id = "VoidKraken", DisplayName = "Void Kraken", Rarity = "Mythic", Power = 750 },
-} :: { Pet }
+-- Original characters. Add new ones here every update to keep players coming back.
+Config.Brainrots = {
+	-- Common
+	{ Id = "NoodloDoodlo", DisplayName = "Noodlo Doodlo", Rarity = "Common", Price = 25, Income = 1, Color = Color3.fromRGB(245, 215, 120), Accent = Color3.fromRGB(200, 60, 40) },
+	{ Id = "PizzarinoPizzaroni", DisplayName = "Pizzarino Pizzaroni", Rarity = "Common", Price = 50, Income = 2, Color = Color3.fromRGB(240, 170, 60), Accent = Color3.fromRGB(190, 30, 30) },
+	{ Id = "SockGobblino", DisplayName = "Sock Gobblino", Rarity = "Common", Price = 80, Income = 3, Color = Color3.fromRGB(230, 230, 230), Accent = Color3.fromRGB(60, 160, 220) },
+	{ Id = "FrigoBurrito", DisplayName = "Frigo Burrito", Rarity = "Common", Price = 120, Income = 4, Color = Color3.fromRGB(200, 160, 110), Accent = Color3.fromRGB(120, 200, 255) },
+	-- Rare
+	{ Id = "BananitoBandito", DisplayName = "Bananito Bandito", Rarity = "Rare", Price = 500, Income = 10, Color = Color3.fromRGB(255, 225, 50), Accent = Color3.fromRGB(30, 30, 30) },
+	{ Id = "CroissantoFurioso", DisplayName = "Croissanto Furioso", Rarity = "Rare", Price = 900, Income = 16, Color = Color3.fromRGB(215, 150, 70), Accent = Color3.fromRGB(255, 80, 40) },
+	{ Id = "TostinoTurbino", DisplayName = "Tostino Turbino", Rarity = "Rare", Price = 1500, Income = 25, Color = Color3.fromRGB(190, 120, 60), Accent = Color3.fromRGB(80, 80, 90) },
+	-- Epic
+	{ Id = "CactussoBossino", DisplayName = "Cactusso Bossino", Rarity = "Epic", Price = 5000, Income = 60, Color = Color3.fromRGB(60, 170, 70), Accent = Color3.fromRGB(255, 120, 200) },
+	{ Id = "WaffelinoWizardo", DisplayName = "Waffelino Wizardo", Rarity = "Epic", Price = 9000, Income = 100, Color = Color3.fromRGB(230, 180, 90), Accent = Color3.fromRGB(90, 50, 200) },
+	{ Id = "GnocchiNinjaro", DisplayName = "Gnocchi Ninjaro", Rarity = "Epic", Price = 15000, Income = 150, Color = Color3.fromRGB(250, 240, 200), Accent = Color3.fromRGB(20, 20, 30) },
+	-- Legendary
+	{ Id = "PinguinoHackerino", DisplayName = "Pinguino Hackerino", Rarity = "Legendary", Price = 75000, Income = 500, Color = Color3.fromRGB(40, 40, 50), Accent = Color3.fromRGB(0, 255, 120) },
+	{ Id = "LasagnaLightningo", DisplayName = "Lasagna Lightningo", Rarity = "Legendary", Price = 200000, Income = 1200, Color = Color3.fromRGB(220, 90, 40), Accent = Color3.fromRGB(255, 240, 80) },
+	-- Mythic
+	{ Id = "DragoniSpaghettoni", DisplayName = "Dragoni Spaghettoni", Rarity = "Mythic", Price = 1500000, Income = 6000, Color = Color3.fromRGB(200, 30, 30), Accent = Color3.fromRGB(255, 210, 120) },
+	{ Id = "MeatballoSupremo", DisplayName = "Meatballo Supremo", Rarity = "Mythic", Price = 4000000, Income = 15000, Color = Color3.fromRGB(120, 60, 40), Accent = Color3.fromRGB(255, 255, 255) },
+	-- Secret
+	{ Id = "IlCosmicoCannolo", DisplayName = "Il Cosmico Cannolo", Rarity = "Secret", Price = 50000000, Income = 250000, Color = Color3.fromRGB(30, 10, 60), Accent = Color3.fromRGB(255, 120, 255) },
+} :: { Brainrot }
 
-Config.Crates = {
-	{
-		Id = "Green",
-		DisplayName = "Green Crate",
-		Color = Color3.fromRGB(70, 200, 90),
-		Price = 100,
-		Odds = { Common = 70, Rare = 22, Epic = 6, Legendary = 1.8, Mythic = 0.2 },
-	},
-	{
-		Id = "Blue",
-		DisplayName = "Blue Crate",
-		Color = Color3.fromRGB(60, 140, 255),
-		Price = 750,
-		Odds = { Common = 40, Rare = 40, Epic = 15, Legendary = 4.5, Mythic = 0.5 },
-	},
-	{
-		Id = "Purple",
-		DisplayName = "Purple Crate",
-		Color = Color3.fromRGB(170, 80, 255),
-		Price = 4000,
-		Odds = { Common = 10, Rare = 35, Epic = 42, Legendary = 11.5, Mythic = 1.5 },
-	},
-	{
-		Id = "Gold",
-		DisplayName = "Gold Crate",
-		Color = Color3.fromRGB(255, 195, 40),
-		Price = 20000,
-		Odds = { Common = 0, Rare = 15, Epic = 40, Legendary = 40, Mythic = 5 },
-	},
-} :: { Crate }
+-- Economy ------------------------------------------------------------------
 
--- Gameplay tuning
-Config.StartingCoins = 150
-Config.BaseCoinsPerSecond = 2
-Config.MaxEquipped = 4
-Config.MaxInventory = 200
-Config.OpenCooldown = 1 -- seconds between crate opens (server enforced)
+Config.StartingCash = 100
+Config.SellRatio = 0.5 -- selling returns this share of the buy price
 
--- Lookup helpers ----------------------------------------------------------
+-- Conveyor -----------------------------------------------------------------
 
-local petsById: { [string]: Pet } = {}
-local petsByRarity: { [RarityId]: { Pet } } = {}
-for _, pet in Config.Pets do
-	petsById[pet.Id] = pet
-	local list = petsByRarity[pet.Rarity]
+Config.ConveyorSpawnInterval = 3 -- seconds between new brainrots
+Config.ConveyorTravelTime = 45 -- seconds to ride from one end to the other
+Config.ServerLuckMultiplier = 2 -- doubles the spawn weight of Rare and better (Mythic 0.9% -> ~1.3%)
+Config.ServerLuckDuration = 15 * 60
+
+-- Bases --------------------------------------------------------------------
+
+Config.PlotCount = 8 -- also set Max Players to 8 in Game Settings
+Config.BaseSlots = 10
+Config.VipSlots = 2 -- extra slots for VIP owners
+Config.LockDuration = 60
+Config.LongerLockDuration = 120 -- with the Longer Lock gamepass
+Config.LockCooldown = 30 -- vulnerable window after a lock ends
+
+-- Stealing -----------------------------------------------------------------
+
+Config.CarryWalkSpeed = 13 -- thieves move slower while carrying
+Config.NormalWalkSpeed = 16
+Config.StealRange = 14
+Config.SlapCooldown = 0.8
+Config.SlapRange = 8
+Config.SlapForce = 70
+
+-- Rebirth ------------------------------------------------------------------
+
+Config.RebirthBaseCost = 1000000
+Config.RebirthCostGrowth = 5
+Config.RebirthBonus = 0.5 -- +50% income per rebirth
+
+-- Monetization -------------------------------------------------------------
+-- Create these on the Creator Dashboard (your experience > Monetization),
+-- then paste the IDs below. Items with Id = 0 show as "coming soon".
+
+Config.GamePasses = {
+	{ Key = "DoubleCash", Id = 0, Name = "2x Cash", Description = "Your brainrots make double cash forever." },
+	{ Key = "VIP", Id = 0, Name = "VIP", Description = "+2 base slots and a gold VIP tag." },
+	{ Key = "LongerLock", Id = 0, Name = "Longer Lock", Description = "Your base lock lasts 120s instead of 60s." },
+} :: { GamePass }
+
+Config.Products = {
+	{ Key = "SmallCash", Id = 0, Name = "Cash Bag", Description = "10 minutes of your income (at least $1K)." },
+	{ Key = "BigCash", Id = 0, Name = "Cash Vault", Description = "1 hour of your income (at least $25K)." },
+	{ Key = "ServerLuck", Id = 0, Name = "Server Luck", Description = "More Rare+ spawns for EVERYONE for 15 minutes." },
+	{ Key = "InstantLock", Id = 0, Name = "Instant Lock", Description = "Skip the lock cooldown and lock your base now." },
+} :: { Product }
+
+Config.SmallCashMinutes = 10
+Config.SmallCashMinimum = 1000
+Config.BigCashMinutes = 60
+Config.BigCashMinimum = 25000
+
+-- Lookup helpers -----------------------------------------------------------
+
+local byId: { [string]: Brainrot } = {}
+local byRarity: { [RarityId]: { Brainrot } } = {}
+for _, brainrot in Config.Brainrots do
+	byId[brainrot.Id] = brainrot
+	local list = byRarity[brainrot.Rarity]
 	if not list then
 		list = {}
-		petsByRarity[pet.Rarity] = list
+		byRarity[brainrot.Rarity] = list
 	end
-	table.insert(list, pet)
+	table.insert(list, brainrot)
 end
 
-local cratesById: { [string]: Crate } = {}
-for _, crate in Config.Crates do
-	cratesById[crate.Id] = crate
+function Config.GetBrainrot(id: string): Brainrot?
+	return byId[id]
 end
 
-function Config.GetPet(id: string): Pet?
-	return petsById[id]
+function Config.GetGamePass(key: string): GamePass?
+	for _, pass in Config.GamePasses do
+		if pass.Key == key then
+			return pass
+		end
+	end
+	return nil
 end
 
-function Config.GetPetsOfRarity(rarity: RarityId): { Pet }
-	return petsByRarity[rarity] or {}
+function Config.SellValue(brainrot: Brainrot): number
+	return math.floor(brainrot.Price * Config.SellRatio)
 end
 
-function Config.GetCrate(id: string): Crate?
-	return cratesById[id]
+function Config.RebirthCost(rebirths: number): number
+	return Config.RebirthBaseCost * Config.RebirthCostGrowth ^ rebirths
 end
 
-function Config.SellValue(pet: Pet): number
-	return pet.Power * Config.Rarities[pet.Rarity].SellMultiplier
+function Config.RebirthMultiplier(rebirths: number): number
+	return 1 + rebirths * Config.RebirthBonus
 end
 
--- Rolls a pet from a crate using the given Random object.
-function Config.Roll(crate: Crate, rng: Random): Pet
-	local roll = rng:NextNumber(0, 100)
-	local cumulative = 0
+-- Picks a random brainrot for the conveyor. Luck boosts every rarity above Common.
+function Config.RollConveyor(rng: Random, luck: number): Brainrot
+	local total = 0
+	local weights: { [RarityId]: number } = {}
+	for _, rarityId: RarityId in rarityOrder do
+		local rarity = Config.Rarities[rarityId]
+		local weight = rarity.SpawnWeight
+		if rarity.Order > 1 then
+			weight *= luck
+		end
+		if byRarity[rarityId] then
+			weights[rarityId] = weight
+			total += weight
+		end
+	end
+
+	local roll = rng:NextNumber(0, total)
 	local chosen: RarityId = "Common"
-	for _, rarity in Config.RarityOrder do
-		local chance = crate.Odds[rarity] or 0
-		if chance > 0 then
-			chosen = rarity
-			cumulative += chance
-			if roll < cumulative then
+	for _, rarityId: RarityId in rarityOrder do
+		local weight = weights[rarityId]
+		if weight then
+			chosen = rarityId
+			roll -= weight
+			if roll < 0 then
 				break
 			end
 		end
 	end
-	local pool = Config.GetPetsOfRarity(chosen)
+
+	local pool = byRarity[chosen]
 	return pool[rng:NextInteger(1, #pool)]
 end
 
@@ -197,6 +221,10 @@ function Config.FormatNumber(n: number): string
 		return tostring(n)
 	end
 	return string.format("%.1f%s", value, suffixes[i])
+end
+
+function Config.FormatCash(n: number): string
+	return "$" .. Config.FormatNumber(n)
 end
 
 return Config
