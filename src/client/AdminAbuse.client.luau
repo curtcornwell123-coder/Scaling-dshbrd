@@ -208,16 +208,17 @@ end
 -- A glowing neon sky around the whole map: a ring of tall panels around the
 -- horizon in rainbow colors that slowly turn through the spectrum, and a
 -- neon ceiling overhead cycling through the colors. It's only on this
--- player's screen and follows their camera, so it's always out of reach.
+-- player's screen, centered on the map and big enough to fit the giant
+-- founder (players can't get past the fence, so they never reach it).
 -- Everything is put back when the event ends.
 
-local SKY_RADIUS = 900
-local SKY_PANELS = 48
-local SKY_BOTTOM = -150
-local SKY_TOP = 650
+local SKY_RADIUS = 1400
+local SKY_PANELS = 64
+local SKY_BOTTOM = -200
+local SKY_TOP = 1200
 local SKY_TRANSPARENCY = 0.2
 
-type SkyState = { Model: Model, Panels: { BasePart }, Ceiling: BasePart, Saved: { [string]: any }?, Connection: RBXScriptConnection }
+type SkyState = { Model: Model, Panels: { BasePart }, Ceiling: { BasePart }, Saved: { [string]: any }?, Connection: RBXScriptConnection }
 local rainbowSky: SkyState? = nil
 
 local function skyPart(model: Model, size: Vector3, cframe: CFrame): Part
@@ -249,8 +250,13 @@ local function startRainbowSky()
 		local position = Vector3.new(math.cos(angle) * SKY_RADIUS, SKY_BOTTOM + height / 2, math.sin(angle) * SKY_RADIUS)
 		table.insert(panels, skyPart(model, Vector3.new(width, height, 2), CFrame.lookAt(position, Vector3.new(0, position.Y, 0))))
 	end
-	local ceiling: BasePart = skyPart(model, Vector3.new(2048, 2, 2048), CFrame.new(0, SKY_TOP, 0))
-	model.PrimaryPart = ceiling
+	-- Parts max out at 2048 studs, so the ceiling is four tiles.
+	local ceiling: { BasePart } = {}
+	for _, x in { -1024, 1024 } do
+		for _, z in { -1024, 1024 } do
+			table.insert(ceiling, skyPart(model, Vector3.new(2048, 2, 2048), CFrame.new(x, SKY_TOP, z)))
+		end
+	end
 	model.Parent = workspace
 
 	-- Thin out the haze so the neon colors stay bright and clear.
@@ -263,20 +269,22 @@ local function startRainbowSky()
 	for _, p in panels do
 		tween(p, 2, { Transparency = SKY_TRANSPARENCY })
 	end
-	tween(ceiling, 2, { Transparency = SKY_TRANSPARENCY })
+	for _, tile in ceiling do
+		tween(tile, 2, { Transparency = SKY_TRANSPARENCY })
+	end
 
 	local started = os.clock()
 	local connection = RunService.RenderStepped:Connect(function()
 		local t = os.clock() - started
-		local camera = workspace.CurrentCamera
-		local focus = camera.CFrame.Position
-		model:PivotTo(CFrame.new(focus.X, SKY_TOP, focus.Z))
 		for i, p in panels do
 			-- The rainbow goes twice around the horizon (so you always see lots
 			-- of colors), slowly turning.
 			p.Color = Color3.fromHSV((i / SKY_PANELS * 2 + t * 0.05) % 1, 0.75, 0.95)
 		end
-		ceiling.Color = Color3.fromHSV((t * 0.05) % 1, 0.6, 0.9)
+		local top = Color3.fromHSV((t * 0.05) % 1, 0.6, 0.9)
+		for _, tile in ceiling do
+			tile.Color = top
+		end
 	end)
 	rainbowSky = { Model = model, Panels = panels, Ceiling = ceiling, Saved = saved, Connection = connection }
 end
@@ -294,7 +302,9 @@ local function stopRainbowSky()
 	for _, p in state.Panels do
 		tween(p, 2, { Transparency = 1 })
 	end
-	tween(state.Ceiling, 2, { Transparency = 1 })
+	for _, tile in state.Ceiling do
+		tween(tile, 2, { Transparency = 1 })
+	end
 	task.delay(2.2, function()
 		state.Connection:Disconnect()
 		state.Model:Destroy()

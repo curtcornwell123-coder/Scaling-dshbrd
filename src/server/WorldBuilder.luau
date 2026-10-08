@@ -598,7 +598,13 @@ end
 local LAKES = { Vector3.new(-150, 0, 265), Vector3.new(170, 0, -255) }
 
 local function buildGround(parent: Instance)
-	block(parent, "Ground", Vector3.new(2000, 2, 2000), CFrame.new(0, -0.9, 0), Color3.fromRGB(96, 175, 76), Enum.Material.Grass)
+	-- Four tiles (parts max out at 2048 studs), reaching well past the fence
+	-- so the giant founders have grass to stand on.
+	for _, x in { -1024, 1024 } do
+		for _, z in { -1024, 1024 } do
+			block(parent, "Ground", Vector3.new(2048, 2, 2048), CFrame.new(x, -0.9, z), Color3.fromRGB(96, 175, 76), Enum.Material.Grass)
+		end
+	end
 end
 
 -- A flat stone path (with a darker border) between two points on the ground.
