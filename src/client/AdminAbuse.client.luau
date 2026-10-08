@@ -205,61 +205,80 @@ local function confetti(count: number, seconds: number)
 end
 
 -- Rainbow sky (Corny's event) ------------------------------------------------
--- The whole sky glows and slowly shifts through bright neon rainbow colors
--- (through the Atmosphere haze), and the clouds change color with it.
+-- A glowing neon sky around the whole map: a ring of tall panels around the
+-- horizon in rainbow colors that slowly turn through the spectrum, and a
+-- neon ceiling overhead cycling through the colors. It's only on this
+-- player's screen and follows their camera, so it's always out of reach.
 -- Everything is put back when the event ends.
 
-type SkyState = { Tint: ColorCorrectionEffect, Saved: { [string]: any }?, Clouds: Clouds?, CloudsSaved: { [string]: any }?, MadeClouds: boolean }
+local SKY_RADIUS = 900
+local SKY_PANELS = 48
+local SKY_BOTTOM = -150
+local SKY_TOP = 650
+local SKY_TRANSPARENCY = 0.2
+
+type SkyState = { Model: Model, Panels: { BasePart }, Ceiling: BasePart, Saved: { [string]: any }?, Connection: RBXScriptConnection }
 local rainbowSky: SkyState? = nil
+
+local function skyPart(model: Model, size: Vector3, cframe: CFrame): Part
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = Enum.Material.Neon
+	p.Transparency = 1
+	p.Size = size
+	p.CFrame = cframe
+	p.Parent = model
+	return p
+end
 
 local function startRainbowSky()
 	if rainbowSky then
 		return
 	end
+	local model = Instance.new("Model")
+	model.Name = "RainbowSky"
+	local panels: { BasePart } = {}
+	local width = 2 * math.pi * SKY_RADIUS / SKY_PANELS + 4
+	local height = SKY_TOP - SKY_BOTTOM
+	for i = 1, SKY_PANELS do
+		local angle = (i / SKY_PANELS) * math.pi * 2
+		local position = Vector3.new(math.cos(angle) * SKY_RADIUS, SKY_BOTTOM + height / 2, math.sin(angle) * SKY_RADIUS)
+		table.insert(panels, skyPart(model, Vector3.new(width, height, 2), CFrame.lookAt(position, Vector3.new(0, position.Y, 0))))
+	end
+	local ceiling: BasePart = skyPart(model, Vector3.new(2048, 2, 2048), CFrame.new(0, SKY_TOP, 0))
+	model.PrimaryPart = ceiling
+	model.Parent = workspace
+
+	-- Thin out the haze so the neon colors stay bright and clear.
 	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 	local saved: { [string]: any }? = nil
 	if atmosphere then
-		saved = { Color = atmosphere.Color, Decay = atmosphere.Decay, Haze = atmosphere.Haze, Glare = atmosphere.Glare, Density = atmosphere.Density, Offset = atmosphere.Offset }
+		saved = { Density = atmosphere.Density, Haze = atmosphere.Haze, Glare = atmosphere.Glare }
+		tween(atmosphere, 2, { Density = 0.12, Haze = 0, Glare = 0 })
 	end
-	local clouds = workspace.Terrain:FindFirstChildOfClass("Clouds")
-	local madeClouds = false
-	local cloudsSaved: { [string]: any }? = nil
-	if clouds then
-		cloudsSaved = { Color = clouds.Color, Cover = clouds.Cover, Density = clouds.Density }
-	else
-		local created = Instance.new("Clouds")
-		created.Cover = 0.55
-		created.Density = 0.6
-		created.Parent = workspace.Terrain
-		clouds = created
-		madeClouds = true
+	for _, p in panels do
+		tween(p, 2, { Transparency = SKY_TRANSPARENCY })
 	end
-	local tint = Instance.new("ColorCorrectionEffect")
-	tint.Name = "RainbowSkyTint"
-	tint.Parent = Lighting
-	local state: SkyState = { Tint = tint, Saved = saved, Clouds = clouds, CloudsSaved = cloudsSaved, MadeClouds = madeClouds }
-	rainbowSky = state
-	task.spawn(function()
-		local started = os.clock()
-		while rainbowSky == state do
-			local hue = ((os.clock() - started) * 0.07) % 1
-			if atmosphere then
-				-- High haze fills the sky with the atmosphere's color; a low-ish
-				-- density keeps the map itself clear.
-				atmosphere.Density = 0.32
-				atmosphere.Offset = 0.6
-				atmosphere.Haze = 9
-				atmosphere.Glare = 2
-				atmosphere.Color = Color3.fromHSV(hue, 0.75, 1)
-				atmosphere.Decay = Color3.fromHSV((hue + 0.12) % 1, 0.85, 0.9)
-			end
-			if clouds then
-				clouds.Color = Color3.fromHSV((hue + 0.5) % 1, 0.45, 1)
-			end
-			tint.TintColor = Color3.fromHSV(hue, 0.06, 1)
-			task.wait(0.05)
+	tween(ceiling, 2, { Transparency = SKY_TRANSPARENCY })
+
+	local started = os.clock()
+	local connection = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - started
+		local camera = workspace.CurrentCamera
+		local focus = camera.CFrame.Position
+		model:PivotTo(CFrame.new(focus.X, SKY_TOP, focus.Z))
+		for i, p in panels do
+			-- The rainbow goes twice around the horizon (so you always see lots
+			-- of colors), slowly turning.
+			p.Color = Color3.fromHSV((i / SKY_PANELS * 2 + t * 0.05) % 1, 0.75, 0.95)
 		end
+		ceiling.Color = Color3.fromHSV((t * 0.05) % 1, 0.6, 0.9)
 	end)
+	rainbowSky = { Model = model, Panels = panels, Ceiling = ceiling, Saved = saved, Connection = connection }
 end
 
 local function stopRainbowSky()
@@ -272,20 +291,13 @@ local function stopRainbowSky()
 	if atmosphere and state.Saved then
 		tween(atmosphere, 2, state.Saved)
 	end
-	local clouds = state.Clouds
-	if clouds then
-		if state.MadeClouds then
-			tween(clouds, 2, { Cover = 0 })
-		elseif state.CloudsSaved then
-			tween(clouds, 2, state.CloudsSaved)
-		end
+	for _, p in state.Panels do
+		tween(p, 2, { Transparency = 1 })
 	end
-	tween(state.Tint, 2, { TintColor = Color3.new(1, 1, 1) })
+	tween(state.Ceiling, 2, { Transparency = 1 })
 	task.delay(2.2, function()
-		state.Tint:Destroy()
-		if state.MadeClouds and clouds then
-			clouds:Destroy()
-		end
+		state.Connection:Disconnect()
+		state.Model:Destroy()
 	end)
 end
 

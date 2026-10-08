@@ -356,6 +356,15 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		humanoid.BreakJointsOnDeath = false
 		humanoid.RequiresNeck = false
+		-- A giant is a statue that dances: no walking, falling, ragdolling or
+		-- dying (that's what knocked them over and into the ground). Emotes
+		-- still play through the Animator.
+		humanoid.MaxHealth = math.huge
+		humanoid.Health = math.huge
+		for _, state in { Enum.HumanoidStateType.Dead, Enum.HumanoidStateType.FallingDown, Enum.HumanoidStateType.Ragdoll, Enum.HumanoidStateType.Freefall, Enum.HumanoidStateType.Physics } do
+			humanoid:SetStateEnabled(state, false)
+		end
+		humanoid.EvaluateStateMachine = false
 	end
 	giant.Parent = parent
 	giant:ScaleTo(scale)
@@ -454,6 +463,7 @@ function Founders.Play(giant: Model, animationId: string, looped: boolean): Anim
 	return nil
 end
 
+Founders.MildDance = "rbxassetid://507776043" -- the side-to-side "dance2"
 Founders.Wave = "rbxassetid://507770239"
 Founders.Dance = "rbxassetid://507771019"
 Founders.Cheer = "rbxassetid://507770677"

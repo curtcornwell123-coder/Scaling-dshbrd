@@ -461,7 +461,7 @@ export type FounderEvent = {
 	Subtitle: string,
 	DurationMinutes: number,
 	Scale: number,
-	Spot: Vector3, -- where they hover (under their feet), off to the side of the map
+	Spot: Vector3, -- where they stand (under their feet), off to the side of the map
 	DropEvery: number, -- seconds between throws
 	BrainrotChance: number, -- chance each drop is a brainrot (else a cash bag)
 	BrainrotLuck: number,
@@ -480,7 +480,7 @@ Config.FounderEvents = {
 		Subtitle = "Giant Corny is here! Grab everything he throws!",
 		DurationMinutes = 5,
 		Scale = 32, -- about 165 studs tall
-		Spot = Vector3.new(0, 14, 480), -- hovering just past the fence, under the rainbow
+		Spot = Vector3.new(0, 0, 480), -- standing on the grass just past the fence
 		DropEvery = 1.6,
 		BrainrotChance = 0.3,
 		BrainrotLuck = 4,

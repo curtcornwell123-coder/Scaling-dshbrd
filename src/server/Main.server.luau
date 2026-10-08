@@ -2236,63 +2236,95 @@ local function founderDrop(from: Vector3, brainrotChance: number, luck: number, 
 	end
 end
 
--- Brings a giant to life at `spot` (under their feet) facing the map: they
--- arrive (rise from the ground or come down from the sky) and cycle through
--- emotes while `active()` is true. With `drop`, they also bob, sway and throw
--- something every `dropEvery` seconds; without it they just stand and emote.
--- Then they leave and are removed.
-local function runGiant(giant: Model, spot: Vector3, hover: boolean, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
+-- A puff of sparkles and smoke where a giant appears or leaves.
+local function giantPoof(position: Vector3, size: number, color: Color3)
+	local anchor = Instance.new("Part")
+	anchor.Name = "GiantPoof"
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(size * 0.4, size, size * 0.4)
+	anchor.Position = position + Vector3.new(0, size / 2, 0)
+	anchor.Parent = foundersFolder
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkles.Color = ColorSequence.new(color, Color3.new(1, 1, 1))
+	sparkles.LightEmission = 1
+	sparkles.Rate = 0
+	sparkles.Lifetime = NumberRange.new(1, 2)
+	sparkles.Speed = NumberRange.new(size * 0.2, size * 0.5)
+	sparkles.SpreadAngle = Vector2.new(180, 180)
+	sparkles.Size = NumberSequence.new(size * 0.05, 0)
+	sparkles.Parent = anchor
+	sparkles:Emit(200)
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	smoke.Color = ColorSequence.new(Color3.fromRGB(240, 240, 255))
+	smoke.Transparency = NumberSequence.new(0.3, 1)
+	smoke.Rate = 0
+	smoke.Lifetime = NumberRange.new(1.5, 2.5)
+	smoke.Speed = NumberRange.new(size * 0.05, size * 0.15)
+	smoke.SpreadAngle = Vector2.new(180, 180)
+	smoke.Size = NumberSequence.new(size * 0.15, size * 0.3)
+	smoke.Parent = anchor
+	smoke:Emit(60)
+	Debris:AddItem(anchor, 3)
+end
+
+-- Puts a giant at `spot`, standing with its feet on the ground and facing the
+-- map, and keeps it there: it plays `emotes` (one on repeat, or one after
+-- another) while `active()` is true, throwing something every `dropEvery`
+-- seconds if there's a `drop`. Then it vanishes in a puff.
+-- The whole model is placed once with PivotTo and never moved again, so its
+-- body can't get left behind.
+local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
 	local root = giant.PrimaryPart :: BasePart
 	local height = Founders.RootHeight(giant)
-	local _, size = giant:GetBoundingBox()
 	local home = CFrame.lookAt(spot + Vector3.new(0, height, 0), Vector3.new(0, spot.Y + height, 0))
-	local away = if hover then home + Vector3.new(0, 600, 0) else home - Vector3.new(0, size.Y * 1.1, 0)
+	giant:PivotTo(home * root.CFrame:ToObjectSpace(giant:GetPivot()))
+	local _, size = giant:GetBoundingBox()
+	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
 
-	root.CFrame = away
-	local arrive = TweenService:Create(root, TweenInfo.new(4, if hover then Enum.EasingStyle.Quad else Enum.EasingStyle.Back, Enum.EasingDirection.Out), { CFrame = home })
-	arrive:Play()
-	arrive.Completed:Wait()
-
-	-- Emotes, one after another
+	-- Emotes: one on repeat, or one after another
 	task.spawn(function()
 		local track: AnimationTrack? = nil
-		local index = rng:NextInteger(1, #GIANT_EMOTES)
+		local index = rng:NextInteger(1, #emotes)
 		while giant.Parent and active() do
-			if track then
-				track:Stop(0.4)
+			if not track or #emotes > 1 then
+				if track then
+					track:Stop(0.4)
+				end
+				track = Founders.Play(giant, emotes[index], true)
+				index = index % #emotes + 1
 			end
-			track = Founders.Play(giant, GIANT_EMOTES[index], true)
-			index = index % #GIANT_EMOTES + 1
 			task.wait(rng:NextNumber(5, 8))
-		end
-		if track then
-			track:Stop(0.4)
 		end
 	end)
 
-	-- Bob and sway (so even the look-alike, which can't emote, moves), and throw.
-	local started = os.clock()
+	-- Safety net: if the body ever comes loose from the root, snap it back.
+	local placed = giant:GetPivot()
+	local torso = (giant:FindFirstChild("UpperTorso") or giant:FindFirstChild("Torso")) :: BasePart?
+	local torsoOffset = if torso then root.CFrame:ToObjectSpace(torso.CFrame) else nil
+	local nextCheck = os.clock() + 1
+
 	local nextDrop = os.clock() + 1.5
-	while giant.Parent and active() and not drop do
-		task.wait(0.5)
-	end
-	while giant.Parent and active() and drop do
-		local t = os.clock() - started
-		local bob = if hover then math.sin(t * 1.4) * size.Y * 0.03 else math.abs(math.sin(t * 2)) * size.Y * 0.01
-		local sway = math.sin(t * 0.7) * math.rad(10)
-		root.CFrame = (home + Vector3.new(0, bob, 0)) * CFrame.Angles(0, sway, math.sin(t * 1.1) * math.rad(3))
-		if os.clock() >= nextDrop then
+	while giant.Parent and active() do
+		if torso and torsoOffset and os.clock() >= nextCheck then
+			nextCheck = os.clock() + 1
+			if (torso.Position - (root.CFrame * torsoOffset).Position).Magnitude > size.Y * 0.25 then
+				giant:PivotTo(placed)
+			end
+		end
+		if drop and os.clock() >= nextDrop then
 			nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
 			drop(giantHand(giant))
 		end
-		task.wait()
+		task.wait(0.1)
 	end
-
-	local leave = TweenService:Create(root, TweenInfo.new(if hover then 4 else 3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = away })
-	leave.Completed:Connect(function()
-		giant:Destroy()
-	end)
-	leave:Play()
+	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
+	giant:Destroy()
 end
 
 -- Admin abuse giants: just standing there, emoting.
@@ -2301,7 +2333,7 @@ local function spawnAbuseGiants()
 		task.spawn(function()
 			local giant = Founders.CreateGiant(founderId, Config.FounderGiantScale, foundersFolder)
 			if giant then
-				runGiant(giant, spot, false, 0, adminAbuseLive)
+				runGiant(giant, spot, GIANT_EMOTES, 0, adminAbuseLive)
 			end
 		end)
 	end
@@ -2346,30 +2378,18 @@ local function runFounderEvent(eventId: string, minutes: number)
 	-- In their special event outfit, not their normal avatar.
 	local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
 	if giant then
-		local root = giant.PrimaryPart :: BasePart
-		-- Jetpack flames and a sparkle trail while hovering
-		for _, side in { -1, 1 } do
-			local flame = Instance.new("Attachment")
-			flame.Position = Vector3.new(side * root.Size.X * 0.45, -root.Size.Y * 0.2, root.Size.Z * 0.9)
-			flame.Parent = root
-			local fire = Instance.new("Fire")
-			fire.Size = event.Scale * 1.2
-			fire.Heat = -15
-			fire.Color = Color3.fromRGB(255, 140, 40)
-			fire.SecondaryColor = Color3.fromRGB(255, 230, 90)
-			fire.Parent = flame
-		end
-		local trail = Instance.new("ParticleEmitter")
-		trail.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-		trail.Color = ColorSequence.new(event.Colors[1], event.Colors[#event.Colors])
-		trail.LightEmission = 1
-		trail.Rate = 40
-		trail.Lifetime = NumberRange.new(1, 2)
-		trail.Speed = NumberRange.new(4, 10)
-		trail.SpreadAngle = Vector2.new(180, 180)
-		trail.Size = NumberSequence.new(event.Scale * 0.3, 0)
-		trail.Parent = root
-		runGiant(giant, event.Spot, true, event.DropEvery, founderEventActive, drop)
+		-- A soft sparkle aura in the event's colors
+		local aura = Instance.new("ParticleEmitter")
+		aura.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		aura.Color = ColorSequence.new(event.Colors[1], event.Colors[#event.Colors])
+		aura.LightEmission = 1
+		aura.Rate = 25
+		aura.Lifetime = NumberRange.new(1, 2)
+		aura.Speed = NumberRange.new(4, 10)
+		aura.SpreadAngle = Vector2.new(180, 180)
+		aura.Size = NumberSequence.new(event.Scale * 0.25, 0)
+		aura.Parent = giant.PrimaryPart
+		runGiant(giant, event.Spot, { Founders.MildDance }, event.DropEvery, founderEventActive, drop)
 	else
 		-- No giant (shouldn't happen): still drop things from the sky.
 		while founderEventActive() do
