@@ -205,48 +205,12 @@ local function confetti(count: number, seconds: number)
 end
 
 -- Rainbow sky (Corny's event) ------------------------------------------------
--- The sky slowly cycles through the rainbow and two giant rainbows arch over
--- the map. Everything is put back when the event ends.
+-- The whole sky glows and slowly shifts through bright neon rainbow colors
+-- (through the Atmosphere haze), and the clouds change color with it.
+-- Everything is put back when the event ends.
 
-type SkyState = { Arcs: { BasePart }, Tint: ColorCorrectionEffect, Saved: { [string]: any }? }
+type SkyState = { Tint: ColorCorrectionEffect, Saved: { [string]: any }?, Clouds: Clouds?, CloudsSaved: { [string]: any }?, MadeClouds: boolean }
 local rainbowSky: SkyState? = nil
-
-local function buildRainbowArcs(): { BasePart }
-	local parts: { BasePart } = {}
-	local folder = Instance.new("Folder")
-	folder.Name = "RainbowSky"
-	folder.Parent = workspace
-	local bands = 7
-	local thickness = 14
-	local segments = 40
-	for _, z in { 520, -520 } do
-		for band = 0, bands - 1 do
-			local radius = 430 - band * thickness
-			local color = Color3.fromHSV(band / bands * 0.8, 0.8, 1)
-			for k = 0, segments - 1 do
-				local a0 = k / segments * math.pi
-				local a1 = (k + 1) / segments * math.pi
-				local mid = (a0 + a1) / 2
-				local chord = 2 * radius * math.sin((a1 - a0) / 2)
-				local p = Instance.new("Part")
-				p.Name = "Rainbow"
-				p.Anchored = true
-				p.CanCollide = false
-				p.CanQuery = false
-				p.CanTouch = false
-				p.CastShadow = false
-				p.Material = Enum.Material.Neon
-				p.Color = color
-				p.Transparency = 1
-				p.Size = Vector3.new(chord * 1.04, thickness, 4)
-				p.CFrame = CFrame.new(math.cos(mid) * radius, math.sin(mid) * radius - 40, z) * CFrame.Angles(0, 0, mid + math.pi / 2)
-				p.Parent = folder
-				table.insert(parts, p)
-			end
-		end
-	end
-	return parts
-end
 
 local function startRainbowSky()
 	if rainbowSky then
@@ -255,29 +219,44 @@ local function startRainbowSky()
 	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 	local saved: { [string]: any }? = nil
 	if atmosphere then
-		saved = { Color = atmosphere.Color, Decay = atmosphere.Decay, Haze = atmosphere.Haze, Glare = atmosphere.Glare, Density = atmosphere.Density }
+		saved = { Color = atmosphere.Color, Decay = atmosphere.Decay, Haze = atmosphere.Haze, Glare = atmosphere.Glare, Density = atmosphere.Density, Offset = atmosphere.Offset }
+	end
+	local clouds = workspace.Terrain:FindFirstChildOfClass("Clouds")
+	local madeClouds = false
+	local cloudsSaved: { [string]: any }? = nil
+	if clouds then
+		cloudsSaved = { Color = clouds.Color, Cover = clouds.Cover, Density = clouds.Density }
+	else
+		local created = Instance.new("Clouds")
+		created.Cover = 0.55
+		created.Density = 0.6
+		created.Parent = workspace.Terrain
+		clouds = created
+		madeClouds = true
 	end
 	local tint = Instance.new("ColorCorrectionEffect")
 	tint.Name = "RainbowSkyTint"
 	tint.Parent = Lighting
-	local arcs = buildRainbowArcs()
-	for _, p in arcs do
-		tween(p, 2, { Transparency = 0.2 })
-	end
-	local state: SkyState = { Arcs = arcs, Tint = tint, Saved = saved }
+	local state: SkyState = { Tint = tint, Saved = saved, Clouds = clouds, CloudsSaved = cloudsSaved, MadeClouds = madeClouds }
 	rainbowSky = state
 	task.spawn(function()
 		local started = os.clock()
 		while rainbowSky == state do
-			local hue = ((os.clock() - started) * 0.06) % 1
+			local hue = ((os.clock() - started) * 0.07) % 1
 			if atmosphere then
-				atmosphere.Density = 0.22
-				atmosphere.Haze = 2.6
-				atmosphere.Glare = 1.2
-				atmosphere.Color = Color3.fromHSV(hue, 0.55, 1)
-				atmosphere.Decay = Color3.fromHSV((hue + 0.35) % 1, 0.7, 0.95)
+				-- High haze fills the sky with the atmosphere's color; a low-ish
+				-- density keeps the map itself clear.
+				atmosphere.Density = 0.32
+				atmosphere.Offset = 0.6
+				atmosphere.Haze = 9
+				atmosphere.Glare = 2
+				atmosphere.Color = Color3.fromHSV(hue, 0.75, 1)
+				atmosphere.Decay = Color3.fromHSV((hue + 0.12) % 1, 0.85, 0.9)
 			end
-			tint.TintColor = Color3.fromHSV(hue, 0.08, 1)
+			if clouds then
+				clouds.Color = Color3.fromHSV((hue + 0.5) % 1, 0.45, 1)
+			end
+			tint.TintColor = Color3.fromHSV(hue, 0.06, 1)
 			task.wait(0.05)
 		end
 	end)
@@ -293,15 +272,19 @@ local function stopRainbowSky()
 	if atmosphere and state.Saved then
 		tween(atmosphere, 2, state.Saved)
 	end
-	tween(state.Tint, 2, { TintColor = Color3.new(1, 1, 1) })
-	for _, p in state.Arcs do
-		tween(p, 2, { Transparency = 1 })
+	local clouds = state.Clouds
+	if clouds then
+		if state.MadeClouds then
+			tween(clouds, 2, { Cover = 0 })
+		elseif state.CloudsSaved then
+			tween(clouds, 2, state.CloudsSaved)
+		end
 	end
+	tween(state.Tint, 2, { TintColor = Color3.new(1, 1, 1) })
 	task.delay(2.2, function()
 		state.Tint:Destroy()
-		local folder = workspace:FindFirstChild("RainbowSky")
-		if folder then
-			folder:Destroy()
+		if state.MadeClouds and clouds then
+			clouds:Destroy()
 		end
 	end)
 end
