@@ -25,6 +25,17 @@ export type Brainrot = {
 	Income: number, -- cash per second while sitting in your base
 	Color: Color3,
 	Accent: Color3,
+	IncomeGrowth: number?, -- income multiplies by this for every rebirth the owner has
+	Limited: boolean?, -- sold for Robux in limited numbers: can't be stolen or sold, kept on rebirth
+}
+
+-- Limited Robux brainrots. Stock is shared by every server (saved in a
+-- DataStore), one per player, and each copy gets a serial number.
+export type LimitedItem = {
+	ProductId: number, -- developer product (0 = not on sale yet)
+	PriceRobux: number, -- shown in the shop; the real price is set on the product
+	Stock: number, -- copies for sale
+	Reserved: number, -- extra copies only admins can give (serials after Stock)
 }
 
 export type GamePass = {
@@ -53,9 +64,9 @@ Config.Rarities = {
 	Legendary = { Id = "Legendary", DisplayName = "Legendary", Color = Color3.fromRGB(255, 195, 40), Order = 4, Scale = 1.5, SpawnWeight = 4, Announce = true },
 	Mythic = { Id = "Mythic", DisplayName = "Mythic", Color = Color3.fromRGB(255, 45, 60), Order = 5, Scale = 1.75, SpawnWeight = 0.9, Announce = true },
 	Secret = { Id = "Secret", DisplayName = "Secret", Color = Color3.fromRGB(20, 20, 20), Order = 6, Scale = 2, SpawnWeight = 0.1, Announce = true },
-	-- Event Special: never on the conveyor normally. Admins give/drop them,
-	-- and they can show up on the conveyor while admin abuse is live.
-	EventSpecial = { Id = "EventSpecial", DisplayName = "Event Special", Color = Color3.fromRGB(255, 70, 190), Order = 7, Scale = 1.5, SpawnWeight = 0.5, Announce = true, EventOnly = true },
+	-- Event Special: never on the conveyor. Set SpawnWeight above 0 to let
+	-- non-limited Event Specials roll on the conveyor during admin abuse.
+	EventSpecial = { Id = "EventSpecial", DisplayName = "Event Special", Color = Color3.fromRGB(255, 70, 190), Order = 7, Scale = 1.5, SpawnWeight = 0, Announce = true, EventOnly = true },
 } :: { [RarityId]: Rarity }
 
 -- Original characters. Add new ones here every update to keep players coming back.
@@ -80,7 +91,9 @@ Config.Brainrots = {
 	{ Id = "DragoniSpaghettoni", DisplayName = "Dragoni Spaghettoni", Rarity = "Mythic", Price = 1500000, Income = 6000, Color = Color3.fromRGB(200, 30, 30), Accent = Color3.fromRGB(255, 210, 120) },
 	{ Id = "MeatballoSupremo", DisplayName = "Meatballo Supremo", Rarity = "Mythic", Price = 4000000, Income = 15000, Color = Color3.fromRGB(120, 60, 40), Accent = Color3.fromRGB(255, 255, 255) },
 	-- Event Special
-	{ Id = "CignaGlamourina", DisplayName = "Cigna Glamourina", Rarity = "EventSpecial", Price = 20000000, Income = 100000, Color = Color3.fromRGB(240, 110, 200), Accent = Color3.fromRGB(255, 30, 170) },
+	-- Launch event: 500 for sale at 50 Robux + 2 reserved. Earns $2.5K/s and
+	-- doubles with every rebirth, so she stays useful without breaking the economy.
+	{ Id = "CignaGlamourina", DisplayName = "Cigna Glamourina", Rarity = "EventSpecial", Price = 0, Income = 2500, IncomeGrowth = 2, Limited = true, Color = Color3.fromRGB(240, 110, 200), Accent = Color3.fromRGB(255, 30, 170) },
 	-- Secret
 	{ Id = "IlCosmicoCannolo", DisplayName = "Il Cosmico Cannolo", Rarity = "Secret", Price = 50000000, Income = 250000, Color = Color3.fromRGB(30, 10, 60), Accent = Color3.fromRGB(255, 120, 255) },
 } :: { Brainrot }
@@ -282,6 +295,10 @@ function Config.AdminAbuseStatus(now: number): (string?, number)
 	return nil, 0
 end
 
+Config.LimitedItems = {
+	CignaGlamourina = { ProductId = 0, PriceRobux = 50, Stock = 500, Reserved = 2 },
+} :: { [string]: LimitedItem }
+
 -- Admin drops: what the "Brainrot Rain" and "Cash Rain" buttons drop.
 Config.BrainrotRainCount = 10
 Config.BrainrotRainLuck = 5 -- rain is luckier than the conveyor
@@ -355,24 +372,32 @@ function Config.PriceOf(brainrot: Brainrot, mutationId: string?): number
 	return brainrot.Price * mutationMultiplier(mutationId)
 end
 
-function Config.IncomeOf(brainrot: Brainrot, mutationId: string?): number
-	return brainrot.Income * mutationMultiplier(mutationId)
+-- `rebirths` only matters for brainrots with IncomeGrowth.
+function Config.IncomeOf(brainrot: Brainrot, mutationId: string?, rebirths: number?): number
+	local growth = if brainrot.IncomeGrowth then brainrot.IncomeGrowth ^ (rebirths or 0) else 1
+	return brainrot.Income * mutationMultiplier(mutationId) * growth
 end
 
 function Config.SellValue(brainrot: Brainrot, mutationId: string?): number
 	return math.floor(Config.PriceOf(brainrot, mutationId) * Config.SellRatio)
 end
 
--- Saved brainrots are stored as "Id" or "Id:Mutation".
-function Config.Encode(id: string, mutationId: string?): string
+-- Saved brainrots are stored as "Id", "Id:Mutation" or "Id:Mutation:Serial"
+-- (limited ones carry a serial number, e.g. "CignaGlamourina::17").
+function Config.Encode(id: string, mutationId: string?, serial: number?): string
+	if serial then
+		return id .. ":" .. (mutationId or "") .. ":" .. serial
+	end
 	return if mutationId then id .. ":" .. mutationId else id
 end
 
-function Config.Decode(entry: string): (Brainrot?, string?)
-	local id, mutationId = string.match(entry, "^([^:]+):?(.*)$")
+function Config.Decode(entry: string): (Brainrot?, string?, number?)
+	local id, rest = string.match(entry, "^([^:]+):?(.*)$")
+	local mutationId, serialText = string.match(rest or "", "^([^:]*):?(.*)$")
 	local brainrot = id and byId[id]
 	local mutation = Config.GetMutation(mutationId)
-	return brainrot, if mutation then mutation.Id else nil
+	local serial = tonumber(serialText)
+	return brainrot, if mutation then mutation.Id else nil, if serial then math.floor(serial) else nil
 end
 
 -- Rolls a mutation (or nil) for a conveyor spawn.

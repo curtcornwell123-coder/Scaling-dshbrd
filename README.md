@@ -29,9 +29,17 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 | 🟨 Legendary | 4% | 5.7% | $75K – $200K | $500–1.2K/s |
 | 🟥 Mythic | 0.9% | 1.3% | $1.5M – $4M | $6K–15K/s |
 | ⬛ Secret | 0.1% | 0.14% | $50M | $250K/s |
-| 💖 Event Special | only during admin abuse | | $20M | $100K/s |
+| 💖 Event Special | not on the conveyor | | Robux | see below |
 
-**Event Special** brainrots never show up on the conveyor normally. Admins can give or drop them, and during admin abuse they can roll on the conveyor and in Brainrot Rain.
+### Launch event: Cigna Glamourina (limited)
+
+- **502 copies total.** 500 are sold in the shop for **50 Robux** (one per player), and 2 are reserved for admins. Admins hand them out with **Give** in the admin panel.
+- Every copy has a **serial number** (#1–#500 sold, #501–#502 reserved), shown on her name tag.
+- Stock is shared by **every server** through a DataStore. When someone clicks Buy, a copy is reserved for 5 minutes before the Robux prompt opens, so the game can never sell more than 500. Cancelling releases it.
+- She **can't be stolen or sold** and **stays through rebirths**. If your base is full when you buy her, she appears as soon as a slot opens.
+- **Income: $2.5K/s, doubling with every rebirth** ($5K at rebirth 1, $10K at 2, … $640K at 8), on top of the rebirth multiplier. In economy simulations she makes about a third of a typical owner's income: progression is roughly 2x faster early on and about 1.4x later, without letting buyers skip the game.
+
+To put her on sale: create a Developer Product named "Cigna Glamourina" priced at **50 Robux**, and paste its ID into `Config.LimitedItems.CignaGlamourina.ProductId`.
 
 ### Mutations
 

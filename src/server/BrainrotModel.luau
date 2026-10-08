@@ -675,8 +675,18 @@ end
 
 -- Public -------------------------------------------------------------------
 
+-- Updates the "$X/s" line, e.g. when the owner's rebirths change it.
+function BrainrotModel.SetIncomeText(model: Model, income: number)
+	local root = model.PrimaryPart
+	local tag = root and root:FindFirstChild("Tag")
+	local incomeLabel = tag and tag:FindFirstChild("Income")
+	if incomeLabel and incomeLabel:IsA("TextLabel") then
+		incomeLabel.Text = Config.FormatCash(income) .. "/s"
+	end
+end
+
 -- Creates the model at `cframe` (feet on the ground). `priceTag` shows the buy price.
-function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cframe: CFrame, priceTag: boolean): Model
+function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cframe: CFrame, priceTag: boolean, serial: number?): Model
 	local rarity = Config.Rarities[brainrot.Rarity]
 	local mutation = Config.GetMutation(mutationId)
 	local s = rarity.Scale
@@ -685,6 +695,8 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 	model.Name = brainrot.Id
 	model:SetAttribute("BrainrotId", brainrot.Id)
 	model:SetAttribute("Mutation", if mutation then mutation.Id else nil)
+	-- Limited (Robux) brainrots can't be stolen or sold.
+	model:SetAttribute("Protected", brainrot.Limited == true)
 
 	local root = Instance.new("Part")
 	root.Name = "Root"
@@ -732,7 +744,7 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 	-- Name tag
 	local tag = Instance.new("BillboardGui")
 	tag.Name = "Tag"
-	local rows = (if priceTag then 92 else 72) + (if mutation then 22 else 0)
+	local rows = (if priceTag then 92 else 72) + (if mutation then 22 else 0) + (if serial then 22 else 0)
 	tag.Size = UDim2.fromOffset(200, rows)
 	tag.StudsOffsetWorldSpace = V(0, topY + 1.5, 0)
 	tag.MaxDistance = 80
@@ -753,6 +765,10 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 	label(tag, "Income", Config.FormatCash(Config.IncomeOf(brainrot, mutationId)) .. "/s", Color3.fromRGB(120, 255, 120), 20, 3)
 	if priceTag then
 		label(tag, "Price", Config.FormatCash(Config.PriceOf(brainrot, mutationId)), Color3.fromRGB(255, 220, 80), 22, 4)
+	end
+	local limited = Config.LimitedItems[brainrot.Id]
+	if serial and limited then
+		label(tag, "Serial", string.format("#%d of %d", serial, limited.Stock + limited.Reserved), Color3.fromRGB(255, 215, 90), 22, 5)
 	end
 
 	return model

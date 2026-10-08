@@ -14,6 +14,7 @@ local TweenService = game:GetService("TweenService")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local WorldBuilder = require(script.Parent:WaitForChild("WorldBuilder"))
 local BrainrotModel = require(script.Parent:WaitForChild("BrainrotModel"))
+local LimitedStock = require(script.Parent:WaitForChild("LimitedStock"))
 
 -- Remotes ------------------------------------------------------------------
 
@@ -33,6 +34,7 @@ local Notify: RemoteEvent = makeRemote("RemoteEvent", "Notify")
 local Announce: RemoteEvent = makeRemote("RemoteEvent", "Announce")
 local RequestRebirth: RemoteEvent = makeRemote("RemoteEvent", "RequestRebirth")
 local AdminAction: RemoteEvent = makeRemote("RemoteEvent", "AdminAction")
+local BuyLimited: RemoteFunction = makeRemote("RemoteFunction", "BuyLimited")
 
 remotes.Parent = ReplicatedStorage
 ReplicatedStorage:SetAttribute("LuckEndsAt", 0)
@@ -48,11 +50,13 @@ type SaveData = {
 	Stories: number,
 	LockLevel: number,
 	Receipts: { string }, -- recent purchase ids, so a purchase is never granted twice
+	Unclaimed: { string }, -- paid brainrots waiting for a free slot
 }
 
 type Slot = {
 	Id: string,
 	Mutation: string?,
+	Serial: number?, -- limited brainrots only
 	Model: Model,
 	StolenBy: Player?,
 }
@@ -76,6 +80,7 @@ type Session = {
 	LastHint: number,
 	LastCollect: number,
 	IsAdmin: boolean,
+	LastLimitedTry: number,
 }
 
 type Carry = {
@@ -167,7 +172,7 @@ local function plotIncome(plot: Plot, session: Session): number
 		if not slot.StolenBy then
 			local brainrot = Config.GetBrainrot(slot.Id)
 			if brainrot then
-				total += Config.IncomeOf(brainrot, slot.Mutation)
+				total += Config.IncomeOf(brainrot, slot.Mutation, session.Data.Rebirths)
 			end
 		end
 	end
@@ -234,6 +239,7 @@ local function defaultData(): SaveData
 		Stories = 1,
 		LockLevel = 1,
 		Receipts = {},
+		Unclaimed = {},
 	}
 end
 
@@ -263,10 +269,17 @@ local function sanitize(raw: any): SaveData
 	if type(raw.Brainrots) == "table" then
 		for _, entry in raw.Brainrots do
 			if type(entry) == "string" then
-				local brainrot, mutation = Config.Decode(entry)
+				local brainrot, mutation, serial = Config.Decode(entry)
 				if brainrot then
-					table.insert(data.Brainrots, Config.Encode(brainrot.Id, mutation))
+					table.insert(data.Brainrots, Config.Encode(brainrot.Id, mutation, serial))
 				end
+			end
+		end
+	end
+	if type(raw.Unclaimed) == "table" then
+		for _, entry in raw.Unclaimed do
+			if type(entry) == "string" and Config.Decode(entry) then
+				table.insert(data.Unclaimed, entry)
 			end
 		end
 	end
@@ -290,10 +303,30 @@ local function syncBrainrots(session: Session)
 	for i = 1, #plot.Parts.Pedestals do
 		local slot = plot.Slots[i]
 		if slot then
-			table.insert(list, Config.Encode(slot.Id, slot.Mutation))
+			table.insert(list, Config.Encode(slot.Id, slot.Mutation, slot.Serial))
 		end
 	end
 	session.Data.Brainrots = list
+end
+
+-- itemId -> serial for every limited brainrot this player owns.
+local function limitedOwned(session: Session): { [string]: number }
+	local owned = {}
+	local plot = session.Plot
+	if plot then
+		for _, slot in plot.Slots do
+			if slot.Serial then
+				owned[slot.Id] = slot.Serial
+			end
+		end
+	end
+	for _, entry in session.Data.Unclaimed do
+		local brainrot, _, serial = Config.Decode(entry)
+		if brainrot and serial then
+			owned[brainrot.Id] = serial
+		end
+	end
+	return owned
 end
 
 local function snapshot(session: Session)
@@ -315,6 +348,7 @@ local function snapshot(session: Session)
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
 		IsAdmin = session.IsAdmin,
+		Limited = limitedOwned(session),
 	}
 end
 
@@ -367,6 +401,7 @@ end
 
 local onSell: (Player, Model) -> ()
 local onSteal: (Player, Model) -> ()
+local deliverUnclaimed: (Player, Session) -> ()
 
 local function addBasePrompts(model: Model, brainrot: Config.Brainrot, mutation: string?)
 	local root = model.PrimaryPart :: BasePart
@@ -408,14 +443,14 @@ local function pedestalCFrame(plot: Plot, index: number): CFrame
 end
 
 -- Puts a brainrot in a base slot, reusing `model` if given (bought or stolen).
-local function placeBrainrot(plot: Plot, index: number, id: string, mutation: string?, model: Model?, animate: boolean)
+local function placeBrainrot(plot: Plot, index: number, id: string, mutation: string?, model: Model?, animate: boolean, serial: number?)
 	local brainrot = Config.GetBrainrot(id)
 	if not brainrot then
 		return
 	end
 	local target = pedestalCFrame(plot, index)
 
-	local m = model or BrainrotModel.Create(brainrot, mutation, target * CFrame.new(0, -0.5, 0), false)
+	local m = model or BrainrotModel.Create(brainrot, mutation, target * CFrame.new(0, -0.5, 0), false, serial)
 	local root = m.PrimaryPart :: BasePart
 
 	local buy = root:FindFirstChild("BuyPrompt")
@@ -445,7 +480,13 @@ local function placeBrainrot(plot: Plot, index: number, id: string, mutation: st
 		root.CFrame = target
 	end
 
-	plot.Slots[index] = { Id = id, Mutation = mutation, Model = m }
+	plot.Slots[index] = { Id = id, Mutation = mutation, Serial = serial, Model = m }
+
+	-- Income that grows with rebirths shows the owner's current amount.
+	local session = owner and sessions[owner]
+	if session and brainrot.IncomeGrowth then
+		BrainrotModel.SetIncomeText(m, Config.IncomeOf(brainrot, mutation, session.Data.Rebirths))
+	end
 end
 
 local function updateVipPedestals(plot: Plot)
@@ -593,6 +634,10 @@ onSteal = function(thief: Player, model: Model)
 	if not slot or slot.Model ~= model or slot.StolenBy then
 		return
 	end
+	if model:GetAttribute("Protected") then
+		notify(thief, "Limited brainrots can't be stolen!")
+		return
+	end
 	if os.clock() < plot.LockedUntil then
 		notify(thief, "This base is locked!")
 		return
@@ -646,7 +691,7 @@ onSell = function(player: Player, model: Model)
 		return
 	end
 	local brainrot = Config.GetBrainrot(slot.Id)
-	if not brainrot then
+	if not brainrot or brainrot.Limited then
 		return
 	end
 	plot.Slots[index] = nil
@@ -654,6 +699,7 @@ onSell = function(player: Player, model: Model)
 	local value = Config.SellValue(brainrot, slot.Mutation)
 	session.Data.Cash += value
 	notify(player, "Sold " .. fullName(brainrot, slot.Mutation) .. " for " .. Config.FormatCash(value))
+	deliverUnclaimed(player, session)
 	push(player)
 end
 
@@ -674,7 +720,72 @@ end)
 
 -- Plots --------------------------------------------------------------------
 
-local function clearPlotBrainrots(plot: Plot)
+-- Limited (Robux) brainrots ------------------------------------------------
+
+local function ownsLimited(session: Session, itemId: string): boolean
+	local plot = session.Plot
+	if plot then
+		for _, slot in plot.Slots do
+			if slot.Id == itemId then
+				return true
+			end
+		end
+	end
+	for _, entry in session.Data.Unclaimed do
+		local brainrot = Config.Decode(entry)
+		if brainrot and brainrot.Id == itemId then
+			return true
+		end
+	end
+	return false
+end
+
+-- Puts a paid brainrot in the base. If every pedestal is taken it waits in
+-- Unclaimed and appears as soon as a slot frees up.
+local function grantLimited(player: Player, session: Session, brainrot: Config.Brainrot, serial: number)
+	local plot = session.Plot
+	local index = plot and freeSlot(plot, session)
+	if plot and not index then
+		for i = 1, #plot.Parts.Pedestals do
+			if not plot.Slots[i] and (i <= GROUND_SLOTS or isSlotUnlocked(session, i)) then
+				index = i
+				break
+			end
+		end
+	end
+	if plot and index then
+		placeBrainrot(plot, index, brainrot.Id, nil, nil, true, serial)
+		notify(player, string.format("%s #%d is in your base!", brainrot.DisplayName, serial))
+	else
+		table.insert(session.Data.Unclaimed, Config.Encode(brainrot.Id, nil, serial))
+		notify(player, brainrot.DisplayName .. " will appear as soon as you have a free slot!")
+	end
+	push(player)
+end
+
+deliverUnclaimed = function(player: Player, session: Session)
+	local plot = session.Plot
+	if not plot then
+		return
+	end
+	local list = session.Data.Unclaimed
+	for i = #list, 1, -1 do
+		local brainrot, mutation, serial = Config.Decode(list[i])
+		local index = freeSlot(plot, session)
+		if not index then
+			break
+		end
+		table.remove(list, i)
+		if brainrot then
+			placeBrainrot(plot, index, brainrot.Id, mutation, nil, true, serial)
+			notify(player, brainrot.DisplayName .. " arrived in your base!")
+		end
+	end
+end
+
+-- Removes brainrots from a base. `keepLimited` keeps Robux brainrots (used
+-- for rebirths and admin clears; they were paid for).
+local function clearPlotBrainrots(plot: Plot, keepLimited: boolean?)
 	for thief, carry in carries do
 		if carry.Plot == plot then
 			carries[thief] = nil
@@ -682,10 +793,13 @@ local function clearPlotBrainrots(plot: Plot)
 			notify(thief, "The brainrot vanished!")
 		end
 	end
-	for _, slot in plot.Slots do
-		slot.Model:Destroy()
+	for index, slot in plot.Slots do
+		local brainrot = Config.GetBrainrot(slot.Id)
+		if not (keepLimited and brainrot and brainrot.Limited) then
+			slot.Model:Destroy()
+			plot.Slots[index] = nil
+		end
 	end
-	plot.Slots = {}
 end
 
 local function updateUpgradeLabel(plot: Plot)
@@ -727,7 +841,7 @@ local function assignPlot(player: Player, session: Session)
 			WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
 			setLaser(plot, false)
 			for _, entry in session.Data.Brainrots do
-				local brainrot, mutation = Config.Decode(entry)
+				local brainrot, mutation, serial = Config.Decode(entry)
 				-- Fill unlocked slots first; if there are more brainrots than
 				-- unlocked slots (e.g. VIP ended), keep them on any free pedestal.
 				local index = freeSlot(plot, session)
@@ -740,10 +854,11 @@ local function assignPlot(player: Player, session: Session)
 					end
 				end
 				if brainrot and index then
-					placeBrainrot(plot, index, brainrot.Id, mutation, nil, false)
+					placeBrainrot(plot, index, brainrot.Id, mutation, nil, false, serial)
 				end
 			end
 			updateUpgradeLabel(plot)
+			deliverUnclaimed(player, session)
 			return
 		end
 	end
@@ -776,6 +891,12 @@ local function applyBaseLevels(plot: Plot, session: Session)
 	setLaser(plot, os.clock() < plot.LockedUntil)
 	updateVipPedestals(plot)
 	updateUpgradeLabel(plot)
+	for _, slot in plot.Slots do
+		local brainrot = Config.GetBrainrot(slot.Id)
+		if brainrot and brainrot.IncomeGrowth then
+			BrainrotModel.SetIncomeText(slot.Model, Config.IncomeOf(brainrot, slot.Mutation, session.Data.Rebirths))
+		end
+	end
 end
 
 local function onUpgrade(player: Player, plot: Plot, kind: string)
@@ -1123,6 +1244,7 @@ local function load(player: Player)
 		LastHint = 0,
 		LastCollect = 0,
 		IsAdmin = false,
+		LastLimitedTry = 0,
 	}
 	sessions[player] = session
 
@@ -1259,7 +1381,7 @@ RequestRebirth.OnServerEvent:Connect(function(player)
 	session.Data.Rebirths += 1
 	session.Data.Cash = Config.StartingCash
 	if session.Plot then
-		clearPlotBrainrots(session.Plot)
+		clearPlotBrainrots(session.Plot, true)
 		session.Plot.Pending = 0
 		applyBaseLevels(session.Plot, session)
 	end
@@ -1465,6 +1587,13 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 	end
 
 	-- Server-wide actions
+	if action == "Spawn" or action == "DropBrainrot" then
+		local brainrot = Config.Decode(tostring(value))
+		if brainrot and brainrot.Limited then
+			notify(admin, brainrot.DisplayName .. " is limited: use Give to hand out a reserved copy.")
+			return
+		end
+	end
 	if action == "Spawn" then
 		local brainrot, mutation = Config.Decode(tostring(value))
 		if brainrot then
@@ -1546,7 +1675,19 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 			elseif action == "Brainrot" then
 				local brainrot, mutation = Config.Decode(tostring(value))
 				local index = plot and freeSlot(plot, session)
-				if brainrot and plot and index then
+				if brainrot and brainrot.Limited then
+					if ownsLimited(session, brainrot.Id) then
+						notify(admin, player.DisplayName .. " already owns " .. brainrot.DisplayName .. ".")
+					else
+						local serial, why = LimitedStock.GiveReserved(player, brainrot.Id)
+						if serial then
+							grantLimited(player, session, brainrot, serial)
+							notify(admin, string.format("Gave %s #%d to %s", brainrot.DisplayName, serial, player.DisplayName))
+						else
+							notify(admin, why or "Couldn't give it.")
+						end
+					end
+				elseif brainrot and plot and index then
 					placeBrainrot(plot, index, brainrot.Id, mutation, nil, false)
 					notify(admin, "Gave " .. fullName(brainrot, mutation) .. " to " .. player.DisplayName)
 				else
@@ -1573,7 +1714,7 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				notify(admin, player.DisplayName .. " is now Rebirth " .. data.Rebirths)
 			elseif action == "ClearBase" then
 				if plot then
-					clearPlotBrainrots(plot)
+					clearPlotBrainrots(plot, true)
 				end
 				notify(admin, "Cleared " .. player.DisplayName .. "'s base.")
 			else
@@ -1624,11 +1765,54 @@ local function grantProduct(player: Player, session: Session, key: string)
 	push(player)
 end
 
+local limitedByProduct: { [number]: string } = {}
+for itemId, item in Config.LimitedItems do
+	if item.ProductId ~= 0 then
+		limitedByProduct[item.ProductId] = itemId
+	end
+end
+
+-- Shop button for a limited brainrot: reserve a copy, then show the prompt.
+BuyLimited.OnServerInvoke = function(player: Player, itemId: unknown): (boolean, string?)
+	local session = sessions[player]
+	local item = if type(itemId) == "string" then Config.LimitedItems[itemId] else nil
+	local brainrot = if type(itemId) == "string" then Config.GetBrainrot(itemId) else nil
+	if not session or not session.Loaded or not item or not brainrot then
+		return false, "Try again in a moment."
+	end
+	if item.ProductId == 0 then
+		return false, "Not on sale yet!"
+	end
+	if ownsLimited(session, brainrot.Id) then
+		return false, "You already own " .. brainrot.DisplayName .. "!"
+	end
+	local now = os.clock()
+	if now - session.LastLimitedTry < 3 then
+		return false, "Hold on..."
+	end
+	session.LastLimitedTry = now
+	local ok, message = LimitedStock.Reserve(player, brainrot.Id)
+	if not ok then
+		return false, message
+	end
+	MarketplaceService:PromptProductPurchase(player, item.ProductId)
+	return true, nil
+end
+
+MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, isPurchased)
+	local itemId = limitedByProduct[productId]
+	local player = Players:GetPlayerByUserId(userId)
+	if itemId and player and not isPurchased then
+		LimitedStock.Release(player, itemId)
+	end
+end)
+
 MarketplaceService.ProcessReceipt = function(info)
 	local player = Players:GetPlayerByUserId(info.PlayerId)
 	local session = player and sessions[player]
 	local product = productsById[info.ProductId]
-	if not player or not session or not session.Loaded or not product then
+	local limitedId = limitedByProduct[info.ProductId]
+	if not player or not session or not session.Loaded or not (product or limitedId) then
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	local receipts = session.Data.Receipts
@@ -1636,7 +1820,19 @@ MarketplaceService.ProcessReceipt = function(info)
 		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
 
-	grantProduct(player, session, product.Key)
+	if limitedId then
+		local brainrot = Config.GetBrainrot(limitedId) :: Config.Brainrot
+		local serial = LimitedStock.Claim(player, limitedId)
+		if not serial then
+			return Enum.ProductPurchaseDecision.NotProcessedYet
+		end
+		if not ownsLimited(session, limitedId) then
+			grantLimited(player, session, brainrot, serial)
+			Announce:FireAllClients("limited", player.DisplayName, limitedId, tostring(serial))
+		end
+	elseif product then
+		grantProduct(player, session, product.Key)
+	end
 	table.insert(receipts, info.PurchaseId)
 	while #receipts > 50 do
 		table.remove(receipts, 1)

@@ -15,6 +15,7 @@ local Notify = Remotes:WaitForChild("Notify") :: RemoteEvent
 local Announce = Remotes:WaitForChild("Announce") :: RemoteEvent
 local RequestRebirth = Remotes:WaitForChild("RequestRebirth") :: RemoteEvent
 local AdminAction = Remotes:WaitForChild("AdminAction") :: RemoteEvent
+local BuyLimited = Remotes:WaitForChild("BuyLimited") :: RemoteFunction
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -271,6 +272,8 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 		showBanner("CASH RAIN! " .. (extra or "") .. " drops are falling!", Color3.fromRGB(120, 255, 120))
 	elseif kind == "abuse" then
 		showBanner("ADMIN ABUSE HAS STARTED!", RED)
+	elseif kind == "limited" and brainrot then
+		showBanner(who .. " got " .. brainrot.DisplayName .. " #" .. (extra or "?") .. "!", Config.Rarities[brainrot.Rarity].Color)
 	elseif kind == "luck" then
 		showBanner(who .. " bought SERVER LUCK for everyone!", Color3.fromRGB(120, 255, 160))
 	elseif kind == "rebirth" then
@@ -385,6 +388,98 @@ local function sectionHeader(order: number, label: string)
 		LayoutOrder = order,
 	})
 end
+
+-- Limited event brainrots: live stock, one per player.
+local limitedButtons: { [string]: TextButton } = {}
+local limitedStock: { [string]: TextLabel } = {}
+local limitedIds = {}
+for itemId in Config.LimitedItems do
+	table.insert(limitedIds, itemId)
+end
+table.sort(limitedIds)
+if #limitedIds > 0 then
+	sectionHeader(-100, "LIMITED EVENT")
+end
+for i, itemId in limitedIds do
+	local item = Config.LimitedItems[itemId]
+	local brainrot = Config.GetBrainrot(itemId)
+	if brainrot then
+		local rarity = Config.Rarities[brainrot.Rarity]
+		local row = Instance.new("Frame")
+		row.Size = UDim2.new(1, -10, 0, 104)
+		row.BackgroundColor3 = Color3.fromRGB(70, 30, 65)
+		row.LayoutOrder = -100 + i
+		corner(row, 10)
+		stroke(row, 2, rarity.Color)
+		row.Parent = shopList
+
+		text(row, {
+			Position = UDim2.fromOffset(12, 6),
+			Size = UDim2.new(1, -150, 0, 30),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = rarity.Color,
+			Text = brainrot.DisplayName,
+		})
+		limitedStock[itemId] = text(row, {
+			Position = UDim2.fromOffset(12, 38),
+			Size = UDim2.new(1, -150, 0, 22),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = GOLD,
+			Text = string.format("LIMITED: %d of %d left", item.Stock, item.Stock),
+		})
+		text(row, {
+			Position = UDim2.fromOffset(12, 62),
+			Size = UDim2.new(1, -150, 0, 36),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = Color3.fromRGB(220, 200, 220),
+			TextStrokeTransparency = 1,
+			TextWrapped = true,
+			Text = string.format("%s/s, doubles every rebirth. Can't be stolen. Kept on rebirth. 1 per player.", Config.FormatCash(brainrot.Income)),
+		})
+
+		local buy = button(row, if item.ProductId == 0 then "SOON" else "R$ " .. item.PriceRobux, GREEN, UDim2.fromOffset(120, 56))
+		buy.Position = UDim2.new(1, -130, 0, 24)
+		limitedButtons[itemId] = buy
+		buy.MouseButton1Click:Connect(function()
+			if item.ProductId == 0 or (data and data.Limited and data.Limited[itemId]) then
+				return
+			end
+			buy.Text = "..."
+			local ok, message = BuyLimited:InvokeServer(itemId)
+			buy.Text = "R$ " .. item.PriceRobux
+			if not ok and message then
+				toast(message)
+			end
+		end)
+	end
+end
+
+local function renderLimited()
+	for itemId, label in limitedStock do
+		local item = Config.LimitedItems[itemId]
+		local published = ReplicatedStorage:GetAttribute("LimitedLeft_" .. itemId) :: number?
+		local left: number = if published then published else item.Stock
+		label.Text = string.format("LIMITED: %d of %d left", left, item.Stock)
+		local b = limitedButtons[itemId]
+		local serial = data and data.Limited and data.Limited[itemId]
+		if serial then
+			b.Text = "OWNED #" .. serial
+			b.BackgroundColor3 = Color3.fromRGB(90, 90, 100)
+		elseif item.ProductId == 0 then
+			b.Text = "SOON"
+			b.BackgroundColor3 = Color3.fromRGB(90, 90, 100)
+		elseif left <= 0 then
+			b.Text = "SOLD OUT"
+			b.BackgroundColor3 = Color3.fromRGB(90, 90, 100)
+		else
+			b.BackgroundColor3 = GREEN
+		end
+	end
+end
+for itemId in Config.LimitedItems do
+	ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. itemId):Connect(renderLimited)
+end
+renderLimited()
 
 sectionHeader(0, "GAMEPASSES (forever)")
 for i, pass in Config.GamePasses do
@@ -619,6 +714,10 @@ for i, brainrot in Config.Brainrots do
 		{ Label = "Spawn", Color = ORANGE, Action = "Spawn" },
 		{ Label = "Drop", Color = PURPLE, Action = "DropBrainrot" },
 	}
+	if brainrot.Limited then
+		-- Limited brainrots can only be handed out from the reserved copies.
+		buttons = { { Label = "Give #", Color = GREEN, Action = "Brainrot" } }
+	end
 	for j, info in buttons do
 		local b = smallButton(row, info.Label, info.Color, 80, function()
 			send(info.Action, brainrotValue(brainrot.Id))
@@ -647,6 +746,7 @@ local function render()
 	incomeLabel.Text = string.format("+%s/s   x%.1f income", Config.FormatCash(data.Income), data.Multiplier)
 	slotsLabel.Text = string.format("Base %d/%d   Steals %d", data.Placed, data.MaxSlots, data.Steals)
 
+	renderLimited()
 	for key, b in passButtons do
 		if data.Owns[key] then
 			b.Text = "OWNED"
@@ -710,7 +810,8 @@ local function updatePrompt(prompt: ProximityPrompt)
 		return
 	end
 	local owner = model:GetAttribute("OwnerUserId")
-	local carried = model:GetAttribute("Carried") == true
+	-- Limited (Robux) brainrots can't be stolen or sold.
+	local carried = model:GetAttribute("Carried") == true or model:GetAttribute("Protected") == true
 	local plot = model.Parent
 	local locked = plot ~= nil and plot:GetAttribute("Locked") == true
 	if action == "Sell" then
