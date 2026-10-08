@@ -998,6 +998,11 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 			elseif mutation.Id == "Electric" then
 				d.Color = d.Color:Lerp(Color3.fromRGB(255, 225, 70), 0.45)
 				d.Reflectance = 0.2
+			elseif mutation.Id == "Smiley" then
+				-- Sunny smiley-face yellow over its own colors.
+				d.Color = d.Color:Lerp(Color3.fromRGB(255, 215, 50), 0.5)
+				d.Material = Enum.Material.SmoothPlastic
+				d.Reflectance = 0.1
 			elseif mutation.Id == "Radioactive" then
 				d.Color = d.Color:Lerp(Color3.fromRGB(110, 255, 80), 0.55)
 				-- A few glowing spots, not the whole body (keeps it easy on the eyes).
@@ -1150,6 +1155,48 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 			weld.Part1 = orb
 			weld.Parent = orb
 			orb.Parent = model
+		end
+	end
+	if mutation.Id == "Smiley" then
+		-- Little yellow smiley faces floating around it, and more drifting up.
+		local face = "rbxasset://textures/face.png"
+		local floaters = Instance.new("ParticleEmitter")
+		floaters.Name = "SmileyFaces"
+		floaters.Texture = face
+		floaters.Rate = 3
+		floaters.Lifetime = NumberRange.new(1.5, 2.5)
+		floaters.Speed = NumberRange.new(1, 2)
+		floaters.SpreadAngle = Vector2.new(40, 40)
+		floaters.EmissionDirection = Enum.NormalId.Top
+		floaters.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.2, 0.7 * scale), NumberSequenceKeypoint.new(1, 0) })
+		floaters.Parent = root
+		local _, size = model:GetBoundingBox()
+		for k = 1, 4 do
+			local angle = k * math.pi / 2 + math.pi / 4
+			local ball = Instance.new("Part")
+			ball.Name = "SmileyBall"
+			ball.Shape = Enum.PartType.Ball
+			ball.Size = V(0.9, 0.9, 0.9) * scale
+			ball.Color = Color3.fromRGB(255, 215, 50)
+			ball.Material = Enum.Material.SmoothPlastic
+			ball.Anchored = false
+			ball.CanCollide = false
+			ball.CanQuery = false
+			ball.CanTouch = false
+			ball.Massless = true
+			-- Each one faces outward so its smile shows.
+			local position = Vector3.new(math.cos(angle) * 2 * scale, size.Y * 0.6 + (k % 2) * 0.5 * scale, math.sin(angle) * 2 * scale)
+			ball.CFrame = root.CFrame * CFrame.lookAt(position, position * 2 - Vector3.new(0, position.Y, 0))
+			ball:SetAttribute("Keep", true)
+			local decal = Instance.new("Decal")
+			decal.Texture = face
+			decal.Face = Enum.NormalId.Front
+			decal.Parent = ball
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = root
+			weld.Part1 = ball
+			weld.Parent = ball
+			ball.Parent = model
 		end
 	end
 	if mutation.Id == "Sparkle" then

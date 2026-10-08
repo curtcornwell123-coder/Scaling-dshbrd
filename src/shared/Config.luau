@@ -125,6 +125,7 @@ Config.Mutations = {
 	{ Id = "Frozen", DisplayName = "Frozen", Chance = 2, Multiplier = 3, Color = Color3.fromRGB(170, 225, 255) },
 	{ Id = "Sparkle", DisplayName = "Sparkle", Chance = 1.5, Multiplier = 4, Color = Color3.fromRGB(255, 250, 170) },
 	{ Id = "Electric", DisplayName = "Electric", Chance = 1.2, Multiplier = 4.5, Color = Color3.fromRGB(255, 230, 70) },
+	{ Id = "Smiley", DisplayName = "Smiley", Chance = 1, Multiplier = 5, Color = Color3.fromRGB(255, 220, 60) },
 	{ Id = "Radioactive", DisplayName = "Radioactive", Chance = 0.9, Multiplier = 5.5, Color = Color3.fromRGB(120, 255, 90) },
 	{ Id = "Lava", DisplayName = "Lava", Chance = 0.8, Multiplier = 5, Color = Color3.fromRGB(255, 100, 20) },
 	{ Id = "Galaxy", DisplayName = "Galaxy", Chance = 0.6, Multiplier = 7, Color = Color3.fromRGB(150, 100, 255) },
@@ -147,7 +148,7 @@ Config.SellRatio = 0.5 -- selling returns this share of the buy price
 -- Conveyor -----------------------------------------------------------------
 
 Config.ConveyorSpawnInterval = 3 -- seconds between new brainrots
-Config.ConveyorTravelTime = 45 -- seconds to ride from one end to the other
+Config.ConveyorTravelTime = 75 -- seconds to ride from one end to the other
 Config.ServerLuckMultiplier = 2 -- doubles the spawn weight of Rare and better (Mythic 0.9% -> ~1.3%)
 Config.ServerLuckDuration = 15 * 60
 

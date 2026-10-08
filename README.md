@@ -4,7 +4,7 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
 
 ## How it plays
 
-1. **Buy.** Brainrots walk out of a tunnel in the mountains and ride a conveyor down the middle of the map, disappearing into a tunnel at the far end. Hold **E** next to one to buy it, and it walks to your base.
+1. **Buy.** Brainrots walk out of a cave in a grassy mound and ride a conveyor down the middle of the map, disappearing into a cave at the far end. Hold **E** next to one to buy it, and it walks to your base.
 2. **Earn.** Each brainrot on a pedestal makes cash every second. The cash piles up on the green **COLLECT** pad, so step on it to bank it.
 3. **Steal.** Walk into someone else's base and hold **E** on a brainrot. It goes over your head, you move slower, and you have to run it back to your own base.
 4. **Defend.** Everyone has a **Slap** tool. Slap a thief and the brainrot runs back home.
@@ -64,6 +64,7 @@ Any brainrot on the conveyor can roll a mutation. A mutation multiplies both its
 | ❄️ Frozen | 2% | x3 | Ice, falling snowflakes |
 | ⭐ Sparkle | 1.5% | x4 | Its own colors, brighter, twinkling stars |
 | ⚡ Electric | 1.2% | x4.5 | Yellow charge, crackling sparks |
+| 😊 Smiley | 1% | x5 | Sunny yellow, little smiley faces floating around it |
 | ☢️ Radioactive | 0.9% | x5.5 | Toxic green, glowing spots, green fumes |
 | 🔥 Lava | 0.8% | x5 | Cracked lava rock, on fire |
 | 🌌 Galaxy | 0.6% | x7 | Deep-space glass, drifting stars |
@@ -142,7 +143,7 @@ Fair progression for free-to-play players. None of this can be bought with Robux
 - **Daily quests:** 3 a day, the same for everyone, and new ones at midnight Oklahoma time. Each pays **10 Shards**.
 - **Weekly quests:** 3 a week, new every Monday, and much harder. Each pays **1 Diamond + 100 Shards**. Weekly quests are the only way to earn Diamonds.
 - **Wall skins:** open the **QUESTS** button to see them. Most cost Shards (Red Brick 50, Candy 100, Ice 150, Jungle 200, Cyber Neon 300). The best two cost Diamonds (Royal Gold 4, Galaxy 9). Skins only change the look; your base level still sets the wall height. Every floor of your base matches your skin. With Classic, floors are the same grey in your walls' material (wood, brick, concrete, steel or diamond).
-- **Shop tent:** a blue-and-cream striped circus-style tent (like Bee Swarm's) next to the cave the brainrots come out of, with a little spinning diamond on top.
+- **Shop tent:** a blue-and-cream striped circus-style tent (like Bee Swarm's) past the bases near the cave the brainrots come out of, with a little spinning diamond on top.
   - The left counter spends Diamonds: Shard Pouch (1), 2x Cash for 30 min (2), Server Luck for everyone for 15 min (3), plus the Diamond wall skins.
   - The right counter opens the **Robux shop**: the limited event brainrot, gamepasses and boosts.
 
@@ -154,9 +155,9 @@ Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around a
 
 ## The map
 
-- A ring of tall Terrain mountains circles the whole map. Each one has grassy skirts, banded rock cliffs, a ragged snowline with snow patches, and smaller side peaks for a jagged skyline. Fir trees climb the slopes, leafy trees dot the foothills, and a light haze fades the distance. An invisible wall just inside the mountains keeps everyone in.
-- The whole map is Terrain grass, with two small lakes (sandy edges) in the open grass behind the bases. Gentle color grading, bloom and sun rays make it all a bit richer.
-- The conveyor's caves are rough tunnels carved into rocky hills joined to the mountains, with glowing crystals and stalactites.
+- No mountains: the map is wide-open, flat bright grass with lots of room between the bases. A wooden fence runs around the edge, with an invisible wall behind it so nobody can leave. Round leafy trees, firs and two cartoon ponds fill the open grass, and a light haze fades the distance.
+- Stone paths: a walkway along each side of the conveyor, with a branch to every base's door, the shop tent and the event statue. Gentle color grading, bloom and sun rays make it all a bit richer.
+- The conveyor's caves are dark cartoon holes in low grassy mounds, framed by boulders, with glowing crystals and stalactites inside.
 - All floating text (name tags, signs) is sized in the world, so it shrinks with distance like a real sign instead of covering the screen.
 
 ## Base looks
