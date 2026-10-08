@@ -375,6 +375,11 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 			humanoid:SetStateEnabled(state, false)
 		end
 		humanoid.EvaluateStateMachine = false
+		-- Roblox's automatic avatar scaling would quietly resize the head and
+		-- accessories back toward normal size after the giant is scaled up
+		-- (tiny head floating over a huge body). The giant's size is set
+		-- once, by ScaleTo below, so switch it off first.
+		humanoid.AutomaticScalingEnabled = false
 	end
 	giant.Parent = parent
 	giant:ScaleTo(scale)

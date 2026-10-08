@@ -19,7 +19,7 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
      | 4 | 4 | Steel Wall | $40M |
      | 5 | 5 | Diamond Wall | $1.5B |
 
-   - **Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). After rebirthing you can go further: 150s ($25M, 1 rebirth), 180s ($250M, 2 rebirths), 210s ($2B, 4 rebirths), 240s ($40B, 6 rebirths). Lock upgrades are kept when you rebirth. The Longer Lock gamepass doubles it. The **Infinite Laser Door** (100 R$ gamepass, or 250 Diamonds) keeps your lasers on forever: your base locks itself as soon as you join and the lock pad shows LOCKED FOREVER.
+   - **Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). After rebirthing you can go further: 150s ($25M, 1 rebirth), 180s ($250M, 2 rebirths), 210s ($2B, 4 rebirths), 240s ($40B, 6 rebirths). Lock upgrades are kept when you rebirth. The Longer Lock gamepass doubles it. The **Infinite Laser Door** (100 R$ gamepass, or 250 Diamonds) keeps your lasers on forever: your base locks itself as soon as you join and the lock pad shows LOCKED FOREVER. Admins can also switch it on or off for anyone (or themselves) with the **Infinite Door ON / OFF** buttons in the admin panel.
    - **Stair carpets** come from rebirths: plain wood at first, then a new carpet every 5 rebirths: Red (5), Royal (10), Golden (15), Diamond (20) and Rainbow (25).
 6. **Lock.** Step on the red **LOCK** pad. Red laser beams cross your entrance and zap anyone else who walks through. After the lock ends it recharges for 30s, and that's when you're vulnerable.
 7. **Sell** your own brainrots for half price (hold **F**).

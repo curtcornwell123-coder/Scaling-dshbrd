@@ -2958,6 +2958,20 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 					applyBaseLevels(plot, session)
 				end
 				notify(admin, string.format("%s: base level %d, lock level %d", player.DisplayName, data.WallLevel, data.LockLevel))
+			elseif action == "InfiniteLock" then
+				-- Gives (or takes away) the Infinite Laser Door, the same as the
+				-- one sold for Diamonds. The gamepass can't be taken away here.
+				local on = value == true
+				data.InfiniteLock = on
+				if plot then
+					if not on and not session.Owns.InfiniteLock and plot.LockedUntil == math.huge then
+						plot.LockedUntil = 0
+						plot.CooldownUntil = 0
+						setLaser(plot, false)
+					end
+					applyBaseLevels(plot, session)
+				end
+				notify(admin, string.format("%s: Infinite Laser Door %s", player.DisplayName, if on then "ON" else "OFF"))
 			elseif action == "GiveMagic" then
 				-- Turns the player's event brainrot (the one Magic is made for) Magic.
 				local given = false

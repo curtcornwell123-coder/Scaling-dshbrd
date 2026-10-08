@@ -1215,6 +1215,14 @@ local function levelButtons(row: Frame, label: string, count: number, action: st
 end
 levelButtons(adminRow(4, 40), "Base", #Config.WallLevels, "Base", ORANGE)
 levelButtons(adminRow(5, 40), "Lock", #Config.LockLevels, "LockLevel", RED)
+local doorRow = adminRow(5, 40)
+text(doorRow, { Size = UDim2.fromOffset(150, 30), Text = "Infinite Door" })
+smallButton(doorRow, "ON", Color3.fromRGB(255, 80, 80), 90, function()
+	send("InfiniteLock", true)
+end)
+smallButton(doorRow, "OFF", GREY, 90, function()
+	send("InfiniteLock", false)
+end)
 
 local miscRow = adminRow(6, 40)
 smallButton(miscRow, "Clear Base", RED, 130, function()
