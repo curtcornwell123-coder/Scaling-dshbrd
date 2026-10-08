@@ -207,7 +207,12 @@ end
 -- the founder events.
 local function founderOf(player: Player): Config.Founder?
 	for _, founder in Config.Founders do
-		if (founder.UserId > 0 and founder.UserId == player.UserId) or (founder.Username ~= "" and string.lower(founder.Username) == string.lower(player.Name)) then
+		-- With a UserId set, only that exact account counts (usernames can
+		-- change hands); the username is just a fallback until it's filled in.
+		local matches = if founder.UserId > 0
+			then founder.UserId == player.UserId
+			else founder.Username ~= "" and string.lower(founder.Username) == string.lower(player.Name)
+		if matches then
 			return founder
 		end
 	end

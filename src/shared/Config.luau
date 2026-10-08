@@ -461,7 +461,7 @@ Config.GameMusicVolume = 0.35
 -- the giants wear their real avatars.
 export type Founder = { Id: string, Name: string, UserId: number, Username: string }
 Config.Founders = {
-	{ Id = "Corny", Name = "Corny", UserId = 0, Username = "Cornywell10" },
+	{ Id = "Corny", Name = "Corny", UserId = 469657246, Username = "Cornywell10" },
 	{ Id = "Ace", Name = "Ace", UserId = 0, Username = "Meishappy2341" },
 } :: { Founder }
 -- During admin abuse they tower just outside the fence (like the devs in

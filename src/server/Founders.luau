@@ -206,8 +206,9 @@ end
 -- The founder's character right now, if they're in this server.
 local function liveDescription(founder: Config.Founder): HumanoidDescription?
 	for _, player in Players:GetPlayers() do
-		local matches = (founder.UserId > 0 and player.UserId == founder.UserId)
-			or (founder.Username ~= "" and string.lower(player.Name) == string.lower(founder.Username))
+		local matches = if founder.UserId > 0
+			then player.UserId == founder.UserId
+			else founder.Username ~= "" and string.lower(player.Name) == string.lower(founder.Username)
 		local humanoid = matches and player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			local ok, desc = pcall(function()
