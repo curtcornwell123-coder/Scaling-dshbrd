@@ -592,26 +592,54 @@ end
 -- A ring of Terrain mountains around the whole map: grassy foothills, rocky
 -- slopes and snowy peaks. Built once when the server starts.
 
-local function materialFor(t: number, y: number, rng: Random): Enum.Material
-	if t > 0.78 then
+-- Material by height, like real mountains: grass at the bottom, banded
+-- rock up the slopes, and a slightly ragged snowline near the top.
+local function materialFor(y: number, rng: Random): Enum.Material
+	local snowline = 95 + rng:NextNumber(-10, 10)
+	if y > snowline then
 		return Enum.Material.Snow
-	elseif t > 0.62 then
-		return if rng:NextNumber() < 0.5 then Enum.Material.Snow else Enum.Material.Rock
-	elseif t > 0.28 or y > 30 then
-		return if rng:NextNumber() < 0.65 then Enum.Material.Rock else Enum.Material.Slate
+	elseif y > snowline - 14 then
+		return if rng:NextNumber() < 0.4 then Enum.Material.Snow else Enum.Material.Rock
+	elseif y > 22 then
+		-- Alternating rock bands read as layered cliffs.
+		return if (y // 14) % 3 == 0 then Enum.Material.Slate else Enum.Material.Rock
+	elseif y > 8 then
+		return if rng:NextNumber() < 0.5 then Enum.Material.Ground else Enum.Material.Grass
 	end
-	return if rng:NextNumber() < 0.7 then Enum.Material.Grass else Enum.Material.Ground
+	return Enum.Material.Grass
 end
 
--- One mountain: stacked, shrinking, slightly wobbly balls of terrain.
-local function mountain(terrain: Terrain, rng: Random, x: number, z: number, radius: number, height: number)
-	local steps = math.max(5, math.floor(height / 18))
+-- One stack of shrinking, slightly wobbly terrain balls.
+local function stack(terrain: Terrain, rng: Random, x: number, z: number, radius: number, height: number)
+	local steps = math.max(5, math.floor(height / 16))
 	for i = 0, steps do
 		local t = i / steps
-		local r = radius * (1 - t) ^ 0.85 + 5
-		local wobble = radius * 0.15 * (1 - t)
+		local r = radius * (1 - t) ^ 0.85 + 4
+		local wobble = radius * 0.18 * (1 - t)
 		local center = Vector3.new(x + rng:NextNumber(-wobble, wobble), height * t * 0.92, z + rng:NextNumber(-wobble, wobble))
-		terrain:FillBall(center, r, materialFor(t, center.Y, rng))
+		terrain:FillBall(center, r, materialFor(center.Y, rng))
+	end
+end
+
+-- One mountain: a grassy skirt, a main peak, a couple of lower side peaks
+-- for a jagged silhouette, and snow patches on the tall ones.
+local function mountain(terrain: Terrain, rng: Random, x: number, z: number, radius: number, height: number)
+	terrain:FillBall(Vector3.new(x, -radius * 0.55, z), radius * 1.15, Enum.Material.Grass)
+	stack(terrain, rng, x, z, radius, height)
+	if height > 70 then
+		for _ = 1, 2 do
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local offset = radius * rng:NextNumber(0.45, 0.65)
+			stack(terrain, rng, x + math.cos(angle) * offset, z + math.sin(angle) * offset, radius * 0.6, height * rng:NextNumber(0.5, 0.72))
+		end
+	end
+	if height > 115 then
+		for _ = 1, 3 do
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local y = height * rng:NextNumber(0.62, 0.8)
+			local reach = radius * (1 - y / height) * 0.9
+			terrain:FillBall(Vector3.new(x + math.cos(angle) * reach, y, z + math.sin(angle) * reach), rng:NextNumber(6, 10), Enum.Material.Snow)
+		end
 	end
 end
 
@@ -644,6 +672,38 @@ local function buildMountains(rng: Random)
 	end
 end
 
+-- Terrain grass for the whole map (instead of a flat plate), plus colors.
+local LAKES = { Vector3.new(0, 0, 150), Vector3.new(0, 0, -150) }
+
+local function buildGround()
+	local terrain = workspace.Terrain
+	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(92, 165, 72))
+	terrain:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(118, 96, 70))
+	terrain:SetMaterialColor(Enum.Material.Rock, Color3.fromRGB(128, 121, 114))
+	terrain:SetMaterialColor(Enum.Material.Slate, Color3.fromRGB(92, 90, 92))
+	terrain:SetMaterialColor(Enum.Material.Snow, Color3.fromRGB(240, 245, 252))
+	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(222, 206, 152))
+	terrain.WaterColor = Color3.fromRGB(55, 140, 170)
+	terrain.WaterTransparency = 0.55
+	terrain.WaterReflectance = 0.4
+	terrain.WaterWaveSize = 0.1
+	pcall(function()
+		(terrain :: any).Decoration = true -- swaying grass blades, where supported
+	end)
+	-- Top of the grass sits exactly at y = 0, where everything is built.
+	terrain:FillBlock(CFrame.new(0, -4, 0), Vector3.new(720, 8, 720), Enum.Material.Grass)
+end
+
+-- Small lakes with sandy edges in the open grass behind the bases.
+local function buildLakes()
+	local terrain = workspace.Terrain
+	for _, lake in LAKES do
+		terrain:FillCylinder(CFrame.new(lake + Vector3.new(0, -1, 0)), 2, 25, Enum.Material.Sand)
+		terrain:FillCylinder(CFrame.new(lake + Vector3.new(0, -2.5, 0)), 5, 21, Enum.Material.Air)
+		terrain:FillCylinder(CFrame.new(lake + Vector3.new(0, -3, 0)), 4.5, 21, Enum.Material.Water)
+	end
+end
+
 -- A rocky hill at one end of the conveyor, joined to the mountain ring,
 -- with a rough tunnel carved through it for the conveyor.
 local function carveTunnel(rng: Random, mouthX: number, facing: number)
@@ -658,8 +718,106 @@ local function carveTunnel(rng: Random, mouthX: number, facing: number)
 	local tunnel = CFrame.new(mouthX + inward * (length / 2 - 4), 7, 0) * CFrame.Angles(0, 0, math.pi / 2)
 	terrain:FillCylinder(tunnel, length, 10, Enum.Material.Air)
 	terrain:FillBall(Vector3.new(mouthX - inward * 2, 7, 0), 12, Enum.Material.Air)
+	-- Flat stone floor (the carve dips below ground level).
+	terrain:FillBlock(CFrame.new(mouthX + inward * (length / 2 - 8), -4, 0), Vector3.new(length + 8, 8, 24), Enum.Material.Slate)
 	-- Keep the area in front of the mouth clear of foothills.
 	terrain:FillBlock(CFrame.new(mouthX - inward * 12, 12, 0), Vector3.new(20, 24, 30), Enum.Material.Air)
+end
+
+-- Trees ------------------------------------------------------------------------
+
+local function treeAt(parent: Instance, rng: Random, position: Vector3, pine: boolean)
+	local tree = Instance.new("Model")
+	tree.Name = if pine then "PineTree" else "Tree"
+	tree.Parent = parent
+	local scale = rng:NextNumber(0.85, 1.3)
+	local trunkHeight = (if pine then 4 else 6) * scale
+	local trunk = block(tree, "Trunk", Vector3.new(trunkHeight, 1.1 * scale, 1.1 * scale), CFrame.new(position + Vector3.new(0, trunkHeight / 2 - 0.3, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(105, 75, 50), Enum.Material.Wood)
+	trunk.Shape = Enum.PartType.Cylinder
+	local top = position + Vector3.new(0, trunkHeight, 0)
+	if pine then
+		-- Fir: stacked, shrinking tiers of dark needles.
+		local tiers = { { 7.5, 3.6, 0.6 }, { 6, 3.2, 2.9 }, { 4.4, 2.8, 5 }, { 2.6, 2.4, 6.8 } }
+		for i, tier in tiers do
+			local needles = block(tree, "Needles", Vector3.new(tier[1], tier[2], tier[1]) * scale, CFrame.new(top + Vector3.new(0, tier[3] * scale, 0)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), Color3.fromRGB(38, 92 + i * 6, 52), Enum.Material.Grass)
+			local mesh = Instance.new("SpecialMesh")
+			mesh.MeshType = Enum.MeshType.Sphere
+			mesh.Parent = needles
+			needles.CanCollide = false
+		end
+	else
+		-- Round leafy canopy made of a few overlapping blobs.
+		for i = 1, 3 do
+			local size = rng:NextNumber(5.5, 7.5) * scale
+			local offset = Vector3.new(rng:NextNumber(-1.6, 1.6), 1.2 + i * 0.8, rng:NextNumber(-1.6, 1.6)) * scale
+			local leaves = block(tree, "Leaves", Vector3.new(size, size, size), CFrame.new(top + offset), Color3.fromRGB(70 + i * 8, 145 + i * 10, 60), Enum.Material.Grass)
+			leaves.Shape = Enum.PartType.Ball
+			leaves.CanCollide = false
+		end
+	end
+end
+
+-- Round trees along the foothills and firs up the mountain slopes, dropped
+-- onto the terrain with raycasts (skipping water, snow and the play area).
+local function buildTrees(parent: Instance, rng: Random)
+	local folder = Instance.new("Folder")
+	folder.Name = "Trees"
+	folder.Parent = parent
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	local function clearOfPlayArea(x: number, z: number): boolean
+		if math.abs(x) < 165 and math.abs(z) < 125 then
+			return false -- bases, conveyor, shop
+		end
+		if math.abs(z) < 50 and math.abs(x) > 120 then
+			return false -- the conveyor tunnels
+		end
+		for _, lake in LAKES do
+			if (Vector3.new(x, 0, z) - lake).Magnitude < 32 then
+				return false
+			end
+		end
+		return true
+	end
+	local function place(minRadius: number, maxRadius: number, attempts: number, pine: boolean, maxHeight: number)
+		for _ = 1, attempts do
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local distance = rng:NextNumber(minRadius, maxRadius)
+			local x, z = math.cos(angle) * distance, math.sin(angle) * distance
+			if clearOfPlayArea(x, z) then
+				local hit = workspace:Raycast(Vector3.new(x, 400, z), Vector3.new(0, -500, 0), params)
+				if hit and hit.Material ~= Enum.Material.Water and hit.Material ~= Enum.Material.Snow and hit.Position.Y < maxHeight then
+					treeAt(folder, rng, hit.Position, pine)
+				end
+			end
+		end
+	end
+	place(150, 200, 45, false, 20) -- leafy trees in the open grass and foothills
+	place(195, 300, 140, true, 85) -- firs up the slopes, below the snow
+end
+
+-- Gentle color grading so everything looks a bit richer.
+local function buildLighting()
+	if not Lighting:FindFirstChild("BrainrotGrade") then
+		local grade = Instance.new("ColorCorrectionEffect")
+		grade.Name = "BrainrotGrade"
+		grade.Saturation = 0.12
+		grade.Contrast = 0.06
+		grade.Brightness = 0.02
+		grade.Parent = Lighting
+		local bloom = Instance.new("BloomEffect")
+		bloom.Name = "BrainrotBloom"
+		bloom.Intensity = 0.35
+		bloom.Size = 20
+		bloom.Threshold = 1.6
+		bloom.Parent = Lighting
+		local rays = Instance.new("SunRaysEffect")
+		rays.Name = "BrainrotSunRays"
+		rays.Intensity = 0.04
+		rays.Spread = 0.6
+		rays.Parent = Lighting
+	end
 end
 
 -- Invisible wall just inside the mountains so nobody can climb out.
@@ -809,7 +967,8 @@ function WorldBuilder.Build(): World
 	-- A Baseplate sitting too high would bury the map; put its top at y = 0.
 	local baseplate = workspace:FindFirstChild("Baseplate")
 	if baseplate and baseplate:IsA("BasePart") then
-		baseplate.CFrame = CFrame.new(0, -baseplate.Size.Y / 2, 0)
+		-- Tucked under the terrain grass (which tops out at y = 0).
+		baseplate.CFrame = CFrame.new(0, -12 - baseplate.Size.Y / 2, 0)
 	end
 
 	Lighting.ClockTime = 14
@@ -827,7 +986,8 @@ function WorldBuilder.Build(): World
 
 	-- Ground under everything, in case the Baseplate was removed. Its top sits
 	-- slightly above the Baseplate's so the two surfaces don't flicker.
-	block(root, "Ground", Vector3.new(700, 2, 700), CFrame.new(0, -0.9, 0), Color3.fromRGB(90, 160, 80), Enum.Material.Grass)
+	buildGround()
+	buildLighting()
 
 	-- Conveyor
 	local columnsPerSide = Config.PlotCount // 2
@@ -847,8 +1007,10 @@ function WorldBuilder.Build(): World
 	local exitMouthX = length / 2 - 14
 	local terrainRng = Random.new(2026)
 	buildMountains(terrainRng)
+	buildLakes()
 	carveTunnel(terrainRng, mouthX, 1)
 	carveTunnel(terrainRng, exitMouthX, -1)
+	buildTrees(root, terrainRng)
 	buildBarrier(root)
 	buildCave(root, "BrainrotCave", Vector3.new(mouthX, 0, 0), 1, 7)
 	buildCave(root, "ExitCave", Vector3.new(exitMouthX, 0, 0), -1, 11)

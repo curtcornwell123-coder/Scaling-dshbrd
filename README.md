@@ -146,7 +146,8 @@ Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around a
 
 ## The map
 
-- A ring of tall Terrain mountains circles the whole map: grassy foothills, rocky slopes and snowy peaks, softened by a light haze. An invisible wall just inside them keeps everyone in.
+- A ring of tall Terrain mountains circles the whole map. Each one has grassy skirts, banded rock cliffs, a ragged snowline with snow patches, and smaller side peaks for a jagged skyline. Fir trees climb the slopes, leafy trees dot the foothills, and a light haze fades the distance. An invisible wall just inside the mountains keeps everyone in.
+- The whole map is Terrain grass, with two small lakes (sandy edges) in the open grass behind the bases. Gentle color grading, bloom and sun rays make it all a bit richer.
 - The conveyor's caves are rough tunnels carved into rocky hills joined to the mountains, with glowing crystals and stalactites.
 - All floating text (name tags, signs) is sized in the world, so it shrinks with distance like a real sign instead of covering the screen.
 
