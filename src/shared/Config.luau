@@ -4,15 +4,17 @@
 
 local Config = {}
 
-export type RarityId = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret"
+export type RarityId = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret" | "EventSpecial"
 
 export type Rarity = {
 	Id: RarityId,
+	DisplayName: string,
 	Color: Color3,
 	Order: number,
 	Scale: number, -- model size multiplier
 	SpawnWeight: number, -- relative chance to appear on the conveyor
 	Announce: boolean, -- tell the whole server when one spawns
+	EventOnly: boolean?, -- only on the conveyor during admin abuse
 }
 
 export type Brainrot = {
@@ -41,16 +43,19 @@ export type Product = {
 
 Config.GameName = "Brainrot Heist"
 
-local rarityOrder: { RarityId } = { "Common", "Rare", "Epic", "Legendary", "Mythic", "Secret" }
+local rarityOrder: { RarityId } = { "Common", "Rare", "Epic", "Legendary", "Mythic", "Secret", "EventSpecial" }
 Config.RarityOrder = rarityOrder
 
 Config.Rarities = {
-	Common = { Id = "Common", Color = Color3.fromRGB(70, 200, 90), Order = 1, Scale = 1, SpawnWeight = 60, Announce = false },
-	Rare = { Id = "Rare", Color = Color3.fromRGB(60, 140, 255), Order = 2, Scale = 1.15, SpawnWeight = 25, Announce = false },
-	Epic = { Id = "Epic", Color = Color3.fromRGB(170, 80, 255), Order = 3, Scale = 1.3, SpawnWeight = 10, Announce = false },
-	Legendary = { Id = "Legendary", Color = Color3.fromRGB(255, 195, 40), Order = 4, Scale = 1.5, SpawnWeight = 4, Announce = true },
-	Mythic = { Id = "Mythic", Color = Color3.fromRGB(255, 45, 60), Order = 5, Scale = 1.75, SpawnWeight = 0.9, Announce = true },
-	Secret = { Id = "Secret", Color = Color3.fromRGB(20, 20, 20), Order = 6, Scale = 2, SpawnWeight = 0.1, Announce = true },
+	Common = { Id = "Common", DisplayName = "Common", Color = Color3.fromRGB(70, 200, 90), Order = 1, Scale = 1, SpawnWeight = 60, Announce = false },
+	Rare = { Id = "Rare", DisplayName = "Rare", Color = Color3.fromRGB(60, 140, 255), Order = 2, Scale = 1.15, SpawnWeight = 25, Announce = false },
+	Epic = { Id = "Epic", DisplayName = "Epic", Color = Color3.fromRGB(170, 80, 255), Order = 3, Scale = 1.3, SpawnWeight = 10, Announce = false },
+	Legendary = { Id = "Legendary", DisplayName = "Legendary", Color = Color3.fromRGB(255, 195, 40), Order = 4, Scale = 1.5, SpawnWeight = 4, Announce = true },
+	Mythic = { Id = "Mythic", DisplayName = "Mythic", Color = Color3.fromRGB(255, 45, 60), Order = 5, Scale = 1.75, SpawnWeight = 0.9, Announce = true },
+	Secret = { Id = "Secret", DisplayName = "Secret", Color = Color3.fromRGB(20, 20, 20), Order = 6, Scale = 2, SpawnWeight = 0.1, Announce = true },
+	-- Event Special: never on the conveyor normally. Admins give/drop them,
+	-- and they can show up on the conveyor while admin abuse is live.
+	EventSpecial = { Id = "EventSpecial", DisplayName = "Event Special", Color = Color3.fromRGB(255, 70, 190), Order = 7, Scale = 1.5, SpawnWeight = 0.5, Announce = true, EventOnly = true },
 } :: { [RarityId]: Rarity }
 
 -- Original characters. Add new ones here every update to keep players coming back.
@@ -74,6 +79,8 @@ Config.Brainrots = {
 	-- Mythic
 	{ Id = "DragoniSpaghettoni", DisplayName = "Dragoni Spaghettoni", Rarity = "Mythic", Price = 1500000, Income = 6000, Color = Color3.fromRGB(200, 30, 30), Accent = Color3.fromRGB(255, 210, 120) },
 	{ Id = "MeatballoSupremo", DisplayName = "Meatballo Supremo", Rarity = "Mythic", Price = 4000000, Income = 15000, Color = Color3.fromRGB(120, 60, 40), Accent = Color3.fromRGB(255, 255, 255) },
+	-- Event Special
+	{ Id = "CignaGlamourina", DisplayName = "Cigna Glamourina", Rarity = "EventSpecial", Price = 20000000, Income = 100000, Color = Color3.fromRGB(240, 110, 200), Accent = Color3.fromRGB(255, 30, 170) },
 	-- Secret
 	{ Id = "IlCosmicoCannolo", DisplayName = "Il Cosmico Cannolo", Rarity = "Secret", Price = 50000000, Income = 250000, Color = Color3.fromRGB(30, 10, 60), Accent = Color3.fromRGB(255, 120, 255) },
 } :: { Brainrot }
@@ -149,6 +156,33 @@ Config.Stories = {
 	{ Name = "3rd Floor", Cost = 2000000 },
 } :: { Story }
 Config.UpperFloorSlots = 10
+
+-- Stair carpets -------------------------------------------------------------
+-- Stairs start as plain wood. Every 5 rebirths they get a fancier carpet.
+
+export type CarpetTier = {
+	Name: string,
+	Color: Color3,
+	Material: Enum.Material,
+	Trim: Color3?, -- edge strips along both sides
+	Glow: Color3?, -- neon light on the lip of every step
+	Sparkle: boolean?,
+	Rainbow: boolean?,
+}
+
+Config.CarpetRebirthStep = 5
+Config.CarpetTiers = {
+	{ Name = "Red Carpet", Color = Color3.fromRGB(170, 20, 35), Material = Enum.Material.Fabric },
+	{ Name = "Royal Carpet", Color = Color3.fromRGB(95, 30, 150), Material = Enum.Material.Fabric, Trim = Color3.fromRGB(255, 200, 60) },
+	{ Name = "Golden Carpet", Color = Color3.fromRGB(235, 185, 50), Material = Enum.Material.Fabric, Trim = Color3.fromRGB(255, 255, 255), Glow = Color3.fromRGB(255, 220, 120) },
+	{ Name = "Diamond Carpet", Color = Color3.fromRGB(150, 225, 255), Material = Enum.Material.Glass, Trim = Color3.fromRGB(220, 250, 255), Glow = Color3.fromRGB(90, 220, 255), Sparkle = true },
+	{ Name = "Rainbow Carpet", Color = Color3.fromRGB(255, 255, 255), Material = Enum.Material.Fabric, Trim = Color3.fromRGB(255, 200, 60), Glow = Color3.fromRGB(255, 120, 255), Sparkle = true, Rainbow = true },
+} :: { CarpetTier }
+
+-- 0 = plain wood stairs, 1 = first carpet at 5 rebirths, and so on.
+function Config.CarpetTierFor(rebirths: number): number
+	return math.min(#Config.CarpetTiers, rebirths // Config.CarpetRebirthStep)
+end
 
 -- Lock upgrades --------------------------------------------------------------
 -- How long the entrance lasers stay on. The Longer Lock gamepass doubles it.
@@ -363,8 +397,9 @@ function Config.RebirthMultiplier(rebirths: number): number
 	return 1 + rebirths * Config.RebirthBonus
 end
 
--- Picks a random brainrot for the conveyor. Luck boosts every rarity above Common.
-function Config.RollConveyor(rng: Random, luck: number): Brainrot
+-- Picks a random brainrot for the conveyor. Luck boosts every rarity above
+-- Common. Event-only rarities can only roll while `eventLive` is true.
+function Config.RollConveyor(rng: Random, luck: number, eventLive: boolean?): Brainrot
 	local total = 0
 	local weights: { [RarityId]: number } = {}
 	for _, rarityId: RarityId in rarityOrder do
@@ -373,7 +408,10 @@ function Config.RollConveyor(rng: Random, luck: number): Brainrot
 		if rarity.Order > 1 then
 			weight *= luck
 		end
-		if byRarity[rarityId] then
+		if rarity.EventOnly and not eventLive then
+			weight = 0
+		end
+		if byRarity[rarityId] and weight > 0 then
 			weights[rarityId] = weight
 			total += weight
 		end

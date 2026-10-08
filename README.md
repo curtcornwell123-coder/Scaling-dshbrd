@@ -10,8 +10,9 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
 4. **Defend.** Everyone has a **Slap** tool. Slap a thief and the brainrot runs back home.
 5. **Upgrade your base** at the orange post near the entrance. It has three upgrades:
    - **[E] Walls:** you start with a low wood fence thieves can hop. Upgrade to Brick ($1K), Concrete ($25K, too tall to jump), Steel ($500K) and Diamond ($10M). Walls are solid grey with blue tinted windows.
-   - **[R] Floors:** build a 2nd floor ($50K) and a 3rd floor ($2M), each with 10 more brainrot slots and reached by a ramp inside your base.
+   - **[R] Floors:** build a 2nd floor ($50K) and a 3rd floor ($2M), each with 10 more brainrot slots and reached by stairs inside your base. Floors with another floor above are walled in all the way up, and the entrance becomes a doorway.
    - **[T] Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). The Longer Lock gamepass doubles it.
+   - **Stair carpets** come from rebirths: plain wood at first, then a new carpet every 5 rebirths: Red (5), Royal (10), Golden (15), Diamond (20) and Rainbow (25).
 6. **Lock.** Step on the red **LOCK** pad. Red laser beams cross your entrance and zap anyone else who walks through. After the lock ends it recharges for 30s, and that's when you're vulnerable.
 7. **Sell** your own brainrots for half price (hold **F**).
 8. **Rebirth.** Reset your cash and brainrots (walls stay) for a permanent income multiplier (+0.5x each time).
@@ -28,6 +29,9 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 | 🟨 Legendary | 4% | 5.7% | $75K – $200K | $500–1.2K/s |
 | 🟥 Mythic | 0.9% | 1.3% | $1.5M – $4M | $6K–15K/s |
 | ⬛ Secret | 0.1% | 0.14% | $50M | $250K/s |
+| 💖 Event Special | only during admin abuse | | $20M | $100K/s |
+
+**Event Special** brainrots never show up on the conveyor normally. Admins can give or drop them, and during admin abuse they can roll on the conveyor and in Brainrot Rain.
 
 ### Mutations
 

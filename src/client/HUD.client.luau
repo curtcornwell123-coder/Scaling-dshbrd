@@ -250,7 +250,7 @@ end
 Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: string, extra: string?, mutationId: string?)
 	local brainrot = Config.GetBrainrot(brainrotId)
 	local mutation = Config.GetMutation(mutationId)
-	local label = if brainrot then string.upper(brainrot.Rarity) .. " " .. brainrot.DisplayName else ""
+	local label = if brainrot then string.upper(Config.Rarities[brainrot.Rarity].DisplayName) .. " " .. brainrot.DisplayName else ""
 	if mutation then
 		label = string.upper(mutation.DisplayName) .. " " .. label
 	end

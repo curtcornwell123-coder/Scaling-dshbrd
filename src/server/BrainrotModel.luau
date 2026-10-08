@@ -431,6 +431,96 @@ designs.IlCosmicoCannolo = function(b, c, a)
 	return 4.0
 end
 
+designs.CignaGlamourina = function(b, c, a)
+	local cream = Color3.fromRGB(252, 244, 230)
+	local hotPink = a
+	local dressPink = c
+	local frill = Color3.fromRGB(255, 232, 242)
+	local wing = Color3.fromRGB(255, 225, 232)
+	local blonde = Color3.fromRGB(250, 228, 140)
+	local beak = Color3.fromRGB(240, 170, 115)
+
+	-- Giant platform heels with bows
+	for _, side in { -1, 1 } do
+		local x = side * 0.32
+		box(b, "Platform", V(0.62, 0.35, 0.95), CF(x, 0.175, -0.1), hotPink)
+		box(b, "Heel", V(0.42, 0.9, 0.4), CF(x, 0.45, 0.32), hotPink)
+		egg(b, "Shoe", V(0.62, 0.45, 0.8), CF(x, 0.55, -0.12), hotPink)
+		for _, bowSide in { -1, 1 } do
+			egg(b, "ShoeBow", V(0.28, 0.2, 0.12), CF(x + bowSide * 0.15, 0.72, -0.5), hotPink)
+		end
+		ball(b, "ShoeBowKnot", 0.13, V(x, 0.72, -0.52), hotPink)
+		-- Long thin legs
+		vcyl(b, "Leg", 2.0, 0.24, V(x, 1.65, 0), cream)
+	end
+
+	-- Poofy ruffled tutu with a train at the back
+	egg(b, "Tutu", V(2.1, 0.55, 1.9), CF(0, 2.65, 0.05), frill)
+	egg(b, "Tutu2", V(1.85, 0.5, 1.7), CF(0, 2.9, 0.05), frill)
+	egg(b, "Train", V(1.5, 0.45, 1.5), CF(0, 2.45, 0.65), frill)
+
+	-- Pink dress
+	egg(b, "Dress", V(1.5, 1.6, 1.3), CF(0, 3.45, 0), dressPink)
+
+	-- Swan wings, feathers layered down the back
+	for _, side in { -1, 1 } do
+		egg(b, "Wing", V(0.3, 2.5, 1.3), CF(side * 0.85, 3.2, 0.35) * ANG(rad(10), 0, side * rad(-8)), wing)
+		egg(b, "Wing", V(0.28, 2.0, 1.05), CF(side * 0.9, 2.55, 0.6) * ANG(rad(15), 0, side * rad(-12)), wing:Lerp(WHITE, 0.4))
+		egg(b, "Wing", V(0.26, 1.5, 0.9), CF(side * 0.95, 2.05, 0.8) * ANG(rad(20), 0, side * rad(-16)), WHITE)
+	end
+
+	-- Long neck with a pink bow
+	vcyl(b, "Neck", 1.7, 0.5, V(0, 4.85, -0.05), cream)
+	for _, side in { -1, 1 } do
+		egg(b, "NeckBow", V(0.45, 0.32, 0.18), CF(side * 0.24, 4.4, -0.32) * ANG(0, 0, side * rad(-15)), hotPink)
+	end
+	ball(b, "NeckBowKnot", 0.18, V(0, 4.4, -0.33), hotPink)
+
+	-- Big blonde curls behind the head and down the neck
+	for _, curl in {
+		{ 0, 6.1, 0.45, 1.0 }, { -0.45, 5.8, 0.4, 0.8 }, { 0.45, 5.8, 0.4, 0.8 },
+		{ -0.5, 5.3, 0.45, 0.75 }, { 0.5, 5.3, 0.45, 0.75 }, { 0, 5.4, 0.62, 0.85 },
+		{ -0.45, 4.8, 0.5, 0.7 }, { 0.45, 4.8, 0.5, 0.7 }, { 0, 4.6, 0.6, 0.8 },
+		{ -0.4, 4.3, 0.55, 0.62 }, { 0.4, 4.3, 0.55, 0.62 }, { 0, 6.55, 0.3, 0.7 },
+	} do
+		ball(b, "Curl", curl[4], V(curl[1], curl[2], curl[3]), blonde, Enum.Material.Fabric)
+	end
+
+	-- Head
+	egg(b, "Head", V(1.0, 0.95, 1.05), CF(0, 5.85, -0.05), cream)
+
+	-- Giant side eyes with pink irises and lashes
+	for _, side in { -1, 1 } do
+		local eye = V(side * 0.42, 5.95, -0.2)
+		ball(b, "Eye", 0.62, eye, WHITE, nil, true)
+		local look = V(side * 0.55, 0, -0.84)
+		ball(b, "Iris", 0.38, eye + look * 0.17, Color3.fromRGB(230, 60, 150), nil, true)
+		ball(b, "Pupil", 0.2, eye + look * 0.27, BLACK, nil, true)
+		ball(b, "Shine", 0.08, eye + look * 0.3 + V(0, 0.07, 0), WHITE, Enum.Material.Neon, true)
+		for i = -1, 1 do
+			box(b, "Lash", V(0.05, 0.22, 0.05), CF(eye + V(side * 0.12, 0.36, -0.08 + i * 0.1)) * ANG(rad(-20 * i), 0, side * rad(-25)), BLACK, nil, true)
+		end
+	end
+
+	-- Beak with big pink lips at the tip
+	egg(b, "Beak", V(0.42, 0.38, 0.95), CF(0, 5.72, -0.78) * ANG(rad(-6), 0, 0), beak)
+	ball(b, "Lips", 0.3, V(0, 5.66, -1.22), hotPink, nil, true)
+
+	-- Pink party-hat crown with a frilly trim
+	-- Smooth-ish cone: many thin rings shrinking toward the tip, tilted back.
+	local hatBase = CF(0, 6.25, 0.02) * ANG(rad(-12), 0, 0)
+	for i = 0, 8 do
+		local t = i / 8
+		b.add("Hat", "Cylinder", V(0.2, 1.1 - t * 0.9, 1.1 - t * 0.9), hatBase * CF(0, 0.1 + t * 1.45, 0) * ANG(0, 0, rad(90)), dressPink)
+	end
+	b.add("HatTip", "Ball", V(0.22, 0.22, 0.22), hatBase * CF(0, 1.68, 0), dressPink)
+	for i = 1, 10 do
+		local angle = rad(i * 36)
+		ball(b, "HatFrill", 0.22, V(math.cos(angle) * 0.56, 6.22, 0.02 + math.sin(angle) * 0.56), frill)
+	end
+	return 7.9
+end
+
 -- Fallback for brainrots without a design yet.
 local function blob(b: Builder, c: Color3, a: Color3): number
 	legs(b, a, 1.0, 0.7)
@@ -658,7 +748,7 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 		label(tag, "Mutation", string.upper(mutation.DisplayName), mutation.Color, 22, 0)
 	end
 	local rarityColor = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else rarity.Color
-	label(tag, "Rarity", string.upper(brainrot.Rarity), rarityColor, 18, 1)
+	label(tag, "Rarity", string.upper(rarity.DisplayName), rarityColor, 18, 1)
 	label(tag, "Name", brainrot.DisplayName, WHITE, 26, 2)
 	label(tag, "Income", Config.FormatCash(Config.IncomeOf(brainrot, mutationId)) .. "/s", Color3.fromRGB(120, 255, 120), 20, 3)
 	if priceTag then

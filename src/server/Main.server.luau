@@ -207,6 +207,13 @@ local function isNotable(brainrot: Config.Brainrot, mutationId: string?): boolea
 	return Config.Rarities[brainrot.Rarity].Order >= 4 or (mutation ~= nil and mutation.Chance <= 1)
 end
 
+-- True while the weekly admin abuse runs, or one an admin started by hand.
+local function adminAbuseLive(): boolean
+	local now = workspace:GetServerTimeNow()
+	local manualEnd = ReplicatedStorage:GetAttribute("AdminAbuseEndsAt") :: number?
+	return (manualEnd ~= nil and manualEnd > now) or Config.AdminAbuseStatus(now) == "live"
+end
+
 local function luckMultiplier(): number
 	local endsAt = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number?
 	if endsAt and workspace:GetServerTimeNow() < endsAt then
@@ -715,8 +722,9 @@ local function assignPlot(player: Player, session: Session)
 			plot.Parts.OwnerLabel.Text = player.DisplayName .. "'s Base"
 			session.Plot = plot
 			updateVipPedestals(plot)
-			WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel)
+			WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories)
 			WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
+			WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
 			setLaser(plot, false)
 			for _, entry in session.Data.Brainrots do
 				local brainrot, mutation = Config.Decode(entry)
@@ -754,15 +762,17 @@ local function releasePlot(plot: Plot)
 	plot.Parts.PendingLabel.Text = "COLLECT\n$0"
 	plot.Parts.LockLabel.Text = "STEP TO LOCK"
 	updateVipPedestals(plot)
-	WorldBuilder.SetWallLevel(plot.Parts, 1)
+	WorldBuilder.SetWallLevel(plot.Parts, 1, 1)
 	WorldBuilder.SetStories(plot.Parts, 1)
+	WorldBuilder.SetCarpet(plot.Parts, 0)
 	plot.Parts.UpgradeLabel.Text = "UPGRADES"
 end
 
 -- Applies a base's saved wall, floor and lock levels to the world.
 local function applyBaseLevels(plot: Plot, session: Session)
-	WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel)
+	WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories)
 	WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
+	WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
 	setLaser(plot, os.clock() < plot.LockedUntil)
 	updateVipPedestals(plot)
 	updateUpgradeLabel(plot)
@@ -932,7 +942,7 @@ end
 
 local function spawnOnConveyor(forced: Config.Brainrot?, forcedMutation: string?)
 	local luck = luckMultiplier()
-	local brainrot = forced or Config.RollConveyor(rng, luck)
+	local brainrot = forced or Config.RollConveyor(rng, luck, adminAbuseLive())
 	local mutation = if forced then forcedMutation else Config.RollMutation(rng, luck)
 	local start = CFrame.lookAt(world.ConveyorStart, world.ConveyorEnd)
 	local model = BrainrotModel.Create(brainrot, mutation, start, true)
@@ -1245,13 +1255,19 @@ RequestRebirth.OnServerEvent:Connect(function(player)
 	if carry then
 		returnCarry(carry, nil)
 	end
+	local oldCarpet = Config.CarpetTierFor(session.Data.Rebirths)
 	session.Data.Rebirths += 1
 	session.Data.Cash = Config.StartingCash
 	if session.Plot then
 		clearPlotBrainrots(session.Plot)
 		session.Plot.Pending = 0
+		applyBaseLevels(session.Plot, session)
 	end
 	notify(player, string.format("REBIRTH! Your income is now x%.1f", incomeMultiplier(session)))
+	local newCarpet = Config.CarpetTierFor(session.Data.Rebirths)
+	if newCarpet > oldCarpet then
+		notify(player, "Your stairs got a new carpet: " .. Config.CarpetTiers[newCarpet].Name .. "!")
+	end
 	Announce:FireAllClients("rebirth", player.DisplayName, "", tostring(session.Data.Rebirths))
 	push(player)
 	task.spawn(save, player)
@@ -1467,7 +1483,8 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		Announce:FireAllClients("rain", admin.DisplayName, "")
 		task.spawn(function()
 			for _ = 1, Config.BrainrotRainCount do
-				dropBrainrot(Config.RollConveyor(rng, Config.BrainrotRainLuck), Config.RollMutation(rng, Config.BrainrotRainLuck))
+				local luck = Config.BrainrotRainLuck
+				dropBrainrot(Config.RollConveyor(rng, luck, adminAbuseLive()), Config.RollMutation(rng, luck))
 				task.wait(0.4)
 			end
 		end)
@@ -1550,6 +1567,9 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				notify(admin, string.format("%s: walls %d, floors %d, lock %d", player.DisplayName, data.WallLevel, data.Stories, data.LockLevel))
 			elseif action == "Rebirths" then
 				data.Rebirths = math.max(0, math.floor(parseAmount(value) or 0))
+				if plot then
+					applyBaseLevels(plot, session)
+				end
 				notify(admin, player.DisplayName .. " is now Rebirth " .. data.Rebirths)
 			elseif action == "ClearBase" then
 				if plot then

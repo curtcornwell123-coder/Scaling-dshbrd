@@ -19,6 +19,7 @@ export type PlotParts = {
 	Lasers: { BasePart },
 	WallFolders: { [number]: Folder },
 	Stories: { [number]: Folder }, -- floors 2+; parented only once bought
+	Stairs: { { Carpet: Folder, Base: CFrame } }, -- Base: bottom-front-center of each staircase
 	SignPost: BasePart,
 	UpgradePost: BasePart,
 	UpgradeLabel: TextLabel,
@@ -91,6 +92,10 @@ local function billboard(adornee: BasePart, size: Vector2, offset: Vector3, text
 end
 
 local STORY_HEIGHT = 20
+local DOOR_HEIGHT = 10
+local STAIR_STEPS = 14
+local STAIR_WIDTH = 8
+local STAIR_RUN = 30 -- stairs climb from z = -26 (front) to z = 4
 local WALL_THICKNESS = 2
 local LASER_COUNT = 12
 local GLASS_COLOR = Color3.fromRGB(80, 150, 255)
@@ -201,6 +206,7 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 
 	-- Upper floors are built now and shown when bought (SetStories).
 	local stories: { [number]: Folder } = {}
+	local stairs: { { Carpet: Folder, Base: CFrame } } = {}
 	for story = 2, #Config.Stories do
 		local folder = Instance.new("Folder")
 		folder.Name = "Story" .. story
@@ -212,14 +218,28 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		block(folder, "Slab", Vector3.new(50, 1, PLOT_SIZE), at(mainX, y - 0.5, 0), color, Enum.Material.Plastic)
 		block(folder, "Slab", Vector3.new(10, 1, 26), at(side * 25, y - 0.5, 17), color, Enum.Material.Plastic)
 
+		-- Staircase up from the floor below. Players walk on an invisible
+		-- ramp so climbing is smooth; the steps on top are just for looks.
 		local ramp = Instance.new("WedgePart")
-		ramp.Name = "Ramp"
+		ramp.Name = "StairRamp"
 		ramp.Anchored = true
-		ramp.Size = Vector3.new(8, STORY_HEIGHT, 30)
-		ramp.CFrame = at(side * 24, storyBase(story - 1) + STORY_HEIGHT / 2, -11)
-		ramp.Color = Color3.fromRGB(110, 110, 120)
-		ramp.Material = Enum.Material.DiamondPlate
+		ramp.Transparency = 1
+		ramp.Size = Vector3.new(STAIR_WIDTH, STORY_HEIGHT, STAIR_RUN)
+		ramp.CFrame = at(side * 24, storyBase(story - 1) + STORY_HEIGHT / 2, -26 + STAIR_RUN / 2)
 		ramp.Parent = folder
+
+		local stairBase = at(side * 24, storyBase(story - 1), -26)
+		local rise = STORY_HEIGHT / STAIR_STEPS
+		local run = STAIR_RUN / STAIR_STEPS
+		for step = 1, STAIR_STEPS do
+			local top = (step - 0.5) * rise
+			local stepPart = block(folder, "Step", Vector3.new(STAIR_WIDTH, top, run), stairBase * CFrame.new(0, top / 2, (step - 0.5) * run), Color3.fromRGB(150, 105, 65), Enum.Material.WoodPlanks)
+			stepPart.CanCollide = false
+		end
+		local carpet = Instance.new("Folder")
+		carpet.Name = "Carpet"
+		carpet.Parent = folder
+		table.insert(stairs, { Carpet = carpet, Base = stairBase })
 
 		for _, spot in UPPER_PEDESTALS do
 			local i = #pedestals + 1
@@ -280,6 +300,7 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		Lasers = lasers,
 		WallFolders = wallFolders,
 		Stories = stories,
+		Stairs = stairs,
 		SignPost = signPost,
 		UpgradePost = upgradePost,
 		UpgradeLabel = upgradeLabel,
@@ -291,17 +312,20 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 end
 
 -- Rebuilds every floor's walls (with windows) for a wall level, and marks
--- which entrance laser beams fit under the new height.
-function WorldBuilder.SetWallLevel(parts: PlotParts, level: number)
+-- which entrance laser beams cover the doorway. Floors with another floor
+-- above get walls all the way up to it, so there are no gaps.
+function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: number)
 	local info = Config.WallLevels[level] or Config.WallLevels[1]
-	local height = info.Height
 	local half = PLOT_SIZE / 2
 	local frontWidth = (PLOT_SIZE - ENTRANCE_WIDTH) / 2
 	local turn = CFrame.Angles(0, math.pi / 2, 0)
 
+	local groundHeight = if stories > 1 then STORY_HEIGHT - 1 else info.Height
+	local doorHeight = math.min(groundHeight, DOOR_HEIGHT)
 	for story, folder in parts.WallFolders do
 		folder:ClearAllChildren()
 		local y = storyBase(story)
+		local height = if story < stories then STORY_HEIGHT - 1 else info.Height
 		local function at(x: number, z: number): CFrame
 			return parts.CFrame * CFrame.new(x, y - FLOOR_TOP, z)
 		end
@@ -311,11 +335,15 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number)
 		if story == 1 then
 			wallSegment(folder, at(-half + frontWidth / 2, -half + 1), frontWidth, height, info.Material)
 			wallSegment(folder, at(half - frontWidth / 2, -half + 1), frontWidth, height, info.Material)
+			-- Solid lintel above the doorway when the walls are taller than it.
+			if height > doorHeight + 0.1 then
+				block(folder, "Lintel", Vector3.new(ENTRANCE_WIDTH, height - doorHeight, WALL_THICKNESS), at(0, -half + 1) * CFrame.new(0, doorHeight + (height - doorHeight) / 2, 0), WALL_COLOR, info.Material)
+			end
 			-- Laser emitter posts on both sides of the door.
 			for _, side in { -1, 1 } do
 				local x = side * (ENTRANCE_WIDTH / 2 + 0.5)
-				block(folder, "LaserPost", Vector3.new(1, height, 2.4), at(x, -half + 1) * CFrame.new(0, height / 2, 0), Color3.fromRGB(45, 45, 50), Enum.Material.Metal)
-				block(folder, "LaserStrip", Vector3.new(0.25, height - 0.4, 0.25), at(x - side * 0.55, -half + 1) * CFrame.new(0, height / 2, 0), Color3.fromRGB(255, 40, 40), Enum.Material.Neon)
+				block(folder, "LaserPost", Vector3.new(1, doorHeight, 2.4), at(x, -half + 1) * CFrame.new(0, doorHeight / 2, 0), Color3.fromRGB(45, 45, 50), Enum.Material.Metal)
+				block(folder, "LaserStrip", Vector3.new(0.25, doorHeight - 0.4, 0.25), at(x - side * 0.55, -half + 1) * CFrame.new(0, doorHeight / 2, 0), Color3.fromRGB(255, 40, 40), Enum.Material.Neon)
 			end
 		else
 			wallSegment(folder, at(0, -half + 1), PLOT_SIZE, height, info.Material)
@@ -323,7 +351,56 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number)
 	end
 
 	for i, beam in parts.Lasers do
-		beam:SetAttribute("Active", 0.8 + (i - 1) * 1.4 <= height - 0.4)
+		beam:SetAttribute("Active", 0.8 + (i - 1) * 1.4 <= doorHeight - 0.4)
+	end
+end
+
+-- Lays carpet on every staircase. Tier 0 = bare wood (see Config.CarpetTiers).
+function WorldBuilder.SetCarpet(parts: PlotParts, tier: number)
+	local info = Config.CarpetTiers[tier]
+	local rise = STORY_HEIGHT / STAIR_STEPS
+	local run = STAIR_RUN / STAIR_STEPS
+	for _, stair in parts.Stairs do
+		stair.Carpet:ClearAllChildren()
+		if not info then
+			continue
+		end
+		local width = STAIR_WIDTH - 2
+		for step = 1, STAIR_STEPS do
+			local top = (step - 0.5) * rise
+			local z = (step - 0.5) * run
+			local color = if info.Rainbow then Color3.fromHSV((step / STAIR_STEPS) % 1, 0.65, 1) else info.Color
+			local function piece(name: string, size: Vector3, offset: CFrame, c: Color3, material: Enum.Material): Part
+				local p = block(stair.Carpet, name, size, stair.Base * offset, c, material)
+				p.CanCollide = false
+				p.CastShadow = false
+				return p
+			end
+			piece("CarpetTop", Vector3.new(width, 0.12, run), CFrame.new(0, top + 0.06, z), color, info.Material)
+			piece("CarpetRiser", Vector3.new(width, math.min(rise, top), 0.12), CFrame.new(0, top - math.min(rise, top) / 2, z - run / 2 - 0.06), color, info.Material)
+			if info.Trim then
+				for _, side in { -1, 1 } do
+					piece("CarpetTrim", Vector3.new(0.35, 0.16, run), CFrame.new(side * (width / 2 + 0.17), top + 0.08, z), info.Trim, Enum.Material.Foil)
+				end
+			end
+			if info.Glow then
+				piece("CarpetGlow", Vector3.new(width, 0.1, 0.18), CFrame.new(0, top + 0.14, z - run / 2 + 0.1), info.Glow, Enum.Material.Neon)
+			end
+		end
+		if info.Sparkle then
+			local emitterPart = block(stair.Carpet, "CarpetSparkles", Vector3.new(width, 0.2, STAIR_RUN), stair.Base * CFrame.new(0, STORY_HEIGHT / 2, STAIR_RUN / 2) * CFrame.Angles(math.atan2(STORY_HEIGHT, STAIR_RUN), 0, 0), info.Color, Enum.Material.SmoothPlastic)
+			emitterPart.Transparency = 1
+			emitterPart.CanCollide = false
+			local sparkles = Instance.new("ParticleEmitter")
+			sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+			sparkles.Color = ColorSequence.new(info.Glow or info.Color)
+			sparkles.LightEmission = 1
+			sparkles.Rate = 15
+			sparkles.Lifetime = NumberRange.new(0.6, 1.2)
+			sparkles.Speed = NumberRange.new(0.5, 1.5)
+			sparkles.Size = NumberSequence.new(0.3)
+			sparkles.Parent = emitterPart
+		end
 	end
 end
 
@@ -486,8 +563,9 @@ function WorldBuilder.Build(): World
 		local column = (i - 1) % columnsPerSide
 		local x = (column - (columnsPerSide - 1) / 2) * PLOT_SPACING
 		plots[i] = buildPlot(plotsFolder, i, Vector3.new(x, 0, side * PLOT_DISTANCE))
-		WorldBuilder.SetWallLevel(plots[i], 1)
+		WorldBuilder.SetWallLevel(plots[i], 1, 1)
 		WorldBuilder.SetStories(plots[i], 1)
+		WorldBuilder.SetCarpet(plots[i], 0)
 	end
 
 	local spawn = Instance.new("SpawnLocation")
