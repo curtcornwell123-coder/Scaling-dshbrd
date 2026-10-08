@@ -449,9 +449,10 @@ Config.AdminAbuseBoosts = {
 -- Background music for normal play (audio ids, "rbxassetid://123..."). Plays
 -- on a loop (shuffled if there's more than one), fades out while a founder
 -- event plays its own song, and players can turn it off. Empty = no music.
--- assets/music/brainrot_theme.mp3 is the game's own theme: upload it and put
--- its id here.
-Config.GameMusic = {} :: { string }
+-- More of our own songs are in assets/music/: upload one and add its id here.
+Config.GameMusic = {
+	"rbxassetid://119583552951911", -- "Chill Plaza" (assets/music/lobby_3_chill_plaza.mp3)
+} :: { string }
 Config.GameMusicVolume = 0.35
 
 -- Founders --------------------------------------------------------------------
