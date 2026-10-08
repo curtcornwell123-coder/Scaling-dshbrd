@@ -1801,6 +1801,23 @@ do
 		send("ClearBase", nil)
 	end)
 
+	-- Everything in the Robux shop, free: gamepasses last until they leave.
+	local shopItems = section(playersPage, 3, "SHOP ITEMS (FREE)", "Give the player anything from the shop. Gamepasses last until they leave the game.", Color3.fromRGB(255, 150, 40))
+	local passRow = controls(shopItems, 1)
+	label(passRow, "Passes", 90)
+	for _, pass in Config.GamePasses do
+		smallButton(passRow, pass.Name, PURPLE, 170, function()
+			send("GivePass", pass.Key)
+		end)
+	end
+	local productRow = controls(shopItems, 2)
+	label(productRow, "Items", 90)
+	for _, product in Config.Products do
+		smallButton(productRow, product.Name, GREEN, 170, function()
+			send("GiveProduct", product.Key)
+		end)
+	end
+
 	-- EVENTS tab -------------------------------------------------------------------
 	local eventsPage = adminTab("EVENTS", RED)
 

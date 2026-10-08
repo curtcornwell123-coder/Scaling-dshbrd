@@ -128,7 +128,7 @@ To build a place file without Studio sync: `rojo build -o BrainrotHeist.rbxl`.
 
 Admins get a red **ADMIN** button on the left. The **Player** box at the top picks who the buttons act on: type `me`, `all`, or the start of someone's name. Below it, the panel is split into tabs, and each job has its own labelled box:
 
-- **PLAYERS:** Money & Currency (give/set cash, set rebirths, give Shards or Diamonds; amounts accept `5000`, `25k`, `2m` or `-500`), and Base (base level, lock level, Infinite Door ON/OFF, Clear Base).
+- **PLAYERS:** Money & Currency (give/set cash, set rebirths, give Shards or Diamonds; amounts accept `5000`, `25k`, `2m` or `-500`), Base (base level, lock level, Infinite Door ON/OFF, Clear Base), and Shop Items (Free): give any gamepass (lasts until they leave) or any Robux shop item.
 - **EVENTS:** Admin Abuse (minutes + START/END), Drops (Brainrot Rain, Cash Rain with its own cash-per-bag box), Server Luck, and Announce to All Servers.
 - **BRAINROTS:** the mutation picker and every brainrot with Give / Spawn / Drop.
 - **FOUNDER** (only Corny and Ace see this tab): start or end your founder event (with its own minutes box), and pick your event giant's look.

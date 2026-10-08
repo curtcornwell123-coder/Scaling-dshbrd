@@ -2965,6 +2965,36 @@ local function resolveTargets(admin: Player, query: unknown): { Player }
 	return {}
 end
 
+local function cashPack(session: Session, minutes: number, minimum: number): number
+	local plot = session.Plot
+	local income = if plot then plotIncome(plot, session) else 0
+	return math.max(minimum, math.floor(income * minutes * 60))
+end
+
+local function grantProduct(player: Player, session: Session, key: string)
+	if key == "SmallCash" then
+		local amount = cashPack(session, Config.SmallCashMinutes, Config.SmallCashMinimum)
+		session.Data.Cash += amount
+		notify(player, "+" .. Config.FormatCash(amount) .. "! Thanks for the support!")
+	elseif key == "BigCash" then
+		local amount = cashPack(session, Config.BigCashMinutes, Config.BigCashMinimum)
+		session.Data.Cash += amount
+		notify(player, "+" .. Config.FormatCash(amount) .. "! Thanks for the support!")
+	elseif key == "ServerLuck" then
+		local now = workspace:GetServerTimeNow()
+		local current = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number? or 0
+		ReplicatedStorage:SetAttribute("LuckEndsAt", math.max(now, current) + Config.ServerLuckDuration)
+		Announce:FireAllClients("luck", player.DisplayName, "")
+	elseif key == "InstantLock" then
+		local plot = session.Plot
+		if plot then
+			lockBase(plot)
+			notify(player, "Base locked!")
+		end
+	end
+	push(player)
+end
+
 -- Corny's gift box: gives a limited brainrot to anyone by username, out of
 -- the shop stock. If they aren't in this server they get it when they join
 -- (or right away, if they're in another server).
@@ -3239,6 +3269,31 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 					applyBaseLevels(plot, session)
 				end
 				notify(admin, string.format("%s: base level %d, lock level %d", player.DisplayName, data.WallLevel, data.LockLevel))
+			elseif action == "GivePass" then
+				-- A gamepass for free until they leave (the real one is bought
+				-- on Roblox and lasts forever).
+				local pass: Config.GamePass? = nil
+				for _, p in Config.GamePasses do
+					if p.Key == value then
+						pass = p
+					end
+				end
+				if pass then
+					session.Owns[pass.Key] = true
+					if plot then
+						applyBaseLevels(plot, session)
+					end
+					updateVipTag(player)
+					notify(player, "You got " .. pass.Name .. " until you leave!")
+					notify(admin, string.format("Gave %s to %s (until they leave).", pass.Name, player.DisplayName))
+				end
+			elseif action == "GiveProduct" then
+				for _, product in Config.Products do
+					if product.Key == value then
+						grantProduct(player, session, product.Key)
+						notify(admin, string.format("Gave %s to %s.", product.Name, player.DisplayName))
+					end
+				end
 			elseif action == "InfiniteLock" then
 				-- Gives (or takes away) the Infinite Laser Door, the same as the
 				-- one sold for Diamonds. The gamepass can't be taken away here.
@@ -3320,36 +3375,6 @@ for _, product in Config.Products do
 	if product.Id ~= 0 then
 		productsById[product.Id] = product
 	end
-end
-
-local function cashPack(session: Session, minutes: number, minimum: number): number
-	local plot = session.Plot
-	local income = if plot then plotIncome(plot, session) else 0
-	return math.max(minimum, math.floor(income * minutes * 60))
-end
-
-local function grantProduct(player: Player, session: Session, key: string)
-	if key == "SmallCash" then
-		local amount = cashPack(session, Config.SmallCashMinutes, Config.SmallCashMinimum)
-		session.Data.Cash += amount
-		notify(player, "+" .. Config.FormatCash(amount) .. "! Thanks for the support!")
-	elseif key == "BigCash" then
-		local amount = cashPack(session, Config.BigCashMinutes, Config.BigCashMinimum)
-		session.Data.Cash += amount
-		notify(player, "+" .. Config.FormatCash(amount) .. "! Thanks for the support!")
-	elseif key == "ServerLuck" then
-		local now = workspace:GetServerTimeNow()
-		local current = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number? or 0
-		ReplicatedStorage:SetAttribute("LuckEndsAt", math.max(now, current) + Config.ServerLuckDuration)
-		Announce:FireAllClients("luck", player.DisplayName, "")
-	elseif key == "InstantLock" then
-		local plot = session.Plot
-		if plot then
-			lockBase(plot)
-			notify(player, "Base locked!")
-		end
-	end
-	push(player)
 end
 
 local limitedByProduct: { [number]: string } = {}
