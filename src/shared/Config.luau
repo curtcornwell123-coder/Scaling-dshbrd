@@ -440,8 +440,8 @@ Config.AdminAbuseBoosts = {
 -- the giants wear their real avatars.
 export type Founder = { Id: string, Name: string, UserId: number, Username: string }
 Config.Founders = {
-	{ Id = "Corny", Name = "Corny", UserId = 0, Username = "" },
-	{ Id = "Ace", Name = "Ace", UserId = 0, Username = "" },
+	{ Id = "Corny", Name = "Corny", UserId = 0, Username = "Cornywell10" },
+	{ Id = "Ace", Name = "Ace", UserId = 0, Username = "Meishappy2341" },
 } :: { Founder }
 Config.FounderGiantScale = 12 -- how giant they are during admin abuse
 Config.FounderGiantDropEvery = 7 -- seconds between things each giant throws during admin abuse

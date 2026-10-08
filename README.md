@@ -146,7 +146,9 @@ When it starts, everyone gets a huge intro: two white flashes and a red flash ov
 
 ### Founders and founder events
 
-The founders are set in `Config.Founders`. Put each founder's Roblox **UserId** (the number in their profile link, `roblox.com/users/<UserId>/profile`) or **Username** there so their giants wear their real avatars during admin abuse. A founder without one doesn't appear.
+The founders are set in `Config.Founders`: **Corny** (Roblox username `Cornywell10`) and **Ace** (`Meishappy2341`). Their giants wear their current Roblox avatars during admin abuse, labelled with their founder names. A UserId (the number in a profile link, `roblox.com/users/<UserId>/profile`) can be used instead of a username.
+
+To find an outfit id for `OutfitId`: open `https://avatar.roblox.com/v1/users/<UserId>/outfits?itemsPerPage=50` in a browser, find the costume's `"name"`, and copy the `"id"` just before it.
 
 Each founder also has their own event, starring only them in a special event outfit (not their normal avatar). Start it from the admin panel (**Corny Event**, and **End Founder Event** to stop it early).
 
