@@ -276,3 +276,59 @@ def pulse_bass(f, dur):
         cut = 250 + 1500 * np.exp(-t * 30)
         return svf(sig * env, cut, 0.45)
     return cached(('pulse', round(f, 2), round(dur, 3)), make)
+
+# Lobby / background instruments ------------------------------------------------
+def epiano(freqs, dur, velocity=1.0):
+    # Soft electric piano (Rhodes-like FM): warm tine with a bell attack.
+    def make():
+        t = t_of(dur)
+        sig = np.zeros_like(t)
+        for f in freqs:
+            mod = np.sin(2 * np.pi * f * t) * 1.2 * np.exp(-t * 6)
+            tine = np.sin(2 * np.pi * f * t + mod) * np.exp(-t * 1.6)
+            bell = np.sin(2 * np.pi * f * 7 * t) * 0.08 * np.exp(-t * 18)
+            sig += tine + bell
+        env = np.minimum(1, t / 0.004) * np.minimum(1, (dur - t) / 0.08)
+        return sig * np.maximum(env, 0) / max(1, len(freqs)) * velocity
+    return cached(('ep', tuple(round(f, 1) for f in freqs), round(dur, 3), velocity), make)
+
+def marimba(f, dur=0.6):
+    def make():
+        t = t_of(dur)
+        sig = np.sin(2 * np.pi * f * t) * np.exp(-t * 7) + 0.25 * np.sin(2 * np.pi * f * 4 * t) * np.exp(-t * 22)
+        return sig * np.minimum(1, t / 0.002)
+    return cached(('mar', round(f, 2), round(dur, 3)), make)
+
+def pluck(f, dur=0.8, bright=0.5, seed=0):
+    # Karplus-Strong plucked string (soft guitar / harp).
+    def make():
+        n = int(dur * SR)
+        period = max(2, int(SR / f))
+        rng = np.random.default_rng(seed + int(f))
+        buf = rng.uniform(-1, 1, period)
+        buf = onepole(buf, 1500 + 6000 * bright)
+        out = np.empty(n)
+        for k in range(n):
+            v = buf[k % period]
+            out[k] = v
+            buf[k % period] = 0.996 * 0.5 * (v + buf[(k + 1) % period])
+        return out * np.minimum(1, (dur - np.arange(n) / SR) / 0.05)
+    return cached(('pluck', round(f, 2), round(dur, 3), bright), make)
+
+def soft_bass(f, dur):
+    def make():
+        t = t_of(dur)
+        sig = np.sin(2 * np.pi * f * t) + 0.3 * np.sin(2 * np.pi * 2 * f * t) + 0.08 * np.sin(2 * np.pi * 3 * f * t)
+        env = np.minimum(1, t / 0.01) * np.exp(-t * 2.2) * np.minimum(1, (dur - t) / 0.04)
+        return sig * np.maximum(env, 0)
+    return cached(('sb', round(f, 2), round(dur, 3)), make)
+
+def shaker(rng):
+    n = int(0.08 * SR)
+    t = np.arange(n) / SR
+    noise = np.diff(np.concatenate([[0], rng.uniform(-1, 1, n)]))
+    return noise * np.sin(np.pi * t / 0.08) * 0.6
+
+def rim(rng):
+    t = t_of(0.06)
+    return (np.sin(2 * np.pi * 1700 * t) * 0.6 + rng.uniform(-1, 1, len(t)) * 0.4) * np.exp(-t * 90)
