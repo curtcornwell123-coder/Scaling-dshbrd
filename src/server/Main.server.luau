@@ -234,7 +234,7 @@ end
 -- Worth telling the whole server about: Legendary+ or a rare mutation.
 local function isNotable(brainrot: Config.Brainrot, mutationId: string?): boolean
 	local mutation = Config.GetMutation(mutationId)
-	return Config.Rarities[brainrot.Rarity].Order >= 4 or (mutation ~= nil and mutation.Chance <= 1)
+	return Config.Rarities[brainrot.Rarity].Order >= 4 or (mutation ~= nil and mutation.Chance <= 0.6)
 end
 
 -- True while the weekly admin abuse runs, or one an admin started by hand.
@@ -1540,7 +1540,7 @@ local function spawnOnConveyor(forced: Config.Brainrot?, forcedMutation: string?
 	tween:Play()
 
 	local mutationInfo = Config.GetMutation(mutation)
-	if Config.Rarities[brainrot.Rarity].Announce or (mutationInfo and mutationInfo.Chance <= 1) then
+	if Config.Rarities[brainrot.Rarity].Announce or (mutationInfo and mutationInfo.Chance <= 0.6) then
 		Announce:FireAllClients("spawn", "", brainrot.Id, "", mutation)
 	end
 end

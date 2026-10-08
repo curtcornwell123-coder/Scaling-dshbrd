@@ -58,14 +58,22 @@ Any brainrot on the conveyor can roll a mutation. A mutation multiplies both its
 
 | Mutation | Chance | Income & price | Look |
 |---|---|---|---|
-| ✨ Gold | 5% | x2 | Shiny gold foil |
+| ✨ Gold | 4% | x2 | Shiny gold foil |
+| 🍬 Candy | 2.5% | x2.5 | Pastel candy colors, sprinkles |
 | 💎 Diamond | 2% | x3 | See-through ice-blue glass |
-| ⭐ Sparkle | 1.5% | x4 | Its own colors, brighter, covered in twinkling stars |
+| ❄️ Frozen | 2% | x3 | Ice, falling snowflakes |
+| ⭐ Sparkle | 1.5% | x4 | Its own colors, brighter, twinkling stars |
+| ⚡ Electric | 1.2% | x4.5 | Yellow charge, crackling sparks |
+| ☢️ Radioactive | 0.9% | x5.5 | Toxic green, glowing spots, green fumes |
 | 🔥 Lava | 0.8% | x5 | Cracked lava rock, on fire |
+| 🌌 Galaxy | 0.6% | x7 | Deep-space glass, drifting stars |
+| 💀 Cursed | 0.5% | x8 | Blood-dark stone, black smoke, embers |
 | 🌈 Rainbow | 0.3% | x10 | Cycles through every color |
+| 🕳️ Void | 0.2% | x12 | Pitch black, purple outline, dark matter pulled in |
+| 😇 Divine | 0.1% | x15 | White marble, golden halo, holy light |
 | ✨🔮 Magic | 1% when you get the event brainrot (event only) | x8 | Purple-teal shimmer, swirling stars, floating orbs |
 
-Lava and Rainbow spawns are announced to the whole server.
+Galaxy and rarer spawns are announced to the whole server. About 1 in 6 conveyor brainrots is mutated (1 in 3 with Server Luck).
 
 ### Using real 3D models
 

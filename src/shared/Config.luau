@@ -112,11 +112,20 @@ export type Mutation = {
 }
 
 Config.Mutations = {
-	{ Id = "Gold", DisplayName = "Gold", Chance = 5, Multiplier = 2, Color = Color3.fromRGB(255, 200, 50), FloorColor = Color3.fromRGB(250, 235, 190), FloorMaterial = Enum.Material.Marble },
+	-- Keep this list ordered from most to least common (the roll relies on it).
+	{ Id = "Gold", DisplayName = "Gold", Chance = 4, Multiplier = 2, Color = Color3.fromRGB(255, 200, 50) },
+	{ Id = "Candy", DisplayName = "Candy", Chance = 2.5, Multiplier = 2.5, Color = Color3.fromRGB(255, 160, 210) },
 	{ Id = "Diamond", DisplayName = "Diamond", Chance = 2, Multiplier = 3, Color = Color3.fromRGB(140, 230, 255) },
+	{ Id = "Frozen", DisplayName = "Frozen", Chance = 2, Multiplier = 3, Color = Color3.fromRGB(170, 225, 255) },
 	{ Id = "Sparkle", DisplayName = "Sparkle", Chance = 1.5, Multiplier = 4, Color = Color3.fromRGB(255, 250, 170) },
+	{ Id = "Electric", DisplayName = "Electric", Chance = 1.2, Multiplier = 4.5, Color = Color3.fromRGB(255, 230, 70) },
+	{ Id = "Radioactive", DisplayName = "Radioactive", Chance = 0.9, Multiplier = 5.5, Color = Color3.fromRGB(120, 255, 90) },
 	{ Id = "Lava", DisplayName = "Lava", Chance = 0.8, Multiplier = 5, Color = Color3.fromRGB(255, 100, 20) },
+	{ Id = "Galaxy", DisplayName = "Galaxy", Chance = 0.6, Multiplier = 7, Color = Color3.fromRGB(150, 100, 255) },
+	{ Id = "Cursed", DisplayName = "Cursed", Chance = 0.5, Multiplier = 8, Color = Color3.fromRGB(210, 40, 60) },
 	{ Id = "Rainbow", DisplayName = "Rainbow", Chance = 0.3, Multiplier = 10, Color = Color3.fromRGB(255, 120, 255) },
+	{ Id = "Void", DisplayName = "Void", Chance = 0.2, Multiplier = 12, Color = Color3.fromRGB(130, 80, 210) },
+	{ Id = "Divine", DisplayName = "Divine", Chance = 0.1, Multiplier = 15, Color = Color3.fromRGB(255, 235, 160) },
 	-- Event-only: 1% when you get Cigna Glamourina, or given by an admin.
 	{ Id = "Magic", DisplayName = "Magic", Chance = 0, Multiplier = 8, Color = Color3.fromRGB(190, 130, 255), Exclusive = { "CignaGlamourina" } },
 } :: { Mutation }

@@ -705,6 +705,37 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 				d.Material = Enum.Material.CrackedLava
 			elseif mutation.Id == "Rainbow" then
 				d.Color = Color3.fromHSV((i * 0.09) % 1, 0.75, 1)
+			elseif mutation.Id == "Candy" then
+				-- Pastel candy colors, alternating part by part.
+				local candy = { Color3.fromRGB(255, 170, 210), Color3.fromRGB(255, 255, 255), Color3.fromRGB(170, 225, 255), Color3.fromRGB(255, 230, 150) }
+				d.Color = candy[(i - 1) % #candy + 1]
+				d.Material = Enum.Material.SmoothPlastic
+				d.Reflectance = 0.1
+			elseif mutation.Id == "Frozen" then
+				d.Color = d.Color:Lerp(Color3.fromRGB(175, 225, 255), 0.6)
+				d.Material = Enum.Material.Ice
+			elseif mutation.Id == "Electric" then
+				d.Color = d.Color:Lerp(Color3.fromRGB(255, 225, 70), 0.45)
+				d.Reflectance = 0.2
+			elseif mutation.Id == "Radioactive" then
+				d.Color = d.Color:Lerp(Color3.fromRGB(110, 255, 80), 0.55)
+				-- A few glowing spots, not the whole body (keeps it easy on the eyes).
+				d.Material = if i % 5 == 0 then Enum.Material.Neon else Enum.Material.SmoothPlastic
+			elseif mutation.Id == "Galaxy" then
+				d.Color = d.Color:Lerp(Color3.fromRGB(35, 20, 85), 0.75)
+				d.Material = Enum.Material.Glass
+				d.Reflectance = 0.3
+			elseif mutation.Id == "Cursed" then
+				d.Color = d.Color:Lerp(Color3.fromRGB(55, 8, 15), 0.7)
+				d.Material = Enum.Material.Slate
+			elseif mutation.Id == "Void" then
+				d.Color = Color3.fromRGB(12, 8, 20)
+				d.Material = Enum.Material.SmoothPlastic
+				d.Reflectance = 0.05
+			elseif mutation.Id == "Divine" then
+				d.Color = d.Color:Lerp(Color3.fromRGB(255, 250, 232), 0.6)
+				d.Material = Enum.Material.Marble
+				d.Reflectance = 0.15
 			elseif mutation.Id == "Magic" then
 				-- Keeps its look, tinted purple; Effects.client shimmers it to teal.
 				d:SetAttribute("BaseColor", d.Color)
@@ -727,6 +758,81 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 	end
 	if mutation.Id == "Rainbow" then
 		CollectionService:AddTag(model, "RainbowBrainrot")
+	end
+
+	-- Particle looks for the newer mutations.
+	local function emitter(name: string, colors: { Color3 }, rate: number, speed: number, size: number, lifetime: number, accel: Vector3?): ParticleEmitter
+		local e = Instance.new("ParticleEmitter")
+		e.Name = name
+		e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		local keys = {}
+		for k, c in colors do
+			table.insert(keys, ColorSequenceKeypoint.new(if #colors == 1 then 0 else (k - 1) / (#colors - 1), c))
+		end
+		if #keys == 1 then
+			table.insert(keys, ColorSequenceKeypoint.new(1, colors[1]))
+		end
+		e.Color = ColorSequence.new(keys)
+		e.Rate = rate
+		e.Lifetime = NumberRange.new(lifetime * 0.7, lifetime)
+		e.Speed = NumberRange.new(speed * 0.5, speed)
+		e.SpreadAngle = Vector2.new(180, 180)
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, size), NumberSequenceKeypoint.new(1, 0) })
+		e.Acceleration = accel or Vector3.zero
+		e.Parent = root
+		return e
+	end
+	local function smoke(color: Color3, opacity: number)
+		local sm = Instance.new("Smoke")
+		sm.Color = color
+		sm.Opacity = opacity
+		sm.RiseVelocity = 1.5
+		sm.Size = 1.5 * scale
+		sm.Parent = root
+	end
+	if mutation.Id == "Candy" then
+		emitter("Sprinkles", { Color3.fromRGB(255, 120, 180), Color3.fromRGB(120, 200, 255), Color3.fromRGB(255, 230, 90) }, 10, 2, 0.35, 1.2)
+	elseif mutation.Id == "Frozen" then
+		emitter("Snowflakes", { Color3.new(1, 1, 1), Color3.fromRGB(190, 230, 255) }, 10, 0.6, 0.35, 2.5, Vector3.new(0, -1.5, 0))
+	elseif mutation.Id == "Electric" then
+		emitter("Sparks", { Color3.fromRGB(255, 250, 160), Color3.fromRGB(120, 200, 255) }, 30, 8, 0.3, 0.25).LightEmission = 1
+	elseif mutation.Id == "Radioactive" then
+		smoke(Color3.fromRGB(110, 255, 80), 0.08)
+		emitter("Glow", { Color3.fromRGB(150, 255, 100) }, 8, 1, 0.4, 1.5, Vector3.new(0, 1, 0))
+	elseif mutation.Id == "Galaxy" then
+		emitter("Stars", { Color3.new(1, 1, 1), Color3.fromRGB(170, 130, 255), Color3.fromRGB(110, 190, 255) }, 18, 0.5, 0.3, 3).LightEmission = 1
+	elseif mutation.Id == "Cursed" then
+		smoke(Color3.fromRGB(40, 0, 5), 0.25)
+		emitter("Embers", { Color3.fromRGB(255, 40, 40), Color3.fromRGB(80, 0, 0) }, 8, 1.5, 0.3, 1.5, Vector3.new(0, 1.5, 0))
+	elseif mutation.Id == "Void" then
+		-- Dark matter drifting in, with a faint purple outline.
+		emitter("VoidMist", { Color3.fromRGB(120, 60, 220), Color3.fromRGB(10, 5, 20) }, 25, -2, 0.6, 1.5)
+		local outline = Instance.new("Highlight")
+		outline.FillTransparency = 1
+		outline.OutlineColor = Color3.fromRGB(140, 80, 255)
+		outline.Parent = model
+	elseif mutation.Id == "Divine" then
+		emitter("HolyLight", { Color3.fromRGB(255, 245, 200), Color3.fromRGB(255, 215, 120) }, 14, 1.2, 0.4, 2, Vector3.new(0, 2, 0)).LightEmission = 1
+		-- A golden halo floating above its head.
+		local _, size = model:GetBoundingBox()
+		local halo = Instance.new("Part")
+		halo.Name = "Halo"
+		halo.Shape = Enum.PartType.Cylinder
+		halo.Size = V(0.15, 1.6 * scale, 1.6 * scale)
+		halo.Color = Color3.fromRGB(255, 215, 90)
+		halo.Material = Enum.Material.Neon
+		halo.Anchored = false
+		halo.CanCollide = false
+		halo.CanQuery = false
+		halo.CanTouch = false
+		halo.Massless = true
+		halo.CFrame = root.CFrame * CF(0, size.Y - 0.2 * scale, 0) * ANG(0, 0, rad(90))
+		halo:SetAttribute("Keep", true)
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = root
+		weld.Part1 = halo
+		weld.Parent = halo
+		halo.Parent = model
 	end
 	if mutation.Id == "Magic" then
 		CollectionService:AddTag(model, "MagicBrainrot")
