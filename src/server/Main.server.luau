@@ -1384,13 +1384,14 @@ do
 			p.Parent = folder
 			return p
 		end
-		-- Round gold plinth with a glowing ring and a marble column
-		part("Plinth", Enum.PartType.Cylinder, Vector3.new(1.5, 14, 14), CFrame.new(base + Vector3.new(0, 0.75, 0)) * CFrame.Angles(0, 0, math.pi / 2), gold, Enum.Material.Foil)
-		local ring = part("GlowRing", Enum.PartType.Cylinder, Vector3.new(0.3, 14.6, 14.6), CFrame.new(base + Vector3.new(0, 1.2, 0)) * CFrame.Angles(0, 0, math.pi / 2), rarityColor, Enum.Material.Neon)
+		-- Small round gold plinth with a glowing ring and a marble column (it sits
+		-- right beside the shop tent, so it stays compact)
+		part("Plinth", Enum.PartType.Cylinder, Vector3.new(1.5, 9, 9), CFrame.new(base + Vector3.new(0, 0.75, 0)) * CFrame.Angles(0, 0, math.pi / 2), gold, Enum.Material.Foil)
+		local ring = part("GlowRing", Enum.PartType.Cylinder, Vector3.new(0.3, 9.6, 9.6), CFrame.new(base + Vector3.new(0, 1.2, 0)) * CFrame.Angles(0, 0, math.pi / 2), rarityColor, Enum.Material.Neon)
 		ring.CanCollide = false
-		part("Column", Enum.PartType.Cylinder, Vector3.new(4, 8, 8), CFrame.new(base + Vector3.new(0, 3.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(245, 240, 250), Enum.Material.Marble)
+		part("Column", Enum.PartType.Cylinder, Vector3.new(4, 5.5, 5.5), CFrame.new(base + Vector3.new(0, 3.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(245, 240, 250), Enum.Material.Marble)
 
-		local statue = BrainrotModel.Create(brainrot, nil, CFrame.new(base + Vector3.new(0, 5.5, 0)) * CFrame.Angles(0, math.pi, 0), false, nil, false, 2.6)
+		local statue = BrainrotModel.Create(brainrot, nil, CFrame.new(base + Vector3.new(0, 5.5, 0)) * CFrame.Angles(0, math.pi, 0), false, nil, false, 1.8)
 		local tag = statue.PrimaryPart and statue.PrimaryPart:FindFirstChild("Tag")
 		if tag then
 			tag:Destroy()
@@ -1403,7 +1404,7 @@ do
 		CollectionService:AddTag(root, "Spinner")
 
 		-- Big invisible box around it to tap / click.
-		local hitbox = part("BuyHitbox", Enum.PartType.Block, Vector3.new(12, 24, 12), CFrame.new(base + Vector3.new(0, 14, 0)), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+		local hitbox = part("BuyHitbox", Enum.PartType.Block, Vector3.new(9, 18, 9), CFrame.new(base + Vector3.new(0, 10, 0)), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
 		hitbox.Transparency = 1
 		hitbox.CanCollide = false
 		hitbox:SetAttribute("ItemId", brainrot.Id)
@@ -1423,8 +1424,8 @@ do
 
 		-- Live stock sign above it.
 		local signGui = Instance.new("BillboardGui")
-		signGui.Size = UDim2.fromScale(16, 5)
-		signGui.StudsOffsetWorldSpace = Vector3.new(0, 15, 0)
+		signGui.Size = UDim2.fromScale(13, 4)
+		signGui.StudsOffsetWorldSpace = Vector3.new(0, 11, 0)
 		signGui.MaxDistance = 400
 		signGui.LightInfluence = 0
 		signGui.Adornee = hitbox

@@ -995,10 +995,10 @@ function WorldBuilder.Build(): World
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(12, 1, 12)
 	-- Beside the middle of the conveyor, right in front of the Diamond Shop.
-	-- The shop tent and the event statue sit by the cave the brainrots come
-	-- out of, on either side of the conveyor, keeping the middle clear.
+	-- The shop tent sits by the cave the brainrots come out of, with the event
+	-- statue right beside it, keeping the middle clear.
 	local shopPosition = Vector3.new(startX + 50, 0, 45)
-	local statuePosition = Vector3.new(startX + 50, 0, -45)
+	local statuePosition = shopPosition + Vector3.new(20, 0, -5)
 	buildShop(root, shopPosition)
 
 	-- Stone paths: a walkway along each side of the conveyor, with a branch
@@ -1009,8 +1009,9 @@ function WorldBuilder.Build(): World
 	local walkEnd = exitMouthX - 4
 	for _, side in { 1, -1 } do
 		path(pathsFolder, Vector3.new(mouthX + 4, 0, side * 15), Vector3.new(walkEnd, 0, side * 15), 10)
-		path(pathsFolder, Vector3.new(shopPosition.X, 0, side * 20), Vector3.new(shopPosition.X, 0, side * 33), 8)
 	end
+	path(pathsFolder, Vector3.new(shopPosition.X, 0, 20), Vector3.new(shopPosition.X, 0, 33), 8)
+	path(pathsFolder, Vector3.new(statuePosition.X, 0, 20), Vector3.new(statuePosition.X, 0, statuePosition.Z - 5), 6)
 	for _, center in plotCenters do
 		local side = math.sign(center.Z)
 		path(pathsFolder, Vector3.new(center.X, 0, side * 20), Vector3.new(center.X, 0, center.Z - side * (PLOT_SIZE / 2 + 1)), 12)
