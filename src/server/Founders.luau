@@ -439,7 +439,9 @@ end
 
 -- Loops one of Roblox's default emotes on the giant (wave, dance...).
 -- Look-alikes have no joints, so this does nothing for them.
-function Founders.Play(giant: Model, animationId: string, looped: boolean): AnimationTrack?
+-- `weight` below 1 mixes it with whatever plays underneath (calmer); `speed`
+-- below 1 slows it down.
+function Founders.Play(giant: Model, animationId: string, looped: boolean, weight: number?, speed: number?, priority: Enum.AnimationPriority?): AnimationTrack?
 	local humanoid = giant:FindFirstChildOfClass("Humanoid")
 	if not humanoid then
 		return nil
@@ -457,13 +459,17 @@ function Founders.Play(giant: Model, animationId: string, looped: boolean): Anim
 	end)
 	if ok and track then
 		track.Looped = looped
-		track:Play()
+		if priority then
+			track.Priority = priority
+		end
+		track:Play(0.5, weight or 1, speed or 1)
 		return track
 	end
 	return nil
 end
 
 Founders.MildDance = "rbxassetid://507776043" -- the side-to-side "dance2"
+Founders.Idle = "rbxassetid://507766388" -- Roblox's normal standing idle
 Founders.Wave = "rbxassetid://507770239"
 Founders.Dance = "rbxassetid://507771019"
 Founders.Cheer = "rbxassetid://507770677"

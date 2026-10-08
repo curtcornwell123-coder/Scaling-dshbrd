@@ -2336,7 +2336,9 @@ end
 -- seconds if there's a `drop`. Then it vanishes in a puff.
 -- The whole model is placed once with PivotTo and never moved again, so its
 -- body can't get left behind.
-local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
+-- `calm`: the emote plays slowly and only partly, mixed over a normal standing
+-- pose, so it's a gentle sway instead of a full dance.
+local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?, calm: boolean?)
 	local root = giant.PrimaryPart :: BasePart
 	local height = Founders.RootHeight(giant)
 	local home = CFrame.lookAt(spot + Vector3.new(0, height, 0), Vector3.new(0, spot.Y + height, 0))
@@ -2352,6 +2354,9 @@ local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEve
 	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
 
 	-- Emotes: one on repeat, or one after another
+	if calm then
+		Founders.Play(giant, Founders.Idle, true, 1, 1, Enum.AnimationPriority.Idle)
+	end
 	task.spawn(function()
 		local track: AnimationTrack? = nil
 		local index = rng:NextInteger(1, #emotes)
@@ -2360,7 +2365,9 @@ local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEve
 				if track then
 					track:Stop(0.4)
 				end
-				track = Founders.Play(giant, emotes[index], true)
+				track = if calm
+					then Founders.Play(giant, emotes[index], true, 0.4, 0.55, Enum.AnimationPriority.Action)
+					else Founders.Play(giant, emotes[index], true)
 				index = index % #emotes + 1
 			end
 			task.wait(rng:NextNumber(5, 8))
@@ -2449,7 +2456,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 		aura.SpreadAngle = Vector2.new(180, 180)
 		aura.Size = NumberSequence.new(event.Scale * 0.25, 0)
 		aura.Parent = giant.PrimaryPart
-		runGiant(giant, event.Spot, { Founders.MildDance }, event.DropEvery, founderEventActive, drop)
+		runGiant(giant, event.Spot, { Founders.MildDance }, event.DropEvery, founderEventActive, drop, true)
 	else
 		-- No giant (shouldn't happen): still drop things from the sky.
 		while founderEventActive() do
