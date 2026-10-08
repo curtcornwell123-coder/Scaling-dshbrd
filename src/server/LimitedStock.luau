@@ -13,6 +13,7 @@
 -- Roblox confirms the payment. Cancelling releases the hold.
 
 local DataStoreService = game:GetService("DataStoreService")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
@@ -38,8 +39,10 @@ do
 	end
 end
 
--- Used when DataStores are unavailable (Studio without API access).
+-- Used when DataStores are unavailable (Studio without API access, or
+-- Studio offline): a stock count that lasts only for this test.
 local memory: { [string]: Record } = {}
+local studioOffline = false
 
 local function normalize(raw: any): Record
 	local record: Record = { Sold = 0, ReservedGiven = 0, Owners = {}, Holds = {} }
@@ -72,7 +75,7 @@ end
 -- Atomically changes an item's record. `change` may run more than once if
 -- servers race, so it must only touch the record (and plain locals).
 local function update(itemId: string, change: (Record) -> ()): boolean
-	if not store then
+	if not store or studioOffline then
 		local record = normalize(memory[itemId])
 		change(record)
 		memory[itemId] = record
@@ -87,6 +90,12 @@ local function update(itemId: string, change: (Record) -> ()): boolean
 	end)
 	if not ok then
 		warn("[LimitedStock] Update failed for", itemId, err)
+		if RunService:IsStudio() then
+			-- Testing in Studio without a connection: keep going with a
+			-- temporary count (the live game always uses the real one).
+			studioOffline = true
+			return update(itemId, change)
+		end
 	end
 	return ok
 end
@@ -153,21 +162,22 @@ function LimitedStock.Claim(player: Player, itemId: string): number?
 	return if ok then serial else nil
 end
 
--- Gives a copy from the shop stock as a gift (Corny's Give button), so the
+-- Gives a copy from the shop stock as a gift (Corny's Gift button), so the
 -- "X left" count goes down like a sale. Once the shop stock is gone it uses
--- the reserved copies. Returns the serial, or nil + why not.
-function LimitedStock.Gift(player: Player, itemId: string): (number?, string?)
+-- the reserved copies. Works for anyone by UserId, even if they're offline.
+-- Returns the serial, or nil + why not.
+function LimitedStock.Gift(userId: number, name: string, itemId: string): (number?, string?)
 	local item = Config.LimitedItems[itemId]
 	if not item then
 		return nil, "Not a limited item."
 	end
-	local key = tostring(player.UserId)
+	local key = tostring(userId)
 	local serial: number? = nil
 	local reason: string? = nil
 	local ok = update(itemId, function(record)
 		serial, reason = nil, nil
 		if record.Owners[key] then
-			reason = player.DisplayName .. " already owns one."
+			reason = name .. " already owns one."
 		elseif record.Sold + activeHolds(record, key) < item.Stock then
 			record.Sold += 1
 			serial = record.Sold
@@ -188,11 +198,29 @@ function LimitedStock.Gift(player: Player, itemId: string): (number?, string?)
 	return serial, reason
 end
 
+-- The serial this player owns (bought or gifted), if any. Used when they
+-- join to deliver gifts given while they were away.
+function LimitedStock.OwnedSerial(userId: number, itemId: string): number?
+	local key = tostring(userId)
+	if not store or studioOffline then
+		local record = memory[itemId]
+		return if record then record.Owners[key] else nil
+	end
+	local ok, raw = pcall(function()
+		return store:GetAsync(itemId)
+	end)
+	if not ok then
+		return nil
+	end
+	local serial = normalize(raw).Owners[key]
+	return if type(serial) == "number" then serial else nil
+end
+
 -- Keeps the "X left" numbers in the shop fresh across servers.
 task.spawn(function()
 	while true do
 		for itemId in Config.LimitedItems do
-			if store then
+			if store and not studioOffline then
 				local ok, raw = pcall(function()
 					return store:GetAsync(itemId)
 				end)

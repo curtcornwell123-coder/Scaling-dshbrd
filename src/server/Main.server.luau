@@ -1103,6 +1103,26 @@ local function grantLimited(player: Player, session: Session, brainrot: Config.B
 	return mutation
 end
 
+-- Limited brainrots this player owns in the shared stock but doesn't have
+-- yet: gifts Corny gave while they were offline or in another server (and
+-- any purchase whose save didn't go through).
+local function deliverOwnedLimited(player: Player)
+	for itemId in Config.LimitedItems do
+		local session = sessions[player]
+		local brainrot = Config.GetBrainrot(itemId)
+		if not session or not session.Loaded or not brainrot or ownsLimited(session, itemId) then
+			continue
+		end
+		local serial = LimitedStock.OwnedSerial(player.UserId, itemId)
+		-- Checked again after the wait: they may have left, or got it meanwhile.
+		session = sessions[player]
+		if serial and session and session.Loaded and not ownsLimited(session, itemId) then
+			local rolled = grantLimited(player, session, brainrot, serial)
+			Announce:FireAllClients("limited", player.DisplayName, itemId, tostring(serial), rolled)
+		end
+	end
+end
+
 deliverUnclaimed = function(player: Player, session: Session)
 	local plot = session.Plot
 	if not plot then
@@ -2008,6 +2028,7 @@ local function load(player: Player)
 		task.spawn(onCharacter, player, player.Character)
 	end
 	push(player)
+	task.spawn(deliverOwnedLimited, player)
 end
 
 Players.PlayerAdded:Connect(function(player)
@@ -2944,6 +2965,82 @@ local function resolveTargets(admin: Player, query: unknown): { Player }
 	return {}
 end
 
+-- Corny's gift box: gives a limited brainrot to anyone by username, out of
+-- the shop stock. If they aren't in this server they get it when they join
+-- (or right away, if they're in another server).
+local GIFT_TOPIC = "BrainrotHeistGift"
+local function giftLimited(admin: Player, value: unknown)
+	local giver = founderOf(admin)
+	if not giver or giver.Id ~= Config.LimitedGiver then
+		notify(admin, "Only " .. Config.LimitedGiver .. " can gift limited brainrots.")
+		return
+	end
+	local info: { [string]: any } = if type(value) == "table" then value :: any else {}
+	local itemId = tostring(info.ItemId)
+	local brainrot = Config.GetBrainrot(itemId)
+	local typed = string.gsub(string.sub(tostring(info.Name or ""), 1, 40), "%s", "")
+	if not brainrot or not Config.LimitedItems[itemId] then
+		return
+	end
+	if typed == "" then
+		notify(admin, "Type the player's username first.")
+		return
+	end
+	-- Someone in this server (username or display name), or look them up.
+	local lower = string.lower(typed)
+	local here: Player? = nil
+	for _, p in Players:GetPlayers() do
+		if string.lower(p.Name) == lower or string.lower(p.DisplayName) == lower then
+			here = p
+			break
+		end
+	end
+	local userId: number? = if here then here.UserId else nil
+	local name = if here then here.DisplayName else typed
+	if not userId then
+		local ok, id = pcall(function()
+			return Players:GetUserIdFromNameAsync(typed)
+		end)
+		if not ok or type(id) ~= "number" then
+			notify(admin, "Couldn't find a Roblox player called " .. typed .. ".")
+			return
+		end
+		userId = id
+	end
+	local hereSession = here and sessions[here]
+	if hereSession and ownsLimited(hereSession, itemId) then
+		notify(admin, name .. " already owns " .. brainrot.DisplayName .. ".")
+		return
+	end
+	local serial, why = LimitedStock.Gift(userId :: number, name, itemId)
+	if not serial then
+		notify(admin, why or "Couldn't gift it.")
+		return
+	end
+	if here and hereSession and hereSession.Loaded then
+		local rolled = grantLimited(here, hereSession, brainrot, serial)
+		Announce:FireAllClients("limited", here.DisplayName, itemId, tostring(serial), rolled)
+		notify(admin, string.format("Gifted %s #%d to %s!", brainrot.DisplayName, serial, name))
+	else
+		notify(admin, string.format("Gifted %s #%d to %s! They get it as soon as they join.", brainrot.DisplayName, serial, name))
+		pcall(function()
+			MessagingService:PublishAsync(GIFT_TOPIC, { UserId = userId })
+		end)
+	end
+end
+task.spawn(function()
+	pcall(function()
+		MessagingService:SubscribeAsync(GIFT_TOPIC, function(packet)
+			local data = packet.Data
+			local userId = type(data) == "table" and tonumber(data.UserId)
+			local player = userId and Players:GetPlayerByUserId(userId)
+			if player then
+				deliverOwnedLimited(player)
+			end
+		end)
+	end)
+end)
+
 AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, target: unknown, value: unknown)
 	local adminSession = sessions[admin]
 	if not adminSession or not adminSession.IsAdmin or type(action) ~= "string" then
@@ -2953,6 +3050,9 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 	-- Server-wide actions
 	if action == "GlobalAnnounce" then
 		announceEverywhere(admin, tostring(value))
+		return
+	elseif action == "GiftLimited" then
+		task.spawn(giftLimited, admin, value)
 		return
 	elseif action == "Spawn" or action == "DropBrainrot" then
 		local brainrot = Config.Decode(tostring(value))
@@ -3112,7 +3212,7 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 					elseif ownsLimited(session, brainrot.Id) then
 						notify(admin, player.DisplayName .. " already owns " .. brainrot.DisplayName .. ".")
 					else
-						local serial, why = LimitedStock.Gift(player, brainrot.Id)
+						local serial, why = LimitedStock.Gift(player.UserId, player.DisplayName, brainrot.Id)
 						if serial then
 							local rolled = grantLimited(player, session, brainrot, serial)
 							Announce:FireAllClients("limited", player.DisplayName, brainrot.Id, tostring(serial), rolled)

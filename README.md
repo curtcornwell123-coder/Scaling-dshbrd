@@ -41,7 +41,7 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 
 ### Launch event: Cigna Glamourina (limited)
 
-- **502 copies total.** 500 are in the shop for **50 Robux** (one per player), plus 2 spare. **Only Corny** can gift her: in the admin panel's BRAINROTS tab (the row shows how many are left), type the player's name in the Player box and press **Gift**. Each gift comes out of the shop's 500, so the count goes down just like a sale; once those are gone, the 2 spares are used. Ace and other admins don't see the row, and the server refuses them (`Config.LimitedGiver`).
+- **502 copies total.** 500 are in the shop for **50 Robux** (one per player), plus 2 spare. **Only Corny** can gift her: in the admin panel's **FOUNDER** tab, the **GIFT CIGNA GLAMOURINA** box shows how many are left; type anyone's Roblox username and press **GIFT**. It works even if they aren't in the server: they get her as soon as they join (right away if they're in another server). Each gift comes out of the shop's 500, so the count goes down just like a sale; once those are gone, the 2 spares are used. Ace and other admins don't see the row, and the server refuses them (`Config.LimitedGiver`).
 - Every copy has a **serial number** (#1–#500 from the shop stock, #501–#502 the spares), shown on her name tag.
 - Stock is shared by **every server** through a DataStore. When someone clicks Buy, a copy is reserved for 5 minutes before the Robux prompt opens, so the game can never sell more than 500. Cancelling releases it.
 - She **can't be stolen or sold** and **stays through rebirths**. If your base is full when you buy her, she appears as soon as a slot opens.

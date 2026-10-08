@@ -1882,6 +1882,10 @@ do
 	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base.  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
 	-- Limited brainrots: only Corny sees these rows (the server checks too).
 	for i, brainrot in Config.Brainrots do
+		-- Limited ones are gifted from the box in Corny's FOUNDER tab.
+		if brainrot.Limited then
+			continue
+		end
 		local row = Instance.new("Frame")
 		row.Size = UDim2.new(1, 0, 0, 36)
 		row.BackgroundColor3 = TILE
@@ -1889,34 +1893,18 @@ do
 		corner(row, 8)
 		row.Parent = listCard
 		local color = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
-		local nameLabel = text(row, {
+		text(row, {
 			Position = UDim2.fromOffset(10, 4),
 			Size = UDim2.new(1, -270, 1, -8),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = color,
 			Text = brainrot.DisplayName,
 		})
-		local limitedItem = Config.LimitedItems[brainrot.Id]
-		if brainrot.Limited and limitedItem then
-			row.Visible = false
-			table.insert(limitedGiveRows, row)
-			-- Shows how many are left; each gift takes one from the shop stock.
-			local function showLeft()
-				local left = ReplicatedStorage:GetAttribute("LimitedLeft_" .. brainrot.Id) :: number?
-				nameLabel.Text = string.format("%s (%d left)", brainrot.DisplayName, left or limitedItem.Stock)
-			end
-			ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. brainrot.Id):Connect(showLeft)
-			showLeft()
-		end
 		local buttons: { { Label: string, Color: Color3, Action: string } } = {
 			{ Label = "Give", Color = GREEN, Action = "Brainrot" },
 			{ Label = "Spawn", Color = ORANGE, Action = "Spawn" },
 			{ Label = "Drop", Color = PURPLE, Action = "DropBrainrot" },
 		}
-		if brainrot.Limited then
-			-- Limited brainrots come out of the stock, one per player.
-			buttons = { { Label = "Gift", Color = GREEN, Action = "Brainrot" } }
-		end
 		for j, info in buttons do
 			local b = smallButton(row, info.Label, info.Color, 80, function()
 				send(info.Action, brainrotValue(brainrot.Id))
@@ -1950,6 +1938,35 @@ do
 	smallButton(founderStopRow, "END FOUNDER EVENT", GREY, 230, function()
 		send("FounderEventStop", nil)
 	end)
+
+	-- Gift box for the limited brainrot (Corny only; the server checks too).
+	local giftItemId = Config.CurrentEvent
+	local giftBrainrot = Config.GetBrainrot(giftItemId)
+	local giftItem = Config.LimitedItems[giftItemId]
+	if giftBrainrot and giftItem then
+		local gift = section(founderPage, 0, "GIFT " .. string.upper(giftBrainrot.DisplayName), "Type anyone's Roblox username. It works even if they're not in this server: they get her as soon as they join. Each gift takes one from the stock.", Config.Rarities[giftBrainrot.Rarity].Color)
+		gift.Visible = false
+		table.insert(limitedGiveRows, gift)
+		local stockLabel = text(gift, {
+			Size = UDim2.new(1, 0, 0, 26),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = GOLD,
+			Text = "",
+			LayoutOrder = 5,
+		})
+		local function showLeft()
+			local left = ReplicatedStorage:GetAttribute("LimitedLeft_" .. giftItemId) :: number?
+			stockLabel.Text = string.format("%d / %d LEFT", left or giftItem.Stock, giftItem.Stock)
+		end
+		ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. giftItemId):Connect(showLeft)
+		showLeft()
+		local giftRow = controls(gift, 1)
+		local giftName = inputBox(giftRow, "", "Roblox username", 280)
+		smallButton(giftRow, "GIFT", Color3.fromRGB(190, 70, 230), 140, function()
+			AdminAction:FireServer("GiftLimited", "", { Name = giftName.Text, ItemId = giftItemId })
+			giftName.Text = ""
+		end)
+	end
 
 	local look = section(founderPage, 2, "MY EVENT GIANT'S LOOK", "Pick what your giant wears in your event. It saves for good, in every server.", GOLD)
 	local saveLookRow = controls(look, 1)
