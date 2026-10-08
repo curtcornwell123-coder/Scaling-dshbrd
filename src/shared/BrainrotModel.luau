@@ -27,6 +27,7 @@ local rad = math.rad
 
 type Builder = {
 	add: (name: string, kind: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?, keep: boolean?) -> BasePart,
+	mirror: boolean?, -- flip left/right (designs are drawn as seen from behind)
 }
 
 -- Positions are in studs from the feet (y = up, -z = front), at scale 1.
@@ -57,6 +58,11 @@ local function newBuilder(model: Model, root: BasePart, scale: number): Builder
 			local mesh = Instance.new("SpecialMesh")
 			mesh.MeshType = Enum.MeshType.Sphere
 			mesh.Parent = p
+		end
+		if b.mirror then
+			-- Reflect across the YZ plane: negate X and the matching rotation terms.
+			local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = offset:GetComponents()
+			offset = CFrame.new(-x, y, z, r00, -r01, -r02, -r10, r11, r12, -r20, r21, r22)
 		end
 		p.Size = size * scale
 		p.CFrame = feet * CF(offset.Position * scale) * offset.Rotation
@@ -718,6 +724,181 @@ designs.ScarpinoStellino = function(b, c, a)
 	return 4.1
 end
 
+-- Draws a thick rounded stroke through a list of points (for letters/digits).
+local function stroke(b: Builder, name: string, points: { Vector3 }, d: number, color: Color3)
+	for i = 1, #points - 1 do
+		capsule(b, name, points[i], points[i + 1], d, color)
+	end
+end
+
+designs.TireinaFrogiva = function(b, c, a)
+	local green = c
+	local yellow = a
+	local rubber = Color3.fromRGB(32, 32, 35)
+	-- Walking yellow legs (one stepping forward, one back)
+	capsule(b, "Thigh", V(-0.3, 1.45, 0.1), V(-0.35, 0.85, -0.3), 0.32, yellow)
+	capsule(b, "Shin", V(-0.35, 0.85, -0.3), V(-0.32, 0.22, -0.1), 0.28, yellow)
+	capsule(b, "Thigh", V(0.3, 1.45, 0.1), V(0.35, 0.85, 0.3), 0.32, yellow)
+	capsule(b, "Shin", V(0.35, 0.85, 0.3), V(0.36, 0.28, 0.5), 0.28, yellow)
+	egg(b, "Foot", V(0.42, 0.18, 0.8), CF(-0.32, 0.1, -0.35), yellow)
+	egg(b, "Foot", V(0.42, 0.18, 0.8), CF(0.36, 0.16, 0.25) * ANG(rad(15), 0, 0), yellow)
+	-- Green body peeking through the tire
+	egg(b, "Body", V(0.75, 1.15, 0.7), CF(0, 2.05, 0), green)
+	-- The tire: two rubber rings side by side, with tread blocks around it
+	local center = V(0, 2.05, 0)
+	local radius = 0.82
+	for _, x in { -0.24, 0.24 } do
+		local points = {}
+		for k = 0, 12 do
+			local angle = rad(k * 30)
+			table.insert(points, center + V(x, math.cos(angle) * radius, math.sin(angle) * radius))
+		end
+		stroke(b, "Tire", points, 0.55, rubber)
+	end
+	for k = 0, 11 do
+		local angle = rad(k * 30 + 15)
+		local outward = V(0, math.cos(angle), math.sin(angle))
+		b.add("Tread", "Block", V(0.62, 0.14, 0.22), CFrame.lookAt(center + outward * (radius + 0.27), center) * ANG(0, 0, 0), Color3.fromRGB(55, 55, 60))
+	end
+	-- Green arms with yellow hands
+	capsule(b, "Arm", V(-0.5, 2.45, 0), V(-0.62, 1.6, -0.2), 0.26, green)
+	capsule(b, "Arm", V(0.5, 2.45, 0), V(0.6, 1.65, 0.25), 0.26, green)
+	ball(b, "Hand", 0.36, V(-0.62, 1.52, -0.22), yellow)
+	ball(b, "Hand", 0.36, V(0.6, 1.57, 0.27), yellow)
+	-- Frog head: wide and flat, pale jaw, bulging yellow eyes on top
+	egg(b, "Head", V(1.35, 0.85, 1.25), CF(0, 3.2, -0.05), green)
+	egg(b, "Jaw", V(1.15, 0.38, 1.05), CF(0, 2.98, -0.12), Color3.fromRGB(190, 215, 90))
+	egg(b, "Mouth", V(1.0, 0.05, 0.1), CF(0, 3.06, -0.66), Color3.fromRGB(40, 70, 30), nil, true)
+	for _, side in { -1, 1 } do
+		ball(b, "EyeBump", 0.6, V(side * 0.38, 3.58, -0.15), green)
+		ball(b, "Eye", 0.46, V(side * 0.38, 3.62, -0.3), Color3.fromRGB(250, 220, 60), nil, true)
+		egg(b, "Pupil", V(0.26, 0.18, 0.1), CF(side * 0.38, 3.62, -0.53), BLACK, nil, true)
+		ball(b, "Shine", 0.07, V(side * 0.33, 3.68, -0.55), WHITE, Enum.Material.Neon, true)
+		ball(b, "Nostril", 0.06, V(side * 0.1, 3.3, -0.65), Color3.fromRGB(40, 70, 30), nil, true)
+	end
+	return 3.9
+end
+
+designs.SixSeven = function(b, c, a)
+	local blue = c
+	local glove = a
+	local d = 0.62
+	-- The "6": a round bottom loop with a stem curling up and over
+	local six = {}
+	for k = 0, 12 do
+		local angle = rad(180 + k * 30)
+		table.insert(six, V(-0.55 + math.cos(angle) * 0.45, 1.8 + math.sin(angle) * 0.45, 0))
+	end
+	table.insert(six, V(-1.0, 2.3, 0))
+	table.insert(six, V(-0.88, 2.75, 0))
+	table.insert(six, V(-0.58, 3.0, 0))
+	table.insert(six, V(-0.22, 2.95, 0))
+	stroke(b, "Six", six, d, blue)
+	egg(b, "SixFill", V(0.5, 0.5, 0.4), CF(-0.55, 1.8, 0.05), blue:Lerp(BLACK, 0.2))
+	-- The "7": a top bar and a slanted leg
+	stroke(b, "Seven", { V(0.05, 3.0, 0), V(1.1, 3.0, 0), V(0.55, 1.35, 0) }, d, blue)
+	-- Face across the 6: big eyes, brows and a wide grin
+	eyes(b, -0.35, 2.4, -0.3, 0.22, 0.44)
+	for _, side in { -1, 1 } do
+		capsule(b, "Brow", V(-0.35 + side * 0.22 - 0.12, 2.75, -0.32), V(-0.35 + side * 0.22 + 0.12, 2.78 + side * 0.03, -0.32), 0.06, BLACK, nil, true)
+	end
+	egg(b, "Grin", V(0.62, 0.3, 0.12), CF(-0.5, 1.95, -0.33), WHITE, nil, true)
+	egg(b, "GrinLine", V(0.66, 0.06, 0.12), CF(-0.5, 2.05, -0.35), BLACK, nil, true)
+	-- Skinny arms with big white cartoon gloves
+	capsule(b, "Arm", V(-1.0, 2.05, 0), V(-1.5, 1.75, -0.1), 0.16, blue)
+	capsule(b, "Arm", V(0.9, 2.55, 0), V(1.45, 2.75, -0.1), 0.16, blue)
+	for _, hand in { V(-1.62, 1.72, -0.12), V(1.58, 2.8, -0.12) } do
+		ball(b, "Glove", 0.48, hand, glove)
+		egg(b, "Thumb", V(0.18, 0.28, 0.18), CF(hand + V(0, 0.22, -0.12)), glove)
+	end
+	-- Legs and big white shoes
+	capsule(b, "Leg", V(-0.55, 1.35, 0), V(-0.6, 0.45, 0), 0.2, blue)
+	capsule(b, "Leg", V(0.55, 1.35, 0), V(0.6, 0.45, 0), 0.2, blue)
+	for _, x in { -0.62, 0.62 } do
+		egg(b, "Shoe", V(0.62, 0.45, 1.0), CF(x, 0.22, -0.15), glove)
+	end
+	return 3.4
+end
+
+designs.BallerinaCapuchina = function(b, c, a)
+	local skin = Color3.fromRGB(242, 205, 178)
+	local peach = c
+	local coffee = a
+	local cup = Color3.fromRGB(246, 240, 228)
+	-- Legs on pointe: one straight, one crossed in front
+	capsule(b, "Leg", V(-0.15, 1.95, 0.05), V(-0.12, 0.45, 0.05), 0.24, skin)
+	capsule(b, "Leg", V(0.15, 1.95, 0.05), V(-0.02, 0.6, -0.15), 0.24, skin)
+	for _, foot in { V(-0.12, 0.22, 0.05), V(-0.02, 0.38, -0.17) } do
+		egg(b, "PointeShoe", V(0.2, 0.45, 0.24), CF(foot), peach)
+		capsule(b, "Ribbon", foot + V(-0.1, 0.25, 0), foot + V(0.1, 0.3, 0), 0.04, peach)
+	end
+	-- Tutu: layered ruffle discs
+	egg(b, "TutuBase", V(1.8, 0.3, 1.8), CF(0, 2.0, 0.05), peach)
+	for layer = 0, 1 do
+		for k = 0, 13 do
+			local angle = rad(k * (360 / 14) + layer * 12)
+			local r = 0.85 - layer * 0.18
+			egg(b, "Ruffle", V(0.5, 0.26, 0.5), CF(math.cos(angle) * r, 2.0 + layer * 0.12, 0.05 + math.sin(angle) * r), peach:Lerp(WHITE, layer * 0.15))
+		end
+	end
+	-- Leotard bodice with thin straps, then shoulders and neck
+	egg(b, "Bodice", V(0.7, 0.85, 0.5), CF(0, 2.5, 0.05), peach)
+	egg(b, "Chest", V(0.72, 0.5, 0.48), CF(0, 2.95, 0.05), skin)
+	for _, side in { -1, 1 } do
+		capsule(b, "Strap", V(side * 0.16, 2.8, -0.2), V(side * 0.2, 3.12, -0.08), 0.04, peach)
+	end
+	capsule(b, "Neck", V(0, 3.1, 0.05), V(0, 3.4, 0.05), 0.24, skin)
+	-- Arms: one raised high with a pointing hand, one held out to the side
+	capsule(b, "Arm", V(0.32, 3.05, 0.05), V(0.62, 3.6, 0), 0.17, skin)
+	capsule(b, "Arm", V(0.62, 3.6, 0), V(0.72, 4.3, -0.05), 0.15, skin)
+	ball(b, "Hand", 0.22, V(0.74, 4.42, -0.05), skin)
+	capsule(b, "Arm", V(-0.32, 3.05, 0.05), V(-0.82, 3.15, 0), 0.17, skin)
+	capsule(b, "Arm", V(-0.82, 3.15, 0), V(-1.22, 3.42, -0.05), 0.15, skin)
+	ball(b, "Hand", 0.22, V(-1.3, 3.48, -0.05), skin)
+
+	-- Head: a cappuccino cup, wider at the top
+	local rings = { { 1.25, 3.42 }, { 1.45, 3.62 }, { 1.6, 3.82 }, { 1.72, 4.02 }, { 1.8, 4.2 } }
+	for _, ring in rings do
+		vcyl(b, "Cup", 0.24, ring[1], V(0, ring[2], 0.05), cup, Enum.Material.SmoothPlastic)
+	end
+	vcyl(b, "Coffee", 0.06, 1.66, V(0, 4.32, 0.05), coffee)
+	-- Latte-art leaf on the foam
+	capsule(b, "LatteStem", V(0, 4.36, -0.45), V(0, 4.36, 0.55), 0.06, cup)
+	for k = 0, 4 do
+		local z = -0.35 + k * 0.2
+		local width = 0.55 - math.abs(k - 2) * 0.12
+		for _, side in { -1, 1 } do
+			b.add("LatteLeaf", "Egg", V(width, 0.03, 0.1), CF(side * width * 0.45, 4.36, z) * ANG(0, side * rad(25), 0), cup)
+		end
+	end
+	-- Cup handle on the left
+	local handle = {}
+	for k = 0, 6 do
+		local angle = rad(-90 + k * 30)
+		table.insert(handle, V(-0.88 - math.cos(angle) * 0.32, 3.78 + math.sin(angle) * 0.3, 0.05))
+	end
+	stroke(b, "Handle", handle, 0.12, cup)
+	-- Cute face on the front of the cup
+	for _, side in { -1, 1 } do
+		local eye = V(side * 0.3, 3.85, -0.72)
+		egg(b, "Eye", V(0.36, 0.42, 0.18), CF(eye), WHITE, nil, true)
+		ball(b, "Iris", 0.28, eye + V(0, -0.02, -0.07), Color3.fromRGB(150, 90, 50), nil, true)
+		ball(b, "Pupil", 0.14, eye + V(0, -0.02, -0.12), BLACK, nil, true)
+		ball(b, "Shine", 0.06, eye + V(-0.05, 0.05, -0.15), WHITE, Enum.Material.Neon, true)
+		capsule(b, "Lash", eye + V(side * 0.14, 0.18, -0.06), eye + V(side * 0.24, 0.26, -0.06), 0.04, BLACK, nil, true)
+		capsule(b, "Brow", eye + V(-0.12, 0.3, -0.04), eye + V(0.12, 0.33, -0.04), 0.05, Color3.fromRGB(150, 100, 70), nil, true)
+		egg(b, "Blush", V(0.22, 0.12, 0.05), CF(side * 0.48, 3.62, -0.74), Color3.fromRGB(255, 160, 160), nil, true)
+	end
+	ball(b, "Nose", 0.1, V(0, 3.68, -0.82), Color3.fromRGB(235, 200, 175))
+	egg(b, "Smile", V(0.36, 0.14, 0.08), CF(0, 3.52, -0.74), Color3.fromRGB(190, 70, 80), nil, true)
+	egg(b, "Teeth", V(0.26, 0.06, 0.08), CF(0, 3.55, -0.77), WHITE, nil, true)
+	return 4.6
+end
+
+-- Designs drawn mirrored (left/right swapped) so text and poses read
+-- correctly from the front.
+local MIRRORED = { SixSeven = true, BallerinaCapuchina = true }
+
 -- Fallback for brainrots without a design yet.
 local function blob(b: Builder, c: Color3, a: Color3): number
 	legs(b, a, 1.0, 0.7)
@@ -1087,7 +1268,9 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 	local height = useCustomModel(model, root, brainrot, s)
 	if not height then
 		local design: Design = designs[brainrot.Id] or blob
-		height = design(newBuilder(model, root, s), brainrot.Color, brainrot.Accent)
+		local builder = newBuilder(model, root, s)
+		builder.mirror = MIRRORED[brainrot.Id]
+		height = design(builder, brainrot.Color, brainrot.Accent)
 	end
 	local topY = (height :: number) * s
 
