@@ -2589,8 +2589,15 @@ local function founderEventActive(): boolean
 	return workspace:GetServerTimeNow() < (ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number)
 end
 
+-- Ends the running event's night, sky, music and boosts (set by
+-- runFounderEvent while one is running; safe to call more than once).
+local endFounderEvent: () -> () = function() end
+
 local function stopFounderEvent()
+	-- The giants and UFOs see this and leave on their own...
 	ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
+	-- ...and everything else stops right away.
+	endFounderEvent()
 end
 
 local function runFounderEvent(eventId: string, minutes: number)
@@ -2599,6 +2606,16 @@ local function runFounderEvent(eventId: string, minutes: number)
 		return
 	end
 	founderEventRunning = eventId
+	-- This run is live until its time is up or it's ended (a later event
+	-- never brings an earlier one's giants back).
+	local ended = false
+	local function active(): boolean
+		return not ended and founderEventActive()
+	end
+	-- Everything this event builds goes in here, so it can all be cleared.
+	local eventFolder = Instance.new("Folder")
+	eventFolder.Name = "FounderEvent_" .. eventId
+	eventFolder.Parent = foundersFolder
 	-- Pick up music changed in another server since this one started.
 	Founders.LoadEventMusic()
 	ReplicatedStorage:SetAttribute("FounderEvent", eventId)
@@ -2651,13 +2668,13 @@ local function runFounderEvent(eventId: string, minutes: number)
 		local hover = CFrame.new(spot.X, ufoHeight, spot.Z)
 		local arriveFrom = hover + Vector3.new(-700, 350, 420 * side)
 		ufo:PivotTo(arriveFrom)
-		ufo.Parent = foundersFolder
+		ufo.Parent = eventFolder
 		glide(ufo, arriveFrom, hover, 5)
 
 		-- 2. The light beam switches on underneath it.
 		local beamTop = Vector3.new(spot.X, ufoHeight - ufoSize * 0.14, spot.Z)
 		local beam = Founders.CreateBeam(beamTop, Vector3.new(spot.X, spot.Y, spot.Z), ufoSize * 0.3, ufoSize * 0.62)
-		beam.Parent = foundersFolder
+		beam.Parent = eventFolder
 		for _, part in beam:GetChildren() do
 			if part:IsA("BasePart") then
 				TweenService:Create(part, TweenInfo.new(1), { Transparency = Founders.BeamTransparency }):Play()
@@ -2667,7 +2684,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 
 		-- 3. The founder appears floating in the beam (in their special event
 		-- outfit, not their normal avatar), holding a pose with a rainbow aura.
-		local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
+		local giant = Founders.CreateGiant(event.Founder, event.Scale, eventFolder, event.OutfitId)
 		if giant then
 			-- Their pose: an animation if one is set, otherwise the floating
 			-- sage pose (set by turning their joints).
@@ -2688,7 +2705,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 			local started = os.clock()
 			local nextDrop = os.clock() + 1.5 + rng:NextNumber(0, dropEvery)
 			local nextColor = 0
-			while giant.Parent and founderEventActive() do
+			while giant.Parent and active() do
 				local t = os.clock() - started
 				giant:PivotTo(base + Vector3.new(0, math.sin(t * 0.8) * size.Y * 0.02, 0))
 				if os.clock() >= nextColor then
@@ -2707,7 +2724,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 			giant:Destroy()
 		else
 			-- No giant (shouldn't happen): the UFO drops things itself.
-			while founderEventActive() do
+			while active() do
 				drop(beamTop)
 				task.wait(dropEvery)
 			end
@@ -2732,7 +2749,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 	-- Ace's style: standing in the water while the dancer brainrot (Cigna
 	-- Glamourina) flies around him spinning ballet pirouettes.
 	local function runBallet(spot: Vector3)
-		local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
+		local giant = Founders.CreateGiant(event.Founder, event.Scale, eventFolder, event.OutfitId)
 		if not giant then
 			return
 		end
@@ -2753,7 +2770,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 					tag:Destroy()
 				end
 				dancer.Name = "BalletDancer" .. i
-				dancer.Parent = foundersFolder
+				dancer.Parent = eventFolder
 				table.insert(dancers, dancer)
 			end
 		end
@@ -2764,7 +2781,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 		local pivotToRoot = home:ToObjectSpace(root.CFrame)
 		local started = os.clock()
 		local nextColor = 0
-		while giant.Parent and founderEventActive() do
+		while giant.Parent and active() do
 			local t = os.clock() - started
 			-- Turn around the root's vertical line, so he spins in place.
 			local rootNow = (home * pivotToRoot) * CFrame.Angles(0, t * 1.2, 0)
@@ -2798,7 +2815,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 	local guaranteed = event.Guaranteed and Config.GetBrainrot(event.Guaranteed)
 	if guaranteed then
 		task.delay(10, function()
-			if not founderEventActive() then
+			if not active() then
 				return
 			end
 			local rare = {}
@@ -2811,29 +2828,44 @@ local function runFounderEvent(eventId: string, minutes: number)
 		end)
 	end
 
+	-- Ending: day comes back, and the night mutation, sky, music and boosts
+	-- stop for everyone. Runs once, whether the time ran out or a founder
+	-- pressed END.
+	endFounderEvent = function()
+		if ended then
+			return
+		end
+		ended = true
+		ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
+		if event.Night then
+			ReplicatedStorage:SetAttribute("NightMutation", "")
+			ReplicatedStorage:SetAttribute("NightBoost", 0)
+			TweenService:Create(Lighting, TweenInfo.new(5, Enum.EasingStyle.Sine), { ClockTime = dayTime }):Play()
+		end
+		ReplicatedStorage:SetAttribute("FounderEvent", "")
+		founderEventRunning = nil
+		-- Give the giants and UFOs a moment to fly off, then clear anything left.
+		task.delay(15, function()
+			eventFolder:Destroy()
+		end)
+	end
+
 	local running = 0
 	for _, spot in event.Spots do
 		running += 1
 		task.spawn(function()
-			if event.Style == "Ballet" then
-				runBallet(spot)
-			else
-				runUfo(spot)
+			-- Even if something goes wrong, the event still ends properly.
+			local ok, err = pcall(if event.Style == "Ballet" then runBallet else runUfo, spot)
+			if not ok then
+				warn("[BrainrotHeist] Founder event part failed:", err)
 			end
 			running -= 1
 		end)
 	end
-	while running > 0 do
+	while running > 0 and active() do
 		task.wait(0.5)
 	end
-	if event.Night then
-		ReplicatedStorage:SetAttribute("NightMutation", "")
-		ReplicatedStorage:SetAttribute("NightBoost", 0)
-		TweenService:Create(Lighting, TweenInfo.new(5, Enum.EasingStyle.Sine), { ClockTime = dayTime }):Play()
-	end
-	ReplicatedStorage:SetAttribute("FounderEvent", "")
-	ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
-	founderEventRunning = nil
+	endFounderEvent()
 end
 
 -- Global announcements -------------------------------------------------------
@@ -3228,7 +3260,13 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		return
 	elseif action == "AbuseStop" then
 		ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)
-		notify(admin, "Admin abuse ended.")
+		-- A founder's END also ends their founder event.
+		if founderEventRunning and founderOf(admin) then
+			stopFounderEvent()
+			notify(admin, "Admin abuse and the founder event ended.")
+		else
+			notify(admin, "Admin abuse ended.")
+		end
 		return
 	elseif action == "Luck" then
 		local minutes = parseAmount(value) or 0
