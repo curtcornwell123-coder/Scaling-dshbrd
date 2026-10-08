@@ -112,6 +112,7 @@ type Session = {
 	IsAdmin: boolean,
 	IsFounder: boolean,
 	FounderId: string, -- "Corny", "Ace", or "" for everyone else
+	NoSave: boolean, -- Studio test where loading failed: play, but never save
 	LastLimitedTry: number,
 	FollowerModels: { Model },
 }
@@ -615,7 +616,7 @@ end
 
 local function save(player: Player): boolean
 	local session = sessions[player]
-	if not session or not session.Loaded or not store then
+	if not session or not session.Loaded or not store or session.NoSave then
 		return false
 	end
 	syncBrainrots(session)
@@ -1930,6 +1931,7 @@ local function load(player: Player)
 		IsAdmin = false,
 		IsFounder = false,
 		FounderId = "",
+		NoSave = false,
 		LastLimitedTry = 0,
 		FollowerModels = {},
 	}
@@ -1947,13 +1949,21 @@ local function load(player: Player)
 			end
 			task.wait(attempt)
 		end
-		if not ok then
+		if not ok and RunService:IsStudio() then
+			-- Testing in Studio without a connection to Roblox (or with API
+			-- access off): play with fresh data and never save it.
+			warn("[BrainrotHeist] Couldn't load data in Studio, testing without saving:", result)
+			session.NoSave = true
+			task.delay(5, notify, player, "Studio test: your data couldn't load, so nothing will save this time.")
+		elseif not ok then
 			-- Don't risk overwriting real progress with a fresh save.
 			sessions[player] = nil
 			player:Kick("Could not load your data. Please rejoin.")
 			return
 		end
-		session.Data = sanitize(result)
+		if ok then
+			session.Data = sanitize(result)
+		end
 	end
 
 	for _, pass in Config.GamePasses do
