@@ -492,18 +492,67 @@ Founders.SagePose = {
 	LeftElbow = { 90, 0, 55 },
 } :: Pose
 
-local originalC0: { [Motor6D]: CFrame } = setmetatable({}, { __mode = "k" }) :: any
-
--- Puts a giant (a real avatar) into `pose`. Safe to call again: it always
--- starts from each joint's original position.
-function Founders.ApplyPose(giant: Model, pose: Pose)
-	for _, joint in giant:GetDescendants() do
-		if joint:IsA("Motor6D") then
-			local angles = pose[joint.Name]
-			if angles then
-				local original = originalC0[joint] or joint.C0
-				originalC0[joint] = original
-				joint.C0 = original * CFrame.Angles(math.rad(angles[1]), math.rad(angles[2]), math.rad(angles[3]))
+-- Puts a giant (a real avatar) into `pose` and freezes it there: every body
+-- part and accessory is placed directly from the avatar's joints, with the
+-- pose's turns added, and then anchored. Nothing is left to the physics
+-- engine, so the pose always shows and the body can't droop, fall or sink.
+-- Move it afterwards with PivotTo.
+function Founders.FreezePose(giant: Model, pose: Pose)
+	local root = giant.PrimaryPart
+	if not root then
+		return
+	end
+	local placed: { [BasePart]: CFrame } = { [root] = root.CFrame }
+	local joints: { JointInstance } = {}
+	local rigid: { RigidConstraint } = {}
+	for _, d in giant:GetDescendants() do
+		if d:IsA("Motor6D") or d:IsA("Weld") then
+			table.insert(joints, d)
+		elseif d:IsA("RigidConstraint") then
+			table.insert(rigid, d)
+		end
+	end
+	local function turn(joint: JointInstance): CFrame
+		local angles = if joint:IsA("Motor6D") then pose[joint.Name] else nil
+		return if angles then CFrame.Angles(math.rad(angles[1]), math.rad(angles[2]), math.rad(angles[3])) else CFrame.identity
+	end
+	local changed = true
+	while changed do
+		changed = false
+		for _, joint in joints do
+			local p0, p1 = joint.Part0, joint.Part1
+			if p0 and p1 then
+				if placed[p0] and not placed[p1] then
+					placed[p1] = placed[p0] * joint.C0 * turn(joint) * joint.C1:Inverse()
+					changed = true
+				elseif placed[p1] and not placed[p0] then
+					placed[p0] = placed[p1] * joint.C1 * turn(joint):Inverse() * joint.C0:Inverse()
+					changed = true
+				end
+			end
+		end
+		-- Accessories held on by attachments instead of welds
+		for _, constraint in rigid do
+			local a0, a1 = constraint.Attachment0, constraint.Attachment1
+			local p0 = a0 and a0.Parent
+			local p1 = a1 and a1.Parent
+			if a0 and a1 and p0 and p1 and p0:IsA("BasePart") and p1:IsA("BasePart") then
+				if placed[p0] and not placed[p1] then
+					placed[p1] = placed[p0] * a0.CFrame * a1.CFrame:Inverse()
+					changed = true
+				elseif placed[p1] and not placed[p0] then
+					placed[p0] = placed[p1] * a1.CFrame * a0.CFrame:Inverse()
+					changed = true
+				end
+			end
+		end
+	end
+	for _, part in giant:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = true
+			local cf = placed[part]
+			if cf then
+				part.CFrame = cf
 			end
 		end
 	end
@@ -514,8 +563,8 @@ end
 function Founders.AddAura(giant: Model): Highlight
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "Aura"
-	highlight.FillColor = Color3.fromRGB(255, 255, 255)
-	highlight.FillTransparency = 0.88
+	highlight.FillColor = Color3.fromRGB(255, 160, 230)
+	highlight.FillTransparency = 0.94
 	highlight.OutlineColor = Color3.fromRGB(255, 120, 220)
 	highlight.OutlineTransparency = 0
 	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
@@ -524,7 +573,7 @@ function Founders.AddAura(giant: Model): Highlight
 	local _, size = giant:GetBoundingBox()
 	local holder = Instance.new("Part")
 	holder.Name = "AuraVolume"
-	holder.Anchored = false
+	holder.Anchored = true -- moved along with the giant by PivotTo
 	holder.Massless = true
 	holder.CanCollide = false
 	holder.CanQuery = false
@@ -619,7 +668,7 @@ end
 -- `top` down to `bottom` (both points on its center line), widening as it
 -- goes down, with sparkles drifting up inside. Starts invisible; fade it in
 -- by tweening each part's Transparency to `Founders.BeamTransparency`.
-Founders.BeamTransparency = 0.78
+Founders.BeamTransparency = 0.9
 
 function Founders.CreateBeam(top: Vector3, bottom: Vector3, topWidth: number, bottomWidth: number): Model
 	local model = Instance.new("Model")
@@ -630,7 +679,7 @@ function Founders.CreateBeam(top: Vector3, bottom: Vector3, topWidth: number, bo
 		local t = (i + 0.5) / segments
 		local width = topWidth + (bottomWidth - topWidth) * t
 		local center = top:Lerp(bottom, t)
-		local ring = ufoPart(model, "Beam", Vector3.new(height / segments + 0.5, width, width), CFrame.new(center) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(190, 255, 235), Enum.Material.Neon)
+		local ring = ufoPart(model, "Beam", Vector3.new(height / segments, width, width), CFrame.new(center) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(150, 255, 225), Enum.Material.Neon)
 		ring.Shape = Enum.PartType.Cylinder
 		ring.CastShadow = false
 		ring.Transparency = 1

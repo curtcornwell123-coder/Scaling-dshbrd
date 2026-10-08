@@ -2469,23 +2469,16 @@ local function runFounderEvent(eventId: string, minutes: number)
 	-- outfit, not their normal avatar), holding a pose with a rainbow aura.
 	local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
 	if giant then
+		-- Their pose: an animation if one is set, otherwise the floating sage
+		-- pose, frozen in place before they're moved into the beam.
+		if event.PoseAnimationId == "" then
+			Founders.FreezePose(giant, Founders.SagePose)
+		end
 		local feetY = spot.Y + event.FloatHeight
 		local size = placeGiant(giant, spot, feetY)
 		giantPoof(Vector3.new(spot.X, feetY, spot.Z), size.Y, event.Colors[1])
-		-- Their pose: an animation if one is set, otherwise the floating sage
-		-- pose (re-applied a couple of times in case Roblox rebuilds the
-		-- body's joints while it settles).
 		if event.PoseAnimationId ~= "" then
 			Founders.Play(giant, event.PoseAnimationId, true, 1, 1, Enum.AnimationPriority.Action)
-		else
-			Founders.ApplyPose(giant, Founders.SagePose)
-			for _, delay in { 1, 3 } do
-				task.delay(delay, function()
-					if giant.Parent then
-						Founders.ApplyPose(giant, Founders.SagePose)
-					end
-				end)
-			end
 		end
 		local aura = Founders.AddAura(giant)
 
