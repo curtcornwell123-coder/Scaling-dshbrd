@@ -743,7 +743,8 @@ end
 
 -- A glowing aura around a giant: a soft glow and outline (its OutlineColor
 -- can be cycled), and energy rising off its body. Returns the Highlight.
-function Founders.AddAura(giant: Model): Highlight
+-- `sparkles`: false for just the glowing outline (Corny's UFO event).
+function Founders.AddAura(giant: Model, sparkles: boolean?): Highlight
 	local highlight = Instance.new("Highlight")
 	highlight.Name = "Aura"
 	highlight.FillColor = Color3.fromRGB(255, 160, 230)
@@ -752,6 +753,9 @@ function Founders.AddAura(giant: Model): Highlight
 	highlight.OutlineTransparency = 0
 	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
 	highlight.Parent = giant
+	if sparkles == false then
+		return highlight
+	end
 	local root = giant.PrimaryPart :: BasePart
 	local _, size = giant:GetBoundingBox()
 	local holder = Instance.new("Part")
@@ -871,22 +875,6 @@ function Founders.CreateBeam(top: Vector3, bottom: Vector3, topWidth: number, bo
 	local glow = ufoPart(model, "BeamGlow", Vector3.new(0.4, bottomWidth * 1.1, bottomWidth * 1.1), CFrame.new(bottom + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(190, 255, 235), Enum.Material.Neon)
 	glow.Shape = Enum.PartType.Cylinder
 	glow.Transparency = 1
-	-- Sparkles rising up the beam
-	local volume = ufoPart(model, "BeamSparkles", Vector3.new(bottomWidth * 0.6, height, bottomWidth * 0.6), CFrame.new(top:Lerp(bottom, 0.5)), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
-	volume.Transparency = 1
-	local sparkles = Instance.new("ParticleEmitter")
-	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparkles.Color = ColorSequence.new(Color3.fromRGB(200, 255, 240), Color3.fromRGB(255, 255, 200))
-	sparkles.LightEmission = 1
-	sparkles.Rate = 60
-	sparkles.Lifetime = NumberRange.new(2, 4)
-	sparkles.Speed = NumberRange.new(height * 0.08, height * 0.15)
-	sparkles.EmissionDirection = Enum.NormalId.Top
-	sparkles.SpreadAngle = Vector2.new(10, 10)
-	sparkles.Shape = Enum.ParticleEmitterShape.Box
-	sparkles.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-	sparkles.Size = NumberSequence.new(bottomWidth * 0.03, 0)
-	sparkles.Parent = volume
 	return model
 end
 Founders.Wave = "rbxassetid://507770239"

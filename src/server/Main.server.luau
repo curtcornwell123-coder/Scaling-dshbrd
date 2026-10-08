@@ -2562,7 +2562,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 		local beam = Founders.CreateBeam(beamTop, Vector3.new(spot.X, spot.Y, spot.Z), ufoSize * 0.3, ufoSize * 0.62)
 		beam.Parent = foundersFolder
 		for _, part in beam:GetChildren() do
-			if part:IsA("BasePart") and part.Name ~= "BeamSparkles" then
+			if part:IsA("BasePart") then
 				TweenService:Create(part, TweenInfo.new(1), { Transparency = Founders.BeamTransparency }):Play()
 			end
 		end
@@ -2584,7 +2584,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 				Founders.Play(giant, poseId, true, 1, 1, Enum.AnimationPriority.Action)
 			end
 			settleGiant(giant, feetY, if poseId == "" then Founders.SagePose else nil)
-			local aura = Founders.AddAura(giant)
+			local aura = Founders.AddAura(giant, false)
 
 			-- Float gently up and down in the beam, throwing things.
 			local base = giant:GetPivot()
