@@ -122,7 +122,7 @@ def sub_bass(f_from, f_to, dur):
         t = t_of(dur)
         glide = f_to + (f_from - f_to) * np.exp(-t * 18)
         ph = 2 * np.pi * np.cumsum(glide) / SR
-        sig = np.sin(ph) + 0.25 * np.sin(2 * ph) + 0.1 * saw(1, t, 1) * 0
+        sig = np.sin(ph) + 0.25 * np.sin(2 * ph)
         env = np.minimum(1, t / 0.01) * np.minimum(1, (dur - t) / 0.04)
         return np.tanh(sig * 1.4) * np.maximum(env, 0)
     return cached(('sub', round(f_from, 2), round(f_to, 2), round(dur, 3)), make)
@@ -217,3 +217,62 @@ def chirp(rng, dur=0.12):
     f0 = rng.uniform(900, 2200); f1 = rng.uniform(600, 3000)
     f = f0 + (f1 - f0) * t / dur
     return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * t / dur)
+
+# Sci-fi / abduction sounds ---------------------------------------------------
+def fm_bell(f, dur, ratio=3.5, index=2.5):
+    # Glassy alien bell (FM synthesis).
+    def make():
+        t = t_of(dur)
+        mod = np.sin(2 * np.pi * f * ratio * t) * index * np.exp(-t * 4)
+        return np.sin(2 * np.pi * f * t + mod) * np.exp(-t * 3.5) * np.minimum(1, t / 0.002)
+    return cached(('bell', round(f, 2), round(dur, 3), ratio, index), make)
+
+def drone(f, dur, wobble=0.3):
+    # Deep tractor-beam hum: detuned saws through a slowly breathing filter.
+    t = t_of(dur)
+    sig = np.zeros_like(t)
+    for d in (-0.01, 0.0, 0.01):
+        sig += saw(f * (1 + d), t, 8)
+    breathe = 350 + 250 * (0.5 + 0.5 * np.sin(2 * np.pi * wobble * t))
+    env = np.minimum(1, t / 1.0) * np.minimum(1, (dur - t) / 1.0)
+    out = svf(sig / 3, breathe, 0.35)
+    return out * np.maximum(env, 0)
+
+def riser(rng, dur, f_from=300, f_to=6000):
+    # Noise sweep that rises into a drop (the beam powering up).
+    t = t_of(dur)
+    noise = rng.uniform(-1, 1, len(t))
+    cut = f_from * (f_to / f_from) ** (t / dur)
+    env = (t / dur) ** 2
+    tone = np.sin(2 * np.pi * np.cumsum(cut * 0.25) / SR) * 0.3
+    return (svf(noise, cut, 0.3, 'bp') * 1.5 + tone) * env
+
+def siren(dur, low=500, high=1100, rate=1.2):
+    t = t_of(dur)
+    f = low + (high - low) * (0.5 + 0.5 * np.sin(2 * np.pi * rate * t - np.pi / 2))
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    sig = np.sign(np.sin(ph)) * 0.4 + np.sin(ph) * 0.6
+    env = np.minimum(1, t / 0.05) * np.minimum(1, (dur - t) / 0.1)
+    return onepole(sig, 2500) * np.maximum(env, 0)
+
+def alien_voice(rng, dur):
+    # Garbled alien "chatter": a buzz through jumping vowel formants.
+    t = t_of(dur)
+    pitch = 180 + 90 * np.sin(2 * np.pi * 3.3 * t) + rng.uniform(-30, 30)
+    ph = 2 * np.pi * np.cumsum(pitch) / SR
+    buzz = np.sign(np.sin(ph)) * 0.5 + np.sin(ph) * 0.5
+    steps = max(1, int(dur / 0.07))
+    f1 = np.repeat(rng.uniform(300, 900, steps), int(np.ceil(len(t) / steps)))[: len(t)]
+    f2 = np.repeat(rng.uniform(1000, 2600, steps), int(np.ceil(len(t) / steps)))[: len(t)]
+    out = svf(buzz, f1, 0.2, 'bp') + 0.6 * svf(buzz, f2, 0.2, 'bp')
+    return out * np.sin(np.pi * t / dur) * 0.6
+
+def pulse_bass(f, dur):
+    # Tight, dark 16th-note synth bass (synthwave ostinato).
+    def make():
+        t = t_of(dur)
+        sig = saw(f, t, 10) + square(f * 0.5, t, 5) * 0.5
+        env = np.minimum(1, t / 0.003) * np.exp(-t * 14)
+        cut = 250 + 1500 * np.exp(-t * 30)
+        return svf(sig * env, cut, 0.45)
+    return cached(('pulse', round(f, 2), round(dur, 3)), make)
