@@ -2230,13 +2230,12 @@ ReplicatedStorage:SetAttribute("FounderEvent", "")
 ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
 
 -- Roblox's default emotes, played one after another.
+-- Roblox's default emotes that stay in place (no dances), played one at a
+-- time over the normal standing idle.
 local GIANT_EMOTES = {
 	"rbxassetid://507770239", -- wave
-	"rbxassetid://507771019", -- dance
 	"rbxassetid://507770677", -- cheer
-	"rbxassetid://507776043", -- dance 2
 	"rbxassetid://507770818", -- laugh
-	"rbxassetid://507777268", -- dance 3
 	"rbxassetid://507770453", -- point
 }
 
@@ -2336,9 +2335,7 @@ end
 -- seconds if there's a `drop`. Then it vanishes in a puff.
 -- The whole model is placed once with PivotTo and never moved again, so its
 -- body can't get left behind.
--- `calm`: the emote plays slowly and only partly, mixed over a normal standing
--- pose, so it's a gentle sway instead of a full dance.
-local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?, calm: boolean?)
+local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
 	local root = giant.PrimaryPart :: BasePart
 	local height = Founders.RootHeight(giant)
 	local home = CFrame.lookAt(spot + Vector3.new(0, height, 0), Vector3.new(0, spot.Y + height, 0))
@@ -2353,36 +2350,33 @@ local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEve
 	local _, size = giant:GetBoundingBox()
 	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
 
-	-- Emotes: one on repeat, or one after another
-	if calm then
-		Founders.Play(giant, Founders.Idle, true, 1, 1, Enum.AnimationPriority.Idle)
-	end
+	-- Standing still in the normal idle pose, doing one emote at a time with
+	-- a short pause between them.
+	Founders.Play(giant, Founders.Idle, true, 1, 1, Enum.AnimationPriority.Idle)
 	task.spawn(function()
-		local track: AnimationTrack? = nil
 		local index = rng:NextInteger(1, #emotes)
+		task.wait(1)
 		while giant.Parent and active() do
-			if not track or #emotes > 1 then
-				if track then
-					track:Stop(0.4)
-				end
-				track = if calm
-					then Founders.Play(giant, emotes[index], true, 0.4, 0.55, Enum.AnimationPriority.Action)
-					else Founders.Play(giant, emotes[index], true)
-				index = index % #emotes + 1
-			end
-			task.wait(rng:NextNumber(5, 8))
+			local track = Founders.Play(giant, emotes[index], false, 1, 1, Enum.AnimationPriority.Action)
+			index = index % #emotes + 1
+			local length = if track and track.Length > 0 then track.Length else 3
+			task.wait(length + rng:NextNumber(1.5, 3))
 		end
 	end)
 
-	-- Safety net: keep checking the feet are on the ground (with room for
-	-- dance moves that lift a foot).
+	-- Safety net for the first few seconds while the body settles: if the
+	-- feet ended up below the ground, lift the giant. After that it never moves.
+	local settleUntil = os.clock() + 8
 	local nextCheck = os.clock() + 1
 
 	local nextDrop = os.clock() + 1.5
 	while giant.Parent and active() do
-		if os.clock() >= nextCheck then
-			nextCheck = os.clock() + 2
-			groundGiant(giant, spot.Y, size.Y * 0.06)
+		if os.clock() < settleUntil and os.clock() >= nextCheck then
+			nextCheck = os.clock() + 1
+			local feet = giantFeetY(giant)
+			if feet and feet < spot.Y - 0.5 then
+				groundGiant(giant, spot.Y, 0.5)
+			end
 		end
 		if drop and os.clock() >= nextDrop then
 			nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
@@ -2456,7 +2450,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 		aura.SpreadAngle = Vector2.new(180, 180)
 		aura.Size = NumberSequence.new(event.Scale * 0.25, 0)
 		aura.Parent = giant.PrimaryPart
-		runGiant(giant, event.Spot, { Founders.MildDance }, event.DropEvery, founderEventActive, drop, true)
+		runGiant(giant, event.Spot, GIANT_EMOTES, event.DropEvery, founderEventActive, drop)
 	else
 		-- No giant (shouldn't happen): still drop things from the sky.
 		while founderEventActive() do

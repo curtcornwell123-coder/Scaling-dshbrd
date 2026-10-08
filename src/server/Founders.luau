@@ -468,7 +468,6 @@ function Founders.Play(giant: Model, animationId: string, looped: boolean, weigh
 	return nil
 end
 
-Founders.MildDance = "rbxassetid://507776043" -- the side-to-side "dance2"
 Founders.Idle = "rbxassetid://507766388" -- Roblox's normal standing idle
 Founders.Wave = "rbxassetid://507770239"
 Founders.Dance = "rbxassetid://507771019"
