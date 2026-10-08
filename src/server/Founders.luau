@@ -381,6 +381,8 @@ end
 
 -- Giants --------------------------------------------------------------------
 
+local building = false -- a giant's avatar is being built right now
+
 -- Parts of a giant are only for looking at: no collisions or touches, and
 -- massless, so the joints hold the limbs up easily from the anchored root.
 -- Scripts are removed. The joints themselves are left exactly as Roblox
@@ -428,9 +430,18 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 		desc = if userId then description(userId) else nil
 	end
 	if desc then
+		-- One giant at a time, each from its own fresh copy of the
+		-- description: two giants built at once from one shared description
+		-- came out without their heads and clothing.
+		while building do
+			task.wait(0.1)
+		end
+		building = true
+		local copy = desc:Clone()
 		local ok, result = pcall(function()
-			return Players:CreateHumanoidModelFromDescription(desc, Enum.HumanoidRigType.R15)
+			return Players:CreateHumanoidModelFromDescription(copy, Enum.HumanoidRigType.R15)
 		end)
+		building = false
 		if ok and result then
 			model = result
 		end
