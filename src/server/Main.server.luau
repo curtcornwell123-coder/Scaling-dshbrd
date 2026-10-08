@@ -2305,6 +2305,31 @@ local function giantPoof(position: Vector3, size: number, color: Color3)
 	Debris:AddItem(anchor, 3)
 end
 
+-- The lowest point of a giant's body (not its accessories), as it is now.
+local function giantFeetY(giant: Model): number?
+	local lowest: number? = nil
+	for _, part in giant:GetDescendants() do
+		if part:IsA("BasePart") and part ~= giant.PrimaryPart and part.Transparency < 1 and not part:FindFirstAncestorOfClass("Accessory") then
+			local cf, size = part.CFrame, part.Size
+			local extent = math.abs(cf.UpVector.Y) * size.Y / 2 + math.abs(cf.RightVector.Y) * size.X / 2 + math.abs(cf.LookVector.Y) * size.Z / 2
+			local bottom = cf.Position.Y - extent
+			if not lowest or bottom < lowest then
+				lowest = bottom
+			end
+		end
+	end
+	return lowest
+end
+
+-- Lifts or lowers the whole giant so its feet are on `groundY`, if they're
+-- off by more than `tolerance` studs.
+local function groundGiant(giant: Model, groundY: number, tolerance: number)
+	local feet = giantFeetY(giant)
+	if feet and math.abs(feet - groundY) > tolerance then
+		giant:PivotTo(giant:GetPivot() + Vector3.new(0, groundY - feet, 0))
+	end
+end
+
 -- Puts a giant at `spot`, standing with its feet on the ground and facing the
 -- map, and keeps it there: it plays `emotes` (one on repeat, or one after
 -- another) while `active()` is true, throwing something every `dropEvery`
@@ -2316,6 +2341,13 @@ local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEve
 	local height = Founders.RootHeight(giant)
 	local home = CFrame.lookAt(spot + Vector3.new(0, height, 0), Vector3.new(0, spot.Y + height, 0))
 	giant:PivotTo(home * root.CFrame:ToObjectSpace(giant:GetPivot()))
+	-- Roblox finishes rebuilding the scaled-up body a moment after it's made,
+	-- so check where the feet really are once it settles and stand it on the
+	-- ground.
+	for _ = 1, 5 do
+		task.wait(0.1)
+		groundGiant(giant, spot.Y, 0.5)
+	end
 	local _, size = giant:GetBoundingBox()
 	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
 
@@ -2335,19 +2367,15 @@ local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEve
 		end
 	end)
 
-	-- Safety net: if the body ever comes loose from the root, snap it back.
-	local placed = giant:GetPivot()
-	local torso = (giant:FindFirstChild("UpperTorso") or giant:FindFirstChild("Torso")) :: BasePart?
-	local torsoOffset = if torso then root.CFrame:ToObjectSpace(torso.CFrame) else nil
+	-- Safety net: keep checking the feet are on the ground (with room for
+	-- dance moves that lift a foot).
 	local nextCheck = os.clock() + 1
 
 	local nextDrop = os.clock() + 1.5
 	while giant.Parent and active() do
-		if torso and torsoOffset and os.clock() >= nextCheck then
-			nextCheck = os.clock() + 1
-			if (torso.Position - (root.CFrame * torsoOffset).Position).Magnitude > size.Y * 0.25 then
-				giant:PivotTo(placed)
-			end
+		if os.clock() >= nextCheck then
+			nextCheck = os.clock() + 2
+			groundGiant(giant, spot.Y, size.Y * 0.06)
 		end
 		if drop and os.clock() >= nextDrop then
 			nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
