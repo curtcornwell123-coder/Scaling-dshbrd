@@ -527,7 +527,7 @@ end)
 
 -- Base upgrades panel: opened from the upgrade post in your base --------------
 
-local upgradeFrame, upgradeBody = modal("BASE UPGRADES", Color3.fromRGB(255, 170, 40), 420)
+local upgradeFrame, upgradeBody = modal("BASE UPGRADES", Color3.fromRGB(255, 170, 40), 310)
 local upgradeLayout = Instance.new("UIListLayout")
 upgradeLayout.Padding = UDim.new(0, 10)
 upgradeLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -574,9 +574,8 @@ local function upgradeCard(order: number, kind: string, title: string, color: Co
 	upgradeCards[kind] = { Now = now, Next = nextLabel, Button = buy }
 end
 
-upgradeCard(1, "Walls", "WALLS", Color3.fromRGB(255, 170, 40))
-upgradeCard(2, "Floors", "FLOORS", Color3.fromRGB(80, 160, 255))
-upgradeCard(3, "Lock", "LOCK TIME", RED)
+upgradeCard(1, "Base", "BASE (floor + walls)", Color3.fromRGB(255, 170, 40))
+upgradeCard(2, "Lock", "LOCK TIME", RED)
 
 local function renderUpgrades()
 	if not data or not data.WallLevel then
@@ -598,12 +597,16 @@ local function renderUpgrades()
 		end
 	end
 
-	local wall = Config.WallLevels[data.WallLevel]
-	local nextWall = Config.WallLevels[data.WallLevel + 1]
-	set("Walls", string.format("%s (%d studs tall)", wall.Name, wall.Height), nextWall and string.format("%s (%d studs)", nextWall.Name, nextWall.Height), nextWall and nextWall.Cost)
-
-	local nextStory = Config.Stories[data.Stories + 1]
-	set("Floors", string.format("%d of %d floors", data.Stories, #Config.Stories), nextStory and (nextStory.Name .. " (+" .. Config.UpperFloorSlots .. " slots)"), nextStory and nextStory.Cost)
+	local level = data.WallLevel
+	local wall = Config.WallLevels[level]
+	local nextWall = Config.WallLevels[level + 1]
+	local nextStory = Config.Stories[level + 1]
+	set(
+		"Base",
+		string.format("Level %d: %s, %d floor%s", level, wall.Name, level, if level == 1 then "" else "s"),
+		nextWall and nextStory and string.format("%s + %s (+%d slots)", nextStory.Name, nextWall.Name, Config.UpperFloorSlots),
+		nextWall and nextWall.Cost
+	)
 
 	local nextLock = Config.LockLevels[data.LockLevel + 1]
 	set("Lock", string.format("Lasers stay on %ds", data.LockDuration or 0), nextLock and string.format("%ds", nextLock.Duration * (if longer then 2 else 1)), nextLock and nextLock.Cost)
@@ -742,10 +745,8 @@ local function levelButtons(row: Frame, label: string, count: number, action: st
 		end)
 	end
 end
-levelButtons(adminRow(4, 40), "Walls", #Config.WallLevels, "Walls", ORANGE)
-local baseRow = adminRow(5, 40)
-levelButtons(baseRow, "Floors", #Config.Stories, "Floors", Color3.fromRGB(60, 140, 255))
-levelButtons(baseRow, "Lock", #Config.LockLevels, "LockLevel", RED)
+levelButtons(adminRow(4, 40), "Base", #Config.WallLevels, "Base", ORANGE)
+levelButtons(adminRow(5, 40), "Lock", #Config.LockLevels, "LockLevel", RED)
 
 local miscRow = adminRow(6, 40)
 smallButton(miscRow, "Clear Base", RED, 130, function()

@@ -199,7 +199,7 @@ end
 
 local function isInside(plot: Plot, position: Vector3): boolean
 	local p = plot.Parts.CFrame:PointToObjectSpace(position)
-	return math.abs(p.X) <= 30 and math.abs(p.Z) <= 30 and p.Y > -5 and p.Y < 100
+	return math.abs(p.X) <= 30 and math.abs(p.Z) <= 30 and p.Y > -5 and p.Y < 150
 end
 
 local function fullName(brainrot: Config.Brainrot, mutationId: string?): string
@@ -258,12 +258,13 @@ local function sanitize(raw: any): SaveData
 	if type(raw.Steals) == "number" then
 		data.Steals = raw.Steals
 	end
-	if type(raw.WallLevel) == "number" then
-		data.WallLevel = math.clamp(math.floor(raw.WallLevel), 1, #Config.WallLevels)
-	end
-	if type(raw.Stories) == "number" then
-		data.Stories = math.clamp(math.floor(raw.Stories), 1, #Config.Stories)
-	end
+	-- Walls and floors are one base level now; older saves upgraded them
+	-- separately, so take whichever was higher.
+	local wallLevel = if type(raw.WallLevel) == "number" then raw.WallLevel else 1
+	local stories = if type(raw.Stories) == "number" then raw.Stories else 1
+	local baseLevel = math.clamp(math.floor(math.max(wallLevel, stories)), 1, #Config.WallLevels)
+	data.WallLevel = baseLevel
+	data.Stories = baseLevel
 	if type(raw.LockLevel) == "number" then
 		data.LockLevel = math.clamp(math.floor(raw.LockLevel), 1, #Config.LockLevels)
 	end
@@ -813,10 +814,9 @@ local function updateUpgradeLabel(plot: Plot)
 	end
 	local data = session.Data
 	plot.Parts.UpgradeLabel.Text = string.format(
-		"UPGRADES\n%s | Floors %d/%d | Lock %ds",
-		Config.WallLevels[data.WallLevel].Name,
-		data.Stories,
-		#Config.Stories,
+		"UPGRADES\nBase Lv %d/%d | Lock %ds",
+		data.WallLevel,
+		#Config.WallLevels,
 		lockDuration(session)
 	)
 end
@@ -902,20 +902,13 @@ local function onUpgrade(player: Player, plot: Plot, kind: string)
 	end
 	local data = session.Data
 	local cost: number, name: string
-	if kind == "Walls" then
+	if kind == "Base" then
 		local nextLevel = Config.WallLevels[data.WallLevel + 1]
 		if not nextLevel then
-			notify(player, "Your walls are already maxed out!")
+			notify(player, "Your base is fully upgraded!")
 			return
 		end
-		cost, name = nextLevel.Cost, nextLevel.Name
-	elseif kind == "Floors" then
-		local nextStory = Config.Stories[data.Stories + 1]
-		if not nextStory then
-			notify(player, "Your base is already as tall as it gets!")
-			return
-		end
-		cost, name = nextStory.Cost, nextStory.Name
+		cost, name = nextLevel.Cost, Config.Stories[data.WallLevel + 1].Name .. " + " .. nextLevel.Name
 	elseif kind == "Lock" then
 		local nextLock = Config.LockLevels[data.LockLevel + 1]
 		if not nextLock then
@@ -932,10 +925,10 @@ local function onUpgrade(player: Player, plot: Plot, kind: string)
 		return
 	end
 	data.Cash -= cost
-	if kind == "Walls" then
+	if kind == "Base" then
+		-- Walls and floor always go up together.
 		data.WallLevel += 1
-	elseif kind == "Floors" then
-		data.Stories += 1
+		data.Stories = data.WallLevel
 	else
 		data.LockLevel += 1
 	end
@@ -1696,19 +1689,18 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				else
 					notify(admin, player.DisplayName .. "'s base is full.")
 				end
-			elseif action == "Walls" or action == "Floors" or action == "LockLevel" then
+			elseif action == "Base" or action == "LockLevel" then
 				local n = math.floor(parseAmount(value) or 1)
-				if action == "Walls" then
+				if action == "Base" then
 					data.WallLevel = math.clamp(n, 1, #Config.WallLevels)
-				elseif action == "Floors" then
-					data.Stories = math.clamp(n, 1, #Config.Stories)
+					data.Stories = data.WallLevel
 				else
 					data.LockLevel = math.clamp(n, 1, #Config.LockLevels)
 				end
 				if plot then
 					applyBaseLevels(plot, session)
 				end
-				notify(admin, string.format("%s: walls %d, floors %d, lock %d", player.DisplayName, data.WallLevel, data.Stories, data.LockLevel))
+				notify(admin, string.format("%s: base level %d, lock level %d", player.DisplayName, data.WallLevel, data.LockLevel))
 			elseif action == "Rebirths" then
 				data.Rebirths = math.max(0, math.floor(parseAmount(value) or 0))
 				if plot then

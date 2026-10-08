@@ -137,37 +137,38 @@ Config.BaseSlots = 10
 Config.VipSlots = 2 -- extra slots for VIP owners
 Config.LockCooldown = 30 -- vulnerable window after a lock ends
 
--- Walls --------------------------------------------------------------------
--- Everyone starts with a low fence that thieves can hop over. Players jump
--- about 7 studs high, so level 3 is the first wall nobody can jump over,
--- and from then on the entrance (and its lock laser) is the only way in.
+-- Base levels ----------------------------------------------------------------
+-- Walls and floors are upgraded together: each base level adds a floor
+-- (reached by stairs inside the base) and better walls. Players jump about
+-- 7 studs high, so level 3 is the first wall nobody can jump over; from then
+-- on the entrance (and its lock lasers) is the only way in.
 
 export type WallLevel = {
 	Name: string,
 	Height: number,
-	Cost: number,
+	Cost: number, -- price of reaching this base level
 	Material: Enum.Material,
 }
 
 Config.WallLevels = {
 	{ Name = "Wood Fence", Height = 3, Cost = 0, Material = Enum.Material.WoodPlanks },
-	{ Name = "Brick Wall", Height = 5.5, Cost = 1000, Material = Enum.Material.Brick },
-	{ Name = "Concrete Wall", Height = 9, Cost = 25000, Material = Enum.Material.Concrete },
-	{ Name = "Steel Wall", Height = 13, Cost = 500000, Material = Enum.Material.DiamondPlate },
-	{ Name = "Diamond Wall", Height = 18, Cost = 10000000, Material = Enum.Material.Foil },
+	{ Name = "Brick Wall", Height = 5.5, Cost = 25000, Material = Enum.Material.Brick },
+	{ Name = "Concrete Wall", Height = 9, Cost = 1000000, Material = Enum.Material.Concrete },
+	{ Name = "Steel Wall", Height = 13, Cost = 40000000, Material = Enum.Material.DiamondPlate },
+	{ Name = "Diamond Wall", Height = 18, Cost = 1500000000, Material = Enum.Material.Foil },
 } :: { WallLevel }
 
--- Floors -------------------------------------------------------------------
--- Extra stories stack on top of the base, reached by ramps inside it. The
--- ground floor has 10 slots (+2 VIP); every extra floor adds more.
-
-export type Story = { Name: string, Cost: number }
+-- One floor per base level, so this list must be as long as WallLevels.
+export type Story = { Name: string }
 
 Config.Stories = {
-	{ Name = "Ground Floor", Cost = 0 },
-	{ Name = "2nd Floor", Cost = 50000 },
-	{ Name = "3rd Floor", Cost = 2000000 },
+	{ Name = "Ground Floor" },
+	{ Name = "2nd Floor" },
+	{ Name = "3rd Floor" },
+	{ Name = "4th Floor" },
+	{ Name = "5th Floor" },
 } :: { Story }
+assert(#Config.Stories == #Config.WallLevels, "Config: need one floor per wall level")
 Config.UpperFloorSlots = 10
 
 -- Stair carpets -------------------------------------------------------------
