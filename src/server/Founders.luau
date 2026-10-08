@@ -58,7 +58,17 @@ end
 -- A HumanoidDescription can't go in a DataStore, so its properties are
 -- copied into a plain table and back.
 
-local lookStore = DataStoreService:GetDataStore("BrainrotHeistFounderLooks")
+-- GetDataStore errors in places that aren't published (or don't allow API
+-- access in Studio); then looks just aren't saved between servers.
+local lookStore: DataStore? = nil
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore("BrainrotHeistFounderLooks")
+	end)
+	if ok then
+		lookStore = result
+	end
+end
 local savedLooks: { [string]: HumanoidDescription } = {}
 
 local NUMBER_PROPERTIES = {
@@ -126,8 +136,12 @@ end
 -- Loads the saved event looks (call once when the server starts).
 function Founders.LoadEventLooks()
 	for _, founder in Config.Founders do
+		local store = lookStore
+		if not store then
+			return
+		end
 		local ok, data = pcall(function()
-			return lookStore:GetAsync("look_" .. founder.Id)
+			return store:GetAsync("look_" .. founder.Id)
 		end)
 		local desc = if ok then deserialize(data) else nil
 		if desc then
@@ -148,11 +162,14 @@ function Founders.SaveEventLook(founderId: string, character: Model): boolean
 	if not ok or not desc then
 		return false
 	end
-	local saved = pcall(function()
-		lookStore:SetAsync("look_" .. founderId, serialize(desc))
-	end)
 	savedLooks[founderId] = desc
-	return saved
+	local store = lookStore
+	if not store then
+		return false
+	end
+	return (pcall(function()
+		store:SetAsync("look_" .. founderId, serialize(desc))
+	end))
 end
 
 -- The founder's character right now, if they're in this server.
