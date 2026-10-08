@@ -16,8 +16,10 @@ export type PlotParts = {
 	Pedestals: { BasePart },
 	CollectPad: BasePart,
 	LockPad: BasePart,
-	Laser: BasePart,
-	Walls: { BasePart },
+	Lasers: { BasePart },
+	WallFolders: { [number]: Folder },
+	Stories: { [number]: Folder }, -- floors 2+; parented only once bought
+	SignPost: BasePart,
 	UpgradePost: BasePart,
 	UpgradeLabel: TextLabel,
 	OwnerLabel: TextLabel,
@@ -88,6 +90,65 @@ local function billboard(adornee: BasePart, size: Vector2, offset: Vector3, text
 	return l
 end
 
+local STORY_HEIGHT = 20
+local WALL_THICKNESS = 2
+local LASER_COUNT = 12
+local GLASS_COLOR = Color3.fromRGB(80, 150, 255)
+
+-- Ramps alternate sides: floor 1 -> 2 on the left, floor 2 -> 3 on the right...
+local function rampSide(fromStory: number): number
+	return if fromStory % 2 == 1 then -1 else 1
+end
+
+local function storyBase(story: number): number
+	return FLOOR_TOP + (story - 1) * STORY_HEIGHT
+end
+
+-- Pedestal spots on upper floors, kept clear of the ramps on both sides.
+local UPPER_PEDESTALS = {
+	{ -15, 8 }, { -5, 8 }, { 5, 8 }, { 15, 8 },
+	{ -15, 20 }, { -5, 20 }, { 5, 20 }, { 15, 20 },
+	{ -5, -8 }, { 5, -8 },
+}
+
+-- One straight wall. `cf` is the bottom-center with local X running along the
+-- wall. Walls 5+ studs tall get blue tinted windows set into real openings.
+local function wallSegment(folder: Instance, cf: CFrame, length: number, height: number, material: Enum.Material)
+	local function piece(name: string, x: number, y: number, width: number, h: number): Part
+		local p = block(folder, name, Vector3.new(width, h, WALL_THICKNESS), cf * CFrame.new(x, y + h / 2, 0), WALL_COLOR, material)
+		return p
+	end
+
+	if height < 5 then
+		piece("Wall", 0, 0, length, height)
+		return
+	end
+
+	local sill = math.max(1, height * 0.3)
+	local head = height * 0.78
+	piece("WallBottom", 0, 0, length, sill)
+	piece("WallTop", 0, head, length, height - head)
+
+	local windowWidth = 4
+	local count = math.max(1, math.floor(length / 12))
+	local spacing = length / count
+	local left = -length / 2
+	for i = 1, count do
+		local center = -length / 2 + spacing * (i - 0.5)
+		local gapStart = center - windowWidth / 2
+		if gapStart - left > 0.01 then
+			piece("WallPillar", (left + gapStart) / 2, sill, gapStart - left, head - sill)
+		end
+		local glass = block(folder, "Window", Vector3.new(windowWidth, head - sill, 0.4), cf * CFrame.new(center, sill + (head - sill) / 2, 0), GLASS_COLOR, Enum.Material.Glass)
+		glass.Transparency = 0.45
+		glass.Reflectance = 0.1
+		left = center + windowWidth / 2
+	end
+	if length / 2 - left > 0.01 then
+		piece("WallPillar", (left + length / 2) / 2, sill, length / 2 - left, head - sill)
+	end
+end
+
 local function buildPlot(parent: Instance, index: number, center: Vector3): PlotParts
 	local cf = CFrame.lookAt(center, Vector3.new(center.X, center.Y, 0))
 	local color = PLOT_COLORS[(index - 1) % #PLOT_COLORS + 1]
@@ -107,22 +168,25 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 
 	block(model, "Floor", Vector3.new(PLOT_SIZE, 1, PLOT_SIZE), at(0, FLOOR_TOP - 0.5, 0), color, Enum.Material.Plastic)
 
-	-- Walls are built 1 stud tall here; SetWallLevel sizes them.
-	local wallColor = WALL_COLOR
-	local frontWidth = (PLOT_SIZE - ENTRANCE_WIDTH) / 2
-	local walls = {
-		block(model, "WallBack", Vector3.new(PLOT_SIZE, 1, 2), at(0, FLOOR_TOP, half - 1), wallColor),
-		block(model, "WallLeft", Vector3.new(2, 1, PLOT_SIZE), at(-half + 1, FLOOR_TOP, 0), wallColor),
-		block(model, "WallRight", Vector3.new(2, 1, PLOT_SIZE), at(half - 1, FLOOR_TOP, 0), wallColor),
-		block(model, "WallFrontL", Vector3.new(frontWidth, 1, 2), at(-half + frontWidth / 2, FLOOR_TOP, -half + 1), wallColor),
-		block(model, "WallFrontR", Vector3.new(frontWidth, 1, 2), at(half - frontWidth / 2, FLOOR_TOP, -half + 1), wallColor),
-	} :: { BasePart }
+	local wallFolders: { [number]: Folder } = {}
+	local groundWalls = Instance.new("Folder")
+	groundWalls.Name = "Walls"
+	groundWalls.Parent = model
+	wallFolders[1] = groundWalls
 
-	local laser = block(model, "Laser", Vector3.new(ENTRANCE_WIDTH, 1, 0.6), at(0, FLOOR_TOP, -half + 1), Color3.fromRGB(255, 30, 30), Enum.Material.Neon)
-	laser.CanCollide = false
-	laser.Transparency = 1
+	-- Entrance lasers: horizontal beams across the door. SetWallLevel marks
+	-- which ones fit under the current wall height.
+	local lasers: { BasePart } = {}
+	for i = 1, LASER_COUNT do
+		local beam = block(model, "Laser", Vector3.new(ENTRANCE_WIDTH, 0.3, 0.3), at(0, FLOOR_TOP + 0.8 + (i - 1) * 1.4, -half + 1), Color3.fromRGB(255, 30, 30), Enum.Material.Neon)
+		beam.CanCollide = false
+		beam.CastShadow = false
+		beam.Transparency = 1
+		beam:SetAttribute("Active", false)
+		lasers[i] = beam
+	end
 
-	-- Pedestals: two rows of six at the back of the base.
+	-- Ground floor pedestals: two rows of six at the back of the base.
 	local pedestals: { BasePart } = {}
 	local columns = { -25, -15, -5, 5, 15, 25 }
 	local rows = { 8, 20 }
@@ -135,25 +199,71 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		end
 	end
 
+	-- Upper floors are built now and shown when bought (SetStories).
+	local stories: { [number]: Folder } = {}
+	for story = 2, #Config.Stories do
+		local folder = Instance.new("Folder")
+		folder.Name = "Story" .. story
+		local y = storyBase(story)
+		local side = rampSide(story - 1)
+
+		-- Slab with a hole where the ramp from the floor below comes up.
+		local mainX = if side == -1 then 5 else -5
+		block(folder, "Slab", Vector3.new(50, 1, PLOT_SIZE), at(mainX, y - 0.5, 0), color, Enum.Material.Plastic)
+		block(folder, "Slab", Vector3.new(10, 1, 26), at(side * 25, y - 0.5, 17), color, Enum.Material.Plastic)
+
+		local ramp = Instance.new("WedgePart")
+		ramp.Name = "Ramp"
+		ramp.Anchored = true
+		ramp.Size = Vector3.new(8, STORY_HEIGHT, 30)
+		ramp.CFrame = at(side * 24, storyBase(story - 1) + STORY_HEIGHT / 2, -11)
+		ramp.Color = Color3.fromRGB(110, 110, 120)
+		ramp.Material = Enum.Material.DiamondPlate
+		ramp.Parent = folder
+
+		for _, spot in UPPER_PEDESTALS do
+			local i = #pedestals + 1
+			local pedestal = block(folder, "Pedestal" .. i, Vector3.new(6, 1, 6), at(spot[1], y + 0.5, spot[2]), Color3.fromRGB(60, 60, 70))
+			pedestal:SetAttribute("Slot", i)
+			pedestals[i] = pedestal
+		end
+
+		local walls = Instance.new("Folder")
+		walls.Name = "Walls"
+		walls.Parent = folder
+		wallFolders[story] = walls
+		stories[story] = folder
+	end
+
 	local collectPad = block(model, "CollectPad", Vector3.new(8, 0.4, 8), at(12, FLOOR_TOP + 0.2, -12), Color3.fromRGB(60, 220, 90), Enum.Material.Neon)
 	local pendingLabel = billboard(collectPad, Vector2.new(220, 70), Vector3.new(0, 5, 0), "COLLECT\n$0", Color3.fromRGB(140, 255, 140))
 
 	local lockPad = block(model, "LockPad", Vector3.new(8, 0.4, 8), at(-12, FLOOR_TOP + 0.2, -12), Color3.fromRGB(230, 60, 60), Enum.Material.Neon)
 	local lockLabel = billboard(lockPad, Vector2.new(220, 70), Vector3.new(0, 5, 0), "STEP TO LOCK", Color3.fromRGB(255, 140, 140))
 
-	local upgradePost = block(model, "UpgradePost", Vector3.new(2, 4, 2), at(-22, FLOOR_TOP + 2, -22), Color3.fromRGB(255, 170, 40), Enum.Material.Neon)
-	local upgradeLabel = billboard(upgradePost, Vector2.new(240, 70), Vector3.new(0, 5, 0), "WALLS", Color3.fromRGB(255, 210, 120))
-	local upgradePrompt = Instance.new("ProximityPrompt")
-	upgradePrompt.Name = "UpgradePrompt"
-	upgradePrompt.ActionText = "Upgrade Walls"
-	upgradePrompt.ObjectText = "Walls"
-	upgradePrompt.HoldDuration = 0.4
-	upgradePrompt.MaxActivationDistance = 10
-	upgradePrompt.RequiresLineOfSight = false
-	upgradePrompt:SetAttribute("Action", "Upgrade")
-	upgradePrompt.Parent = upgradePost
+	-- One post, three upgrades, each on its own key.
+	local upgradePost = block(model, "UpgradePost", Vector3.new(2, 4, 2), at(-14, FLOOR_TOP + 2, -24), Color3.fromRGB(255, 170, 40), Enum.Material.Neon)
+	local upgradeLabel = billboard(upgradePost, Vector2.new(300, 110), Vector3.new(0, 6, 0), "UPGRADES", Color3.fromRGB(255, 210, 120))
+	local upgrades: { { Kind: string, Text: string, Key: Enum.KeyCode } } = {
+		{ Kind = "Walls", Text = "Upgrade Walls", Key = Enum.KeyCode.E },
+		{ Kind = "Floors", Text = "Build Floor", Key = Enum.KeyCode.R },
+		{ Kind = "Lock", Text = "Upgrade Lock", Key = Enum.KeyCode.T },
+	}
+	for _, info in upgrades do
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = info.Kind .. "Prompt"
+		prompt.ActionText = info.Text
+		prompt.ObjectText = "Base Upgrades"
+		prompt.KeyboardKeyCode = info.Key
+		prompt.HoldDuration = 0.4
+		prompt.MaxActivationDistance = 10
+		prompt.RequiresLineOfSight = false
+		prompt:SetAttribute("Action", "Upgrade")
+		prompt:SetAttribute("UpgradeType", info.Kind)
+		prompt.Parent = upgradePost
+	end
 
-	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + SIGN_HEIGHT, half - 1), wallColor)
+	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + SIGN_HEIGHT, half - 1), WALL_COLOR)
 	signPost.Transparency = 1
 	signPost.CanCollide = false
 	local ownerLabel = billboard(signPost, Vector2.new(400, 80), Vector3.zero, "EMPTY BASE", Color3.new(1, 1, 1))
@@ -167,8 +277,10 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		Pedestals = pedestals,
 		CollectPad = collectPad,
 		LockPad = lockPad,
-		Laser = laser,
-		Walls = walls,
+		Lasers = lasers,
+		WallFolders = wallFolders,
+		Stories = stories,
+		SignPost = signPost,
 		UpgradePost = upgradePost,
 		UpgradeLabel = upgradeLabel,
 		OwnerLabel = ownerLabel,
@@ -178,25 +290,50 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 	}
 end
 
--- Resizes a base's walls and entrance laser to a wall level from Config.
+-- Rebuilds every floor's walls (with windows) for a wall level, and marks
+-- which entrance laser beams fit under the new height.
 function WorldBuilder.SetWallLevel(parts: PlotParts, level: number)
 	local info = Config.WallLevels[level] or Config.WallLevels[1]
-	local function resize(part: BasePart)
-		part.Size = Vector3.new(part.Size.X, info.Height, part.Size.Z)
-		local p = part.Position
-		part.CFrame = part.CFrame.Rotation + Vector3.new(p.X, FLOOR_TOP + info.Height / 2, p.Z)
-	end
-	for _, wall in parts.Walls do
-		resize(wall)
-		wall.Material = info.Material
-		wall.Transparency = if info.Material == Enum.Material.Glass then 0.3 else 0
-	end
-	resize(parts.Laser)
+	local height = info.Height
+	local half = PLOT_SIZE / 2
+	local frontWidth = (PLOT_SIZE - ENTRANCE_WIDTH) / 2
+	local turn = CFrame.Angles(0, math.pi / 2, 0)
 
-	local nextInfo = Config.WallLevels[level + 1]
-	parts.UpgradeLabel.Text = if nextInfo
-		then string.format("%s (Lv %d)\nNext: %s", info.Name, level, Config.FormatCash(nextInfo.Cost))
-		else string.format("%s (MAX)", info.Name)
+	for story, folder in parts.WallFolders do
+		folder:ClearAllChildren()
+		local y = storyBase(story)
+		local function at(x: number, z: number): CFrame
+			return parts.CFrame * CFrame.new(x, y - FLOOR_TOP, z)
+		end
+		wallSegment(folder, at(0, half - 1), PLOT_SIZE, height, info.Material)
+		wallSegment(folder, at(-half + 1, 0) * turn, PLOT_SIZE, height, info.Material)
+		wallSegment(folder, at(half - 1, 0) * turn, PLOT_SIZE, height, info.Material)
+		if story == 1 then
+			wallSegment(folder, at(-half + frontWidth / 2, -half + 1), frontWidth, height, info.Material)
+			wallSegment(folder, at(half - frontWidth / 2, -half + 1), frontWidth, height, info.Material)
+			-- Laser emitter posts on both sides of the door.
+			for _, side in { -1, 1 } do
+				local x = side * (ENTRANCE_WIDTH / 2 + 0.5)
+				block(folder, "LaserPost", Vector3.new(1, height, 2.4), at(x, -half + 1) * CFrame.new(0, height / 2, 0), Color3.fromRGB(45, 45, 50), Enum.Material.Metal)
+				block(folder, "LaserStrip", Vector3.new(0.25, height - 0.4, 0.25), at(x - side * 0.55, -half + 1) * CFrame.new(0, height / 2, 0), Color3.fromRGB(255, 40, 40), Enum.Material.Neon)
+			end
+		else
+			wallSegment(folder, at(0, -half + 1), PLOT_SIZE, height, info.Material)
+		end
+	end
+
+	for i, beam in parts.Lasers do
+		beam:SetAttribute("Active", 0.8 + (i - 1) * 1.4 <= height - 0.4)
+	end
+end
+
+-- Shows the floors a base has bought and lifts the owner sign above them.
+function WorldBuilder.SetStories(parts: PlotParts, count: number)
+	for story, folder in parts.Stories do
+		folder.Parent = if story <= count then parts.Model else nil
+	end
+	local sign = parts.SignPost
+	sign.CFrame = sign.CFrame.Rotation + Vector3.new(sign.Position.X, storyBase(count) + SIGN_HEIGHT, sign.Position.Z)
 end
 
 -- A rocky cave around the start of the conveyor, opening toward +X.
@@ -350,6 +487,7 @@ function WorldBuilder.Build(): World
 		local x = (column - (columnsPerSide - 1) / 2) * PLOT_SPACING
 		plots[i] = buildPlot(plotsFolder, i, Vector3.new(x, 0, side * PLOT_DISTANCE))
 		WorldBuilder.SetWallLevel(plots[i], 1)
+		WorldBuilder.SetStories(plots[i], 1)
 	end
 
 	local spawn = Instance.new("SpawnLocation")

@@ -504,6 +504,10 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 				d.Material = Enum.Material.Glass
 				d.Transparency = 0.15
 				d.Reflectance = 0.25
+			elseif mutation.Id == "Sparkle" then
+				-- Keeps its own colors, just brighter and glossy.
+				d.Color = d.Color:Lerp(Color3.new(1, 1, 1), 0.3)
+				d.Reflectance = 0.25
 			elseif mutation.Id == "Lava" then
 				d.Color = Color3.fromRGB(80, 35, 25)
 				d.Material = Enum.Material.CrackedLava
@@ -526,6 +530,22 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 	end
 	if mutation.Id == "Rainbow" then
 		CollectionService:AddTag(model, "RainbowBrainrot")
+	end
+	if mutation.Id == "Sparkle" then
+		local sparkles = Instance.new("Sparkles")
+		sparkles.SparkleColor = Color3.fromRGB(255, 245, 160)
+		sparkles.Parent = root
+		local stars = Instance.new("ParticleEmitter")
+		stars.Name = "SparkleStars"
+		stars.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		stars.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(255, 230, 120))
+		stars.LightEmission = 1
+		stars.Rate = 25
+		stars.Lifetime = NumberRange.new(0.5, 1)
+		stars.Speed = NumberRange.new(0.5, 2)
+		stars.SpreadAngle = Vector2.new(180, 180)
+		stars.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.6), NumberSequenceKeypoint.new(1, 0) })
+		stars.Parent = root
 	end
 
 	local sparkles = Instance.new("ParticleEmitter")

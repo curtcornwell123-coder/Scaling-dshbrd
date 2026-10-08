@@ -136,6 +136,17 @@ local luckLabel = text(gui, {
 	Visible = false,
 })
 
+-- Weekly admin abuse: countdown in the last hour, then a LIVE banner.
+local abuseLabel = text(gui, {
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 136),
+	Size = UDim2.fromOffset(420, 32),
+	TextColor3 = GOLD,
+	TextStrokeTransparency = 0,
+	Text = "",
+	Visible = false,
+})
+
 local carryLabel = text(gui, {
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -150),
@@ -206,7 +217,7 @@ end
 
 local banner = text(gui, {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 140),
+	Position = UDim2.new(0.5, 0, 0, 174),
 	Size = UDim2.fromOffset(760, 48),
 	Text = "",
 	Visible = false,
@@ -250,6 +261,16 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 		showBanner(who .. " bought a " .. label .. "!", color)
 	elseif kind == "steal" and brainrot then
 		showBanner(who .. " STOLE a " .. label .. " from " .. (extra or "someone") .. "!", RED)
+	elseif kind == "drop" and brainrot then
+		showBanner(who .. " is dropping a " .. label .. " from the sky! GRAB IT!", color)
+	elseif kind == "grab" and brainrot then
+		showBanner(who .. " grabbed the " .. label .. "!", color)
+	elseif kind == "rain" then
+		showBanner("BRAINROT RAIN! Grab them before anyone else!", Color3.fromRGB(200, 140, 255))
+	elseif kind == "cashrain" then
+		showBanner("CASH RAIN! " .. (extra or "") .. " drops are falling!", Color3.fromRGB(120, 255, 120))
+	elseif kind == "abuse" then
+		showBanner("ADMIN ABUSE HAS STARTED!", RED)
 	elseif kind == "luck" then
 		showBanner(who .. " bought SERVER LUCK for everyone!", Color3.fromRGB(120, 255, 160))
 	elseif kind == "rebirth" then
@@ -418,7 +439,14 @@ end)
 
 -- Admin panel (only shown to admins; the server checks every action too) ---
 
-local adminFrame, adminBody = modal("ADMIN", RED, 560)
+local adminFrame, adminFrameBody = modal("ADMIN", RED, 620)
+local adminBody = Instance.new("ScrollingFrame")
+adminBody.BackgroundTransparency = 1
+adminBody.Size = UDim2.fromScale(1, 1)
+adminBody.CanvasSize = UDim2.new()
+adminBody.AutomaticCanvasSize = Enum.AutomaticSize.Y
+adminBody.ScrollBarThickness = 6
+adminBody.Parent = adminFrameBody
 local adminLayout = Instance.new("UIListLayout")
 adminLayout.Padding = UDim.new(0, 8)
 adminLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -427,7 +455,7 @@ adminLayout.Parent = adminBody
 local function adminRow(order: number, height: number): Frame
 	local row = Instance.new("Frame")
 	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1, 0, 0, height)
+	row.Size = UDim2.new(1, -10, 0, height)
 	row.LayoutOrder = order
 	row.Parent = adminBody
 	local layout = Instance.new("UIListLayout")
@@ -437,6 +465,16 @@ local function adminRow(order: number, height: number): Frame
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = row
 	return row
+end
+
+local function adminHeader(order: number, label: string)
+	text(adminBody, {
+		Size = UDim2.new(1, -10, 0, 26),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = GOLD,
+		Text = label,
+		LayoutOrder = order,
+	})
 end
 
 local function inputBox(parent: Instance, default: string, hint: string, width: number): TextBox
@@ -460,11 +498,17 @@ local function smallButton(parent: Instance, label: string, color: Color3, width
 	return b
 end
 
-local targetRow = adminRow(1, 40)
-text(targetRow, { Size = UDim2.fromOffset(80, 30), Text = "Player" })
-local targetBox = inputBox(targetRow, "me", "me / all / name", 200)
+local ORANGE = Color3.fromRGB(255, 150, 40)
+local PURPLE = Color3.fromRGB(170, 80, 255)
+local GREY = Color3.fromRGB(90, 90, 100)
+
+-- Player + amount
+adminHeader(1, "PLAYERS")
+local targetRow = adminRow(2, 40)
+text(targetRow, { Size = UDim2.fromOffset(70, 30), Text = "Player" })
+local targetBox = inputBox(targetRow, "me", "me / all / name", 180)
 text(targetRow, {
-	Size = UDim2.fromOffset(220, 24),
+	Size = UDim2.fromOffset(230, 22),
 	TextColor3 = Color3.fromRGB(170, 170, 185),
 	Text = "me, all, or start of a name",
 })
@@ -473,97 +517,115 @@ local function send(action: string, value: any)
 	AdminAction:FireServer(action, targetBox.Text, value)
 end
 
-local cashRow = adminRow(2, 40)
-local amountBox = inputBox(cashRow, "1m", "e.g. 5000, 25k, 2m", 120)
+local cashRow = adminRow(3, 40)
+local amountBox = inputBox(cashRow, "1m", "e.g. 5000, 25k, 2m", 110)
 smallButton(cashRow, "Give Cash", GREEN, 120, function()
 	send("Cash", amountBox.Text)
 end)
 smallButton(cashRow, "Set Cash", Color3.fromRGB(60, 140, 255), 110, function()
 	send("SetCash", amountBox.Text)
 end)
-smallButton(cashRow, "Rebirths", Color3.fromRGB(170, 80, 255), 110, function()
+smallButton(cashRow, "Rebirths", PURPLE, 110, function()
 	send("Rebirths", amountBox.Text)
 end)
 
-local wallRow = adminRow(3, 40)
-text(wallRow, { Size = UDim2.fromOffset(80, 30), Text = "Walls" })
-for level = 1, #Config.WallLevels do
-	smallButton(wallRow, tostring(level), Color3.fromRGB(255, 150, 40), 50, function()
-		send("Walls", level)
-	end)
+local function levelButtons(row: Frame, label: string, count: number, action: string, color: Color3)
+	text(row, { Size = UDim2.fromOffset(62, 30), Text = label })
+	for level = 1, count do
+		smallButton(row, tostring(level), color, 38, function()
+			send(action, level)
+		end)
+	end
 end
-smallButton(wallRow, "Clear Base", RED, 130, function()
+levelButtons(adminRow(4, 40), "Walls", #Config.WallLevels, "Walls", ORANGE)
+local baseRow = adminRow(5, 40)
+levelButtons(baseRow, "Floors", #Config.Stories, "Floors", Color3.fromRGB(60, 140, 255))
+levelButtons(baseRow, "Lock", #Config.LockLevels, "LockLevel", RED)
+
+local miscRow = adminRow(6, 40)
+smallButton(miscRow, "Clear Base", RED, 130, function()
 	send("ClearBase", nil)
 end)
-
-local luckRow = adminRow(4, 40)
-smallButton(luckRow, "Server Luck 15m", Color3.fromRGB(60, 180, 120), 200, function()
+smallButton(miscRow, "Luck 15m", Color3.fromRGB(60, 180, 120), 130, function()
 	send("Luck", 15)
 end)
-smallButton(luckRow, "Stop Luck", Color3.fromRGB(90, 90, 100), 130, function()
+smallButton(miscRow, "Stop Luck", GREY, 120, function()
 	send("Luck", 0)
 end)
 
-local brainrotList = Instance.new("ScrollingFrame")
-brainrotList.BackgroundTransparency = 1
-brainrotList.Size = UDim2.new(1, 0, 0, 250)
-brainrotList.LayoutOrder = 5
-brainrotList.CanvasSize = UDim2.new()
-brainrotList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-brainrotList.ScrollBarThickness = 6
-brainrotList.Parent = adminBody
-local brainrotLayout = Instance.new("UIListLayout")
-brainrotLayout.Padding = UDim.new(0, 4)
-brainrotLayout.Parent = brainrotList
+-- Admin abuse + drops
+adminHeader(7, "ADMIN ABUSE & DROPS")
+local abuseRow = adminRow(8, 40)
+smallButton(abuseRow, "Start Admin Abuse", RED, 220, function()
+	send("AbuseStart", Config.AdminAbuse.DurationMinutes)
+end)
+smallButton(abuseRow, "End It", GREY, 110, function()
+	send("AbuseStop", nil)
+end)
+local dropRow = adminRow(9, 40)
+smallButton(dropRow, "Brainrot Rain x" .. Config.BrainrotRainCount, PURPLE, 210, function()
+	send("BrainrotRain", nil)
+end)
+smallButton(dropRow, "Cash Rain", GREEN, 140, function()
+	send("CashRain", amountBox.Text)
+end)
+text(dropRow, {
+	Size = UDim2.fromOffset(150, 34),
+	TextColor3 = Color3.fromRGB(170, 170, 185),
+	TextWrapped = true,
+	Text = "Cash Rain: each drop = amount box",
+})
 
--- Mutation picker for Give / Spawn below.
+-- Mutation picker for Give / Spawn / Drop below.
+adminHeader(10, "BRAINROTS")
 local mutationChoices = { "None" }
 for _, mutation in Config.Mutations do
 	table.insert(mutationChoices, mutation.Id)
 end
 local mutationIndex = 1
-local mutationRow = adminRow(5, 40)
-text(mutationRow, { Size = UDim2.fromOffset(110, 30), Text = "Mutation" })
-local mutationButton = smallButton(mutationRow, "None", Color3.fromRGB(90, 90, 100), 160, function() end)
+local mutationRow = adminRow(11, 40)
+text(mutationRow, { Size = UDim2.fromOffset(100, 30), Text = "Mutation" })
+local mutationButton = smallButton(mutationRow, "None", GREY, 160, function() end)
 mutationButton.MouseButton1Click:Connect(function()
 	mutationIndex = mutationIndex % #mutationChoices + 1
 	local choice = mutationChoices[mutationIndex]
 	local mutation = Config.GetMutation(choice)
 	mutationButton.Text = choice
-	mutationButton.BackgroundColor3 = if mutation then mutation.Color else Color3.fromRGB(90, 90, 100)
+	mutationButton.BackgroundColor3 = if mutation then mutation.Color else GREY
 end)
-brainrotList.LayoutOrder = 6
-brainrotList.Size = UDim2.new(1, 0, 0, 200)
 
 local function brainrotValue(id: string): string
 	local choice = mutationChoices[mutationIndex]
 	return if choice == "None" then id else Config.Encode(id, choice)
 end
 
-for _, brainrot in Config.Brainrots do
+for i, brainrot in Config.Brainrots do
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -10, 0, 36)
 	row.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	row.LayoutOrder = 100 + i
 	corner(row, 8)
-	row.Parent = brainrotList
+	row.Parent = adminBody
 	local color = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
 	text(row, {
 		Position = UDim2.fromOffset(10, 4),
-		Size = UDim2.new(1, -230, 1, -8),
+		Size = UDim2.new(1, -270, 1, -8),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = color,
-		Text = brainrot.DisplayName .. "  (" .. brainrot.Rarity .. ")",
+		Text = brainrot.DisplayName,
 	})
-	local give = smallButton(row, "Give", GREEN, 100, function()
-		send("Brainrot", brainrotValue(brainrot.Id))
-	end)
-	give.Size = UDim2.fromOffset(100, 30)
-	give.Position = UDim2.new(1, -212, 0, 3)
-	local spawnButton = smallButton(row, "Spawn", Color3.fromRGB(255, 150, 40), 100, function()
-		send("Spawn", brainrotValue(brainrot.Id))
-	end)
-	spawnButton.Size = UDim2.fromOffset(100, 30)
-	spawnButton.Position = UDim2.new(1, -106, 0, 3)
+	local buttons: { { Label: string, Color: Color3, Action: string } } = {
+		{ Label = "Give", Color = GREEN, Action = "Brainrot" },
+		{ Label = "Spawn", Color = ORANGE, Action = "Spawn" },
+		{ Label = "Drop", Color = PURPLE, Action = "DropBrainrot" },
+	}
+	for j, info in buttons do
+		local b = smallButton(row, info.Label, info.Color, 80, function()
+			send(info.Action, brainrotValue(brainrot.Id))
+		end)
+		b.Size = UDim2.fromOffset(80, 30)
+		b.Position = UDim2.new(1, -258 + (j - 1) * 86, 0, 3)
+	end
 end
 
 local adminButton = button(side, "ADMIN", RED, UDim2.fromOffset(130, 56))
@@ -667,6 +729,36 @@ task.spawn(function()
 			end
 		end
 		task.wait(0.25)
+	end
+end)
+
+-- Admin abuse timer ----------------------------------------------------------
+
+local function clock(seconds: number): string
+	seconds = math.max(0, math.floor(seconds))
+	return string.format("%d:%02d", seconds // 60, seconds % 60)
+end
+
+task.spawn(function()
+	while true do
+		local now = workspace:GetServerTimeNow()
+		local manualEnd = ReplicatedStorage:GetAttribute("AdminAbuseEndsAt") :: number?
+		local status, seconds = Config.AdminAbuseStatus(now)
+		if manualEnd and manualEnd > now then
+			status, seconds = "live", manualEnd - now
+		end
+		if status == "live" then
+			abuseLabel.Visible = true
+			abuseLabel.TextColor3 = RED
+			abuseLabel.Text = "ADMIN ABUSE LIVE!  " .. clock(seconds) .. " left"
+		elseif status == "soon" then
+			abuseLabel.Visible = true
+			abuseLabel.TextColor3 = GOLD
+			abuseLabel.Text = "ADMIN ABUSE IN " .. clock(seconds)
+		else
+			abuseLabel.Visible = false
+		end
+		task.wait(0.5)
 	end
 end)
 

@@ -93,6 +93,7 @@ export type Mutation = {
 Config.Mutations = {
 	{ Id = "Gold", DisplayName = "Gold", Chance = 5, Multiplier = 2, Color = Color3.fromRGB(255, 200, 50) },
 	{ Id = "Diamond", DisplayName = "Diamond", Chance = 2, Multiplier = 3, Color = Color3.fromRGB(140, 230, 255) },
+	{ Id = "Sparkle", DisplayName = "Sparkle", Chance = 1.5, Multiplier = 4, Color = Color3.fromRGB(255, 250, 170) },
 	{ Id = "Lava", DisplayName = "Lava", Chance = 0.8, Multiplier = 5, Color = Color3.fromRGB(255, 100, 20) },
 	{ Id = "Rainbow", DisplayName = "Rainbow", Chance = 0.3, Multiplier = 10, Color = Color3.fromRGB(255, 120, 255) },
 } :: { Mutation }
@@ -114,8 +115,6 @@ Config.ServerLuckDuration = 15 * 60
 Config.PlotCount = 8 -- also set Max Players to 8 in Game Settings
 Config.BaseSlots = 10
 Config.VipSlots = 2 -- extra slots for VIP owners
-Config.LockDuration = 60
-Config.LongerLockDuration = 120 -- with the Longer Lock gamepass
 Config.LockCooldown = 30 -- vulnerable window after a lock ends
 
 -- Walls --------------------------------------------------------------------
@@ -135,8 +134,34 @@ Config.WallLevels = {
 	{ Name = "Brick Wall", Height = 5.5, Cost = 1000, Material = Enum.Material.Brick },
 	{ Name = "Concrete Wall", Height = 9, Cost = 25000, Material = Enum.Material.Concrete },
 	{ Name = "Steel Wall", Height = 13, Cost = 500000, Material = Enum.Material.DiamondPlate },
-	{ Name = "Diamond Wall", Height = 18, Cost = 10000000, Material = Enum.Material.Glass },
+	{ Name = "Diamond Wall", Height = 18, Cost = 10000000, Material = Enum.Material.Foil },
 } :: { WallLevel }
+
+-- Floors -------------------------------------------------------------------
+-- Extra stories stack on top of the base, reached by ramps inside it. The
+-- ground floor has 10 slots (+2 VIP); every extra floor adds more.
+
+export type Story = { Name: string, Cost: number }
+
+Config.Stories = {
+	{ Name = "Ground Floor", Cost = 0 },
+	{ Name = "2nd Floor", Cost = 50000 },
+	{ Name = "3rd Floor", Cost = 2000000 },
+} :: { Story }
+Config.UpperFloorSlots = 10
+
+-- Lock upgrades --------------------------------------------------------------
+-- How long the entrance lasers stay on. The Longer Lock gamepass doubles it.
+
+export type LockLevel = { Duration: number, Cost: number }
+
+Config.LockLevels = {
+	{ Duration = 30, Cost = 0 },
+	{ Duration = 45, Cost = 5000 },
+	{ Duration = 60, Cost = 50000 },
+	{ Duration = 90, Cost = 500000 },
+	{ Duration = 120, Cost = 5000000 },
+} :: { LockLevel }
 
 -- Stealing -----------------------------------------------------------------
 
@@ -161,6 +186,45 @@ Config.RebirthBonus = 0.5 -- +50% income per rebirth
 Config.AdminUserIds = {} :: { number }
 Config.AdminGroupRank = 255 -- for group games: this rank and above are admins
 
+-- Admin abuse --------------------------------------------------------------
+-- A weekly event. Everyone sees a countdown during the hour before it, and a
+-- LIVE banner while it runs. Times are in UTC:
+--   6 PM US Eastern (summer) = 22:00 UTC, 6 PM US Pacific (summer) = 01:00 UTC next day.
+-- Admins can also start or stop it any time from the admin panel.
+
+Config.AdminAbuse = {
+	WeekDay = 7, -- 1 = Sunday, 2 = Monday ... 7 = Saturday
+	Hour = 22,
+	Minute = 0,
+	DurationMinutes = 60,
+	CountdownMinutes = 60,
+}
+
+local WEEK = 7 * 24 * 3600
+
+-- Returns "live" + seconds left, "soon" + seconds until it starts, or nil.
+function Config.AdminAbuseStatus(now: number): (string?, number)
+	local schedule = Config.AdminAbuse
+	local t = os.date("!*t", math.floor(now))
+	local intoWeek = (t.wday - 1) * 86400 + t.hour * 3600 + t.min * 60 + t.sec
+	local start = (schedule.WeekDay - 1) * 86400 + schedule.Hour * 3600 + schedule.Minute * 60
+	local duration = schedule.DurationMinutes * 60
+	local untilStart = (start - intoWeek) % WEEK
+	local sinceStart = (intoWeek - start) % WEEK
+	if sinceStart < duration then
+		return "live", duration - sinceStart
+	elseif untilStart <= schedule.CountdownMinutes * 60 then
+		return "soon", untilStart
+	end
+	return nil, 0
+end
+
+-- Admin drops: what the "Brainrot Rain" and "Cash Rain" buttons drop.
+Config.BrainrotRainCount = 10
+Config.BrainrotRainLuck = 5 -- rain is luckier than the conveyor
+Config.CashRainCount = 30
+Config.DropLifetime = 90 -- seconds before an unclaimed drop disappears
+
 -- Monetization -------------------------------------------------------------
 -- Create these on the Creator Dashboard (your experience > Monetization),
 -- then paste the IDs below. Items with Id = 0 show as "coming soon".
@@ -168,7 +232,7 @@ Config.AdminGroupRank = 255 -- for group games: this rank and above are admins
 Config.GamePasses = {
 	{ Key = "DoubleCash", Id = 0, Name = "2x Cash", Description = "Your brainrots make double cash forever." },
 	{ Key = "VIP", Id = 0, Name = "VIP", Description = "+2 base slots and a gold VIP tag." },
-	{ Key = "LongerLock", Id = 0, Name = "Longer Lock", Description = "Your base lock lasts 120s instead of 60s." },
+	{ Key = "LongerLock", Id = 0, Name = "Longer Lock", Description = "Your base lock lasts twice as long." },
 } :: { GamePass }
 
 Config.Products = {

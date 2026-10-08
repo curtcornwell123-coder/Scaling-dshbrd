@@ -45,6 +45,8 @@ type SaveData = {
 	Brainrots: { string }, -- brainrot ids placed in the base, in slot order
 	Steals: number,
 	WallLevel: number,
+	Stories: number,
+	LockLevel: number,
 	Receipts: { string }, -- recent purchase ids, so a purchase is never granted twice
 }
 
@@ -134,7 +136,21 @@ local function getRoot(player: Player): (BasePart?, Humanoid?)
 end
 
 local function maxSlots(session: Session): number
-	return Config.BaseSlots + (if session.Owns.VIP then Config.VipSlots else 0)
+	return Config.BaseSlots
+		+ (if session.Owns.VIP then Config.VipSlots else 0)
+		+ (session.Data.Stories - 1) * Config.UpperFloorSlots
+end
+
+-- Ground floor: 10 slots + 2 VIP. Each bought floor above adds its own slots.
+local GROUND_SLOTS = Config.BaseSlots + Config.VipSlots
+local function isSlotUnlocked(session: Session, index: number): boolean
+	if index <= Config.BaseSlots then
+		return true
+	elseif index <= GROUND_SLOTS then
+		return session.Owns.VIP == true
+	end
+	local story = 2 + (index - GROUND_SLOTS - 1) // Config.UpperFloorSlots
+	return session.Data.Stories >= story
 end
 
 local function incomeMultiplier(session: Session): number
@@ -167,8 +183,8 @@ local function placedCount(plot: Plot): number
 end
 
 local function freeSlot(plot: Plot, session: Session): number?
-	for i = 1, math.min(maxSlots(session), #plot.Parts.Pedestals) do
-		if not plot.Slots[i] then
+	for i = 1, #plot.Parts.Pedestals do
+		if not plot.Slots[i] and isSlotUnlocked(session, i) then
 			return i
 		end
 	end
@@ -177,7 +193,7 @@ end
 
 local function isInside(plot: Plot, position: Vector3): boolean
 	local p = plot.Parts.CFrame:PointToObjectSpace(position)
-	return math.abs(p.X) <= 30 and math.abs(p.Z) <= 30 and p.Y > -5 and p.Y < 40
+	return math.abs(p.X) <= 30 and math.abs(p.Z) <= 30 and p.Y > -5 and p.Y < 100
 end
 
 local function fullName(brainrot: Config.Brainrot, mutationId: string?): string
@@ -208,6 +224,8 @@ local function defaultData(): SaveData
 		Brainrots = {},
 		Steals = 0,
 		WallLevel = 1,
+		Stories = 1,
+		LockLevel = 1,
 		Receipts = {},
 	}
 end
@@ -228,6 +246,12 @@ local function sanitize(raw: any): SaveData
 	end
 	if type(raw.WallLevel) == "number" then
 		data.WallLevel = math.clamp(math.floor(raw.WallLevel), 1, #Config.WallLevels)
+	end
+	if type(raw.Stories) == "number" then
+		data.Stories = math.clamp(math.floor(raw.Stories), 1, #Config.Stories)
+	end
+	if type(raw.LockLevel) == "number" then
+		data.LockLevel = math.clamp(math.floor(raw.LockLevel), 1, #Config.LockLevels)
 	end
 	if type(raw.Brainrots) == "table" then
 		for _, entry in raw.Brainrots do
@@ -279,6 +303,8 @@ local function snapshot(session: Session)
 		MaxSlots = maxSlots(session),
 		Steals = data.Steals,
 		WallLevel = data.WallLevel,
+		Stories = data.Stories,
+		LockLevel = data.LockLevel,
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
 		IsAdmin = session.IsAdmin,
@@ -418,9 +444,9 @@ end
 local function updateVipPedestals(plot: Plot)
 	local owner = plot.Owner
 	local session = owner and sessions[owner]
-	local unlocked = if session then maxSlots(session) else Config.BaseSlots
-	for i, pedestal in plot.Parts.Pedestals do
-		local locked = i > unlocked
+	for i = 1, GROUND_SLOTS do
+		local pedestal = plot.Parts.Pedestals[i]
+		local locked = i > Config.BaseSlots and not (session and session.Owns.VIP)
 		pedestal.Color = if locked then Color3.fromRGB(255, 195, 40) else Color3.fromRGB(60, 60, 70)
 		pedestal.Material = if locked then Enum.Material.Neon else Enum.Material.SmoothPlastic
 		local tag = pedestal:FindFirstChild("VipTag") :: BillboardGui?
@@ -447,8 +473,15 @@ local function updateVipPedestals(plot: Plot)
 end
 
 local function setLaser(plot: Plot, on: boolean)
-	plot.Parts.Laser.Transparency = if on then 0.25 else 1
+	for _, beam in plot.Parts.Lasers do
+		beam.Transparency = if on and beam:GetAttribute("Active") then 0.1 else 1
+	end
 	plot.Parts.Model:SetAttribute("Locked", on)
+end
+
+local function lockDuration(session: Session): number
+	local duration = Config.LockLevels[session.Data.LockLevel].Duration
+	return if session.Owns.LongerLock then duration * 2 else duration
 end
 
 local function lockBase(plot: Plot)
@@ -457,7 +490,7 @@ local function lockBase(plot: Plot)
 	if not session then
 		return
 	end
-	local duration = if session.Owns.LongerLock then Config.LongerLockDuration else Config.LockDuration
+	local duration = lockDuration(session)
 	local now = os.clock()
 	plot.LockedUntil = now + duration
 	plot.CooldownUntil = plot.LockedUntil + Config.LockCooldown
@@ -648,6 +681,29 @@ local function clearPlotBrainrots(plot: Plot)
 	plot.Slots = {}
 end
 
+local function updateUpgradeLabel(plot: Plot)
+	local owner = plot.Owner
+	local session = owner and sessions[owner]
+	if not session then
+		plot.Parts.UpgradeLabel.Text = "UPGRADES"
+		return
+	end
+	local data = session.Data
+	local function line(key: string, current: string, nextCost: number?): string
+		return if nextCost
+			then string.format("[%s] %s -> %s", key, current, Config.FormatCash(nextCost))
+			else string.format("[%s] %s (MAX)", key, current)
+	end
+	local nextWall = Config.WallLevels[data.WallLevel + 1]
+	local nextStory = Config.Stories[data.Stories + 1]
+	local nextLock = Config.LockLevels[data.LockLevel + 1]
+	plot.Parts.UpgradeLabel.Text = table.concat({
+		line("E", "Walls: " .. Config.WallLevels[data.WallLevel].Name, nextWall and nextWall.Cost),
+		line("R", string.format("Floors: %d/%d", data.Stories, #Config.Stories), nextStory and nextStory.Cost),
+		line("T", string.format("Lock: %ds", lockDuration(session)), nextLock and nextLock.Cost),
+	}, "\n")
+end
+
 local function assignPlot(player: Player, session: Session)
 	for _, plot in plots do
 		if not plot.Owner then
@@ -660,15 +716,26 @@ local function assignPlot(player: Player, session: Session)
 			session.Plot = plot
 			updateVipPedestals(plot)
 			WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel)
-			for i, entry in session.Data.Brainrots do
-				if i > #plot.Parts.Pedestals then
-					break
-				end
+			WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
+			setLaser(plot, false)
+			for _, entry in session.Data.Brainrots do
 				local brainrot, mutation = Config.Decode(entry)
-				if brainrot then
-					placeBrainrot(plot, i, brainrot.Id, mutation, nil, false)
+				-- Fill unlocked slots first; if there are more brainrots than
+				-- unlocked slots (e.g. VIP ended), keep them on any free pedestal.
+				local index = freeSlot(plot, session)
+				if not index then
+					for i = 1, #plot.Parts.Pedestals do
+						if not plot.Slots[i] then
+							index = i
+							break
+						end
+					end
+				end
+				if brainrot and index then
+					placeBrainrot(plot, index, brainrot.Id, mutation, nil, false)
 				end
 			end
+			updateUpgradeLabel(plot)
 			return
 		end
 	end
@@ -688,37 +755,79 @@ local function releasePlot(plot: Plot)
 	plot.Parts.LockLabel.Text = "STEP TO LOCK"
 	updateVipPedestals(plot)
 	WorldBuilder.SetWallLevel(plot.Parts, 1)
+	WorldBuilder.SetStories(plot.Parts, 1)
+	plot.Parts.UpgradeLabel.Text = "UPGRADES"
 end
 
-local function onUpgradeWalls(player: Player, plot: Plot)
+-- Applies a base's saved wall, floor and lock levels to the world.
+local function applyBaseLevels(plot: Plot, session: Session)
+	WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel)
+	WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
+	setLaser(plot, os.clock() < plot.LockedUntil)
+	updateVipPedestals(plot)
+	updateUpgradeLabel(plot)
+end
+
+local function onUpgrade(player: Player, plot: Plot, kind: string)
 	local session = sessions[player]
 	if not session or not session.Loaded or plot.Owner ~= player then
 		return
 	end
-	local level = session.Data.WallLevel
-	local nextLevel = Config.WallLevels[level + 1]
-	if not nextLevel then
-		notify(player, "Your walls are already maxed out!")
+	local data = session.Data
+	local cost: number, name: string
+	if kind == "Walls" then
+		local nextLevel = Config.WallLevels[data.WallLevel + 1]
+		if not nextLevel then
+			notify(player, "Your walls are already maxed out!")
+			return
+		end
+		cost, name = nextLevel.Cost, nextLevel.Name
+	elseif kind == "Floors" then
+		local nextStory = Config.Stories[data.Stories + 1]
+		if not nextStory then
+			notify(player, "Your base is already as tall as it gets!")
+			return
+		end
+		cost, name = nextStory.Cost, nextStory.Name
+	elseif kind == "Lock" then
+		local nextLock = Config.LockLevels[data.LockLevel + 1]
+		if not nextLock then
+			notify(player, "Your lock is already maxed out!")
+			return
+		end
+		cost, name = nextLock.Cost, nextLock.Duration .. "s Lock"
+	else
 		return
 	end
-	if session.Data.Cash < nextLevel.Cost then
-		notify(player, "You need " .. Config.FormatCash(nextLevel.Cost) .. " for " .. nextLevel.Name .. "!")
+
+	if data.Cash < cost then
+		notify(player, "You need " .. Config.FormatCash(cost) .. " for " .. name .. "!")
 		return
 	end
-	session.Data.Cash -= nextLevel.Cost
-	session.Data.WallLevel = level + 1
-	WorldBuilder.SetWallLevel(plot.Parts, level + 1)
-	notify(player, "Upgraded to " .. nextLevel.Name .. "!")
+	data.Cash -= cost
+	if kind == "Walls" then
+		data.WallLevel += 1
+	elseif kind == "Floors" then
+		data.Stories += 1
+	else
+		data.LockLevel += 1
+	end
+	applyBaseLevels(plot, session)
+	notify(player, "Upgraded: " .. name .. "!")
 	push(player)
 end
 
 for _, plot in plots do
 	updateVipPedestals(plot)
 
-	local upgradePrompt = plot.Parts.UpgradePost:FindFirstChild("UpgradePrompt") :: ProximityPrompt
-	upgradePrompt.Triggered:Connect(function(player)
-		onUpgradeWalls(player, plot)
-	end)
+	for _, prompt in plot.Parts.UpgradePost:GetChildren() do
+		if prompt:IsA("ProximityPrompt") then
+			local kind = prompt:GetAttribute("UpgradeType") :: string
+			prompt.Triggered:Connect(function(player)
+				onUpgrade(player, plot, kind)
+			end)
+		end
+	end
 
 	plot.Parts.CollectPad.Touched:Connect(function(hit)
 		local player = Players:GetPlayerFromCharacter(hit.Parent)
@@ -758,8 +867,8 @@ for _, plot in plots do
 		lockBase(plot)
 	end)
 
-	plot.Parts.Laser.Touched:Connect(function(hit)
-		if os.clock() >= plot.LockedUntil then
+	local function onLaserTouched(beam: BasePart, hit: BasePart)
+		if os.clock() >= plot.LockedUntil or not beam:GetAttribute("Active") then
 			return
 		end
 		local character = hit.Parent
@@ -772,7 +881,12 @@ for _, plot in plots do
 			humanoid.Health = 0
 			notify(player, "ZAPPED by the base laser!")
 		end
-	end)
+	end
+	for _, beam in plot.Parts.Lasers do
+		beam.Touched:Connect(function(hit)
+			onLaserTouched(beam, hit)
+		end)
+	end
 end
 
 -- Conveyor -----------------------------------------------------------------
@@ -1155,6 +1269,148 @@ GetData.OnServerInvoke = function(player: Player)
 	return snapshot(session)
 end
 
+-- Admin drops --------------------------------------------------------------
+-- Brainrots and cash fall from the sky onto the open ground between the
+-- conveyor and the bases. First to grab them keeps them.
+
+local dropsFolder = Instance.new("Folder")
+dropsFolder.Name = "Drops"
+dropsFolder.Parent = workspace:FindFirstChild("BrainrotHeist")
+ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)
+
+local function randomDropPosition(): Vector3
+	local x = rng:NextNumber(world.ConveyorStart.X + 20, world.ConveyorEnd.X - 10)
+	local side = if rng:NextNumber() < 0.5 then -1 else 1
+	return Vector3.new(x, 0.1, side * rng:NextNumber(12, 38))
+end
+
+local function fallBeam(position: Vector3, color: Color3): BasePart
+	local beam = Instance.new("Part")
+	beam.Name = "DropBeam"
+	beam.Anchored = true
+	beam.CanCollide = false
+	beam.CanQuery = false
+	beam.CanTouch = false
+	beam.CastShadow = false
+	beam.Material = Enum.Material.Neon
+	beam.Color = color
+	beam.Transparency = 0.6
+	beam.Size = Vector3.new(0.6, 120, 0.6)
+	beam.CFrame = CFrame.new(position + Vector3.new(0, 60, 0))
+	beam.Parent = dropsFolder
+	return beam
+end
+
+local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?)
+	local landing = randomDropPosition()
+	local facing = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	local model = BrainrotModel.Create(brainrot, mutation, CFrame.new(landing + Vector3.new(0, 90, 0)) * facing, false)
+	local root = model.PrimaryPart :: BasePart
+	local mutationInfo = Config.GetMutation(mutation)
+	local beam = fallBeam(landing, if mutationInfo then mutationInfo.Color else Config.Rarities[brainrot.Rarity].Color)
+	model.Destroying:Connect(function()
+		beam:Destroy()
+	end)
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "ClaimPrompt"
+	prompt.ActionText = "GRAB!"
+	prompt.ObjectText = fullName(brainrot, mutation)
+	prompt.HoldDuration = 0.5
+	prompt.MaxActivationDistance = 12
+	prompt.RequiresLineOfSight = false
+	prompt.Enabled = false
+	prompt:SetAttribute("Action", "Claim")
+	prompt.Parent = root
+	model.Parent = dropsFolder
+
+	local fall = TweenService:Create(root, TweenInfo.new(2.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
+		CFrame = CFrame.new(landing + Vector3.new(0, 0.5, 0)) * facing,
+	})
+	fall.Completed:Connect(function()
+		prompt.Enabled = true
+	end)
+	fall:Play()
+
+	prompt.Triggered:Connect(function(player)
+		local session = sessions[player]
+		local plot = session and session.Plot
+		if not session or not plot or model:GetAttribute("Claimed") then
+			return
+		end
+		local index = freeSlot(plot, session)
+		if not index then
+			notify(player, "Your base is full! Sell something to grab drops.")
+			return
+		end
+		model:SetAttribute("Claimed", true)
+		prompt:Destroy()
+		beam:Destroy()
+		placeBrainrot(plot, index, brainrot.Id, mutation, model, true)
+		notify(player, "You grabbed " .. fullName(brainrot, mutation) .. "!")
+		if isNotable(brainrot, mutation) then
+			Announce:FireAllClients("grab", player.DisplayName, brainrot.Id, "", mutation)
+		end
+		push(player)
+	end)
+
+	task.delay(Config.DropLifetime, function()
+		if model.Parent == dropsFolder and not model:GetAttribute("Claimed") then
+			model:Destroy()
+		end
+	end)
+end
+
+local function dropCash(amount: number)
+	local landing = randomDropPosition()
+	local orb = Instance.new("Part")
+	orb.Name = "CashDrop"
+	orb.Shape = Enum.PartType.Ball
+	orb.Size = Vector3.new(2.5, 2.5, 2.5)
+	orb.Anchored = true
+	orb.CanCollide = false
+	orb.Material = Enum.Material.Neon
+	orb.Color = Color3.fromRGB(80, 255, 110)
+	orb.CFrame = CFrame.new(landing + Vector3.new(0, 90, 0))
+	orb.Parent = dropsFolder
+
+	local tag = Instance.new("BillboardGui")
+	tag.Size = UDim2.fromOffset(110, 34)
+	tag.StudsOffset = Vector3.new(0, 2.5, 0)
+	tag.MaxDistance = 120
+	tag.Parent = orb
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = Color3.fromRGB(140, 255, 140)
+	label.TextStrokeTransparency = 0
+	label.Text = Config.FormatCash(amount)
+	label.Parent = tag
+
+	TweenService:Create(orb, TweenInfo.new(2, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
+		CFrame = CFrame.new(landing + Vector3.new(0, 1.5, 0)),
+	}):Play()
+
+	orb.Touched:Connect(function(hit)
+		local player = Players:GetPlayerFromCharacter(hit.Parent)
+		local session = player and sessions[player]
+		if not player or not session or not session.Loaded or orb:GetAttribute("Taken") then
+			return
+		end
+		orb:SetAttribute("Taken", true)
+		session.Data.Cash += amount
+		orb:Destroy()
+		push(player)
+	end)
+	task.delay(Config.DropLifetime, function()
+		if orb.Parent then
+			orb:Destroy()
+		end
+	end)
+end
+
 -- Admin panel --------------------------------------------------------------
 
 -- "250", "1.5k", "2M", "-500" -> number
@@ -1200,6 +1456,45 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 			notify(admin, "Spawned " .. fullName(brainrot, mutation) .. " on the conveyor.")
 		end
 		return
+	elseif action == "DropBrainrot" then
+		local brainrot, mutation = Config.Decode(tostring(value))
+		if brainrot then
+			dropBrainrot(brainrot, mutation)
+			Announce:FireAllClients("drop", admin.DisplayName, brainrot.Id, "", mutation)
+		end
+		return
+	elseif action == "BrainrotRain" then
+		Announce:FireAllClients("rain", admin.DisplayName, "")
+		task.spawn(function()
+			for _ = 1, Config.BrainrotRainCount do
+				dropBrainrot(Config.RollConveyor(rng, Config.BrainrotRainLuck), Config.RollMutation(rng, Config.BrainrotRainLuck))
+				task.wait(0.4)
+			end
+		end)
+		return
+	elseif action == "CashRain" then
+		local amount = parseAmount(value)
+		if not amount or amount <= 0 then
+			notify(admin, "Type how much each cash drop is worth in the amount box.")
+			return
+		end
+		Announce:FireAllClients("cashrain", admin.DisplayName, "", Config.FormatCash(amount))
+		task.spawn(function()
+			for _ = 1, Config.CashRainCount do
+				dropCash(amount)
+				task.wait(0.15)
+			end
+		end)
+		return
+	elseif action == "AbuseStart" then
+		local minutes = parseAmount(value) or Config.AdminAbuse.DurationMinutes
+		ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", workspace:GetServerTimeNow() + minutes * 60)
+		Announce:FireAllClients("abuse", admin.DisplayName, "")
+		return
+	elseif action == "AbuseStop" then
+		ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)
+		notify(admin, "Admin abuse ended.")
+		return
 	elseif action == "Luck" then
 		local minutes = parseAmount(value) or 0
 		if minutes > 0 then
@@ -1240,13 +1535,19 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				else
 					notify(admin, player.DisplayName .. "'s base is full.")
 				end
-			elseif action == "Walls" then
-				local level = math.clamp(math.floor(parseAmount(value) or 1), 1, #Config.WallLevels)
-				data.WallLevel = level
-				if plot then
-					WorldBuilder.SetWallLevel(plot.Parts, level)
+			elseif action == "Walls" or action == "Floors" or action == "LockLevel" then
+				local n = math.floor(parseAmount(value) or 1)
+				if action == "Walls" then
+					data.WallLevel = math.clamp(n, 1, #Config.WallLevels)
+				elseif action == "Floors" then
+					data.Stories = math.clamp(n, 1, #Config.Stories)
+				else
+					data.LockLevel = math.clamp(n, 1, #Config.LockLevels)
 				end
-				notify(admin, player.DisplayName .. "'s walls: " .. Config.WallLevels[level].Name)
+				if plot then
+					applyBaseLevels(plot, session)
+				end
+				notify(admin, string.format("%s: walls %d, floors %d, lock %d", player.DisplayName, data.WallLevel, data.Stories, data.LockLevel))
 			elseif action == "Rebirths" then
 				data.Rebirths = math.max(0, math.floor(parseAmount(value) or 0))
 				notify(admin, player.DisplayName .. " is now Rebirth " .. data.Rebirths)
@@ -1341,7 +1642,7 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passI
 		end
 	end
 	if session.Plot then
-		updateVipPedestals(session.Plot)
+		applyBaseLevels(session.Plot, session)
 	end
 	updateVipTag(player)
 	push(player)

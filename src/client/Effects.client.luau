@@ -23,7 +23,8 @@ RunService.RenderStepped:Connect(function(dt)
 		for _, model in plot:GetChildren() do
 			if model:IsA("Model") and model:GetAttribute("Slot") and not model:GetAttribute("Carried") then
 				local root = model.PrimaryPart
-				local pedestal = plot:FindFirstChild("Pedestal" .. tostring(model:GetAttribute("Slot")))
+				-- Upper-floor pedestals live inside Story folders, so search deep.
+				local pedestal = plot:FindFirstChild("Pedestal" .. tostring(model:GetAttribute("Slot")), true)
 				if root and pedestal and pedestal:IsA("BasePart") then
 					local phase = phaseOf(model)
 					local base = pedestal.CFrame * CFrame.new(0, 1, 0)

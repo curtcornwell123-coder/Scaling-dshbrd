@@ -8,8 +8,11 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
 2. **Earn.** Each brainrot on a pedestal makes cash every second. The cash piles up on the green **COLLECT** pad, so step on it to bank it.
 3. **Steal.** Walk into someone else's base and hold **E** on a brainrot. It goes over your head, you move slower, and you have to run it back to your own base.
 4. **Defend.** Everyone has a **Slap** tool. Slap a thief and the brainrot runs back home.
-5. **Upgrade walls.** You start with a low wood fence that thieves can hop over. Use the orange post in your base to upgrade: Brick ($1K), Concrete ($25K, too tall to jump), Steel ($500K) and Diamond ($10M). Once your walls are too tall to jump, the entrance is the only way in.
-6. **Lock.** Step on the red **LOCK** pad. A laser closes your entrance for 60s and zaps anyone else who walks through. After that it recharges for 30s, and that's when you're vulnerable.
+5. **Upgrade your base** at the orange post near the entrance. It has three upgrades:
+   - **[E] Walls:** you start with a low wood fence thieves can hop. Upgrade to Brick ($1K), Concrete ($25K, too tall to jump), Steel ($500K) and Diamond ($10M). Walls are solid grey with blue tinted windows.
+   - **[R] Floors:** build a 2nd floor ($50K) and a 3rd floor ($2M), each with 10 more brainrot slots and reached by a ramp inside your base.
+   - **[T] Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). The Longer Lock gamepass doubles it.
+6. **Lock.** Step on the red **LOCK** pad. Red laser beams cross your entrance and zap anyone else who walks through. After the lock ends it recharges for 30s, and that's when you're vulnerable.
 7. **Sell** your own brainrots for half price (hold **F**).
 8. **Rebirth.** Reset your cash and brainrots (walls stay) for a permanent income multiplier (+0.5x each time).
 
@@ -34,6 +37,7 @@ Any brainrot on the conveyor can roll a mutation. A mutation multiplies both its
 |---|---|---|---|
 | ✨ Gold | 5% | x2 | Shiny gold foil |
 | 💎 Diamond | 2% | x3 | See-through ice-blue glass |
+| ⭐ Sparkle | 1.5% | x4 | Its own colors, brighter, covered in twinkling stars |
 | 🔥 Lava | 0.8% | x5 | Cracked lava rock, on fire |
 | 🌈 Rainbow | 0.3% | x10 | Cycles through every color |
 
@@ -93,6 +97,12 @@ Admins get a red **ADMIN** button on the left. From it you can give or set cash,
 
 Who is an admin: the game's owner (or the group owner, for group games), anyone listed in `Config.AdminUserIds`, and everyone while testing in Studio. The server checks every admin action, so nobody else can use it even with exploits.
 
+### Admin abuse and drops
+
+The admin panel can drop any brainrot (with any mutation) from the sky, start a **Brainrot Rain** of 10 lucky brainrots, or start a **Cash Rain** of 30 cash drops (each worth the amount box). First player to grab a drop keeps it.
+
+There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. Set the day and time in `Config.AdminAbuse` (in UTC; the default is Saturday 22:00 UTC = 6 PM US Eastern in summer). Admins can also start or end it any time.
+
 ## Make money (Robux)
 
 On the [Creator Dashboard](https://create.roblox.com/dashboard/creations), open your experience, then **Monetization**:
@@ -108,7 +118,7 @@ Suggested prices:
 |---|---|---|
 | 2x Cash | Pass | 299 R$ |
 | VIP (+2 base slots, VIP tag) | Pass | 399 R$ |
-| Longer Lock (120s) | Pass | 149 R$ |
+| Longer Lock (2x lock time) | Pass | 149 R$ |
 | Cash Bag (10 min of income) | Product | 49 R$ |
 | Cash Vault (1 hr of income) | Product | 199 R$ |
 | Server Luck (15 min, whole server) | Product | 149 R$ |
