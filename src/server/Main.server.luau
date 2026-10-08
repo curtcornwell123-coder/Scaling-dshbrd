@@ -1366,7 +1366,7 @@ do
 		local folder = Instance.new("Model")
 		folder.Name = "EventStatue"
 		folder.Parent = workspace:FindFirstChild("BrainrotHeist")
-		local base = world.ShopPosition + Vector3.new(-32, 0, 0)
+		local base = world.StatuePosition
 		local gold = Color3.fromRGB(255, 200, 60)
 		local rarityColor = Config.Rarities[brainrot.Rarity].Color
 
@@ -1865,12 +1865,12 @@ ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)
 
 local function randomDropPosition(): Vector3
 	while true do
-		-- Stay clear of the caves at both ends and the Diamond Shop booth.
+		-- Stay clear of the caves at both ends, the shop tent and the statue.
 		local x = rng:NextNumber(world.ConveyorStart.X + 25, world.ConveyorEnd.X - 25)
 		local side = if rng:NextNumber() < 0.5 then -1 else 1
 		local position = Vector3.new(x, 0.1, side * rng:NextNumber(12, 38))
-		local offset = position - world.ShopPosition
-		if math.abs(offset.X) > 45 or math.abs(offset.Z) > 14 then
+		local flat = Vector3.new(1, 0, 1)
+		if ((position - world.ShopPosition) * flat).Magnitude > 18 and ((position - world.StatuePosition) * flat).Magnitude > 12 then
 			return position
 		end
 	end

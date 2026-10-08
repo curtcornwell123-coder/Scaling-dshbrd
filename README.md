@@ -47,7 +47,7 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 - She **can't be stolen or sold** and **stays through rebirths**. If your base is full when you buy her, she appears as soon as a slot opens.
 - **Income: $2.5K/s, doubling with every rebirth** ($5K at rebirth 1, $10K at 2, … $640K at 8), on top of the rebirth multiplier. In economy simulations she makes about a third of a typical owner's income: progression is roughly 2x faster early on and about 1.4x later, without letting buyers skip the game.
 
-- **Event statue:** a big spinning statue of her stands next to the Diamond Shop with a live stock sign. Tap or click it to buy her right there.
+- **Event statue:** a big spinning statue of her stands across the conveyor from the shop tent, with a live stock sign. Tap or click it to buy her right there.
 - **Mutation roll:** every copy rolls a mutation when you get it (normal odds), plus a **1% chance of MAGIC**, an event-only mutation (x8 income, purple-to-teal shimmer, swirling stars, floating orbs). Admins can also turn a player's Cigna Magic with **Give MAGIC (event)** in the admin panel (it needs the player to own her). Change the featured event with `Config.CurrentEvent`.
 
 To put her on sale: create a Developer Product named "Cigna Glamourina" priced at **50 Robux**, and paste its ID into `Config.LimitedItems.CignaGlamourina.ProductId`.
@@ -134,7 +134,7 @@ Fair progression for free-to-play players. None of this can be bought with Robux
 - **Daily quests:** 3 a day, the same for everyone, and new ones at midnight Oklahoma time. Each pays **10 Shards**.
 - **Weekly quests:** 3 a week, new every Monday, and much harder. Each pays **1 Diamond + 100 Shards**. Weekly quests are the only way to earn Diamonds.
 - **Wall skins:** open the **QUESTS** button to see them. Most cost Shards (Red Brick 50, Candy 100, Ice 150, Jungle 200, Cyber Neon 300). The best two cost Diamonds (Royal Gold 4, Galaxy 9). Skins only change the look; your base level still sets the wall height. Every floor of your base matches your skin. With Classic, floors are the same grey in your walls' material (wood, brick, concrete, steel or diamond).
-- **Diamond Shop:** a striped booth with a giant spinning diamond, right by the spawn.
+- **Shop tent:** a blue-and-cream striped circus-style tent (like Bee Swarm's) next to the cave the brainrots come out of, with a little spinning diamond on top.
   - The left counter spends Diamonds: Shard Pouch (1), 2x Cash for 30 min (2), Server Luck for everyone for 15 min (3), plus the Diamond wall skins.
   - The right counter opens the **Robux shop**: the limited event brainrot, gamepasses and boosts.
 

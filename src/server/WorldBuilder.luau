@@ -39,7 +39,8 @@ export type World = {
 	ConveyorEnd: Vector3,
 	CarriedFolder: Folder,
 	ConveyorFolder: Folder,
-	ShopPosition: Vector3, -- center of the Diamond Shop booth
+	ShopPosition: Vector3, -- center of the shop tent
+	StatuePosition: Vector3, -- where the event statue stands
 }
 
 local PLOT_SIZE = 60
@@ -684,50 +685,87 @@ local function buildBarrier(parent: Instance)
 	end
 end
 
--- The Diamond Shop: a bright booth by the spawn with a giant spinning
--- diamond on top. Left counter = Diamond Shop, right counter = Robux Shop.
--- Its front (the counters) faces the conveyor (-Z).
+-- The shop tent: a round, striped circus-style tent (like Bee Swarm's) by
+-- the cave the brainrots come out of. Inside: a Diamond counter (left) and
+-- a Robux counter (right). The entrance faces the conveyor (-Z).
 local function buildShop(parent: Instance, center: Vector3)
 	local shop = Instance.new("Model")
-	shop.Name = "DiamondShop"
+	shop.Name = "ShopTent"
 	shop.Parent = parent
 	local function at(x: number, y: number, z: number): CFrame
 		return CFrame.new(center + Vector3.new(x, y, z))
 	end
 
-	local cyan = Color3.fromRGB(80, 220, 255)
-	local pink = Color3.fromRGB(255, 90, 200)
+	local blue = Color3.fromRGB(45, 95, 200)
+	local cream = Color3.fromRGB(246, 240, 225)
 	local gold = Color3.fromRGB(255, 200, 60)
-	local purple = Color3.fromRGB(110, 50, 190)
+	local radius = 11.5
+	local wallHeight = 8
+	local apex = 19
+	local panels = 18
 
-	-- Platform with a glowing trim
-	block(shop, "ShopFloor", Vector3.new(26, 1, 14), at(0, 0.5, 0), Color3.fromRGB(245, 240, 255), Enum.Material.Marble)
-	block(shop, "ShopTrim", Vector3.new(26.6, 0.4, 14.6), at(0, 0.2, 0), cyan, Enum.Material.Neon)
-	block(shop, "ShopBack", Vector3.new(26, 12, 1), at(0, 7, 6.5), purple, Enum.Material.SmoothPlastic)
-	for _, x in { -12.5, 12.5 } do
-		for _, z in { -6.5, 6.5 } do
-			block(shop, "ShopPillar", Vector3.new(1, 12, 1), at(x, 7, z), gold, Enum.Material.Foil)
+	-- Round wooden floor with a gold rim
+	local floor = block(shop, "TentFloor", Vector3.new(1, radius * 2 + 1, radius * 2 + 1), at(0, 0.5, 0) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(165, 120, 80), Enum.Material.WoodPlanks)
+	floor.Shape = Enum.PartType.Cylinder
+	local rim = block(shop, "TentRim", Vector3.new(0.6, radius * 2 + 2, radius * 2 + 2), at(0, 0.3, 0) * CFrame.Angles(0, 0, math.pi / 2), gold, Enum.Material.Foil)
+	rim.Shape = Enum.PartType.Cylinder
+
+	-- Striped canvas walls, open at the front for the entrance
+	local panelWidth = 2 * math.pi * radius / panels + 0.3
+	for i = 0, panels - 1 do
+		local angle = (i + 0.5) / panels * math.pi * 2
+		local direction = Vector3.new(math.sin(angle), 0, -math.cos(angle)) -- angle 0 = front (-Z)
+		if math.abs(math.deg(angle) - 360 * math.round(angle / (2 * math.pi))) > 32 then
+			local position = center + direction * radius + Vector3.new(0, 1 + wallHeight / 2, 0)
+			local panel = block(shop, "Canvas", Vector3.new(panelWidth, wallHeight, 0.4), CFrame.lookAt(position, center + Vector3.new(0, 1 + wallHeight / 2, 0)), if i % 2 == 0 then blue else cream, Enum.Material.Fabric)
+			panel.CastShadow = true
 		end
 	end
 
-	-- Striped awning roof, tilted down toward the front
-	for i = 0, 7 do
-		local stripe = block(shop, "Awning", Vector3.new(3.4, 0.5, 15.5), at(-11.9 + i * 3.4, 13.4, 0) * CFrame.Angles(math.rad(-10), 0, 0), if i % 2 == 0 then pink else Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
-		stripe.CastShadow = false
-	end
-	for i = 0, 12 do
-		local scallop = block(shop, "Scallop", Vector3.new(2, 2, 2), at(-12 + i * 2, 12.1, -7.6), if i % 2 == 0 then pink else Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+	-- Peaked striped roof: canvas strips from the rim up to the top
+	local slant = math.sqrt(radius ^ 2 + (apex - wallHeight - 1) ^ 2)
+	for i = 0, panels - 1 do
+		local angle = (i + 0.5) / panels * math.pi * 2
+		local direction = Vector3.new(math.sin(angle), 0, -math.cos(angle))
+		local rimPoint = center + direction * (radius + 0.6) + Vector3.new(0, wallHeight + 0.7, 0)
+		local top = center + Vector3.new(0, apex, 0)
+		local mid = (rimPoint + top) / 2
+		local strip = block(shop, "RoofCanvas", Vector3.new(panelWidth + 0.4, 0.35, slant + 0.8), CFrame.lookAt(mid, top), if i % 2 == 0 then blue else cream, Enum.Material.Fabric)
+		strip.CastShadow = true
+		-- Scalloped gold trim hanging off the edge of the roof
+		local scallop = block(shop, "Scallop", Vector3.new(1.6, 1.6, 1.6), CFrame.new(center + direction * (radius + 0.9) + Vector3.new(0, wallHeight + 0.2, 0)), if i % 2 == 0 then gold else cream, Enum.Material.SmoothPlastic)
 		scallop.Shape = Enum.PartType.Ball
+		scallop.CanCollide = false
 	end
 
-	-- Two counters, each with a prompt and a sign
+	-- Center pole, gold top and a flag
+	local pole = block(shop, "TentPole", Vector3.new(0.6, apex + 4, 0.6), at(0, (apex + 4) / 2, 0), Color3.fromRGB(120, 85, 55), Enum.Material.WoodPlanks)
+	pole.CanCollide = false
+	local finial = block(shop, "Finial", Vector3.new(1.4, 1.4, 1.4), at(0, apex + 4.4, 0), gold, Enum.Material.Foil)
+	finial.Shape = Enum.PartType.Ball
+	local flag = block(shop, "Flag", Vector3.new(0.15, 2, 3.2), at(0, apex + 3, 1.7), blue, Enum.Material.Fabric)
+	flag.CanCollide = false
+
+	-- Small spinning diamond floating over the tent (spun by Effects.client)
+	local cyan = Color3.fromRGB(80, 220, 255)
+	local diamond = block(shop, "BigDiamond", Vector3.new(3, 3, 3), at(0, apex + 8, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)), cyan, Enum.Material.Neon)
+	diamond.CanCollide = false
+	diamond:SetAttribute("SpinCenter", diamond.CFrame)
+	CollectionService:AddTag(diamond, "Spinner")
+	local glow = Instance.new("PointLight")
+	glow.Color = cyan
+	glow.Range = 20
+	glow.Brightness = 1
+	glow.Parent = diamond
+
+	-- Two counters inside, each with a prompt and a sign
 	local counters = {
-		{ X = -6, Color = cyan, Action = "DiamondShop", Text = "Diamond Shop", Sign = "DIAMONDS" },
-		{ X = 6, Color = Color3.fromRGB(70, 220, 100), Action = "RobuxShop", Text = "Robux Shop", Sign = "ROBUX & EVENT" },
+		{ X = -4.5, Color = cyan, Action = "DiamondShop", Text = "Diamond Shop", Sign = "DIAMONDS" },
+		{ X = 4.5, Color = Color3.fromRGB(70, 220, 100), Action = "RobuxShop", Text = "Robux Shop", Sign = "ROBUX & EVENT" },
 	}
 	for _, info in counters do
-		local counter = block(shop, "Counter", Vector3.new(9, 3.5, 2.5), at(info.X, 2.75, -3), Color3.fromRGB(250, 250, 255), Enum.Material.SmoothPlastic)
-		block(shop, "CounterTop", Vector3.new(9.4, 0.4, 2.9), at(info.X, 4.7, -3), info.Color, Enum.Material.Neon)
+		local counter = block(shop, "Counter", Vector3.new(7, 3.5, 2.5), at(info.X, 2.75, 4), Color3.fromRGB(150, 105, 70), Enum.Material.WoodPlanks)
+		block(shop, "CounterTop", Vector3.new(7.4, 0.4, 2.9), at(info.X, 4.7, 4), info.Color, Enum.Material.Neon)
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "ShopPrompt"
 		prompt.ActionText = "Open"
@@ -737,46 +775,25 @@ local function buildShop(parent: Instance, center: Vector3)
 		prompt.RequiresLineOfSight = false
 		prompt:SetAttribute("Action", info.Action)
 		prompt.Parent = counter
-		local label = billboard(counter, Vector2.new(260, 50), Vector3.new(0, 5.5, 0), info.Sign, info.Color)
+		local label = billboard(counter, Vector2.new(220, 45), Vector3.new(0, 4.5, 0), info.Sign, info.Color)
 		;(label.Parent :: BillboardGui).MaxDistance = 250
 	end
+	-- Warm lantern light inside
+	local lantern = block(shop, "Lantern", Vector3.new(1.2, 1.2, 1.2), at(0, wallHeight + 1, 0), Color3.fromRGB(255, 220, 150), Enum.Material.Neon)
+	lantern.Shape = Enum.PartType.Ball
+	lantern.CanCollide = false
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 220, 160)
+	light.Range = 18
+	light.Brightness = 1.2
+	light.Parent = lantern
 
-	-- Big glowing sign on the back wall
-	local signAnchor = block(shop, "ShopSignAnchor", Vector3.new(1, 1, 1), at(0, 10, 5.8), Color3.new(0, 0, 0))
+	-- Sign over the entrance
+	local signAnchor = block(shop, "ShopSignAnchor", Vector3.new(1, 1, 1), at(0, wallHeight + 4, -radius - 1), Color3.new(0, 0, 0))
 	signAnchor.Transparency = 1
 	signAnchor.CanCollide = false
-	local sign = billboard(signAnchor, Vector2.new(460, 90), Vector3.zero, "DIAMOND SHOP", cyan)
+	local sign = billboard(signAnchor, Vector2.new(420, 80), Vector3.zero, "SHOP", gold)
 	;(sign.Parent :: BillboardGui).MaxDistance = 500
-
-	-- Giant spinning diamond on top (spun by Effects.client via the tag)
-	block(shop, "DiamondStand", Vector3.new(3, 2, 3), at(0, 15, 0), gold, Enum.Material.Foil)
-	local diamond = block(shop, "BigDiamond", Vector3.new(4.5, 4.5, 4.5), at(0, 19.5, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)), cyan, Enum.Material.Neon)
-	diamond.CanCollide = false
-	diamond:SetAttribute("SpinCenter", diamond.CFrame)
-	CollectionService:AddTag(diamond, "Spinner")
-	local glow = Instance.new("PointLight")
-	glow.Color = cyan
-	glow.Range = 35
-	glow.Brightness = 2
-	glow.Parent = diamond
-	local sparkles = Instance.new("ParticleEmitter")
-	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparkles.Color = ColorSequence.new(cyan, Color3.new(1, 1, 1))
-	sparkles.LightEmission = 1
-	sparkles.Rate = 20
-	sparkles.Lifetime = NumberRange.new(1, 2)
-	sparkles.Speed = NumberRange.new(2, 5)
-	sparkles.SpreadAngle = Vector2.new(180, 180)
-	sparkles.Size = NumberSequence.new(0.5)
-	sparkles.Parent = diamond
-
-	-- Searchlights sweeping up from the front corners
-	for _, side in { -1, 1 } do
-		local beam = block(shop, "Searchlight", Vector3.new(1.2, 60, 1.2), at(side * 12.5, 30, -6.5) * CFrame.Angles(0, 0, side * math.rad(-12)), if side < 0 then cyan else pink, Enum.Material.Neon)
-		beam.Transparency = 0.7
-		beam.CanCollide = false
-		beam.CastShadow = false
-	end
 end
 
 function WorldBuilder.Build(): World
@@ -864,12 +881,16 @@ function WorldBuilder.Build(): World
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(12, 1, 12)
 	-- Beside the middle of the conveyor, right in front of the Diamond Shop.
-	local shopPosition = Vector3.new(0, 0, 28)
+	-- The shop tent and the event statue sit by the cave the brainrots come
+	-- out of, on either side of the conveyor, keeping the middle clear.
+	local shopPosition = Vector3.new(startX + 38, 0, 27)
+	local statuePosition = Vector3.new(startX + 38, 0, -27)
 	buildShop(root, shopPosition)
 	spawn.Size = Vector3.new(10, 1, 8)
 	spawn.CFrame = CFrame.new(0, 0.5, 14)
-	spawn.Color = Color3.fromRGB(255, 200, 40)
-	spawn.Material = Enum.Material.Neon
+	-- Invisible pad: players still spawn here, there's just no plate to see.
+	spawn.Transparency = 1
+	spawn.Material = Enum.Material.SmoothPlastic
 	spawn.Neutral = true
 	spawn.Duration = 0
 	spawn.Parent = root
@@ -891,6 +912,7 @@ function WorldBuilder.Build(): World
 		CarriedFolder = carried,
 		ConveyorFolder = conveyorFolder,
 		ShopPosition = shopPosition,
+		StatuePosition = statuePosition,
 	}
 end
 
