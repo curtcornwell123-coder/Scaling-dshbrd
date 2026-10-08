@@ -12,7 +12,12 @@
           "Anchored": true,
           "Locked": true,
           "Size": [2048, 16, 2048],
-          "Position": [0, -8, 0],
+          "CFrame": {
+            "CFrame": {
+              "position": [0, -8, 0],
+              "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+            }
+          },
           "Color": [0.36, 0.62, 0.32],
           "Material": "Grass",
           "TopSurface": "Smooth",
