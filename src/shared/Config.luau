@@ -78,6 +78,25 @@ Config.Brainrots = {
 	{ Id = "IlCosmicoCannolo", DisplayName = "Il Cosmico Cannolo", Rarity = "Secret", Price = 50000000, Income = 250000, Color = Color3.fromRGB(30, 10, 60), Accent = Color3.fromRGB(255, 120, 255) },
 } :: { Brainrot }
 
+-- Mutations ----------------------------------------------------------------
+-- Any brainrot on the conveyor can roll a mutation. Mutations multiply both
+-- the price and the income, and change how it looks. Server Luck boosts them.
+
+export type Mutation = {
+	Id: string,
+	DisplayName: string,
+	Chance: number, -- percent per conveyor spawn
+	Multiplier: number,
+	Color: Color3,
+}
+
+Config.Mutations = {
+	{ Id = "Gold", DisplayName = "Gold", Chance = 5, Multiplier = 2, Color = Color3.fromRGB(255, 200, 50) },
+	{ Id = "Diamond", DisplayName = "Diamond", Chance = 2, Multiplier = 3, Color = Color3.fromRGB(140, 230, 255) },
+	{ Id = "Lava", DisplayName = "Lava", Chance = 0.8, Multiplier = 5, Color = Color3.fromRGB(255, 100, 20) },
+	{ Id = "Rainbow", DisplayName = "Rainbow", Chance = 0.3, Multiplier = 10, Color = Color3.fromRGB(255, 120, 255) },
+} :: { Mutation }
+
 -- Economy ------------------------------------------------------------------
 
 Config.StartingCash = 100
@@ -191,8 +210,56 @@ function Config.GetGamePass(key: string): GamePass?
 	return nil
 end
 
-function Config.SellValue(brainrot: Brainrot): number
-	return math.floor(brainrot.Price * Config.SellRatio)
+local mutationsById: { [string]: Mutation } = {}
+for _, mutation in Config.Mutations do
+	mutationsById[mutation.Id] = mutation
+end
+
+function Config.GetMutation(id: string?): Mutation?
+	return if id then mutationsById[id] else nil
+end
+
+local function mutationMultiplier(mutationId: string?): number
+	local mutation = Config.GetMutation(mutationId)
+	return if mutation then mutation.Multiplier else 1
+end
+
+function Config.PriceOf(brainrot: Brainrot, mutationId: string?): number
+	return brainrot.Price * mutationMultiplier(mutationId)
+end
+
+function Config.IncomeOf(brainrot: Brainrot, mutationId: string?): number
+	return brainrot.Income * mutationMultiplier(mutationId)
+end
+
+function Config.SellValue(brainrot: Brainrot, mutationId: string?): number
+	return math.floor(Config.PriceOf(brainrot, mutationId) * Config.SellRatio)
+end
+
+-- Saved brainrots are stored as "Id" or "Id:Mutation".
+function Config.Encode(id: string, mutationId: string?): string
+	return if mutationId then id .. ":" .. mutationId else id
+end
+
+function Config.Decode(entry: string): (Brainrot?, string?)
+	local id, mutationId = string.match(entry, "^([^:]+):?(.*)$")
+	local brainrot = id and byId[id]
+	local mutation = Config.GetMutation(mutationId)
+	return brainrot, if mutation then mutation.Id else nil
+end
+
+-- Rolls a mutation (or nil) for a conveyor spawn.
+function Config.RollMutation(rng: Random, luck: number): string?
+	local roll = rng:NextNumber(0, 100)
+	-- Rarest first, so luck can't push a common mutation past a rare one.
+	for i = #Config.Mutations, 1, -1 do
+		local mutation = Config.Mutations[i]
+		roll -= mutation.Chance * luck
+		if roll < 0 then
+			return mutation.Id
+		end
+	end
+	return nil
 end
 
 function Config.RebirthCost(rebirths: number): number

@@ -26,6 +26,30 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 | 🟥 Mythic | 0.9% | 1.3% | $1.5M – $4M | $6K–15K/s |
 | ⬛ Secret | 0.1% | 0.14% | $50M | $250K/s |
 
+### Mutations
+
+Any brainrot on the conveyor can roll a mutation. A mutation multiplies both its price and its income and changes how it looks. Server Luck doubles these chances.
+
+| Mutation | Chance | Income & price | Look |
+|---|---|---|---|
+| ✨ Gold | 5% | x2 | Shiny gold foil |
+| 💎 Diamond | 2% | x3 | See-through ice-blue glass |
+| 🔥 Lava | 0.8% | x5 | Cracked lava rock, on fire |
+| 🌈 Rainbow | 0.3% | x10 | Cycles through every color |
+
+Lava and Rainbow spawns are announced to the whole server.
+
+### Using real 3D models
+
+Every brainrot has its own built-in design. To swap one for a 3D model:
+
+1. In Studio, create a **Folder** in **ServerStorage** named `BrainrotModels`.
+2. Find a model in the **Toolbox** and drag it into that folder.
+3. Rename it to the brainrot's Id, for example `BananitoBandito` or `MeatballoSupremo`. The Ids are in `Config.luau`.
+4. Press Play. The game sizes and places it automatically, applies mutations to it, and strips out any scripts hidden inside it, which is a common way free models carry viruses.
+
+If it faces the wrong way, rotate the model in the folder.
+
 All balancing lives in `src/shared/Config.luau`: brainrots, prices, odds, lock times, slap power, rebirth costs, and Robux items. **Add new brainrots there every week**, since frequent updates are what keep games like this trending.
 
 ## Run it
@@ -98,7 +122,8 @@ Purchases are only confirmed after they're saved, and each one is recorded, so p
 src/shared/Config.luau            brainrots, odds, prices, locks, rebirths, Robux items
 src/server/Main.server.luau       saving, bases, conveyor, buying, stealing, slapping, purchases
 src/server/WorldBuilder.luau      builds the map, conveyor and 8 bases from parts
-src/server/BrainrotModel.luau     builds each brainrot model + name tag
+src/server/BrainrotModel.luau     15 hand-built brainrot designs, mutations, custom-model support
+src/client/Effects.client.luau    idle bobbing + rainbow color cycling (visual only)
 src/client/HUD.client.luau        cash HUD, shop, rebirth menu, announcements, prompts
 ```
 

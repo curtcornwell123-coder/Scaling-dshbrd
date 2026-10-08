@@ -236,13 +236,18 @@ local function rarityColor(brainrot: Config.Brainrot): Color3
 	return Config.Rarities[brainrot.Rarity].Color
 end
 
-Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: string, extra: string?)
+Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: string, extra: string?, mutationId: string?)
 	local brainrot = Config.GetBrainrot(brainrotId)
+	local mutation = Config.GetMutation(mutationId)
 	local label = if brainrot then string.upper(brainrot.Rarity) .. " " .. brainrot.DisplayName else ""
+	if mutation then
+		label = string.upper(mutation.DisplayName) .. " " .. label
+	end
+	local color = if mutation then mutation.Color elseif brainrot then rarityColor(brainrot) else WHITE
 	if kind == "spawn" and brainrot then
-		showBanner("A " .. label .. " is on the conveyor!", rarityColor(brainrot))
+		showBanner("A " .. label .. " is on the conveyor!", color)
 	elseif kind == "buy" and brainrot then
-		showBanner(who .. " bought a " .. label .. "!", rarityColor(brainrot))
+		showBanner(who .. " bought a " .. label .. "!", color)
 	elseif kind == "steal" and brainrot then
 		showBanner(who .. " STOLE a " .. label .. " from " .. (extra or "someone") .. "!", RED)
 	elseif kind == "luck" then
@@ -511,6 +516,30 @@ local brainrotLayout = Instance.new("UIListLayout")
 brainrotLayout.Padding = UDim.new(0, 4)
 brainrotLayout.Parent = brainrotList
 
+-- Mutation picker for Give / Spawn below.
+local mutationChoices = { "None" }
+for _, mutation in Config.Mutations do
+	table.insert(mutationChoices, mutation.Id)
+end
+local mutationIndex = 1
+local mutationRow = adminRow(5, 40)
+text(mutationRow, { Size = UDim2.fromOffset(110, 30), Text = "Mutation" })
+local mutationButton = smallButton(mutationRow, "None", Color3.fromRGB(90, 90, 100), 160, function() end)
+mutationButton.MouseButton1Click:Connect(function()
+	mutationIndex = mutationIndex % #mutationChoices + 1
+	local choice = mutationChoices[mutationIndex]
+	local mutation = Config.GetMutation(choice)
+	mutationButton.Text = choice
+	mutationButton.BackgroundColor3 = if mutation then mutation.Color else Color3.fromRGB(90, 90, 100)
+end)
+brainrotList.LayoutOrder = 6
+brainrotList.Size = UDim2.new(1, 0, 0, 200)
+
+local function brainrotValue(id: string): string
+	local choice = mutationChoices[mutationIndex]
+	return if choice == "None" then id else Config.Encode(id, choice)
+end
+
 for _, brainrot in Config.Brainrots do
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -10, 0, 36)
@@ -526,12 +555,12 @@ for _, brainrot in Config.Brainrots do
 		Text = brainrot.DisplayName .. "  (" .. brainrot.Rarity .. ")",
 	})
 	local give = smallButton(row, "Give", GREEN, 100, function()
-		send("Brainrot", brainrot.Id)
+		send("Brainrot", brainrotValue(brainrot.Id))
 	end)
 	give.Size = UDim2.fromOffset(100, 30)
 	give.Position = UDim2.new(1, -212, 0, 3)
 	local spawnButton = smallButton(row, "Spawn", Color3.fromRGB(255, 150, 40), 100, function()
-		send("Spawn", brainrot.Id)
+		send("Spawn", brainrotValue(brainrot.Id))
 	end)
 	spawnButton.Size = UDim2.fromOffset(100, 30)
 	spawnButton.Position = UDim2.new(1, -106, 0, 3)

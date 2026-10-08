@@ -50,6 +50,7 @@ type SaveData = {
 
 type Slot = {
 	Id: string,
+	Mutation: string?,
 	Model: Model,
 	StolenBy: Player?,
 }
@@ -150,7 +151,7 @@ local function plotIncome(plot: Plot, session: Session): number
 		if not slot.StolenBy then
 			local brainrot = Config.GetBrainrot(slot.Id)
 			if brainrot then
-				total += brainrot.Income
+				total += Config.IncomeOf(brainrot, slot.Mutation)
 			end
 		end
 	end
@@ -177,6 +178,17 @@ end
 local function isInside(plot: Plot, position: Vector3): boolean
 	local p = plot.Parts.CFrame:PointToObjectSpace(position)
 	return math.abs(p.X) <= 30 and math.abs(p.Z) <= 30 and p.Y > -5 and p.Y < 40
+end
+
+local function fullName(brainrot: Config.Brainrot, mutationId: string?): string
+	local mutation = Config.GetMutation(mutationId)
+	return if mutation then mutation.DisplayName .. " " .. brainrot.DisplayName else brainrot.DisplayName
+end
+
+-- Worth telling the whole server about: Legendary+ or a rare mutation.
+local function isNotable(brainrot: Config.Brainrot, mutationId: string?): boolean
+	local mutation = Config.GetMutation(mutationId)
+	return Config.Rarities[brainrot.Rarity].Order >= 4 or (mutation ~= nil and mutation.Chance <= 1)
 end
 
 local function luckMultiplier(): number
@@ -218,9 +230,12 @@ local function sanitize(raw: any): SaveData
 		data.WallLevel = math.clamp(math.floor(raw.WallLevel), 1, #Config.WallLevels)
 	end
 	if type(raw.Brainrots) == "table" then
-		for _, id in raw.Brainrots do
-			if type(id) == "string" and Config.GetBrainrot(id) then
-				table.insert(data.Brainrots, id)
+		for _, entry in raw.Brainrots do
+			if type(entry) == "string" then
+				local brainrot, mutation = Config.Decode(entry)
+				if brainrot then
+					table.insert(data.Brainrots, Config.Encode(brainrot.Id, mutation))
+				end
 			end
 		end
 	end
@@ -244,7 +259,7 @@ local function syncBrainrots(session: Session)
 	for i = 1, #plot.Parts.Pedestals do
 		local slot = plot.Slots[i]
 		if slot then
-			table.insert(list, slot.Id)
+			table.insert(list, Config.Encode(slot.Id, slot.Mutation))
 		end
 	end
 	session.Data.Brainrots = list
@@ -320,7 +335,7 @@ end
 local onSell: (Player, Model) -> ()
 local onSteal: (Player, Model) -> ()
 
-local function addBasePrompts(model: Model, brainrot: Config.Brainrot)
+local function addBasePrompts(model: Model, brainrot: Config.Brainrot, mutation: string?)
 	local root = model.PrimaryPart :: BasePart
 	if root:FindFirstChild("SellPrompt") then
 		return
@@ -328,8 +343,8 @@ local function addBasePrompts(model: Model, brainrot: Config.Brainrot)
 
 	local sell = Instance.new("ProximityPrompt")
 	sell.Name = "SellPrompt"
-	sell.ActionText = "Sell " .. Config.FormatCash(Config.SellValue(brainrot))
-	sell.ObjectText = brainrot.DisplayName
+	sell.ActionText = "Sell " .. Config.FormatCash(Config.SellValue(brainrot, mutation))
+	sell.ObjectText = fullName(brainrot, mutation)
 	sell.HoldDuration = 0.6
 	sell.MaxActivationDistance = 10
 	sell.RequiresLineOfSight = false
@@ -343,7 +358,7 @@ local function addBasePrompts(model: Model, brainrot: Config.Brainrot)
 	local steal = Instance.new("ProximityPrompt")
 	steal.Name = "StealPrompt"
 	steal.ActionText = "STEAL!"
-	steal.ObjectText = brainrot.DisplayName
+	steal.ObjectText = fullName(brainrot, mutation)
 	steal.HoldDuration = 1.2
 	steal.MaxActivationDistance = 10
 	steal.RequiresLineOfSight = false
@@ -360,14 +375,14 @@ local function pedestalCFrame(plot: Plot, index: number): CFrame
 end
 
 -- Puts a brainrot in a base slot, reusing `model` if given (bought or stolen).
-local function placeBrainrot(plot: Plot, index: number, id: string, model: Model?, animate: boolean)
+local function placeBrainrot(plot: Plot, index: number, id: string, mutation: string?, model: Model?, animate: boolean)
 	local brainrot = Config.GetBrainrot(id)
 	if not brainrot then
 		return
 	end
 	local target = pedestalCFrame(plot, index)
 
-	local m = model or BrainrotModel.Create(brainrot, target * CFrame.new(0, -0.5, 0), false)
+	local m = model or BrainrotModel.Create(brainrot, mutation, target * CFrame.new(0, -0.5, 0), false)
 	local root = m.PrimaryPart :: BasePart
 
 	local buy = root:FindFirstChild("BuyPrompt")
@@ -378,7 +393,8 @@ local function placeBrainrot(plot: Plot, index: number, id: string, model: Model
 	local price = tag and tag:FindFirstChild("Price")
 	if price then
 		price:Destroy()
-		;(tag :: BillboardGui).Size = UDim2.fromOffset(200, 72)
+		local gui = tag :: BillboardGui
+		gui.Size = UDim2.fromOffset(200, gui.Size.Y.Offset - 20)
 	end
 
 	local owner = plot.Owner
@@ -387,7 +403,7 @@ local function placeBrainrot(plot: Plot, index: number, id: string, model: Model
 	m:SetAttribute("OwnerUserId", if owner then owner.UserId else 0)
 	m:SetAttribute("Carried", false)
 	m.Parent = plot.Parts.Model
-	addBasePrompts(m, brainrot)
+	addBasePrompts(m, brainrot, mutation)
 
 	root.Anchored = true
 	if animate then
@@ -396,7 +412,7 @@ local function placeBrainrot(plot: Plot, index: number, id: string, model: Model
 		root.CFrame = target
 	end
 
-	plot.Slots[index] = { Id = id, Model = m }
+	plot.Slots[index] = { Id = id, Mutation = mutation, Model = m }
 end
 
 local function updateVipPedestals(plot: Plot)
@@ -502,20 +518,21 @@ local function completeCarry(carry: Carry)
 	setCarrying(thief, nil)
 	carry.Weld:Destroy()
 	victimPlot.Slots[carry.SlotIndex] = nil
-	placeBrainrot(thiefPlot, index, slot.Id, slot.Model, false)
+	placeBrainrot(thiefPlot, index, slot.Id, slot.Mutation, slot.Model, false)
 	thiefSession.Data.Steals += 1
 
 	local brainrot = Config.GetBrainrot(slot.Id) :: Config.Brainrot
+	local name = fullName(brainrot, slot.Mutation)
 	local victim = victimPlot.Owner
-	notify(thief, "You stole " .. brainrot.DisplayName .. "!")
+	notify(thief, "You stole " .. name .. "!")
 	if victim then
-		notify(victim, thief.DisplayName .. " stole your " .. brainrot.DisplayName .. "!")
+		notify(victim, thief.DisplayName .. " stole your " .. name .. "!")
 		push(victim)
 		-- Save both sides right away so a server crash can't duplicate it.
 		task.spawn(save, victim)
 	end
-	if Config.Rarities[brainrot.Rarity].Order >= 4 then
-		Announce:FireAllClients("steal", thief.DisplayName, brainrot.Id, if victim then victim.DisplayName else "")
+	if isNotable(brainrot, slot.Mutation) then
+		Announce:FireAllClients("steal", thief.DisplayName, brainrot.Id, if victim then victim.DisplayName else "", slot.Mutation)
 	end
 	push(thief)
 	task.spawn(save, thief)
@@ -571,9 +588,9 @@ onSteal = function(thief: Player, model: Model)
 		MinTime = (hrp.Position - home).Magnitude / (Config.CarryWalkSpeed * 1.6),
 		Weld = weld,
 	}
-	setCarrying(thief, brainrot.DisplayName)
+	setCarrying(thief, fullName(brainrot, slot.Mutation))
 	notify(thief, "Run it back to your base! Don't get slapped!")
-	notify(owner, thief.DisplayName .. " is stealing your " .. brainrot.DisplayName .. "! Slap them!")
+	notify(owner, thief.DisplayName .. " is stealing your " .. fullName(brainrot, slot.Mutation) .. "! Slap them!")
 	push(owner)
 end
 
@@ -594,8 +611,9 @@ onSell = function(player: Player, model: Model)
 	end
 	plot.Slots[index] = nil
 	model:Destroy()
-	session.Data.Cash += Config.SellValue(brainrot)
-	notify(player, "Sold " .. brainrot.DisplayName .. " for " .. Config.FormatCash(Config.SellValue(brainrot)))
+	local value = Config.SellValue(brainrot, slot.Mutation)
+	session.Data.Cash += value
+	notify(player, "Sold " .. fullName(brainrot, slot.Mutation) .. " for " .. Config.FormatCash(value))
 	push(player)
 end
 
@@ -642,11 +660,14 @@ local function assignPlot(player: Player, session: Session)
 			session.Plot = plot
 			updateVipPedestals(plot)
 			WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel)
-			for i, id in session.Data.Brainrots do
+			for i, entry in session.Data.Brainrots do
 				if i > #plot.Parts.Pedestals then
 					break
 				end
-				placeBrainrot(plot, i, id, nil, false)
+				local brainrot, mutation = Config.Decode(entry)
+				if brainrot then
+					placeBrainrot(plot, i, brainrot.Id, mutation, nil, false)
+				end
 			end
 			return
 		end
@@ -758,7 +779,7 @@ end
 
 local conveyorTweens: { [Model]: Tween } = {}
 
-local function onBuy(player: Player, model: Model, brainrot: Config.Brainrot)
+local function onBuy(player: Player, model: Model, brainrot: Config.Brainrot, mutation: string?)
 	local session = sessions[player]
 	local plot = session and session.Plot
 	if not session or not session.Loaded or not plot or model:GetAttribute("Sold") then
@@ -769,8 +790,9 @@ local function onBuy(player: Player, model: Model, brainrot: Config.Brainrot)
 	if not hrp or (hrp.Position - root.Position).Magnitude > 20 then
 		return
 	end
-	if session.Data.Cash < brainrot.Price then
-		notify(player, "You need " .. Config.FormatCash(brainrot.Price) .. " for " .. brainrot.DisplayName .. "!")
+	local price = Config.PriceOf(brainrot, mutation)
+	if session.Data.Cash < price then
+		notify(player, "You need " .. Config.FormatCash(price) .. " for " .. fullName(brainrot, mutation) .. "!")
 		return
 	end
 	local index = freeSlot(plot, session)
@@ -785,32 +807,34 @@ local function onBuy(player: Player, model: Model, brainrot: Config.Brainrot)
 		tween:Cancel()
 		conveyorTweens[model] = nil
 	end
-	session.Data.Cash -= brainrot.Price
-	placeBrainrot(plot, index, brainrot.Id, model, true)
-	notify(player, "Bought " .. brainrot.DisplayName .. "! It's walking to your base.")
-	if Config.Rarities[brainrot.Rarity].Order >= 4 then
-		Announce:FireAllClients("buy", player.DisplayName, brainrot.Id)
+	session.Data.Cash -= price
+	placeBrainrot(plot, index, brainrot.Id, mutation, model, true)
+	notify(player, "Bought " .. fullName(brainrot, mutation) .. "! It's walking to your base.")
+	if isNotable(brainrot, mutation) then
+		Announce:FireAllClients("buy", player.DisplayName, brainrot.Id, "", mutation)
 	end
 	push(player)
 end
 
-local function spawnOnConveyor(forced: Config.Brainrot?)
-	local brainrot = forced or Config.RollConveyor(rng, luckMultiplier())
+local function spawnOnConveyor(forced: Config.Brainrot?, forcedMutation: string?)
+	local luck = luckMultiplier()
+	local brainrot = forced or Config.RollConveyor(rng, luck)
+	local mutation = if forced then forcedMutation else Config.RollMutation(rng, luck)
 	local start = CFrame.lookAt(world.ConveyorStart, world.ConveyorEnd)
-	local model = BrainrotModel.Create(brainrot, start, true)
+	local model = BrainrotModel.Create(brainrot, mutation, start, true)
 	local root = model.PrimaryPart :: BasePart
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "BuyPrompt"
-	prompt.ActionText = "Buy " .. Config.FormatCash(brainrot.Price)
-	prompt.ObjectText = brainrot.DisplayName
+	prompt.ActionText = "Buy " .. Config.FormatCash(Config.PriceOf(brainrot, mutation))
+	prompt.ObjectText = fullName(brainrot, mutation)
 	prompt.HoldDuration = 0.25
 	prompt.MaxActivationDistance = 12
 	prompt.RequiresLineOfSight = false
 	prompt:SetAttribute("Action", "Buy")
 	prompt.Parent = root
 	prompt.Triggered:Connect(function(player)
-		onBuy(player, model, brainrot)
+		onBuy(player, model, brainrot, mutation)
 	end)
 
 	model.Parent = world.ConveyorFolder
@@ -826,8 +850,9 @@ local function spawnOnConveyor(forced: Config.Brainrot?)
 	end)
 	tween:Play()
 
-	if Config.Rarities[brainrot.Rarity].Announce then
-		Announce:FireAllClients("spawn", "", brainrot.Id)
+	local mutationInfo = Config.GetMutation(mutation)
+	if Config.Rarities[brainrot.Rarity].Announce or (mutationInfo and mutationInfo.Chance <= 1) then
+		Announce:FireAllClients("spawn", "", brainrot.Id, "", mutation)
 	end
 end
 
@@ -1169,10 +1194,10 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 
 	-- Server-wide actions
 	if action == "Spawn" then
-		local brainrot = Config.GetBrainrot(tostring(value))
+		local brainrot, mutation = Config.Decode(tostring(value))
 		if brainrot then
-			spawnOnConveyor(brainrot)
-			notify(admin, "Spawned " .. brainrot.DisplayName .. " on the conveyor.")
+			spawnOnConveyor(brainrot, mutation)
+			notify(admin, "Spawned " .. fullName(brainrot, mutation) .. " on the conveyor.")
 		end
 		return
 	elseif action == "Luck" then
@@ -1207,11 +1232,11 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				data.Cash = math.max(0, if action == "Cash" then data.Cash + amount else amount)
 				notify(admin, player.DisplayName .. " now has " .. Config.FormatCash(data.Cash))
 			elseif action == "Brainrot" then
-				local brainrot = Config.GetBrainrot(tostring(value))
+				local brainrot, mutation = Config.Decode(tostring(value))
 				local index = plot and freeSlot(plot, session)
 				if brainrot and plot and index then
-					placeBrainrot(plot, index, brainrot.Id, nil, false)
-					notify(admin, "Gave " .. brainrot.DisplayName .. " to " .. player.DisplayName)
+					placeBrainrot(plot, index, brainrot.Id, mutation, nil, false)
+					notify(admin, "Gave " .. fullName(brainrot, mutation) .. " to " .. player.DisplayName)
 				else
 					notify(admin, player.DisplayName .. "'s base is full.")
 				end
