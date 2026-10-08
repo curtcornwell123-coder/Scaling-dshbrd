@@ -63,6 +63,12 @@ To build a place file without Studio sync: `rojo build -o BrainrotHeist.rbxl`.
 3. **Game Settings → Places → Max Players = 8**. There are 8 bases.
 4. Set up the Robux items below.
 
+## Admin panel
+
+Admins get a red **ADMIN** button on the left. From it you can give or set cash, set rebirths, give any brainrot, set wall levels, clear a base, spawn any brainrot on the conveyor, and start or stop server luck. In the **Player** box, type `me`, `all`, or the start of someone's name. Amounts accept `5000`, `25k`, `2m` or `-500`.
+
+Who is an admin: the game's owner (or the group owner, for group games), anyone listed in `Config.AdminUserIds`, and everyone while testing in Studio. The server checks every admin action, so nobody else can use it even with exploits.
+
 ## Make money (Robux)
 
 On the [Creator Dashboard](https://create.roblox.com/dashboard/creations), open your experience, then **Monetization**:

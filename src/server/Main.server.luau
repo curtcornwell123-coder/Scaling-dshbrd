@@ -32,6 +32,7 @@ local DataUpdated: RemoteEvent = makeRemote("RemoteEvent", "DataUpdated")
 local Notify: RemoteEvent = makeRemote("RemoteEvent", "Notify")
 local Announce: RemoteEvent = makeRemote("RemoteEvent", "Announce")
 local RequestRebirth: RemoteEvent = makeRemote("RemoteEvent", "RequestRebirth")
+local AdminAction: RemoteEvent = makeRemote("RemoteEvent", "AdminAction")
 
 remotes.Parent = ReplicatedStorage
 ReplicatedStorage:SetAttribute("LuckEndsAt", 0)
@@ -71,6 +72,7 @@ type Session = {
 	LastSlap: number,
 	LastHint: number,
 	LastCollect: number,
+	IsAdmin: boolean,
 }
 
 type Carry = {
@@ -264,6 +266,7 @@ local function snapshot(session: Session)
 		WallLevel = data.WallLevel,
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
+		IsAdmin = session.IsAdmin,
 	}
 end
 
@@ -791,8 +794,8 @@ local function onBuy(player: Player, model: Model, brainrot: Config.Brainrot)
 	push(player)
 end
 
-local function spawnOnConveyor()
-	local brainrot = Config.RollConveyor(rng, luckMultiplier())
+local function spawnOnConveyor(forced: Config.Brainrot?)
+	local brainrot = forced or Config.RollConveyor(rng, luckMultiplier())
 	local start = CFrame.lookAt(world.ConveyorStart, world.ConveyorEnd)
 	local model = BrainrotModel.Create(brainrot, start, true)
 	local root = model.PrimaryPart :: BasePart
@@ -947,6 +950,19 @@ local function onCharacter(player: Player, character: Model)
 	updateVipTag(player)
 end
 
+local function checkAdmin(player: Player): boolean
+	if RunService:IsStudio() or table.find(Config.AdminUserIds, player.UserId) then
+		return true
+	end
+	if game.CreatorType == Enum.CreatorType.User then
+		return player.UserId == game.CreatorId
+	end
+	local ok, rank = pcall(function()
+		return player:GetRankInGroupAsync(game.CreatorId)
+	end)
+	return ok and rank >= Config.AdminGroupRank
+end
+
 local function load(player: Player)
 	local session: Session = {
 		Data = defaultData(),
@@ -957,6 +973,7 @@ local function load(player: Player)
 		LastSlap = 0,
 		LastHint = 0,
 		LastCollect = 0,
+		IsAdmin = false,
 	}
 	sessions[player] = session
 
@@ -991,6 +1008,8 @@ local function load(player: Player)
 			end
 		end
 	end
+
+	session.IsAdmin = checkAdmin(player)
 
 	if not player.Parent then
 		sessions[player] = nil
@@ -1110,6 +1129,115 @@ GetData.OnServerInvoke = function(player: Player)
 	end
 	return snapshot(session)
 end
+
+-- Admin panel --------------------------------------------------------------
+
+-- "250", "1.5k", "2M", "-500" -> number
+local function parseAmount(value: unknown): number?
+	local textValue = string.lower((string.gsub(tostring(value), "[,%s]", "")))
+	local digits, suffix = string.match(textValue, "^(%-?[%d%.]+)([kmbt]?)$")
+	local n = digits and tonumber(digits)
+	if not n then
+		return nil
+	end
+	local multipliers = { [""] = 1, k = 1e3, m = 1e6, b = 1e9, t = 1e12 }
+	return n * multipliers[suffix :: string]
+end
+
+-- "me", "all", or the start of someone's name / display name.
+local function resolveTargets(admin: Player, query: unknown): { Player }
+	local q = string.lower(tostring(query or ""))
+	if q == "" or q == "me" then
+		return { admin }
+	end
+	if q == "all" then
+		return Players:GetPlayers()
+	end
+	for _, other in Players:GetPlayers() do
+		if string.sub(string.lower(other.Name), 1, #q) == q or string.sub(string.lower(other.DisplayName), 1, #q) == q then
+			return { other }
+		end
+	end
+	return {}
+end
+
+AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, target: unknown, value: unknown)
+	local adminSession = sessions[admin]
+	if not adminSession or not adminSession.IsAdmin or type(action) ~= "string" then
+		return
+	end
+
+	-- Server-wide actions
+	if action == "Spawn" then
+		local brainrot = Config.GetBrainrot(tostring(value))
+		if brainrot then
+			spawnOnConveyor(brainrot)
+			notify(admin, "Spawned " .. brainrot.DisplayName .. " on the conveyor.")
+		end
+		return
+	elseif action == "Luck" then
+		local minutes = parseAmount(value) or 0
+		if minutes > 0 then
+			ReplicatedStorage:SetAttribute("LuckEndsAt", workspace:GetServerTimeNow() + minutes * 60)
+			Announce:FireAllClients("luck", admin.DisplayName, "")
+		else
+			ReplicatedStorage:SetAttribute("LuckEndsAt", 0)
+			notify(admin, "Server luck stopped.")
+		end
+		return
+	end
+
+	local targets = resolveTargets(admin, target)
+	if #targets == 0 then
+		notify(admin, "No player found named \"" .. tostring(target) .. "\".")
+		return
+	end
+
+	for _, player in targets do
+		local session = sessions[player]
+		local plot = session and session.Plot
+		if session and session.Loaded then
+			local data = session.Data
+			if action == "Cash" or action == "SetCash" then
+				local amount = parseAmount(value)
+				if not amount then
+					notify(admin, "Type an amount like 5000, 25k or 2m.")
+					return
+				end
+				data.Cash = math.max(0, if action == "Cash" then data.Cash + amount else amount)
+				notify(admin, player.DisplayName .. " now has " .. Config.FormatCash(data.Cash))
+			elseif action == "Brainrot" then
+				local brainrot = Config.GetBrainrot(tostring(value))
+				local index = plot and freeSlot(plot, session)
+				if brainrot and plot and index then
+					placeBrainrot(plot, index, brainrot.Id, nil, false)
+					notify(admin, "Gave " .. brainrot.DisplayName .. " to " .. player.DisplayName)
+				else
+					notify(admin, player.DisplayName .. "'s base is full.")
+				end
+			elseif action == "Walls" then
+				local level = math.clamp(math.floor(parseAmount(value) or 1), 1, #Config.WallLevels)
+				data.WallLevel = level
+				if plot then
+					WorldBuilder.SetWallLevel(plot.Parts, level)
+				end
+				notify(admin, player.DisplayName .. "'s walls: " .. Config.WallLevels[level].Name)
+			elseif action == "Rebirths" then
+				data.Rebirths = math.max(0, math.floor(parseAmount(value) or 0))
+				notify(admin, player.DisplayName .. " is now Rebirth " .. data.Rebirths)
+			elseif action == "ClearBase" then
+				if plot then
+					clearPlotBrainrots(plot)
+				end
+				notify(admin, "Cleared " .. player.DisplayName .. "'s base.")
+			else
+				return
+			end
+			print(string.format("[Admin] %s: %s %s -> %s", admin.Name, action, tostring(value), player.Name))
+			push(player)
+		end
+	end
+end)
 
 -- Robux purchases ----------------------------------------------------------
 

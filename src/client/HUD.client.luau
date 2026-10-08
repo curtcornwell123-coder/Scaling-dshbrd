@@ -14,6 +14,7 @@ local DataUpdated = Remotes:WaitForChild("DataUpdated") :: RemoteEvent
 local Notify = Remotes:WaitForChild("Notify") :: RemoteEvent
 local Announce = Remotes:WaitForChild("Announce") :: RemoteEvent
 local RequestRebirth = Remotes:WaitForChild("RequestRebirth") :: RemoteEvent
+local AdminAction = Remotes:WaitForChild("AdminAction") :: RemoteEvent
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -150,7 +151,7 @@ local side = Instance.new("Frame")
 side.BackgroundTransparency = 1
 side.AnchorPoint = Vector2.new(0, 0.5)
 side.Position = UDim2.new(0, 10, 0.5, 0)
-side.Size = UDim2.fromOffset(130, 130)
+side.Size = UDim2.fromOffset(130, 200)
 side.Parent = gui
 local sideLayout = Instance.new("UIListLayout")
 sideLayout.Padding = UDim.new(0, 10)
@@ -410,6 +411,140 @@ rebirthButton.MouseButton1Click:Connect(function()
 	rebirthFrame.Visible = not rebirthFrame.Visible
 end)
 
+-- Admin panel (only shown to admins; the server checks every action too) ---
+
+local adminFrame, adminBody = modal("ADMIN", RED, 560)
+local adminLayout = Instance.new("UIListLayout")
+adminLayout.Padding = UDim.new(0, 8)
+adminLayout.SortOrder = Enum.SortOrder.LayoutOrder
+adminLayout.Parent = adminBody
+
+local function adminRow(order: number, height: number): Frame
+	local row = Instance.new("Frame")
+	row.BackgroundTransparency = 1
+	row.Size = UDim2.new(1, 0, 0, height)
+	row.LayoutOrder = order
+	row.Parent = adminBody
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 6)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = row
+	return row
+end
+
+local function inputBox(parent: Instance, default: string, hint: string, width: number): TextBox
+	local box = Instance.new("TextBox")
+	box.Size = UDim2.fromOffset(width, 38)
+	box.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+	box.TextColor3 = WHITE
+	box.PlaceholderText = hint
+	box.Text = default
+	box.Font = FONT
+	box.TextScaled = true
+	box.ClearTextOnFocus = false
+	corner(box, 8)
+	box.Parent = parent
+	return box
+end
+
+local function smallButton(parent: Instance, label: string, color: Color3, width: number, onClick: () -> ()): TextButton
+	local b = button(parent, label, color, UDim2.fromOffset(width, 38))
+	b.MouseButton1Click:Connect(onClick)
+	return b
+end
+
+local targetRow = adminRow(1, 40)
+text(targetRow, { Size = UDim2.fromOffset(80, 30), Text = "Player" })
+local targetBox = inputBox(targetRow, "me", "me / all / name", 200)
+text(targetRow, {
+	Size = UDim2.fromOffset(220, 24),
+	TextColor3 = Color3.fromRGB(170, 170, 185),
+	Text = "me, all, or start of a name",
+})
+
+local function send(action: string, value: any)
+	AdminAction:FireServer(action, targetBox.Text, value)
+end
+
+local cashRow = adminRow(2, 40)
+local amountBox = inputBox(cashRow, "1m", "e.g. 5000, 25k, 2m", 120)
+smallButton(cashRow, "Give Cash", GREEN, 120, function()
+	send("Cash", amountBox.Text)
+end)
+smallButton(cashRow, "Set Cash", Color3.fromRGB(60, 140, 255), 110, function()
+	send("SetCash", amountBox.Text)
+end)
+smallButton(cashRow, "Rebirths", Color3.fromRGB(170, 80, 255), 110, function()
+	send("Rebirths", amountBox.Text)
+end)
+
+local wallRow = adminRow(3, 40)
+text(wallRow, { Size = UDim2.fromOffset(80, 30), Text = "Walls" })
+for level = 1, #Config.WallLevels do
+	smallButton(wallRow, tostring(level), Color3.fromRGB(255, 150, 40), 50, function()
+		send("Walls", level)
+	end)
+end
+smallButton(wallRow, "Clear Base", RED, 130, function()
+	send("ClearBase", nil)
+end)
+
+local luckRow = adminRow(4, 40)
+smallButton(luckRow, "Server Luck 15m", Color3.fromRGB(60, 180, 120), 200, function()
+	send("Luck", 15)
+end)
+smallButton(luckRow, "Stop Luck", Color3.fromRGB(90, 90, 100), 130, function()
+	send("Luck", 0)
+end)
+
+local brainrotList = Instance.new("ScrollingFrame")
+brainrotList.BackgroundTransparency = 1
+brainrotList.Size = UDim2.new(1, 0, 0, 250)
+brainrotList.LayoutOrder = 5
+brainrotList.CanvasSize = UDim2.new()
+brainrotList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+brainrotList.ScrollBarThickness = 6
+brainrotList.Parent = adminBody
+local brainrotLayout = Instance.new("UIListLayout")
+brainrotLayout.Padding = UDim.new(0, 4)
+brainrotLayout.Parent = brainrotList
+
+for _, brainrot in Config.Brainrots do
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -10, 0, 36)
+	row.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	corner(row, 8)
+	row.Parent = brainrotList
+	local color = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
+	text(row, {
+		Position = UDim2.fromOffset(10, 4),
+		Size = UDim2.new(1, -230, 1, -8),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = color,
+		Text = brainrot.DisplayName .. "  (" .. brainrot.Rarity .. ")",
+	})
+	local give = smallButton(row, "Give", GREEN, 100, function()
+		send("Brainrot", brainrot.Id)
+	end)
+	give.Size = UDim2.fromOffset(100, 30)
+	give.Position = UDim2.new(1, -212, 0, 3)
+	local spawnButton = smallButton(row, "Spawn", Color3.fromRGB(255, 150, 40), 100, function()
+		send("Spawn", brainrot.Id)
+	end)
+	spawnButton.Size = UDim2.fromOffset(100, 30)
+	spawnButton.Position = UDim2.new(1, -106, 0, 3)
+end
+
+local adminButton = button(side, "ADMIN", RED, UDim2.fromOffset(130, 56))
+adminButton.Visible = false
+adminButton.MouseButton1Click:Connect(function()
+	shopFrame.Visible = false
+	rebirthFrame.Visible = false
+	adminFrame.Visible = not adminFrame.Visible
+end)
+
 -- Data -> UI ---------------------------------------------------------------
 
 local function render()
@@ -417,6 +552,7 @@ local function render()
 		return
 	end
 	cashLabel.Text = Config.FormatCash(data.Cash)
+	adminButton.Visible = data.IsAdmin == true
 	incomeLabel.Text = string.format("+%s/s   x%.1f income", Config.FormatCash(data.Income), data.Multiplier)
 	slotsLabel.Text = string.format("Base %d/%d   Steals %d", data.Placed, data.MaxSlots, data.Steals)
 

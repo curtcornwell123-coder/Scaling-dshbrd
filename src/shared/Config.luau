@@ -134,6 +134,14 @@ Config.RebirthBaseCost = 1000000
 Config.RebirthCostGrowth = 5
 Config.RebirthBonus = 0.5 -- +50% income per rebirth
 
+-- Admins -------------------------------------------------------------------
+-- The game's owner (or a group owner, for group games) is always an admin,
+-- and everyone is an admin when testing in Studio. Add other people's
+-- Roblox user IDs here (the number in their profile URL).
+
+Config.AdminUserIds = {} :: { number }
+Config.AdminGroupRank = 255 -- for group games: this rank and above are admins
+
 -- Monetization -------------------------------------------------------------
 -- Create these on the Creator Dashboard (your experience > Monetization),
 -- then paste the IDs below. Items with Id = 0 show as "coming soon".
