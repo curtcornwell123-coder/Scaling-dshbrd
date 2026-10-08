@@ -149,14 +149,16 @@ local function wallSegment(folder: Instance, cf: CFrame, length: number, height:
 		return
 	end
 
-	local sill = math.max(1, height * 0.3)
-	local head = height * 0.78
+	-- Big picture windows so everyone can see the brainrots inside: a low
+	-- sill, a thin band at the top, and only slim pillars between panes.
+	local sill = math.clamp(height * 0.12, 1, 2.5)
+	local head = height - math.clamp(height * 0.08, 1, 2)
 	piece("WallBottom", 0, 0, length, sill)
 	piece("WallTop", 0, head, length, height - head)
 
-	local windowWidth = 4
 	local count = math.max(1, math.floor(length / 12))
 	local spacing = length / count
+	local windowWidth = math.max(4, spacing - 1.6)
 	local left = -length / 2
 	for i = 1, count do
 		local center = -length / 2 + spacing * (i - 0.5)
@@ -165,7 +167,8 @@ local function wallSegment(folder: Instance, cf: CFrame, length: number, height:
 			piece("WallPillar", (left + gapStart) / 2, sill, gapStart - left, head - sill)
 		end
 		local glass = block(folder, "Window", Vector3.new(windowWidth, head - sill, 0.4), cf * CFrame.new(center, sill + (head - sill) / 2, 0), style.Glass, if style.GlassNeon then Enum.Material.Neon else Enum.Material.Glass)
-		glass.Transparency = if style.GlassNeon then 0.35 else 0.45
+		-- Clear enough to see right through, with just a tint of the skin's color.
+		glass.Transparency = if style.GlassNeon then 0.6 else 0.7
 		glass.Reflectance = 0.1
 		left = center + windowWidth / 2
 	end

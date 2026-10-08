@@ -9,7 +9,7 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
 3. **Steal.** Walk into someone else's base and hold **E** on a brainrot. It goes over your head, you move slower, and you have to run it back to your own base.
 4. **Defend.** Everyone has a **Slap** tool. Slap a thief and the brainrot runs back home.
 5. **Upgrade your base** at the orange post near the entrance. Press **Open Upgrades** (or tap it on mobile) to get a panel with two upgrades:
-   - **Base level:** walls and floors always upgrade **together**, one floor and one wall tier per level, so you can't get ahead on either. Every new floor adds 10 brainrot slots and is reached by stairs inside the base. Lower floors are walled in all the way up, with blue tinted windows.
+   - **Base level:** walls and floors always upgrade **together**, one floor and one wall tier per level, so you can't get ahead on either. Every new floor adds 10 brainrot slots and is reached by stairs inside the base. Lower floors are walled in all the way up, with big, clear blue-tinted picture windows (slim pillars, low sills) so everyone can see the brainrots inside.
 
      | Level | Floors | Walls | Cost |
      |---|---|---|---|
