@@ -100,7 +100,8 @@ Config.Brainrots = {
 	{ Id = "CignaGlamourina", DisplayName = "Cigna Glamourina", Rarity = "EventSpecial", Price = 0, Income = 2500, IncomeGrowth = 2, Limited = true, Color = Color3.fromRGB(240, 110, 200), Accent = Color3.fromRGB(255, 30, 170) },
 	-- Secret
 	-- A little sneaker creature: kept short on purpose (Scale), but very rare.
-	{ Id = "ScarpinoStellino", DisplayName = "Scarpino Stellino", Rarity = "Secret", Price = 25000000, Income = 120000, Scale = 1.15, Color = Color3.fromRGB(110, 130, 205), Accent = Color3.fromRGB(240, 235, 222) },
+	-- (The Id keeps its old name so saved copies still load.)
+	{ Id = "ScarpinoStellino", DisplayName = "Sneakerino Shoelacini", Rarity = "Secret", Price = 25000000, Income = 120000, Scale = 1.15, Color = Color3.fromRGB(110, 130, 205), Accent = Color3.fromRGB(240, 235, 222) },
 	{ Id = "IlCosmicoCannolo", DisplayName = "Il Cosmico Cannolo", Rarity = "Secret", Price = 50000000, Income = 250000, Color = Color3.fromRGB(30, 10, 60), Accent = Color3.fromRGB(255, 120, 255) },
 } :: { Brainrot }
 
