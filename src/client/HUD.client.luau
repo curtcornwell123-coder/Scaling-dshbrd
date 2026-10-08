@@ -18,6 +18,9 @@ local RequestRebirth = Remotes:WaitForChild("RequestRebirth") :: RemoteEvent
 local AdminAction = Remotes:WaitForChild("AdminAction") :: RemoteEvent
 local BuyLimited = Remotes:WaitForChild("BuyLimited") :: RemoteFunction
 local RequestUpgrade = Remotes:WaitForChild("RequestUpgrade") :: RemoteEvent
+local SetFollowers = Remotes:WaitForChild("SetFollowers") :: RemoteEvent
+local SkinAction = Remotes:WaitForChild("SkinAction") :: RemoteEvent
+local DiamondPurchase = Remotes:WaitForChild("DiamondPurchase") :: RemoteEvent
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -105,7 +108,7 @@ rescale()
 local cashPanel = Instance.new("Frame")
 cashPanel.AnchorPoint = Vector2.new(0.5, 0)
 cashPanel.Position = UDim2.new(0.5, 0, 0, 8)
-cashPanel.Size = UDim2.fromOffset(320, 92)
+cashPanel.Size = UDim2.fromOffset(320, 112)
 cashPanel.BackgroundColor3 = DARK
 cashPanel.BackgroundTransparency = 0.2
 corner(cashPanel, 14)
@@ -130,9 +133,16 @@ local slotsLabel = text(cashPanel, {
 	Text = "Base 0/10",
 })
 
+local currencyLabel = text(cashPanel, {
+	Position = UDim2.fromOffset(10, 90),
+	Size = UDim2.new(1, -20, 0, 18),
+	TextColor3 = Color3.fromRGB(140, 220, 255),
+	Text = "Shards 0   |   Diamonds 0",
+})
+
 local luckLabel = text(gui, {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 106),
+	Position = UDim2.new(0.5, 0, 0, 126),
 	Size = UDim2.fromOffset(320, 28),
 	TextColor3 = Color3.fromRGB(120, 255, 160),
 	Text = "",
@@ -142,7 +152,7 @@ local luckLabel = text(gui, {
 -- Weekly admin abuse: countdown in the last hour, then a LIVE banner.
 local abuseLabel = text(gui, {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 136),
+	Position = UDim2.new(0.5, 0, 0, 156),
 	Size = UDim2.fromOffset(420, 32),
 	TextColor3 = GOLD,
 	TextStrokeTransparency = 0,
@@ -165,7 +175,7 @@ local side = Instance.new("Frame")
 side.BackgroundTransparency = 1
 side.AnchorPoint = Vector2.new(0, 0.5)
 side.Position = UDim2.new(0, 10, 0.5, 0)
-side.Size = UDim2.fromOffset(130, 200)
+side.Size = UDim2.fromOffset(130, 340)
 side.Parent = gui
 local sideLayout = Instance.new("UIListLayout")
 sideLayout.Padding = UDim.new(0, 10)
@@ -173,6 +183,8 @@ sideLayout.Parent = side
 
 local shopButton = button(side, "SHOP", Color3.fromRGB(255, 150, 40), UDim2.fromOffset(130, 56))
 local rebirthButton = button(side, "REBIRTH", Color3.fromRGB(170, 80, 255), UDim2.fromOffset(130, 56))
+local questsButton = button(side, "QUESTS", Color3.fromRGB(60, 170, 255), UDim2.fromOffset(130, 56))
+local followButton = button(side, "FOLLOW", Color3.fromRGB(60, 200, 120), UDim2.fromOffset(130, 56))
 
 -- Toasts -------------------------------------------------------------------
 
@@ -220,7 +232,7 @@ end
 
 local banner = text(gui, {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 174),
+	Position = UDim2.new(0.5, 0, 0, 194),
 	Size = UDim2.fromOffset(760, 48),
 	Text = "",
 	Visible = false,
@@ -634,15 +646,409 @@ task.spawn(function()
 	end
 end)
 
+
+-- Quests & wall skins --------------------------------------------------------
+
+local function duration(seconds: number): string
+	seconds = math.max(0, math.floor(seconds))
+	if seconds >= 86400 then
+		return string.format("%dd %dh", seconds // 86400, (seconds % 86400) // 3600)
+	elseif seconds >= 3600 then
+		return string.format("%dh %dm", seconds // 3600, (seconds % 3600) // 60)
+	end
+	return string.format("%dm", math.max(1, seconds // 60))
+end
+
+local function scrollBody(parent: Instance): ScrollingFrame
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.BackgroundTransparency = 1
+	scroll.Size = UDim2.fromScale(1, 1)
+	scroll.CanvasSize = UDim2.new()
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.ScrollBarThickness = 6
+	scroll.Parent = parent
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 8)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = scroll
+	return scroll
+end
+
+local SHARD_COLOR = Color3.fromRGB(140, 220, 255)
+local DIAMOND_COLOR = Color3.fromRGB(120, 180, 255)
+
+local questsFrame, questsFrameBody = modal("QUESTS & SKINS", Color3.fromRGB(60, 170, 255), 600)
+local questsBody = scrollBody(questsFrameBody)
+
+local function header(parent: Instance, order: number, label: string, color: Color3): TextLabel
+	return text(parent, {
+		Size = UDim2.new(1, -10, 0, 28),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = color,
+		Text = label,
+		LayoutOrder = order,
+	})
+end
+
+type QuestRow = { Text: TextLabel, Fill: Frame, Count: TextLabel }
+local function questRow(order: number): QuestRow
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -10, 0, 58)
+	row.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	row.LayoutOrder = order
+	corner(row, 10)
+	row.Parent = questsBody
+	local label = text(row, {
+		Position = UDim2.fromOffset(12, 6),
+		Size = UDim2.new(1, -130, 0, 24),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "",
+	})
+	local bar = Instance.new("Frame")
+	bar.Position = UDim2.fromOffset(12, 36)
+	bar.Size = UDim2.new(1, -130, 0, 12)
+	bar.BackgroundColor3 = Color3.fromRGB(60, 60, 75)
+	corner(bar, 6)
+	bar.Parent = row
+	local fill = Instance.new("Frame")
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.BackgroundColor3 = GREEN
+	corner(fill, 6)
+	fill.Parent = bar
+	local count = text(row, {
+		Position = UDim2.new(1, -110, 0, 14),
+		Size = UDim2.fromOffset(100, 30),
+		Text = "",
+	})
+	return { Text = label, Fill = fill, Count = count }
+end
+
+local dailyHeader = header(questsBody, 1, "DAILY QUESTS", GOLD)
+text(questsBody, {
+	Size = UDim2.new(1, -10, 0, 20),
+	TextColor3 = SHARD_COLOR,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Text = "+" .. Config.DailyShards .. " Shards each",
+	LayoutOrder = 2,
+})
+local dailyRows: { QuestRow } = {}
+for i = 1, Config.QuestsPerPeriod do
+	dailyRows[i] = questRow(2 + i)
+end
+local weeklyHeader = header(questsBody, 10, "WEEKLY QUESTS", Color3.fromRGB(255, 120, 255))
+text(questsBody, {
+	Size = UDim2.new(1, -10, 0, 20),
+	TextColor3 = DIAMOND_COLOR,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Text = string.format("+%d Diamond and +%d Shards each (much harder!)", Config.WeeklyDiamonds, Config.WeeklyShards),
+	LayoutOrder = 11,
+})
+local weeklyRows: { QuestRow } = {}
+for i = 1, Config.QuestsPerPeriod do
+	weeklyRows[i] = questRow(11 + i)
+end
+
+header(questsBody, 20, "WALL SKINS", Color3.fromRGB(255, 170, 40))
+local balanceLabel = text(questsBody, {
+	Size = UDim2.new(1, -10, 0, 22),
+	TextColor3 = SHARD_COLOR,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Text = "",
+	LayoutOrder = 21,
+})
+local skinButtons: { [string]: TextButton } = {}
+for i, skin in Config.WallSkins do
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -10, 0, 50)
+	row.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	row.LayoutOrder = 21 + i
+	corner(row, 10)
+	row.Parent = questsBody
+	local swatch = Instance.new("Frame")
+	swatch.Position = UDim2.fromOffset(10, 9)
+	swatch.Size = UDim2.fromOffset(32, 32)
+	swatch.BackgroundColor3 = skin.Color or Color3.fromRGB(140, 140, 145)
+	corner(swatch, 6)
+	stroke(swatch, 2, skin.Glass or Color3.fromRGB(80, 150, 255))
+	swatch.Parent = row
+	text(row, {
+		Position = UDim2.fromOffset(52, 10),
+		Size = UDim2.new(1, -220, 0, 30),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = skin.Name,
+	})
+	local b = button(row, "", GREEN, UDim2.fromOffset(150, 40))
+	b.Position = UDim2.new(1, -160, 0, 5)
+	b.MouseButton1Click:Connect(function()
+		local owned = data and data.Skins and table.find(data.Skins, skin.Id)
+		SkinAction:FireServer(if owned then "Equip" else "Buy", skin.Id)
+	end)
+	skinButtons[skin.Id] = b
+end
+
+local function renderQuests()
+	if not data or not data.Quests then
+		return
+	end
+	local q = data.Quests
+	dailyHeader.Text = "DAILY QUESTS   (new in " .. duration(q.DayResetIn) .. ")"
+	weeklyHeader.Text = "WEEKLY QUESTS   (new in " .. duration(q.WeekResetIn) .. ")"
+	local function fill(rows: { QuestRow }, list: { any })
+		for i, row in rows do
+			local quest = list[i]
+			if quest then
+				row.Text.Text = quest.Text
+				row.Fill.Size = UDim2.fromScale(math.clamp(quest.Progress / quest.Goal, 0, 1), 1)
+				row.Fill.BackgroundColor3 = if quest.Done then GOLD else GREEN
+				row.Count.Text = if quest.Done then "DONE!" else string.format("%d/%d", quest.Progress, quest.Goal)
+			end
+		end
+	end
+	fill(dailyRows, q.Daily)
+	fill(weeklyRows, q.Weekly)
+
+	balanceLabel.Text = string.format("You have %d Shards and %d Diamonds", data.Shards or 0, data.Diamonds or 0)
+	for _, skin in Config.WallSkins do
+		local b = skinButtons[skin.Id]
+		local owned = data.Skins and table.find(data.Skins, skin.Id)
+		if data.Skin == skin.Id then
+			b.Text = "EQUIPPED"
+			b.BackgroundColor3 = GOLD
+		elseif owned then
+			b.Text = "EQUIP"
+			b.BackgroundColor3 = Color3.fromRGB(60, 140, 255)
+		else
+			local balance = if skin.Currency == "Diamonds" then data.Diamonds else data.Shards
+			b.Text = string.format("%d %s", skin.Cost, skin.Currency)
+			b.BackgroundColor3 = if (balance or 0) >= skin.Cost
+				then (if skin.Currency == "Diamonds" then DIAMOND_COLOR else GREEN)
+				else Color3.fromRGB(90, 90, 100)
+		end
+	end
+end
+
+-- Followers ---------------------------------------------------------------------
+
+local followFrame, followFrameBody = modal("FOLLOWERS", Color3.fromRGB(60, 200, 120), 560)
+text(followFrameBody, {
+	Size = UDim2.new(1, 0, 0, 40),
+	TextWrapped = true,
+	TextColor3 = Color3.fromRGB(200, 200, 215),
+	TextStrokeTransparency = 1,
+	Text = "Pick up to 3 brainrots to follow you as minis. If one gets stolen from your base, it stops following.",
+})
+local rarestButton = button(followFrameBody, "PICK MY 3 RAREST", GOLD, UDim2.new(1, 0, 0, 44))
+rarestButton.Position = UDim2.fromOffset(0, 46)
+local followListHolder = Instance.new("Frame")
+followListHolder.BackgroundTransparency = 1
+followListHolder.Position = UDim2.fromOffset(0, 98)
+followListHolder.Size = UDim2.new(1, 0, 1, -98)
+followListHolder.Parent = followFrameBody
+local followList = scrollBody(followListHolder)
+
+-- Rarest first, then highest income.
+local function sortedBase(): { any }
+	local list = table.clone(data and data.Base or {})
+	local function score(entry: any): (number, number)
+		local brainrot = Config.GetBrainrot(entry.Id)
+		if not brainrot then
+			return 0, 0
+		end
+		return Config.Rarities[brainrot.Rarity].Order, Config.IncomeOf(brainrot, entry.Mutation)
+	end
+	table.sort(list, function(a, b)
+		local ra, ia = score(a)
+		local rb, ib = score(b)
+		if ra ~= rb then
+			return ra > rb
+		end
+		return ia > ib
+	end)
+	return list
+end
+
+local function currentFollowing(): { number }
+	local slots = {}
+	for _, entry in data and data.Base or {} do
+		if entry.Following then
+			table.insert(slots, entry.Slot)
+		end
+	end
+	return slots
+end
+
+rarestButton.MouseButton1Click:Connect(function()
+	local slots = {}
+	for _, entry in sortedBase() do
+		if #slots < 3 then
+			table.insert(slots, entry.Slot)
+		end
+	end
+	SetFollowers:FireServer(slots)
+end)
+
+local function renderFollowers()
+	if not followFrame.Visible or not data then
+		return
+	end
+	for _, child in followList:GetChildren() do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	for i, entry in sortedBase() do
+		local brainrot = Config.GetBrainrot(entry.Id)
+		if brainrot then
+			local mutation = Config.GetMutation(entry.Mutation)
+			local row = Instance.new("Frame")
+			row.Size = UDim2.new(1, -10, 0, 44)
+			row.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+			row.LayoutOrder = i
+			corner(row, 8)
+			row.Parent = followList
+			text(row, {
+				Position = UDim2.fromOffset(10, 7),
+				Size = UDim2.new(1, -170, 0, 30),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextColor3 = if mutation then mutation.Color else Config.Rarities[brainrot.Rarity].Color,
+				Text = (if mutation then mutation.DisplayName .. " " else "") .. brainrot.DisplayName,
+			})
+			local b = button(row, if entry.Following then "FOLLOWING" else "FOLLOW", if entry.Following then GOLD else GREEN, UDim2.fromOffset(140, 34))
+			b.Position = UDim2.new(1, -150, 0, 5)
+			b.MouseButton1Click:Connect(function()
+				local slots = currentFollowing()
+				local at = table.find(slots, entry.Slot)
+				if at then
+					table.remove(slots, at)
+				elseif #slots >= 3 then
+					toast("You can only have 3 followers. Remove one first.")
+					return
+				else
+					table.insert(slots, entry.Slot)
+				end
+				SetFollowers:FireServer(slots)
+			end)
+		end
+	end
+end
+
+-- Diamond Shop (the booth by the spawn) ---------------------------------------
+
+local diamondFrame, diamondFrameBody = modal("DIAMOND SHOP", DIAMOND_COLOR, 560)
+local diamondBody = scrollBody(diamondFrameBody)
+local diamondBalance = text(diamondBody, {
+	Size = UDim2.new(1, -10, 0, 28),
+	TextColor3 = DIAMOND_COLOR,
+	Text = "",
+	LayoutOrder = 0,
+})
+text(diamondBody, {
+	Size = UDim2.new(1, -10, 0, 20),
+	TextColor3 = Color3.fromRGB(190, 190, 205),
+	TextStrokeTransparency = 1,
+	Text = "Diamonds come from weekly quests. Spend them here!",
+	LayoutOrder = 1,
+})
+
+local diamondButtons: { { Button: TextButton, Cost: number, SkinId: string? } } = {}
+local function diamondRow(order: number, name: string, description: string, cost: number, onBuy: () -> (), skinId: string?)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -10, 0, 70)
+	row.BackgroundColor3 = Color3.fromRGB(35, 45, 70)
+	row.LayoutOrder = order
+	corner(row, 10)
+	stroke(row, 2, DIAMOND_COLOR)
+	row.Parent = diamondBody
+	text(row, {
+		Position = UDim2.fromOffset(12, 6),
+		Size = UDim2.new(1, -170, 0, 30),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = name,
+	})
+	text(row, {
+		Position = UDim2.fromOffset(12, 38),
+		Size = UDim2.new(1, -170, 0, 24),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(190, 190, 205),
+		TextStrokeTransparency = 1,
+		Text = description,
+	})
+	local b = button(row, cost .. " Diamonds", DIAMOND_COLOR, UDim2.fromOffset(150, 50))
+	b.Position = UDim2.new(1, -160, 0, 10)
+	b.MouseButton1Click:Connect(onBuy)
+	table.insert(diamondButtons, { Button = b, Cost = cost, SkinId = skinId })
+end
+
+header(diamondBody, 2, "BOOSTS", GOLD)
+for i, item in Config.DiamondShop do
+	diamondRow(2 + i, item.Name, item.Description, item.Cost, function()
+		DiamondPurchase:FireServer(item.Id)
+	end)
+end
+header(diamondBody, 20, "DIAMOND WALL SKINS", Color3.fromRGB(255, 170, 40))
+for i, skin in Config.WallSkins do
+	if skin.Currency == "Diamonds" then
+		diamondRow(20 + i, skin.Name, "A rare wall skin for your base.", skin.Cost, function()
+			local owned = data and data.Skins and table.find(data.Skins, skin.Id)
+			SkinAction:FireServer(if owned then "Equip" else "Buy", skin.Id)
+		end, skin.Id)
+	end
+end
+
+local function renderDiamondShop()
+	if not data then
+		return
+	end
+	local diamonds = data.Diamonds or 0
+	diamondBalance.Text = string.format("You have %d Diamonds", diamonds)
+	for _, entry in diamondButtons do
+		local owned = entry.SkinId and data.Skins and table.find(data.Skins, entry.SkinId)
+		if entry.SkinId and data.Skin == entry.SkinId then
+			entry.Button.Text = "EQUIPPED"
+			entry.Button.BackgroundColor3 = GOLD
+		elseif owned then
+			entry.Button.Text = "EQUIP"
+			entry.Button.BackgroundColor3 = Color3.fromRGB(60, 140, 255)
+		else
+			entry.Button.Text = entry.Cost .. " Diamonds"
+			entry.Button.BackgroundColor3 = if diamonds >= entry.Cost then DIAMOND_COLOR else Color3.fromRGB(90, 90, 100)
+		end
+	end
+end
+
+-- Only one menu open at a time.
+local menus = { shopFrame, rebirthFrame, upgradeFrame, questsFrame, followFrame, diamondFrame }
+local function toggleMenu(frame: Frame)
+	local open = not frame.Visible
+	for _, menu in menus do
+		menu.Visible = false
+	end
+	frame.Visible = open
+end
 shopButton.MouseButton1Click:Connect(function()
-	rebirthFrame.Visible = false
-	upgradeFrame.Visible = false
-	shopFrame.Visible = not shopFrame.Visible
+	toggleMenu(shopFrame)
 end)
 rebirthButton.MouseButton1Click:Connect(function()
-	shopFrame.Visible = false
-	upgradeFrame.Visible = false
-	rebirthFrame.Visible = not rebirthFrame.Visible
+	toggleMenu(rebirthFrame)
+end)
+questsButton.MouseButton1Click:Connect(function()
+	toggleMenu(questsFrame)
+	renderQuests()
+end)
+followButton.MouseButton1Click:Connect(function()
+	toggleMenu(followFrame)
+	renderFollowers()
+end)
+
+-- The two counters at the Diamond Shop booth.
+ProximityPromptService.PromptTriggered:Connect(function(prompt)
+	local action = prompt:GetAttribute("Action")
+	if action == "DiamondShop" then
+		toggleMenu(diamondFrame)
+		renderDiamondShop()
+	elseif action == "RobuxShop" then
+		toggleMenu(shopFrame)
+	end
 end)
 
 -- Admin panel (only shown to admins; the server checks every action too) ---
@@ -735,6 +1141,14 @@ smallButton(cashRow, "Set Cash", Color3.fromRGB(60, 140, 255), 110, function()
 end)
 smallButton(cashRow, "Rebirths", PURPLE, 110, function()
 	send("Rebirths", amountBox.Text)
+end)
+local currencyRow = adminRow(3, 40)
+text(currencyRow, { Size = UDim2.fromOffset(110, 30), Text = "Quest $" })
+smallButton(currencyRow, "Give Shards", SHARD_COLOR, 150, function()
+	send("Shards", amountBox.Text)
+end)
+smallButton(currencyRow, "Give Diamonds", DIAMOND_COLOR, 170, function()
+	send("Diamonds", amountBox.Text)
 end)
 
 local function levelButtons(row: Frame, label: string, count: number, action: string, color: Color3)
@@ -855,10 +1269,17 @@ local function render()
 	cashLabel.Text = Config.FormatCash(data.Cash)
 	adminButton.Visible = data.IsAdmin == true
 	incomeLabel.Text = string.format("+%s/s   x%.1f income", Config.FormatCash(data.Income), data.Multiplier)
+	if (data.CashBoostLeft or 0) > 0 then
+		incomeLabel.Text ..= string.format("  (2x boost %dm)", math.ceil(data.CashBoostLeft / 60))
+	end
 	slotsLabel.Text = string.format("Base %d/%d   Steals %d", data.Placed, data.MaxSlots, data.Steals)
 
 	renderLimited()
 	renderUpgrades()
+	renderQuests()
+	renderFollowers()
+	renderDiamondShop()
+	currencyLabel.Text = string.format("Shards %d   |   Diamonds %d", data.Shards or 0, data.Diamonds or 0)
 	for key, b in passButtons do
 		if data.Owns[key] then
 			b.Text = "OWNED"

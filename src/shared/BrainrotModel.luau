@@ -1,15 +1,16 @@
 --!strict
 -- Builds brainrot characters. Each brainrot has its own hand-made design out
 -- of parts. To use a real 3D model instead, put a Model named after the
--- brainrot's Id (e.g. "BananitoBandito") in ServerStorage > BrainrotModels.
--- It's scaled and positioned automatically.
+-- brainrot's Id (e.g. "BananitoBandito") in ReplicatedStorage > BrainrotModels.
+-- It's scaled and positioned automatically. Shared so clients can build the
+-- mini followers too.
 --
 -- Mutations recolor every part except ones marked with the "Keep" attribute
 -- (eyes, glowing bits), and add effects.
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerStorage = game:GetService("ServerStorage")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
@@ -533,7 +534,12 @@ end
 -- Custom 3D models -----------------------------------------------------------
 
 local function useCustomModel(model: Model, root: BasePart, brainrot: Config.Brainrot, scale: number): number?
-	local folder = ServerStorage:FindFirstChild("BrainrotModels")
+	-- ReplicatedStorage so followers (built on clients) can use it too;
+	-- ServerStorage still works for the server-side models.
+	local folder = ReplicatedStorage:FindFirstChild("BrainrotModels")
+	if not folder and RunService:IsServer() then
+		folder = game:GetService("ServerStorage"):FindFirstChild("BrainrotModels")
+	end
 	local template = folder and folder:FindFirstChild(brainrot.Id)
 	if not template or not template:IsA("Model") then
 		return nil
@@ -686,10 +692,11 @@ function BrainrotModel.SetIncomeText(model: Model, income: number)
 end
 
 -- Creates the model at `cframe` (feet on the ground). `priceTag` shows the buy price.
-function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cframe: CFrame, priceTag: boolean, serial: number?): Model
+-- `mini` builds a small follower version: no name tag or lights.
+function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cframe: CFrame, priceTag: boolean, serial: number?, mini: boolean?): Model
 	local rarity = Config.Rarities[brainrot.Rarity]
 	local mutation = Config.GetMutation(mutationId)
-	local s = rarity.Scale
+	local s = if mini then 0.4 else rarity.Scale
 
 	local model = Instance.new("Model")
 	model.Name = brainrot.Id
@@ -717,6 +724,19 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 		height = design(newBuilder(model, root, s), brainrot.Color, brainrot.Accent)
 	end
 	local topY = (height :: number) * s
+
+	if mini then
+		if mutation then
+			applyMutation(model, root, mutation, s)
+			-- Followers stay light: drop the extra glow.
+			for _, light in root:GetChildren() do
+				if light:IsA("PointLight") or light:IsA("Fire") then
+					light:Destroy()
+				end
+			end
+		end
+		return model
+	end
 
 	-- Rarity effects
 	if rarity.Order >= 4 then

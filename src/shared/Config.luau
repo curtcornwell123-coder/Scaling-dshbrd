@@ -171,6 +171,125 @@ Config.Stories = {
 assert(#Config.Stories == #Config.WallLevels, "Config: need one floor per wall level")
 Config.UpperFloorSlots = 10
 
+-- Wall skins -----------------------------------------------------------------
+-- Cosmetic looks for your base walls, bought with quest currencies:
+--   Shards   - 10 per daily quest, 100 per weekly quest (up to 510 a week)
+--   Diamonds - 1 per weekly quest (plus 100 Shards), max 3 a week; for the best skins
+-- They can't be bought with Robux, so everyone earns skins the same way.
+-- A skin keeps your base level's wall height; it just changes the look.
+
+export type Currency = "Shards" | "Diamonds"
+
+export type WallSkin = {
+	Id: string,
+	Name: string,
+	Cost: number,
+	Currency: Currency,
+	Color: Color3?,
+	Material: Enum.Material?, -- nil = the base level's own material
+	Glass: Color3?, -- window tint
+	GlassNeon: boolean?, -- glowing windows
+}
+
+Config.WallSkins = {
+	{ Id = "Classic", Name = "Classic Grey", Cost = 0, Currency = "Shards" },
+	{ Id = "RedBrick", Name = "Red Brick", Cost = 50, Currency = "Shards", Color = Color3.fromRGB(165, 65, 50), Material = Enum.Material.Brick },
+	{ Id = "Candy", Name = "Candy Pink", Cost = 100, Currency = "Shards", Color = Color3.fromRGB(255, 160, 205), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 225, 245) },
+	{ Id = "Ice", Name = "Frozen Ice", Cost = 150, Currency = "Shards", Color = Color3.fromRGB(175, 220, 255), Material = Enum.Material.Ice, Glass = Color3.fromRGB(225, 245, 255) },
+	{ Id = "Jungle", Name = "Jungle Stone", Cost = 200, Currency = "Shards", Color = Color3.fromRGB(85, 120, 70), Material = Enum.Material.Slate, Glass = Color3.fromRGB(150, 220, 120) },
+	{ Id = "Cyber", Name = "Cyber Neon", Cost = 300, Currency = "Shards", Color = Color3.fromRGB(30, 30, 40), Material = Enum.Material.Metal, Glass = Color3.fromRGB(0, 255, 200), GlassNeon = true },
+	{ Id = "Gold", Name = "Royal Gold", Cost = 4, Currency = "Diamonds", Color = Color3.fromRGB(255, 200, 60), Material = Enum.Material.Foil, Glass = Color3.fromRGB(255, 240, 180) },
+	{ Id = "Galaxy", Name = "Galaxy", Cost = 9, Currency = "Diamonds", Color = Color3.fromRGB(45, 25, 85), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(200, 120, 255), GlassNeon = true },
+} :: { WallSkin }
+
+-- Diamond Shop: the booth by the spawn (like a ticket shop). Diamonds only
+-- come from weekly quests, so these are the rare, fun rewards.
+export type DiamondItem = { Id: string, Name: string, Description: string, Cost: number }
+
+Config.DiamondShop = {
+	{ Id = "ShardPack", Name = "Shard Pouch", Description = "Get 150 Shards for skins.", Cost = 1 },
+	{ Id = "CashBoost", Name = "2x Cash (30 min)", Description = "Double your income for 30 minutes. Stacks.", Cost = 2 },
+	{ Id = "ServerLuck", Name = "Server Luck (15 min)", Description = "More Rare+ spawns for EVERYONE. Be a hero.", Cost = 3 },
+} :: { DiamondItem }
+Config.ShardPackAmount = 150
+Config.CashBoostSeconds = 30 * 60
+
+function Config.GetWallSkin(id: string?): WallSkin?
+	for _, skin in Config.WallSkins do
+		if skin.Id == id then
+			return skin
+		end
+	end
+	return nil
+end
+
+-- Quests -----------------------------------------------------------------------
+-- Everyone gets the same 3 daily and 3 weekly quests (picked from the pools
+-- below). Days reset at midnight in the admin abuse time zone (Oklahoma);
+-- weeks reset Monday at midnight. Daily quests pay Shards; weekly quests are
+-- much harder and are the only way to earn Diamonds.
+
+export type QuestDef = {
+	Id: string, -- the stat it counts (see Main.server: addQuestProgress)
+	Text: string, -- "%d" is replaced with the goal
+	Goal: number,
+}
+
+Config.DailyQuests = {
+	{ Id = "Buy", Text = "Buy %d brainrots", Goal = 15 },
+	{ Id = "BuyEpic", Text = "Buy %d Epic or better brainrots", Goal = 3 },
+	{ Id = "Steal", Text = "Steal %d brainrots", Goal = 2 },
+	{ Id = "Collect", Text = "Collect cash %d times", Goal = 20 },
+	{ Id = "Slap", Text = "Slap %d thieves", Goal = 3 },
+	{ Id = "Lock", Text = "Lock your base %d times", Goal = 5 },
+	{ Id = "Minutes", Text = "Play for %d minutes", Goal = 20 },
+	{ Id = "Grab", Text = "Grab %d admin drops", Goal = 1 },
+} :: { QuestDef }
+
+Config.WeeklyQuests = {
+	{ Id = "Buy", Text = "Buy %d brainrots", Goal = 400 },
+	{ Id = "BuyLegendary", Text = "Buy %d Legendary or better brainrots", Goal = 15 },
+	{ Id = "BuyMutated", Text = "Buy %d mutated brainrots", Goal = 20 },
+	{ Id = "Steal", Text = "Steal %d brainrots", Goal = 40 },
+	{ Id = "Slap", Text = "Slap %d thieves", Goal = 50 },
+	{ Id = "Minutes", Text = "Play for %d minutes", Goal = 360 },
+	{ Id = "Rebirth", Text = "Rebirth %d times", Goal = 2 },
+	{ Id = "Upgrade", Text = "Buy %d base or lock upgrades", Goal = 3 },
+} :: { QuestDef }
+
+Config.QuestsPerPeriod = 3
+Config.DailyShards = 10 -- per daily quest
+Config.WeeklyDiamonds = 1 -- per weekly quest
+Config.WeeklyShards = 100 -- per weekly quest, on top of the Diamond
+
+-- The day and week numbers quests are keyed on (local to the admin abuse
+-- time zone, so "midnight" is Oklahoma midnight).
+function Config.QuestPeriods(now: number): (number, number, number, number)
+	local localNow = now + Config.AdminAbuseUtcOffset(now)
+	local day = localNow // 86400
+	-- Unix day 0 was a Thursday; +3 makes weeks start on Monday.
+	local week = (day + 3) // 7
+	local secondsToDay = 86400 - localNow % 86400
+	local secondsToWeek = (7 - (day + 3) % 7) * 86400 - localNow % 86400
+	return day, week, secondsToDay, secondsToWeek
+end
+
+-- The quests everyone gets for a given day/week. Same seed -> same quests.
+function Config.PickQuests(pool: { QuestDef }, seed: number): { QuestDef }
+	local rng = Random.new(seed)
+	local indexes = {}
+	for i = 1, #pool do
+		indexes[i] = i
+	end
+	local picked = {}
+	for i = 1, math.min(Config.QuestsPerPeriod, #pool) do
+		local j = rng:NextInteger(i, #indexes)
+		indexes[i], indexes[j] = indexes[j], indexes[i]
+		table.insert(picked, pool[indexes[i]])
+	end
+	return picked
+end
+
 -- Stair carpets -------------------------------------------------------------
 -- Stairs start as plain wood. Every 5 rebirths they get a fancier carpet.
 

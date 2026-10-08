@@ -13,7 +13,7 @@ local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local WorldBuilder = require(script.Parent:WaitForChild("WorldBuilder"))
-local BrainrotModel = require(script.Parent:WaitForChild("BrainrotModel"))
+local BrainrotModel = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BrainrotModel"))
 local LimitedStock = require(script.Parent:WaitForChild("LimitedStock"))
 
 -- Remotes ------------------------------------------------------------------
@@ -36,6 +36,9 @@ local RequestRebirth: RemoteEvent = makeRemote("RemoteEvent", "RequestRebirth")
 local AdminAction: RemoteEvent = makeRemote("RemoteEvent", "AdminAction")
 local BuyLimited: RemoteFunction = makeRemote("RemoteFunction", "BuyLimited")
 local RequestUpgrade: RemoteEvent = makeRemote("RemoteEvent", "RequestUpgrade")
+local SetFollowers: RemoteEvent = makeRemote("RemoteEvent", "SetFollowers")
+local SkinAction: RemoteEvent = makeRemote("RemoteEvent", "SkinAction")
+local DiamondPurchase: RemoteEvent = makeRemote("RemoteEvent", "DiamondPurchase")
 
 remotes.Parent = ReplicatedStorage
 ReplicatedStorage:SetAttribute("LuckEndsAt", 0)
@@ -52,6 +55,22 @@ type SaveData = {
 	LockLevel: number,
 	Receipts: { string }, -- recent purchase ids, so a purchase is never granted twice
 	Unclaimed: { string }, -- paid brainrots waiting for a free slot
+	Followers: { string }, -- up to 3 brainrots (encoded) that follow you as minis
+	Shards: number,
+	Diamonds: number,
+	Skins: { string }, -- owned wall skin ids
+	Skin: string, -- equipped wall skin
+	Quests: QuestState,
+	CashBoostUntil: number, -- unix time the Diamond Shop 2x Cash boost ends
+}
+
+type QuestState = {
+	Day: number,
+	Week: number,
+	Daily: { [string]: number }, -- quest id -> progress
+	Weekly: { [string]: number },
+	DailyDone: { [string]: boolean },
+	WeeklyDone: { [string]: boolean },
 }
 
 type Slot = {
@@ -82,6 +101,7 @@ type Session = {
 	LastCollect: number,
 	IsAdmin: boolean,
 	LastLimitedTry: number,
+	FollowerModels: { Model },
 }
 
 type Carry = {
@@ -164,6 +184,9 @@ local function incomeMultiplier(session: Session): number
 	if session.Owns.DoubleCash then
 		multiplier *= 2
 	end
+	if os.time() < session.Data.CashBoostUntil then
+		multiplier *= 2
+	end
 	return multiplier
 end
 
@@ -241,6 +264,13 @@ local function defaultData(): SaveData
 		LockLevel = 1,
 		Receipts = {},
 		Unclaimed = {},
+		Followers = {},
+		Shards = 0,
+		Diamonds = 0,
+		Skins = { "Classic" },
+		Skin = "Classic",
+		CashBoostUntil = 0,
+		Quests = { Day = -1, Week = -1, Daily = {}, Weekly = {}, DailyDone = {}, WeeklyDone = {} },
 	}
 end
 
@@ -277,6 +307,65 @@ local function sanitize(raw: any): SaveData
 				end
 			end
 		end
+	end
+	if type(raw.Followers) == "table" then
+		for _, entry in raw.Followers do
+			if type(entry) == "string" and #data.Followers < 3 then
+				table.insert(data.Followers, entry)
+			end
+		end
+	end
+	if type(raw.Shards) == "number" then
+		data.Shards = math.max(0, math.floor(raw.Shards))
+	end
+	if type(raw.Diamonds) == "number" then
+		data.Diamonds = math.max(0, math.floor(raw.Diamonds))
+	end
+	if type(raw.Skins) == "table" then
+		for _, id in raw.Skins do
+			if type(id) == "string" and Config.GetWallSkin(id) and not table.find(data.Skins, id) then
+				table.insert(data.Skins, id)
+			end
+		end
+	end
+	if type(raw.CashBoostUntil) == "number" then
+		data.CashBoostUntil = raw.CashBoostUntil
+	end
+	if type(raw.Skin) == "string" and table.find(data.Skins, raw.Skin) then
+		data.Skin = raw.Skin
+	end
+	if type(raw.Quests) == "table" then
+		local q = raw.Quests
+		local function numbers(t: any): { [string]: number }
+			local out = {}
+			if type(t) == "table" then
+				for k, v in t do
+					if type(k) == "string" and type(v) == "number" then
+						out[k] = v
+					end
+				end
+			end
+			return out
+		end
+		local function flags(t: any): { [string]: boolean }
+			local out = {}
+			if type(t) == "table" then
+				for k, v in t do
+					if type(k) == "string" and v == true then
+						out[k] = true
+					end
+				end
+			end
+			return out
+		end
+		data.Quests = {
+			Day = if type(q.Day) == "number" then q.Day else -1,
+			Week = if type(q.Week) == "number" then q.Week else -1,
+			Daily = numbers(q.Daily),
+			Weekly = numbers(q.Weekly),
+			DailyDone = flags(q.DailyDone),
+			WeeklyDone = flags(q.WeeklyDone),
+		}
 	end
 	if type(raw.Unclaimed) == "table" then
 		for _, entry in raw.Unclaimed do
@@ -331,6 +420,65 @@ local function limitedOwned(session: Session): { [string]: number }
 	return owned
 end
 
+-- Quests ---------------------------------------------------------------------
+
+local function currentQuests(): ({ Config.QuestDef }, { Config.QuestDef }, number, number, number, number)
+	local day, week, toDay, toWeek = Config.QuestPeriods(workspace:GetServerTimeNow())
+	return Config.PickQuests(Config.DailyQuests, day * 31 + 7), Config.PickQuests(Config.WeeklyQuests, week * 53 + 11), day, week, toDay, toWeek
+end
+
+-- Clears progress when a new day or week starts.
+local function refreshQuestPeriod(data: SaveData)
+	local _, _, day, week = currentQuests()
+	local q = data.Quests
+	if q.Day ~= day then
+		q.Day, q.Daily, q.DailyDone = day, {}, {}
+	end
+	if q.Week ~= week then
+		q.Week, q.Weekly, q.WeeklyDone = week, {}, {}
+	end
+end
+
+local function questSnapshot(data: SaveData)
+	refreshQuestPeriod(data)
+	local daily, weekly, _, _, toDay, toWeek = currentQuests()
+	local function list(defs: { Config.QuestDef }, counts: { [string]: number }, done: { [string]: boolean })
+		local out = {}
+		for _, quest in defs do
+			table.insert(out, {
+				Text = string.format(quest.Text, quest.Goal),
+				Goal = quest.Goal,
+				Progress = counts[quest.Id] or 0,
+				Done = done[quest.Id] == true,
+			})
+		end
+		return out
+	end
+	return {
+		Daily = list(daily, data.Quests.Daily, data.Quests.DailyDone),
+		Weekly = list(weekly, data.Quests.Weekly, data.Quests.WeeklyDone),
+		DayResetIn = toDay,
+		WeekResetIn = toWeek,
+	}
+end
+
+-- Your base's brainrots, for the followers panel.
+local function baseList(session: Session)
+	local list = {}
+	local plot = session.Plot
+	if plot then
+		for index, slot in plot.Slots do
+			table.insert(list, {
+				Slot = index,
+				Id = slot.Id,
+				Mutation = slot.Mutation,
+				Following = table.find(session.FollowerModels, slot.Model) ~= nil,
+			})
+		end
+	end
+	return list
+end
+
 local function snapshot(session: Session)
 	local data = session.Data
 	local plot = session.Plot
@@ -352,6 +500,13 @@ local function snapshot(session: Session)
 		PlotIndex = if plot then plot.Parts.Index else 0,
 		IsAdmin = session.IsAdmin,
 		Limited = limitedOwned(session),
+		Shards = data.Shards,
+		CashBoostLeft = math.max(0, data.CashBoostUntil - os.time()),
+		Diamonds = data.Diamonds,
+		Skins = data.Skins,
+		Skin = data.Skin,
+		Quests = questSnapshot(data),
+		Base = baseList(session),
 	}
 end
 
@@ -398,6 +553,79 @@ local function save(player: Player): boolean
 		warn("[BrainrotHeist] Failed to save", player.Name, err)
 	end
 	return ok
+end
+
+-- Counts towards every active quest that tracks `stat` and pays out when done.
+local function addQuestProgress(player: Player, stat: string, amount: number)
+	local session = sessions[player]
+	if not session or not session.Loaded then
+		return
+	end
+	local data = session.Data
+	refreshQuestPeriod(data)
+	local daily, weekly = currentQuests()
+	local changed = false
+	local function progress(list: { Config.QuestDef }, counts: { [string]: number }, done: { [string]: boolean }, isWeekly: boolean)
+		for _, quest in list do
+			if quest.Id == stat and not done[quest.Id] then
+				counts[quest.Id] = math.min(quest.Goal, (counts[quest.Id] or 0) + amount)
+				changed = true
+				if counts[quest.Id] >= quest.Goal then
+					done[quest.Id] = true
+					local text = string.format(quest.Text, quest.Goal)
+					if isWeekly then
+						data.Diamonds += Config.WeeklyDiamonds
+						data.Shards += Config.WeeklyShards
+						notify(player, string.format("WEEKLY QUEST DONE: %s  +%d Diamond, +%d Shards!", text, Config.WeeklyDiamonds, Config.WeeklyShards))
+					else
+						data.Shards += Config.DailyShards
+						notify(player, "Daily quest done: " .. text .. "  +" .. Config.DailyShards .. " Shards!")
+					end
+				end
+			end
+		end
+	end
+	progress(daily, data.Quests.Daily, data.Quests.DailyDone, false)
+	progress(weekly, data.Quests.Weekly, data.Quests.WeeklyDone, true)
+	if changed then
+		push(player)
+	end
+end
+
+-- Followers ------------------------------------------------------------------
+-- Up to 3 of your brainrots follow you around as minis. They're drawn by
+-- every client from the "Followers" attribute. If one leaves your base
+-- (stolen, sold, rebirth) its mini disappears too.
+
+local function updateFollowers(player: Player)
+	local session = sessions[player]
+	local plot = session and session.Plot
+	if not session then
+		return
+	end
+	local kept: { Model } = {}
+	local entries: { string } = {}
+	for _, model in session.FollowerModels do
+		local ownedSlot = nil
+		if plot then
+			for _, slot in plot.Slots do
+				if slot.Model == model then
+					ownedSlot = slot
+					break
+				end
+			end
+		end
+		if ownedSlot then
+			table.insert(kept, model)
+			table.insert(entries, Config.Encode(ownedSlot.Id, ownedSlot.Mutation))
+		end
+	end
+	session.FollowerModels = kept
+	session.Data.Followers = entries
+	local text = table.concat(entries, ",")
+	if player:GetAttribute("Followers") ~= text then
+		player:SetAttribute("Followers", text)
+	end
 end
 
 -- Brainrots in bases -------------------------------------------------------
@@ -604,6 +832,7 @@ local function completeCarry(carry: Carry)
 	victimPlot.Slots[carry.SlotIndex] = nil
 	placeBrainrot(thiefPlot, index, slot.Id, slot.Mutation, slot.Model, false)
 	thiefSession.Data.Steals += 1
+	addQuestProgress(thief, "Steal", 1)
 
 	local brainrot = Config.GetBrainrot(slot.Id) :: Config.Brainrot
 	local name = fullName(brainrot, slot.Mutation)
@@ -832,7 +1061,7 @@ local function assignPlot(player: Player, session: Session)
 			plot.Parts.OwnerLabel.Text = player.DisplayName .. "'s Base"
 			session.Plot = plot
 			updateVipPedestals(plot)
-			WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories)
+			WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories, Config.GetWallSkin(session.Data.Skin))
 			WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
 			WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
 			setLaser(plot, false)
@@ -855,6 +1084,16 @@ local function assignPlot(player: Player, session: Session)
 			end
 			updateUpgradeLabel(plot)
 			deliverUnclaimed(player, session)
+			-- Re-pick saved followers from the placed brainrots.
+			for _, entry in session.Data.Followers do
+				for _, slot in plot.Slots do
+					if Config.Encode(slot.Id, slot.Mutation) == entry and not table.find(session.FollowerModels, slot.Model) then
+						table.insert(session.FollowerModels, slot.Model)
+						break
+					end
+				end
+			end
+			updateFollowers(player)
 			return
 		end
 	end
@@ -881,7 +1120,7 @@ end
 
 -- Applies a base's saved wall, floor and lock levels to the world.
 local function applyBaseLevels(plot: Plot, session: Session)
-	WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories)
+	WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories, Config.GetWallSkin(session.Data.Skin))
 	WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
 	WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
 	setLaser(plot, os.clock() < plot.LockedUntil)
@@ -934,6 +1173,7 @@ local function onUpgrade(player: Player, plot: Plot, kind: string)
 	end
 	applyBaseLevels(plot, session)
 	notify(player, "Upgraded: " .. name .. "!")
+	addQuestProgress(player, "Upgrade", 1)
 	push(player)
 end
 
@@ -957,6 +1197,7 @@ for _, plot in plots do
 		session.Data.Cash += amount
 		plot.Parts.PendingLabel.Text = "COLLECT\n$0"
 		push(player)
+		addQuestProgress(player, "Collect", 1)
 	end)
 
 	plot.Parts.LockPad.Touched:Connect(function(hit)
@@ -977,6 +1218,7 @@ for _, plot in plots do
 			return
 		end
 		lockBase(plot)
+		addQuestProgress(player, "Lock", 1)
 	end)
 
 	local function onLaserTouched(beam: BasePart, hit: BasePart)
@@ -1000,6 +1242,96 @@ for _, plot in plots do
 		end)
 	end
 end
+
+-- Followers panel: the client sends up to 3 slot numbers from its base.
+SetFollowers.OnServerEvent:Connect(function(player: Player, indexes: unknown)
+	local session = sessions[player]
+	local plot = session and session.Plot
+	if not session or not plot or type(indexes) ~= "table" then
+		return
+	end
+	local chosen: { Model } = {}
+	for _, index in indexes :: { any } do
+		local slot = if type(index) == "number" then plot.Slots[index] else nil
+		if slot and #chosen < 3 and not table.find(chosen, slot.Model) then
+			table.insert(chosen, slot.Model)
+		end
+	end
+	session.FollowerModels = chosen
+	updateFollowers(player)
+	push(player)
+end)
+
+-- Diamond Shop counter. You have to be at the booth, like a real shop.
+DiamondPurchase.OnServerEvent:Connect(function(player: Player, itemId: unknown)
+	local session = sessions[player]
+	local hrp = getRoot(player)
+	if not session or not session.Loaded or not hrp or type(itemId) ~= "string" then
+		return
+	end
+	if (hrp.Position - world.ShopPosition).Magnitude > 35 then
+		notify(player, "Go to the Diamond Shop to buy that!")
+		return
+	end
+	local item: Config.DiamondItem? = nil
+	for _, candidate in Config.DiamondShop do
+		if candidate.Id == itemId then
+			item = candidate
+		end
+	end
+	if not item then
+		return
+	end
+	local data = session.Data
+	if data.Diamonds < item.Cost then
+		notify(player, string.format("You need %d Diamonds. Earn them from weekly quests!", item.Cost))
+		return
+	end
+	data.Diamonds -= item.Cost
+	if item.Id == "ShardPack" then
+		data.Shards += Config.ShardPackAmount
+	elseif item.Id == "CashBoost" then
+		data.CashBoostUntil = math.max(os.time(), data.CashBoostUntil) + Config.CashBoostSeconds
+	elseif item.Id == "ServerLuck" then
+		local now = workspace:GetServerTimeNow()
+		local current = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number? or 0
+		ReplicatedStorage:SetAttribute("LuckEndsAt", math.max(now, current) + Config.ServerLuckDuration)
+		Announce:FireAllClients("luck", player.DisplayName, "")
+	end
+	notify(player, "Bought " .. item.Name .. "!")
+	push(player)
+end)
+
+-- Wall skins: buy with Shards/Diamonds, or equip one you own.
+SkinAction.OnServerEvent:Connect(function(player: Player, action: unknown, skinId: unknown)
+	local session = sessions[player]
+	local skin = if type(skinId) == "string" then Config.GetWallSkin(skinId) else nil
+	if not session or not session.Loaded or not skin then
+		return
+	end
+	local data = session.Data
+	if action == "Buy" and not table.find(data.Skins, skin.Id) then
+		local balance = if skin.Currency == "Diamonds" then data.Diamonds else data.Shards
+		if balance < skin.Cost then
+			notify(player, string.format("You need %d %s for %s.", skin.Cost, skin.Currency, skin.Name))
+			return
+		end
+		if skin.Currency == "Diamonds" then
+			data.Diamonds -= skin.Cost
+		else
+			data.Shards -= skin.Cost
+		end
+		table.insert(data.Skins, skin.Id)
+		notify(player, "Unlocked " .. skin.Name .. "!")
+	elseif not table.find(data.Skins, skin.Id) then
+		return
+	end
+	data.Skin = skin.Id
+	if session.Plot then
+		applyBaseLevels(session.Plot, session)
+	end
+	push(player)
+end)
 
 -- The upgrades panel. You have to be at your base's upgrade post.
 RequestUpgrade.OnServerEvent:Connect(function(player: Player, kind: unknown)
@@ -1051,6 +1383,17 @@ local function onBuy(player: Player, model: Model, brainrot: Config.Brainrot, mu
 	session.Data.Cash -= price
 	placeBrainrot(plot, index, brainrot.Id, mutation, model, true)
 	notify(player, "Bought " .. fullName(brainrot, mutation) .. "! It's walking to your base.")
+	local order = Config.Rarities[brainrot.Rarity].Order
+	addQuestProgress(player, "Buy", 1)
+	if order >= 3 then
+		addQuestProgress(player, "BuyEpic", 1)
+	end
+	if order >= 4 then
+		addQuestProgress(player, "BuyLegendary", 1)
+	end
+	if mutation then
+		addQuestProgress(player, "BuyMutated", 1)
+	end
 	if isNotable(brainrot, mutation) then
 		Announce:FireAllClients("buy", player.DisplayName, brainrot.Id, "", mutation)
 	end
@@ -1140,6 +1483,7 @@ local function onSlap(player: Player, tool: Tool)
 					if carry then
 						returnCarry(carry, player.DisplayName .. " slapped you! The brainrot ran home.")
 						notify(player, "You saved the brainrot!")
+						addQuestProgress(player, "Slap", 1)
 					end
 				end
 			end
@@ -1241,6 +1585,7 @@ local function load(player: Player)
 		LastCollect = 0,
 		IsAdmin = false,
 		LastLimitedTry = 0,
+		FollowerModels = {},
 	}
 	sessions[player] = session
 
@@ -1388,6 +1733,7 @@ RequestRebirth.OnServerEvent:Connect(function(player)
 	end
 	Announce:FireAllClients("rebirth", player.DisplayName, "", tostring(session.Data.Rebirths))
 	push(player)
+	addQuestProgress(player, "Rebirth", 1)
 	task.spawn(save, player)
 end)
 
@@ -1413,10 +1759,16 @@ dropsFolder.Parent = workspace:FindFirstChild("BrainrotHeist")
 ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)
 
 local function randomDropPosition(): Vector3
-	-- Stay clear of the caves at both ends of the conveyor.
-	local x = rng:NextNumber(world.ConveyorStart.X + 25, world.ConveyorEnd.X - 25)
-	local side = if rng:NextNumber() < 0.5 then -1 else 1
-	return Vector3.new(x, 0.1, side * rng:NextNumber(12, 38))
+	while true do
+		-- Stay clear of the caves at both ends and the Diamond Shop booth.
+		local x = rng:NextNumber(world.ConveyorStart.X + 25, world.ConveyorEnd.X - 25)
+		local side = if rng:NextNumber() < 0.5 then -1 else 1
+		local position = Vector3.new(x, 0.1, side * rng:NextNumber(12, 38))
+		local offset = position - world.ShopPosition
+		if math.abs(offset.X) > 18 or math.abs(offset.Z) > 12 then
+			return position
+		end
+	end
 end
 
 local function fallBeam(position: Vector3, color: Color3): BasePart
@@ -1483,6 +1835,7 @@ local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?)
 		beam:Destroy()
 		placeBrainrot(plot, index, brainrot.Id, mutation, model, true)
 		notify(player, "You grabbed " .. fullName(brainrot, mutation) .. "!")
+		addQuestProgress(player, "Grab", 1)
 		if isNotable(brainrot, mutation) then
 			Announce:FireAllClients("grab", player.DisplayName, brainrot.Id, "", mutation)
 		end
@@ -1702,6 +2055,14 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 					applyBaseLevels(plot, session)
 				end
 				notify(admin, string.format("%s: base level %d, lock level %d", player.DisplayName, data.WallLevel, data.LockLevel))
+			elseif action == "Shards" or action == "Diamonds" then
+				local amount = math.floor(parseAmount(value) or 0)
+				if action == "Shards" then
+					data.Shards = math.max(0, data.Shards + amount)
+				else
+					data.Diamonds = math.max(0, data.Diamonds + amount)
+				end
+				notify(admin, string.format("%s: %d Shards, %d Diamonds", player.DisplayName, data.Shards, data.Diamonds))
 			elseif action == "Rebirths" then
 				data.Rebirths = math.max(0, math.floor(parseAmount(value) or 0))
 				if plot then
@@ -1864,9 +2225,20 @@ end)
 
 task.spawn(function()
 	local sinceSave = 0
+	local sinceMinute = 0
 	while true do
 		task.wait(1)
 		sinceSave += 1
+		sinceMinute += 1
+		for player in sessions do
+			updateFollowers(player)
+		end
+		if sinceMinute >= 60 then
+			sinceMinute = 0
+			for player in sessions do
+				task.spawn(addQuestProgress, player, "Minutes", 1)
+			end
+		end
 		local now = os.clock()
 		for _, plot in plots do
 			local owner = plot.Owner

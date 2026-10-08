@@ -2,6 +2,7 @@
 -- Builds the map: a conveyor down the middle and player bases on both sides.
 -- Everything is made from parts so the place works from an empty Baseplate.
 
+local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -20,6 +21,8 @@ export type PlotParts = {
 	WallFolders: { [number]: Folder },
 	Stories: { [number]: Folder }, -- floors 2+; parented only once bought
 	Stairs: { { Carpet: Folder, Base: CFrame } }, -- Base: bottom-front-center of each staircase
+	LightSets: { [number]: { Ceiling: Folder, Posts: Folder } },
+	Roof: Folder, -- parented only when every floor is built
 	SignPost: BasePart,
 	UpgradePost: BasePart,
 	UpgradeLabel: TextLabel,
@@ -35,6 +38,7 @@ export type World = {
 	ConveyorEnd: Vector3,
 	CarriedFolder: Folder,
 	ConveyorFolder: Folder,
+	ShopPosition: Vector3, -- center of the Diamond Shop booth
 }
 
 local PLOT_SIZE = 60
@@ -118,9 +122,16 @@ local UPPER_PEDESTALS = {
 
 -- One straight wall. `cf` is the bottom-center with local X running along the
 -- wall. Walls 5+ studs tall get blue tinted windows set into real openings.
-local function wallSegment(folder: Instance, cf: CFrame, length: number, height: number, material: Enum.Material)
+export type WallStyle = {
+	Color: Color3,
+	Material: Enum.Material,
+	Glass: Color3,
+	GlassNeon: boolean?,
+}
+
+local function wallSegment(folder: Instance, cf: CFrame, length: number, height: number, style: WallStyle)
 	local function piece(name: string, x: number, y: number, width: number, h: number): Part
-		local p = block(folder, name, Vector3.new(width, h, WALL_THICKNESS), cf * CFrame.new(x, y + h / 2, 0), WALL_COLOR, material)
+		local p = block(folder, name, Vector3.new(width, h, WALL_THICKNESS), cf * CFrame.new(x, y + h / 2, 0), style.Color, style.Material)
 		return p
 	end
 
@@ -144,8 +155,8 @@ local function wallSegment(folder: Instance, cf: CFrame, length: number, height:
 		if gapStart - left > 0.01 then
 			piece("WallPillar", (left + gapStart) / 2, sill, gapStart - left, head - sill)
 		end
-		local glass = block(folder, "Window", Vector3.new(windowWidth, head - sill, 0.4), cf * CFrame.new(center, sill + (head - sill) / 2, 0), GLASS_COLOR, Enum.Material.Glass)
-		glass.Transparency = 0.45
+		local glass = block(folder, "Window", Vector3.new(windowWidth, head - sill, 0.4), cf * CFrame.new(center, sill + (head - sill) / 2, 0), style.Glass, if style.GlassNeon then Enum.Material.Neon else Enum.Material.Glass)
+		glass.Transparency = if style.GlassNeon then 0.35 else 0.45
 		glass.Reflectance = 0.1
 		left = center + windowWidth / 2
 	end
@@ -214,9 +225,10 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		local side = rampSide(story - 1)
 
 		-- Slab with a hole where the ramp from the floor below comes up.
-		local mainX = if side == -1 then 5 else -5
-		block(folder, "Slab", Vector3.new(50, 1, PLOT_SIZE), at(mainX, y - 0.5, 0), color, Enum.Material.Plastic)
-		block(folder, "Slab", Vector3.new(10, 1, 26), at(side * 25, y - 0.5, 17), color, Enum.Material.Plastic)
+		-- Edges stop inside the walls (x/z = +-29) so faces never overlap and flicker.
+		local mainX = if side == -1 then 4.5 else -4.5
+		block(folder, "Slab", Vector3.new(49, 1, 58), at(mainX, y - 0.5, 0), color, Enum.Material.Plastic)
+		block(folder, "Slab", Vector3.new(9, 1, 25), at(side * 24.5, y - 0.5, 16.5), color, Enum.Material.Plastic)
 
 		-- Staircase up from the floor below. Players walk on an invisible
 		-- ramp so climbing is smooth; the steps on top are just for looks.
@@ -253,6 +265,70 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		walls.Parent = folder
 		wallFolders[story] = walls
 		stories[story] = folder
+	end
+
+	-- Lights for every floor: ceiling panels when something is above, lamp
+	-- posts on an open top floor. SetStories shows the right set.
+	local lightSets: { [number]: { Ceiling: Folder, Posts: Folder } } = {}
+	for story = 1, #Config.Stories do
+		local y = storyBase(story)
+		local holder: Instance = if story == 1 then model else stories[story]
+		local ceiling = Instance.new("Folder")
+		ceiling.Name = "CeilingLights"
+		for _, spot in { { -12, -8 }, { 12, -8 }, { -12, 16 }, { 12, 16 } } do
+			local panel = block(ceiling, "LightPanel", Vector3.new(6, 0.3, 2), at(spot[1], y + STORY_HEIGHT - 1.3, spot[2]), Color3.fromRGB(255, 240, 200), Enum.Material.Neon)
+			panel.CanCollide = false
+			panel.CastShadow = false
+		end
+		local ceilingLight = Instance.new("PointLight")
+		ceilingLight.Range = 40
+		ceilingLight.Brightness = 1.3
+		ceilingLight.Color = Color3.fromRGB(255, 235, 200)
+		ceilingLight.Parent = ceiling:FindFirstChild("LightPanel")
+
+		local posts = Instance.new("Folder")
+		posts.Name = "PostLights"
+		for i, spot in { { -25, -20 }, { 25, -20 }, { -25, 25 }, { 25, 25 } } do
+			local pole = block(posts, "LampPole", Vector3.new(0.4, 6, 0.4), at(spot[1], y + 3, spot[2]), Color3.fromRGB(40, 40, 45), Enum.Material.Metal)
+			pole.CanCollide = false
+			local lamp = block(posts, "Lamp", Vector3.new(1.2, 1.2, 1.2), at(spot[1], y + 6.4, spot[2]), Color3.fromRGB(255, 235, 180), Enum.Material.Neon)
+			lamp.Shape = Enum.PartType.Ball
+			lamp.CanCollide = false
+			if i == 1 then
+				local light = Instance.new("PointLight")
+				light.Range = 45
+				light.Brightness = 1.2
+				light.Color = Color3.fromRGB(255, 230, 180)
+				light.Parent = lamp
+			end
+		end
+		ceiling.Parent = holder
+		posts.Parent = holder
+		lightSets[story] = { Ceiling = ceiling, Posts = posts }
+	end
+
+	-- Roof: only once the base is fully upgraded.
+	local roof = Instance.new("Folder")
+	roof.Name = "Roof"
+	do
+		local top = storyBase(#Config.Stories) + STORY_HEIGHT
+		local roofColor = Color3.fromRGB(90, 60, 55)
+		block(roof, "RoofSlab", Vector3.new(PLOT_SIZE, 1, PLOT_SIZE), at(0, top + 0.5, 0), WALL_COLOR, Enum.Material.Concrete)
+		for _, side in { -1, 1 } do
+			-- Two wedges meet at a ridge along the middle (wedges rise toward local +Z).
+			local wedge = Instance.new("WedgePart")
+			wedge.Name = "RoofSlope"
+			wedge.Anchored = true
+			wedge.Size = Vector3.new(PLOT_SIZE + 2, 10, PLOT_SIZE / 2 + 1)
+			wedge.CFrame = at(0, top + 6, side * (PLOT_SIZE / 4 + 0.5)) * CFrame.Angles(0, if side == 1 then math.pi else 0, 0)
+			wedge.Color = roofColor
+			wedge.Material = Enum.Material.Slate
+			wedge.Parent = roof
+		end
+		local ridge = block(roof, "RoofRidge", Vector3.new(PLOT_SIZE + 3, 1.2, 1.2), at(0, top + 11.2, 0), Color3.fromRGB(255, 200, 60), Enum.Material.Foil)
+		ridge.Shape = Enum.PartType.Cylinder
+		local star = block(roof, "RoofStar", Vector3.new(3, 3, 3), at(0, top + 13.5, 0), Color3.fromRGB(255, 215, 80), Enum.Material.Neon)
+		star.Shape = Enum.PartType.Ball
 	end
 
 	local collectPad = block(model, "CollectPad", Vector3.new(8, 0.4, 8), at(12, FLOOR_TOP + 0.2, -12), Color3.fromRGB(60, 220, 90), Enum.Material.Neon)
@@ -292,6 +368,8 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		WallFolders = wallFolders,
 		Stories = stories,
 		Stairs = stairs,
+		LightSets = lightSets,
+		Roof = roof,
 		SignPost = signPost,
 		UpgradePost = upgradePost,
 		UpgradeLabel = upgradeLabel,
@@ -305,30 +383,42 @@ end
 -- Rebuilds every floor's walls (with windows) for a wall level, and marks
 -- which entrance laser beams cover the doorway. Floors with another floor
 -- above get walls all the way up to it, so there are no gaps.
-function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: number)
+function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: number, skin: Config.WallSkin?)
 	local info = Config.WallLevels[level] or Config.WallLevels[1]
+	local style: WallStyle = {
+		Color = if skin and skin.Color then skin.Color else WALL_COLOR,
+		Material = if skin and skin.Material then skin.Material else info.Material,
+		Glass = if skin and skin.Glass then skin.Glass else GLASS_COLOR,
+		GlassNeon = if skin then skin.GlassNeon else nil,
+	}
 	local half = PLOT_SIZE / 2
-	local frontWidth = (PLOT_SIZE - ENTRANCE_WIDTH) / 2
+	local inner = PLOT_SIZE - WALL_THICKNESS * 2 -- back/front walls fit between the side walls
+	local frontWidth = (inner - ENTRANCE_WIDTH) / 2
 	local turn = CFrame.Angles(0, math.pi / 2, 0)
+	local roofed = stories >= #Config.Stories
 
-	local groundHeight = if stories > 1 then STORY_HEIGHT - 1 else info.Height
-	local doorHeight = math.min(groundHeight, DOOR_HEIGHT)
+	-- Floors with a floor (or the roof) above get walls all the way up to it.
+	local function heightOf(story: number): number
+		return if story < stories or roofed then STORY_HEIGHT else info.Height
+	end
+	local doorHeight = math.min(heightOf(1), DOOR_HEIGHT)
 	for story, folder in parts.WallFolders do
 		folder:ClearAllChildren()
 		local y = storyBase(story)
-		local height = if story < stories then STORY_HEIGHT - 1 else info.Height
+		local height = heightOf(story)
 		local function at(x: number, z: number): CFrame
 			return parts.CFrame * CFrame.new(x, y - FLOOR_TOP, z)
 		end
-		wallSegment(folder, at(0, half - 1), PLOT_SIZE, height, info.Material)
-		wallSegment(folder, at(-half + 1, 0) * turn, PLOT_SIZE, height, info.Material)
-		wallSegment(folder, at(half - 1, 0) * turn, PLOT_SIZE, height, info.Material)
+		wallSegment(folder, at(-half + 1, 0) * turn, PLOT_SIZE, height, style)
+		wallSegment(folder, at(half - 1, 0) * turn, PLOT_SIZE, height, style)
+		wallSegment(folder, at(0, half - 1), inner, height, style)
 		if story == 1 then
-			wallSegment(folder, at(-half + frontWidth / 2, -half + 1), frontWidth, height, info.Material)
-			wallSegment(folder, at(half - frontWidth / 2, -half + 1), frontWidth, height, info.Material)
+			local frontX = ENTRANCE_WIDTH / 2 + frontWidth / 2
+			wallSegment(folder, at(-frontX, -half + 1), frontWidth, height, style)
+			wallSegment(folder, at(frontX, -half + 1), frontWidth, height, style)
 			-- Solid lintel above the doorway when the walls are taller than it.
 			if height > doorHeight + 0.1 then
-				block(folder, "Lintel", Vector3.new(ENTRANCE_WIDTH, height - doorHeight, WALL_THICKNESS), at(0, -half + 1) * CFrame.new(0, doorHeight + (height - doorHeight) / 2, 0), WALL_COLOR, info.Material)
+				block(folder, "Lintel", Vector3.new(ENTRANCE_WIDTH, height - doorHeight, WALL_THICKNESS), at(0, -half + 1) * CFrame.new(0, doorHeight + (height - doorHeight) / 2, 0), style.Color, style.Material)
 			end
 			-- Laser emitter posts on both sides of the door.
 			for _, side in { -1, 1 } do
@@ -337,7 +427,7 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 				block(folder, "LaserStrip", Vector3.new(0.25, doorHeight - 0.4, 0.25), at(x - side * 0.55, -half + 1) * CFrame.new(0, doorHeight / 2, 0), Color3.fromRGB(255, 40, 40), Enum.Material.Neon)
 			end
 		else
-			wallSegment(folder, at(0, -half + 1), PLOT_SIZE, height, info.Material)
+			wallSegment(folder, at(0, -half + 1), inner, height, style)
 		end
 	end
 
@@ -397,11 +487,21 @@ end
 
 -- Shows the floors a base has bought and lifts the owner sign above them.
 function WorldBuilder.SetStories(parts: PlotParts, count: number)
+	local roofed = count >= #Config.Stories
 	for story, folder in parts.Stories do
 		folder.Parent = if story <= count then parts.Model else nil
 	end
+	for story, set in parts.LightSets do
+		-- Ceiling lights under every floor or roof; lamp posts on an open top floor.
+		local holder: Instance = if story == 1 then parts.Model else parts.Stories[story]
+		local covered = story < count or roofed
+		set.Ceiling.Parent = if covered then holder else nil
+		set.Posts.Parent = if covered then nil else holder
+	end
+	parts.Roof.Parent = if roofed then parts.Model else nil
 	local sign = parts.SignPost
-	sign.CFrame = sign.CFrame.Rotation + Vector3.new(sign.Position.X, storyBase(count) + SIGN_HEIGHT, sign.Position.Z)
+	local signY = if roofed then storyBase(count) + STORY_HEIGHT + 17 else storyBase(count) + SIGN_HEIGHT
+	sign.CFrame = sign.CFrame.Rotation + Vector3.new(sign.Position.X, signY, sign.Position.Z)
 end
 
 -- A rocky cave around one end of the conveyor. `facing` is the direction
@@ -503,6 +603,101 @@ local function buildCave(parent: Instance, name: string, mouthPosition: Vector3,
 	cave:PivotTo(CFrame.new(mouthPosition) * CFrame.Angles(0, if facing < 0 then math.pi else 0, 0))
 end
 
+-- The Diamond Shop: a bright booth by the spawn with a giant spinning
+-- diamond on top. Left counter = Diamond Shop, right counter = Robux Shop.
+-- Its front (the counters) faces the conveyor (-Z).
+local function buildShop(parent: Instance, center: Vector3)
+	local shop = Instance.new("Model")
+	shop.Name = "DiamondShop"
+	shop.Parent = parent
+	local function at(x: number, y: number, z: number): CFrame
+		return CFrame.new(center + Vector3.new(x, y, z))
+	end
+
+	local cyan = Color3.fromRGB(80, 220, 255)
+	local pink = Color3.fromRGB(255, 90, 200)
+	local gold = Color3.fromRGB(255, 200, 60)
+	local purple = Color3.fromRGB(110, 50, 190)
+
+	-- Platform with a glowing trim
+	block(shop, "ShopFloor", Vector3.new(26, 1, 14), at(0, 0.5, 0), Color3.fromRGB(245, 240, 255), Enum.Material.Marble)
+	block(shop, "ShopTrim", Vector3.new(26.6, 0.4, 14.6), at(0, 0.2, 0), cyan, Enum.Material.Neon)
+	block(shop, "ShopBack", Vector3.new(26, 12, 1), at(0, 7, 6.5), purple, Enum.Material.SmoothPlastic)
+	for _, x in { -12.5, 12.5 } do
+		for _, z in { -6.5, 6.5 } do
+			block(shop, "ShopPillar", Vector3.new(1, 12, 1), at(x, 7, z), gold, Enum.Material.Foil)
+		end
+	end
+
+	-- Striped awning roof, tilted down toward the front
+	for i = 0, 7 do
+		local stripe = block(shop, "Awning", Vector3.new(3.4, 0.5, 15.5), at(-11.9 + i * 3.4, 13.4, 0) * CFrame.Angles(math.rad(-10), 0, 0), if i % 2 == 0 then pink else Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+		stripe.CastShadow = false
+	end
+	for i = 0, 12 do
+		local scallop = block(shop, "Scallop", Vector3.new(2, 2, 2), at(-12 + i * 2, 12.1, -7.6), if i % 2 == 0 then pink else Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+		scallop.Shape = Enum.PartType.Ball
+	end
+
+	-- Two counters, each with a prompt and a sign
+	local counters = {
+		{ X = -6, Color = cyan, Action = "DiamondShop", Text = "Diamond Shop", Sign = "DIAMONDS" },
+		{ X = 6, Color = Color3.fromRGB(70, 220, 100), Action = "RobuxShop", Text = "Robux Shop", Sign = "ROBUX & EVENT" },
+	}
+	for _, info in counters do
+		local counter = block(shop, "Counter", Vector3.new(9, 3.5, 2.5), at(info.X, 2.75, -3), Color3.fromRGB(250, 250, 255), Enum.Material.SmoothPlastic)
+		block(shop, "CounterTop", Vector3.new(9.4, 0.4, 2.9), at(info.X, 4.7, -3), info.Color, Enum.Material.Neon)
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "ShopPrompt"
+		prompt.ActionText = "Open"
+		prompt.ObjectText = info.Text
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 12
+		prompt.RequiresLineOfSight = false
+		prompt:SetAttribute("Action", info.Action)
+		prompt.Parent = counter
+		local label = billboard(counter, Vector2.new(260, 50), Vector3.new(0, 5.5, 0), info.Sign, info.Color)
+		;(label.Parent :: BillboardGui).MaxDistance = 90
+	end
+
+	-- Big glowing sign on the back wall
+	local signAnchor = block(shop, "ShopSignAnchor", Vector3.new(1, 1, 1), at(0, 10, 5.8), Color3.new(0, 0, 0))
+	signAnchor.Transparency = 1
+	signAnchor.CanCollide = false
+	local sign = billboard(signAnchor, Vector2.new(460, 90), Vector3.zero, "DIAMOND SHOP", cyan)
+	;(sign.Parent :: BillboardGui).MaxDistance = 300
+
+	-- Giant spinning diamond on top (spun by Effects.client via the tag)
+	block(shop, "DiamondStand", Vector3.new(3, 2, 3), at(0, 15, 0), gold, Enum.Material.Foil)
+	local diamond = block(shop, "BigDiamond", Vector3.new(4.5, 4.5, 4.5), at(0, 19.5, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)), cyan, Enum.Material.Neon)
+	diamond.CanCollide = false
+	diamond:SetAttribute("SpinCenter", diamond.CFrame)
+	CollectionService:AddTag(diamond, "Spinner")
+	local glow = Instance.new("PointLight")
+	glow.Color = cyan
+	glow.Range = 35
+	glow.Brightness = 2
+	glow.Parent = diamond
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkles.Color = ColorSequence.new(cyan, Color3.new(1, 1, 1))
+	sparkles.LightEmission = 1
+	sparkles.Rate = 20
+	sparkles.Lifetime = NumberRange.new(1, 2)
+	sparkles.Speed = NumberRange.new(2, 5)
+	sparkles.SpreadAngle = Vector2.new(180, 180)
+	sparkles.Size = NumberSequence.new(0.5)
+	sparkles.Parent = diamond
+
+	-- Searchlights sweeping up from the front corners
+	for _, side in { -1, 1 } do
+		local beam = block(shop, "Searchlight", Vector3.new(1.2, 60, 1.2), at(side * 12.5, 30, -6.5) * CFrame.Angles(0, 0, side * math.rad(-12)), if side < 0 then cyan else pink, Enum.Material.Neon)
+		beam.Transparency = 0.7
+		beam.CanCollide = false
+		beam.CastShadow = false
+	end
+end
+
 function WorldBuilder.Build(): World
 	local existing = workspace:FindFirstChild("BrainrotHeist")
 	if existing then
@@ -572,8 +767,11 @@ function WorldBuilder.Build(): World
 	spawn.Name = "LobbySpawn"
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(12, 1, 12)
-	-- Beside the middle of the conveyor (the ends are caves now).
-	spawn.CFrame = CFrame.new(0, 0.5, 26)
+	-- Beside the middle of the conveyor, right in front of the Diamond Shop.
+	local shopPosition = Vector3.new(0, 0, 28)
+	buildShop(root, shopPosition)
+	spawn.Size = Vector3.new(10, 1, 8)
+	spawn.CFrame = CFrame.new(0, 0.5, 14)
 	spawn.Color = Color3.fromRGB(255, 200, 40)
 	spawn.Material = Enum.Material.Neon
 	spawn.Neutral = true
@@ -596,6 +794,7 @@ function WorldBuilder.Build(): World
 		ConveyorEnd = Vector3.new(endX, 1, 0),
 		CarriedFolder = carried,
 		ConveyorFolder = conveyorFolder,
+		ShopPosition = shopPosition,
 	}
 end
 

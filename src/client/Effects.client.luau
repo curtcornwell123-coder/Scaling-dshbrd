@@ -36,6 +36,16 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 
+	-- Spinning showpieces (the Diamond Shop's giant diamond).
+	for _, part in CollectionService:GetTagged("Spinner") do
+		local center = part:GetAttribute("SpinCenter")
+		if part:IsA("BasePart") and typeof(center) == "CFrame" then
+			part.CFrame = CFrame.new(center.Position + Vector3.new(0, math.sin(t * 1.5) * 0.6, 0))
+				* CFrame.Angles(0, t * 1.2, 0)
+				* center.Rotation
+		end
+	end
+
 	-- Rainbow mutation: shift every part's hue, ~20 times a second.
 	rainbowTimer += dt
 	if rainbowTimer >= 0.05 then

@@ -67,7 +67,7 @@ Lava and Rainbow spawns are announced to the whole server.
 
 Every brainrot has its own built-in design. To swap one for a 3D model:
 
-1. In Studio, create a **Folder** in **ServerStorage** named `BrainrotModels`.
+1. In Studio, create a **Folder** in **ReplicatedStorage** named `BrainrotModels` (so followers can use it too).
 2. Find a model in the **Toolbox** and drag it into that folder.
 3. Rename it to the brainrot's Id, for example `BananitoBandito` or `MeatballoSupremo`. The Ids are in `Config.luau`.
 4. Press Play. The game sizes and places it automatically, applies mutations to it, and strips out any scripts hidden inside it, which is a common way free models carry viruses.
@@ -123,6 +123,28 @@ The admin panel can drop any brainrot (with any mutation) from the sky, start a 
 
 There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. It's set to **Saturday 2:00 PM Central time (Oklahoma)**, and daylight saving is handled automatically. Change it in `Config.AdminAbuse`. Admins can also start or end it any time.
 
+## Quests, Shards, Diamonds and the Diamond Shop
+
+Fair progression for free-to-play players. None of this can be bought with Robux.
+
+- **Daily quests:** 3 a day, the same for everyone, and new ones at midnight Oklahoma time. Each pays **10 Shards**.
+- **Weekly quests:** 3 a week, new every Monday, and much harder. Each pays **1 Diamond + 100 Shards**. Weekly quests are the only way to earn Diamonds.
+- **Wall skins:** open the **QUESTS** button to see them. Most cost Shards (Red Brick 50, Candy 100, Ice 150, Jungle 200, Cyber Neon 300). The best two cost Diamonds (Royal Gold 4, Galaxy 9). Skins only change the look; your base level still sets the wall height.
+- **Diamond Shop:** a striped booth with a giant spinning diamond, right by the spawn.
+  - The left counter spends Diamonds: Shard Pouch (1), 2x Cash for 30 min (2), Server Luck for everyone for 15 min (3), plus the Diamond wall skins.
+  - The right counter opens the **Robux shop**: the limited event brainrot, gamepasses and boosts.
+
+Quest pools, goals, rewards, skins and shop items are all in `Config.luau`.
+
+## Followers
+
+Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around as minis. **PICK MY 3 RAREST** does it in one tap. If one gets stolen, sold or reset by a rebirth, its mini disappears. Limited event brainrots can't be stolen, so theirs stay.
+
+## Base looks
+
+- Every floor gets lights: ceiling panels under each floor, or lamp posts on an open top floor.
+- A fully upgraded base (level 5) gets walls all the way up and a peaked roof with a gold ridge and a glowing star.
+
 ## Make money (Robux)
 
 On the [Creator Dashboard](https://create.roblox.com/dashboard/creations), open your experience, then **Monetization**:
@@ -152,8 +174,10 @@ Purchases are only confirmed after they're saved, and each one is recorded, so p
 src/shared/Config.luau            brainrots, odds, prices, locks, rebirths, Robux items
 src/server/Main.server.luau       saving, bases, conveyor, buying, stealing, slapping, purchases
 src/server/WorldBuilder.luau      builds the map, conveyor and 8 bases from parts
-src/server/BrainrotModel.luau     15 hand-built brainrot designs, mutations, custom-model support
-src/client/Effects.client.luau    idle bobbing + rainbow color cycling (visual only)
+src/shared/BrainrotModel.luau     hand-built brainrot designs, mutations, minis, custom-model support
+src/client/Effects.client.luau    idle bobbing, rainbow cycling, spinning shop diamond (visual only)
+src/client/Followers.client.luau  draws everyone's mini followers
+src/server/LimitedStock.luau      global stock + serials for limited Robux brainrots
 src/client/HUD.client.luau        cash HUD, shop, rebirth menu, announcements, prompts
 ```
 
