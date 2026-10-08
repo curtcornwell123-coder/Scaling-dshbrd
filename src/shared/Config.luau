@@ -464,7 +464,7 @@ export type FounderEvent = {
 	Subtitle: string,
 	DurationMinutes: number,
 	Scale: number,
-	Spot: Vector3, -- the ground under the UFO, off to the side of the map
+	Spots: { Vector3 }, -- the ground under each UFO (one per side of the map)
 	UfoSize: number, -- the UFO's width
 	UfoHeight: number, -- how high the UFO hovers
 	FloatHeight: number, -- how high their feet float in the beam
@@ -487,7 +487,8 @@ Config.FounderEvents = {
 		Subtitle = "Giant Corny is here! Grab everything he throws!",
 		DurationMinutes = 5,
 		Scale = 19, -- about 120 studs tall
-		Spot = Vector3.new(0, 0, 560), -- just past the fence
+		-- One UFO on each side, over the open grass just behind the bases.
+		Spots = { Vector3.new(0, 0, 240), Vector3.new(0, 0, -240) },
 		UfoSize = 260,
 		UfoHeight = 230,
 		FloatHeight = 35,

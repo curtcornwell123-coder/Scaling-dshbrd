@@ -2441,91 +2441,108 @@ local function runFounderEvent(eventId: string, minutes: number)
 	ReplicatedStorage:SetAttribute("FounderEventEndsAt", workspace:GetServerTimeNow() + minutes * 60)
 	Announce:FireAllClients("founder", event.Founder, "", eventId)
 
+	-- One UFO on each side of the map (event.Spots), all at once. They share
+	-- the throwing, so the total drop rate stays the same.
+	local dropEvery = event.DropEvery * #event.Spots
 	local function drop(from: Vector3)
 		founderDrop(from, event.BrainrotChance, event.BrainrotLuck, event.Mutations)
 	end
 
-	-- 1. A UFO flies in and hovers over the spot.
-	local spot = event.Spot
-	local ufo = Founders.CreateUfo(event.UfoSize)
-	local hover = CFrame.new(spot.X, event.UfoHeight, spot.Z)
-	local arriveFrom = hover + Vector3.new(-900, 350, 250)
-	ufo:PivotTo(arriveFrom)
-	ufo.Parent = foundersFolder
-	glide(ufo, arriveFrom, hover, 5)
+	local function runUfo(spot: Vector3)
+		local side = if spot.Z < 0 then -1 else 1
+		-- 1. A UFO flies in from outside the map and hovers over the spot.
+		local ufo = Founders.CreateUfo(event.UfoSize)
+		local hover = CFrame.new(spot.X, event.UfoHeight, spot.Z)
+		local arriveFrom = hover + Vector3.new(-700, 350, 420 * side)
+		ufo:PivotTo(arriveFrom)
+		ufo.Parent = foundersFolder
+		glide(ufo, arriveFrom, hover, 5)
 
-	-- 2. The light beam switches on underneath it.
-	local beamTop = Vector3.new(spot.X, event.UfoHeight - event.UfoSize * 0.14, spot.Z)
-	local beam = Founders.CreateBeam(beamTop, Vector3.new(spot.X, spot.Y, spot.Z), event.UfoSize * 0.3, event.UfoSize * 0.62)
-	beam.Parent = foundersFolder
-	for _, part in beam:GetChildren() do
-		if part:IsA("BasePart") and part.Name ~= "BeamSparkles" then
-			TweenService:Create(part, TweenInfo.new(1), { Transparency = Founders.BeamTransparency }):Play()
-		end
-	end
-	task.wait(1.2)
-
-	-- 3. The founder appears floating in the beam (in their special event
-	-- outfit, not their normal avatar), holding a pose with a rainbow aura.
-	local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
-	if giant then
-		-- Their pose: an animation if one is set, otherwise the floating sage
-		-- pose, frozen in place before they're moved into the beam.
-		if event.PoseAnimationId == "" then
-			Founders.FreezePose(giant, Founders.SagePose)
-		end
-		local feetY = spot.Y + event.FloatHeight
-		local size = placeGiant(giant, spot, feetY)
-		giantPoof(Vector3.new(spot.X, feetY, spot.Z), size.Y, event.Colors[1])
-		if event.PoseAnimationId ~= "" then
-			Founders.Play(giant, event.PoseAnimationId, true, 1, 1, Enum.AnimationPriority.Action)
-		end
-		local aura = Founders.AddAura(giant)
-
-		-- Float gently up and down in the beam, throwing things, while it runs.
-		local base = giant:GetPivot()
-		local started = os.clock()
-		local nextDrop = os.clock() + 1.5
-		local nextColor = 0
-		while giant.Parent and founderEventActive() do
-			local t = os.clock() - started
-			giant:PivotTo(base + Vector3.new(0, math.sin(t * 0.8) * size.Y * 0.02, 0))
-			if os.clock() >= nextColor then
-				nextColor = os.clock() + 0.1
-				aura.OutlineColor = Color3.fromHSV((t * 0.15) % 1, 0.8, 1)
+		-- 2. The light beam switches on underneath it.
+		local beamTop = Vector3.new(spot.X, event.UfoHeight - event.UfoSize * 0.14, spot.Z)
+		local beam = Founders.CreateBeam(beamTop, Vector3.new(spot.X, spot.Y, spot.Z), event.UfoSize * 0.3, event.UfoSize * 0.62)
+		beam.Parent = foundersFolder
+		for _, part in beam:GetChildren() do
+			if part:IsA("BasePart") and part.Name ~= "BeamSparkles" then
+				TweenService:Create(part, TweenInfo.new(1), { Transparency = Founders.BeamTransparency }):Play()
 			end
-			if os.clock() >= nextDrop then
-				nextDrop = os.clock() + event.DropEvery * rng:NextNumber(0.7, 1.3)
-				drop(giantHand(giant))
+		end
+		task.wait(1.2)
+
+		-- 3. The founder appears floating in the beam (in their special event
+		-- outfit, not their normal avatar), holding a pose with a rainbow aura.
+		local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
+		if giant then
+			-- Their pose: an animation if one is set, otherwise the floating
+			-- sage pose, frozen in place before they're moved into the beam.
+			if event.PoseAnimationId == "" then
+				Founders.FreezePose(giant, Founders.SagePose)
 			end
-			RunService.Heartbeat:Wait()
+			local feetY = spot.Y + event.FloatHeight
+			local size = placeGiant(giant, spot, feetY)
+			giantPoof(Vector3.new(spot.X, feetY, spot.Z), size.Y, event.Colors[1])
+			if event.PoseAnimationId ~= "" then
+				Founders.Play(giant, event.PoseAnimationId, true, 1, 1, Enum.AnimationPriority.Action)
+			end
+			local aura = Founders.AddAura(giant)
+
+			-- Float gently up and down in the beam, throwing things.
+			local base = giant:GetPivot()
+			local started = os.clock()
+			local nextDrop = os.clock() + 1.5 + rng:NextNumber(0, dropEvery)
+			local nextColor = 0
+			while giant.Parent and founderEventActive() do
+				local t = os.clock() - started
+				giant:PivotTo(base + Vector3.new(0, math.sin(t * 0.8) * size.Y * 0.02, 0))
+				if os.clock() >= nextColor then
+					nextColor = os.clock() + 0.1
+					aura.OutlineColor = Color3.fromHSV((t * 0.15) % 1, 0.8, 1)
+				end
+				if os.clock() >= nextDrop then
+					nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
+					drop(giantHand(giant))
+				end
+				RunService.Heartbeat:Wait()
+			end
+
+			-- 4. Beamed back up into the UFO.
+			glide(giant, giant:GetPivot(), giant:GetPivot() + Vector3.new(0, event.UfoHeight - feetY, 0), 2.5)
+			giant:Destroy()
+		else
+			-- No giant (shouldn't happen): the UFO drops things itself.
+			while founderEventActive() do
+				drop(beamTop)
+				task.wait(dropEvery)
+			end
 		end
 
-		-- 4. Beamed back up into the UFO.
-		glide(giant, giant:GetPivot(), giant:GetPivot() + Vector3.new(0, event.UfoHeight - feetY, 0), 2.5)
-		giant:Destroy()
-	else
-		-- No giant (shouldn't happen): the UFO drops things itself.
-		while founderEventActive() do
-			drop(beamTop)
-			task.wait(event.DropEvery)
+		-- 5. The beam switches off and the UFO flies away.
+		for _, part in beam:GetChildren() do
+			if part:IsA("BasePart") then
+				TweenService:Create(part, TweenInfo.new(0.8), { Transparency = 1 }):Play()
+			end
+			local sparkles = part:FindFirstChildOfClass("ParticleEmitter")
+			if sparkles then
+				sparkles.Enabled = false
+			end
 		end
+		task.wait(0.8)
+		beam:Destroy()
+		glide(ufo, hover, hover + Vector3.new(700, 450, 420 * side), 4)
+		ufo:Destroy()
 	end
 
-	-- 5. The beam switches off and the UFO flies away.
-	for _, part in beam:GetChildren() do
-		if part:IsA("BasePart") then
-			TweenService:Create(part, TweenInfo.new(0.8), { Transparency = 1 }):Play()
-		end
-		local sparkles = part:FindFirstChildOfClass("ParticleEmitter")
-		if sparkles then
-			sparkles.Enabled = false
-		end
+	local running = 0
+	for _, spot in event.Spots do
+		running += 1
+		task.spawn(function()
+			runUfo(spot)
+			running -= 1
+		end)
 	end
-	task.wait(0.8)
-	beam:Destroy()
-	glide(ufo, hover, hover + Vector3.new(900, 450, -250), 4)
-	ufo:Destroy()
+	while running > 0 do
+		task.wait(0.5)
+	end
 	ReplicatedStorage:SetAttribute("FounderEvent", "")
 	ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
 	founderEventRunning = nil

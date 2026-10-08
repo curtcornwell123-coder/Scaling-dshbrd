@@ -342,6 +342,16 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 			d.CastShadow = true
 		elseif d:IsA("Script") or d:IsA("LocalScript") then
 			d:Destroy()
+		elseif d:IsA("AnimationConstraint") then
+			-- Newer avatars hang their limbs on physics joints; make them hold
+			-- rigidly like classic joints so a giant's limbs can't sag or fall.
+			pcall(function()
+				(d :: any).IsKinematic = true
+			end)
+			pcall(function()
+				(d :: any).MaxForce = math.huge;
+				(d :: any).MaxTorque = math.huge
+			end)
 		end
 	end
 	local root = giant:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -392,37 +402,59 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 	return giant
 end
 
--- How far the giant's root sits above its feet. Real avatars are measured
--- through their joints, standing straight (their limbs aren't moved into
--- place until physics runs, so measuring the parts themselves would sink the
--- giant into the ground). Look-alikes are welded, so their parts are exact.
-function Founders.RootHeight(giant: Model): number
+-- Where every part of a giant sits, worked out from its joints starting at
+-- the root (not from where physics happens to have put the parts), with an
+-- optional pose's turns added. Handles both kinds of avatar joints: classic
+-- Motor6Ds and the newer AnimationConstraints (named the same, e.g.
+-- "RightShoulder"), plus the welds and constraints accessories hang on.
+local function solveRig(giant: Model, pose: { [string]: { number } }?): { [BasePart]: CFrame }
 	local root = giant.PrimaryPart :: BasePart
 	local placed: { [BasePart]: CFrame } = { [root] = root.CFrame }
-	local joints = {}
+	local links: { { P0: BasePart, P1: BasePart, A: CFrame, B: CFrame, Name: string, Turns: boolean } } = {}
 	for _, d in giant:GetDescendants() do
 		if d:IsA("Motor6D") or d:IsA("Weld") then
-			table.insert(joints, d)
+			if d.Part0 and d.Part1 and d.Enabled then
+				table.insert(links, { P0 = d.Part0, P1 = d.Part1, A = d.C0, B = d.C1, Name = d.Name, Turns = d:IsA("Motor6D") })
+			end
+		elseif d:IsA("AnimationConstraint") or d:IsA("RigidConstraint") then
+			local a0, a1 = d.Attachment0, d.Attachment1
+			local p0 = a0 and a0.Parent
+			local p1 = a1 and a1.Parent
+			if d.Enabled and a0 and a1 and p0 and p1 and p0:IsA("BasePart") and p1:IsA("BasePart") then
+				table.insert(links, { P0 = p0, P1 = p1, A = a0.CFrame, B = a1.CFrame, Name = d.Name, Turns = d:IsA("AnimationConstraint") })
+			end
+		elseif d:IsA("WeldConstraint") then
+			local p0, p1 = d.Part0, d.Part1
+			if p0 and p1 then
+				table.insert(links, { P0 = p0, P1 = p1, A = p0.CFrame:ToObjectSpace(p1.CFrame), B = CFrame.identity, Name = d.Name, Turns = false })
+			end
 		end
 	end
 	local changed = true
 	while changed do
 		changed = false
-		for _, joint in joints do
-			local p0, p1 = joint.Part0, joint.Part1
-			if p0 and p1 then
-				if placed[p0] and not placed[p1] then
-					placed[p1] = placed[p0] * joint.C0 * joint.C1:Inverse()
-					changed = true
-				elseif placed[p1] and not placed[p0] then
-					placed[p0] = placed[p1] * joint.C1 * joint.C0:Inverse()
-					changed = true
-				end
+		for _, link in links do
+			local angles = if pose and link.Turns then pose[link.Name] else nil
+			local turn = if angles then CFrame.Angles(math.rad(angles[1]), math.rad(angles[2]), math.rad(angles[3])) else CFrame.identity
+			if placed[link.P0] and not placed[link.P1] then
+				placed[link.P1] = placed[link.P0] * link.A * turn * link.B:Inverse()
+				changed = true
+			elseif placed[link.P1] and not placed[link.P0] then
+				placed[link.P0] = placed[link.P1] * link.B * turn:Inverse() * link.A:Inverse()
+				changed = true
 			end
 		end
 	end
+	return placed
+end
+
+-- How far the giant's root sits above its feet, standing straight, worked
+-- out from its joints (its limbs may not be in place yet right after it's
+-- built). Look-alikes are welded, so their parts are exact.
+function Founders.RootHeight(giant: Model): number
+	local root = giant.PrimaryPart :: BasePart
 	local lowest = math.huge
-	for part, cf in placed do
+	for part, cf in solveRig(giant, nil) do
 		-- Body parts only (not hats, wings and other accessories)
 		if part ~= root and not part:FindFirstAncestorOfClass("Accessory") then
 			local size = part.Size
@@ -498,55 +530,10 @@ Founders.SagePose = {
 -- engine, so the pose always shows and the body can't droop, fall or sink.
 -- Move it afterwards with PivotTo.
 function Founders.FreezePose(giant: Model, pose: Pose)
-	local root = giant.PrimaryPart
-	if not root then
+	if not giant.PrimaryPart then
 		return
 	end
-	local placed: { [BasePart]: CFrame } = { [root] = root.CFrame }
-	local joints: { JointInstance } = {}
-	local rigid: { RigidConstraint } = {}
-	for _, d in giant:GetDescendants() do
-		if d:IsA("Motor6D") or d:IsA("Weld") then
-			table.insert(joints, d)
-		elseif d:IsA("RigidConstraint") then
-			table.insert(rigid, d)
-		end
-	end
-	local function turn(joint: JointInstance): CFrame
-		local angles = if joint:IsA("Motor6D") then pose[joint.Name] else nil
-		return if angles then CFrame.Angles(math.rad(angles[1]), math.rad(angles[2]), math.rad(angles[3])) else CFrame.identity
-	end
-	local changed = true
-	while changed do
-		changed = false
-		for _, joint in joints do
-			local p0, p1 = joint.Part0, joint.Part1
-			if p0 and p1 then
-				if placed[p0] and not placed[p1] then
-					placed[p1] = placed[p0] * joint.C0 * turn(joint) * joint.C1:Inverse()
-					changed = true
-				elseif placed[p1] and not placed[p0] then
-					placed[p0] = placed[p1] * joint.C1 * turn(joint):Inverse() * joint.C0:Inverse()
-					changed = true
-				end
-			end
-		end
-		-- Accessories held on by attachments instead of welds
-		for _, constraint in rigid do
-			local a0, a1 = constraint.Attachment0, constraint.Attachment1
-			local p0 = a0 and a0.Parent
-			local p1 = a1 and a1.Parent
-			if a0 and a1 and p0 and p1 and p0:IsA("BasePart") and p1:IsA("BasePart") then
-				if placed[p0] and not placed[p1] then
-					placed[p1] = placed[p0] * a0.CFrame * a1.CFrame:Inverse()
-					changed = true
-				elseif placed[p1] and not placed[p0] then
-					placed[p0] = placed[p1] * a1.CFrame * a0.CFrame:Inverse()
-					changed = true
-				end
-			end
-		end
-	end
+	local placed = solveRig(giant, pose)
 	for _, part in giant:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.Anchored = true
