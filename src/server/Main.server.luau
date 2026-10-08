@@ -45,6 +45,7 @@ local RequestUpgrade: RemoteEvent = makeRemote("RemoteEvent", "RequestUpgrade")
 local SetFollowers: RemoteEvent = makeRemote("RemoteEvent", "SetFollowers")
 local SkinAction: RemoteEvent = makeRemote("RemoteEvent", "SkinAction")
 local DiamondPurchase: RemoteEvent = makeRemote("RemoteEvent", "DiamondPurchase")
+local RedeemCode: RemoteFunction = makeRemote("RemoteFunction", "RedeemCode")
 
 remotes.Parent = ReplicatedStorage
 ReplicatedStorage:SetAttribute("LuckEndsAt", 0)
@@ -70,6 +71,7 @@ type SaveData = {
 	CashBoostUntil: number, -- unix time the Diamond Shop 2x Cash boost ends
 	AbuseGiftWeek: number, -- the week this player last got the admin abuse gift
 	InfiniteLock: boolean, -- bought the Infinite Laser Door with Diamonds
+	Codes: { string }, -- codes already redeemed (upper case)
 }
 
 type QuestState = {
@@ -328,6 +330,7 @@ local function defaultData(): SaveData
 		CashBoostUntil = 0,
 		AbuseGiftWeek = -1,
 		InfiniteLock = false,
+		Codes = {},
 		Quests = { Day = -1, Week = -1, Daily = {}, Weekly = {}, DailyDone = {}, WeeklyDone = {} },
 	}
 end
@@ -393,6 +396,13 @@ local function sanitize(raw: any): SaveData
 		data.AbuseGiftWeek = raw.AbuseGiftWeek
 	end
 	data.InfiniteLock = raw.InfiniteLock == true
+	if type(raw.Codes) == "table" then
+		for _, code in raw.Codes do
+			if type(code) == "string" and not table.find(data.Codes, code) then
+				table.insert(data.Codes, code)
+			end
+		end
+	end
 	if type(raw.Skin) == "string" and table.find(data.Skins, raw.Skin) then
 		data.Skin = raw.Skin
 	end
@@ -1474,6 +1484,52 @@ DiamondPurchase.OnServerEvent:Connect(function(player: Player, itemId: unknown)
 	notify(player, "Bought " .. item.Name .. "!")
 	push(player)
 end)
+
+-- Codes from the box at the bottom of the shop (Config.Codes), once each.
+local lastCodeTry: { [Player]: number } = {}
+Players.PlayerRemoving:Connect(function(player)
+	lastCodeTry[player] = nil
+end)
+RedeemCode.OnServerInvoke = function(player: Player, typed: unknown): (boolean, string)
+	local session = sessions[player]
+	if not session or not session.Loaded or type(typed) ~= "string" then
+		return false, "Try again in a moment."
+	end
+	local now = os.clock()
+	if now - (lastCodeTry[player] or 0) < 2 then
+		return false, "Slow down a little!"
+	end
+	lastCodeTry[player] = now
+	local wanted = string.upper((string.gsub(string.sub(typed, 1, 40), "%s", "")))
+	for _, code in Config.Codes do
+		if string.upper(code.Code) == wanted then
+			if code.Expires and os.time() > code.Expires then
+				return false, "That code has expired."
+			end
+			local data = session.Data
+			if table.find(data.Codes, wanted) then
+				return false, "You already used that code."
+			end
+			table.insert(data.Codes, wanted)
+			local got = {}
+			if code.Cash then
+				data.Cash += code.Cash
+				table.insert(got, Config.FormatCash(code.Cash))
+			end
+			if code.Shards then
+				data.Shards += code.Shards
+				table.insert(got, code.Shards .. " Shards")
+			end
+			if code.Diamonds then
+				data.Diamonds += code.Diamonds
+				table.insert(got, code.Diamonds .. " Diamond" .. (if code.Diamonds == 1 then "" else "s"))
+			end
+			push(player)
+			return true, "Code redeemed! You got " .. table.concat(got, " + ") .. "!"
+		end
+	end
+	return false, "That code doesn't work."
+end
 
 -- Wall skins: buy with Shards/Diamonds, or equip one you own.
 SkinAction.OnServerEvent:Connect(function(player: Player, action: unknown, skinId: unknown)

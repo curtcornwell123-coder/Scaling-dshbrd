@@ -672,6 +672,15 @@ Config.Products = {
 	{ Key = "InstantLock", Id = 0, Name = "Instant Lock", Description = "Skip the lock cooldown and lock your base now." },
 } :: { Product }
 
+-- Codes typed into the box at the bottom of the shop. Each works once per
+-- player. Add new ones here (letters are matched without caring about caps);
+-- Expires is optional (unix time, e.g. from https://www.epochconverter.com).
+export type Code = { Code: string, Shards: number?, Diamonds: number?, Cash: number?, Expires: number? }
+Config.Codes = {
+	{ Code = "RELEASE", Shards = 100, Diamonds = 1 },
+	{ Code = "CORNY", Cash = 5000 },
+} :: { Code }
+
 Config.SmallCashMinutes = 10
 Config.SmallCashMinimum = 1000
 Config.BigCashMinutes = 60
