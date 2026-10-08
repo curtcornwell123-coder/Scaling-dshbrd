@@ -16,6 +16,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local WorldBuilder = require(script.Parent:WaitForChild("WorldBuilder"))
 local BrainrotModel = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BrainrotModel"))
 local LimitedStock = require(script.Parent:WaitForChild("LimitedStock"))
+local Founders = require(script.Parent:WaitForChild("Founders"))
 
 -- Remotes ------------------------------------------------------------------
 
@@ -785,12 +786,25 @@ end
 
 -- Stealing -----------------------------------------------------------------
 
+-- Walking speed and jump: slow while carrying, boosted during admin abuse.
+local function applyMovement(player: Player)
+	local _, humanoid = getRoot(player)
+	if not humanoid then
+		return
+	end
+	local carrying = player:GetAttribute("Carrying") ~= nil
+	local boosted = adminAbuseLive() and not carrying
+	humanoid.WalkSpeed = if carrying then Config.CarryWalkSpeed elseif boosted then Config.AdminAbuseBoosts.WalkSpeed else Config.NormalWalkSpeed
+	if humanoid.UseJumpPower then
+		humanoid.JumpPower = if boosted then 50 * math.sqrt(Config.AdminAbuseBoosts.JumpHeight / 7.2) else 50
+	else
+		humanoid.JumpHeight = if boosted then Config.AdminAbuseBoosts.JumpHeight else 7.2
+	end
+end
+
 local function setCarrying(player: Player, text: string?)
 	player:SetAttribute("Carrying", text)
-	local _, humanoid = getRoot(player)
-	if humanoid then
-		humanoid.WalkSpeed = if text then Config.CarryWalkSpeed elseif adminAbuseLive() then Config.AdminAbuseBoosts.WalkSpeed else Config.NormalWalkSpeed
-	end
+	applyMovement(player)
 end
 
 -- Puts a stolen brainrot back on its owner's pedestal.
@@ -1072,9 +1086,7 @@ task.spawn(function()
 			-- Boosts switched on or off: refresh walk speeds and income displays.
 			for player, session in sessions do
 				if session.Loaded then
-					if not carries[player] then
-						setCarrying(player, nil)
-					end
+					applyMovement(player)
 					push(player)
 				end
 			end
@@ -1364,7 +1376,7 @@ DiamondPurchase.OnServerEvent:Connect(function(player: Player, itemId: unknown)
 	end
 	local data = session.Data
 	if data.Diamonds < item.Cost then
-		notify(player, string.format("You need %d Diamonds. Earn them from weekly quests!", item.Cost))
+		notify(player, string.format("You need %d Diamonds. Earn them from weekly quests and admin abuse!", item.Cost))
 		return
 	end
 	data.Diamonds -= item.Cost
@@ -1372,6 +1384,8 @@ DiamondPurchase.OnServerEvent:Connect(function(player: Player, itemId: unknown)
 		data.Shards += Config.ShardPackAmount
 	elseif item.Id == "CashBoost" then
 		data.CashBoostUntil = math.max(os.time(), data.CashBoostUntil) + Config.CashBoostSeconds
+	elseif item.Id == "CashBoostBig" then
+		data.CashBoostUntil = math.max(os.time(), data.CashBoostUntil) + Config.BigCashBoostSeconds
 	elseif item.Id == "ServerLuck" then
 		local now = workspace:GetServerTimeNow()
 		local current = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number? or 0
@@ -1391,6 +1405,11 @@ SkinAction.OnServerEvent:Connect(function(player: Player, action: unknown, skinI
 	end
 	local data = session.Data
 	if action == "Buy" and not table.find(data.Skins, skin.Id) then
+		local needed = Config.SkinRequirement(skin)
+		if needed and not table.find(data.Skins, needed.Id) then
+			notify(player, string.format("Unlock %s first!", needed.Name))
+			return
+		end
 		local balance = if skin.Currency == "Diamonds" then data.Diamonds else data.Shards
 		if balance < skin.Cost then
 			notify(player, string.format("You need %d %s for %s.", skin.Cost, skin.Currency, skin.Name))
@@ -1737,12 +1756,7 @@ local function onCharacter(player: Player, character: Model)
 	end
 	giveSlap(player)
 	updateVipTag(player)
-	if adminAbuseLive() then
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid.WalkSpeed = Config.AdminAbuseBoosts.WalkSpeed
-		end
-	end
+	applyMovement(player)
 end
 
 local function checkAdmin(player: Player): boolean
@@ -1956,6 +1970,28 @@ local function randomDropPosition(): Vector3
 	end
 end
 
+-- A landing spot on open ground near `point` (for things a founder drops
+-- from the sky): not in a base, a cave, the shop or the statue, and inside
+-- the fence.
+local function dropPositionNear(point: Vector3): Vector3
+	local flat = Vector3.new(1, 0, 1)
+	for _ = 1, 25 do
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local distance = rng:NextNumber(0, 35)
+		local position = Vector3.new(point.X + math.cos(angle) * distance, 0.1, point.Z + math.sin(angle) * distance)
+		local inBase = math.abs(position.X) < 190 and math.abs(position.Z) > 62 and math.abs(position.Z) < 140
+		local inCave = math.abs(position.X) > 255 and math.abs(position.Z) < 50
+		local onBelt = math.abs(position.Z) < 9
+		if not inBase and not inCave and not onBelt and (position * flat).Magnitude < 380
+			and ((position - world.ShopPosition) * flat).Magnitude > 18
+			and ((position - world.StatuePosition) * flat).Magnitude > 12
+		then
+			return position
+		end
+	end
+	return randomDropPosition()
+end
+
 local function fallBeam(position: Vector3, color: Color3): BasePart
 	local beam = Instance.new("Part")
 	beam.Name = "DropBeam"
@@ -1973,10 +2009,11 @@ local function fallBeam(position: Vector3, color: Color3): BasePart
 	return beam
 end
 
-local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?)
-	local landing = randomDropPosition()
+-- `from`: where it falls from (a founder); otherwise straight down from the sky.
+local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?, from: Vector3?)
+	local landing = if from then dropPositionNear(from) else randomDropPosition()
 	local facing = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
-	local model = BrainrotModel.Create(brainrot, mutation, CFrame.new(landing + Vector3.new(0, 90, 0)) * facing, false)
+	local model = BrainrotModel.Create(brainrot, mutation, CFrame.new(from or landing + Vector3.new(0, 90, 0)) * facing, false)
 	local root = model.PrimaryPart :: BasePart
 	local mutationInfo = Config.GetMutation(mutation)
 	local beam = fallBeam(landing, if mutationInfo then mutationInfo.Color else Config.Rarities[brainrot.Rarity].Color)
@@ -2034,8 +2071,8 @@ local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?)
 	end)
 end
 
-local function dropCash(amount: number)
-	local landing = randomDropPosition()
+local function dropCash(amount: number, from: Vector3?)
+	local landing = if from then dropPositionNear(from) else randomDropPosition()
 	local orb = Instance.new("Part")
 	orb.Name = "CashDrop"
 	orb.Shape = Enum.PartType.Ball
@@ -2044,7 +2081,7 @@ local function dropCash(amount: number)
 	orb.CanCollide = false
 	orb.Material = Enum.Material.Neon
 	orb.Color = Color3.fromRGB(80, 255, 110)
-	orb.CFrame = CFrame.new(landing + Vector3.new(0, 90, 0))
+	orb.CFrame = CFrame.new(from or landing + Vector3.new(0, 90, 0))
 	orb.Parent = dropsFolder
 
 	local tag = Instance.new("BillboardGui")
@@ -2082,6 +2119,209 @@ local function dropCash(amount: number)
 			orb:Destroy()
 		end
 	end)
+end
+
+-- Founders ------------------------------------------------------------------
+-- Giant founders stand at the edges of the map during admin abuse, dancing
+-- and throwing cash and brainrots. Each founder also has an event of their
+-- own where they fly over the map dropping things (Config.FounderEvents).
+
+local foundersFolder = Instance.new("Folder")
+foundersFolder.Name = "Founders"
+foundersFolder.Parent = workspace:FindFirstChild("BrainrotHeist")
+ReplicatedStorage:SetAttribute("FounderEvent", "")
+ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
+
+local function giantHand(giant: Model): Vector3
+	local root = giant.PrimaryPart :: BasePart
+	local _, size = giant:GetBoundingBox()
+	return root.Position + Vector3.new(0, size.Y * 0.3, 0) + root.CFrame.LookVector * size.Y * 0.15
+end
+
+-- Something a founder throws or drops: usually a cash bag, sometimes a brainrot.
+local function founderDrop(from: Vector3, brainrotChance: number, luck: number, mutations: { { Id: string, Chance: number } }?)
+	if rng:NextNumber() < brainrotChance then
+		local brainrot = Config.RollConveyor(rng, luck, false)
+		local mutation: string? = nil
+		if mutations then
+			local roll = rng:NextNumber(0, 100)
+			for _, entry in mutations do
+				if roll < entry.Chance then
+					mutation = entry.Id
+					break
+				end
+				roll -= entry.Chance
+			end
+		end
+		dropBrainrot(brainrot, mutation or Config.RollMutation(rng, luck), from)
+	else
+		dropCash(Config.FounderCashDrop, from)
+	end
+end
+
+-- Admin abuse giants
+local abuseGiants: { Model } = {}
+
+local function removeGiant(giant: Model, rise: boolean)
+	local root = giant.PrimaryPart
+	if not root then
+		giant:Destroy()
+		return
+	end
+	local _, size = giant:GetBoundingBox()
+	local goal = root.CFrame + Vector3.new(0, if rise then 500 else -size.Y * 1.1, 0)
+	local move = TweenService:Create(root, TweenInfo.new(if rise then 4 else 3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = goal })
+	move.Completed:Connect(function()
+		giant:Destroy()
+	end)
+	move:Play()
+end
+
+local function spawnAbuseGiants()
+	local spots = {
+		{ Founder = "Corny", Position = Vector3.new(-90, 0, 215) },
+		{ Founder = "Ace", Position = Vector3.new(90, 0, -215) },
+	}
+	for _, spot in spots do
+		task.spawn(function()
+			local giant = Founders.CreateGiant(spot.Founder, Config.FounderGiantScale, foundersFolder)
+			if not giant then
+				return
+			end
+			table.insert(abuseGiants, giant)
+			local root = giant.PrimaryPart :: BasePart
+			local height = Founders.RootHeight(giant)
+			local _, size = giant:GetBoundingBox()
+			local standing = CFrame.lookAt(spot.Position + Vector3.new(0, height, 0), Vector3.new(0, height, 0))
+			-- Rise up out of the ground, then wave and dance.
+			root.CFrame = standing - Vector3.new(0, size.Y * 1.1, 0)
+			TweenService:Create(root, TweenInfo.new(3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { CFrame = standing }):Play()
+			task.wait(3)
+			local wave = Founders.Play(giant, Founders.Wave, false)
+			task.wait(if wave then 2.5 else 0)
+			Founders.Play(giant, Founders.Dance, true)
+			while giant.Parent and adminAbuseLive() do
+				task.wait(Config.FounderGiantDropEvery + rng:NextNumber(-1.5, 1.5))
+				if giant.Parent and adminAbuseLive() then
+					founderDrop(giantHand(giant), 0.2, Config.BrainrotRainLuck)
+				end
+			end
+		end)
+	end
+end
+
+local function clearAbuseGiants()
+	for _, giant in abuseGiants do
+		removeGiant(giant, false)
+	end
+	table.clear(abuseGiants)
+end
+
+task.spawn(function()
+	local wasLive = false
+	while true do
+		local live = adminAbuseLive()
+		if live and not wasLive then
+			spawnAbuseGiants()
+		elseif wasLive and not live then
+			clearAbuseGiants()
+		end
+		wasLive = live
+		task.wait(1)
+	end
+end)
+
+-- Founder events
+local founderEventRunning: string? = nil
+
+local function stopFounderEvent()
+	ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
+end
+
+local function runFounderEvent(eventId: string)
+	local event = Config.FounderEvents[eventId]
+	if not event or founderEventRunning then
+		return
+	end
+	founderEventRunning = eventId
+	local endsAt = workspace:GetServerTimeNow() + event.DurationMinutes * 60
+	ReplicatedStorage:SetAttribute("FounderEvent", eventId)
+	ReplicatedStorage:SetAttribute("FounderEventEndsAt", endsAt)
+	Announce:FireAllClients("founder", event.Founder, "", eventId)
+
+	-- In their special event outfit, not their normal avatar.
+	local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
+	if giant then
+		local root = giant.PrimaryPart :: BasePart
+		-- Jetpack flames and a sparkle trail while flying
+		for _, side in { -1, 1 } do
+			local flame = Instance.new("Attachment")
+			flame.Position = Vector3.new(side * root.Size.X * 0.45, -root.Size.Y * 0.2, root.Size.Z * 0.9)
+			flame.Parent = root
+			local fire = Instance.new("Fire")
+			fire.Size = event.Scale * 1.6
+			fire.Heat = -15
+			fire.Color = Color3.fromRGB(255, 140, 40)
+			fire.SecondaryColor = Color3.fromRGB(255, 230, 90)
+			fire.Parent = flame
+		end
+		local trail = Instance.new("ParticleEmitter")
+		trail.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		trail.Color = ColorSequence.new(event.Colors[1], event.Colors[#event.Colors])
+		trail.LightEmission = 1
+		trail.Rate = 40
+		trail.Lifetime = NumberRange.new(1, 2)
+		trail.Speed = NumberRange.new(2, 6)
+		trail.SpreadAngle = Vector2.new(180, 180)
+		trail.Size = NumberSequence.new(event.Scale * 0.3, 0)
+		trail.Parent = root
+
+		-- Swoop down from the sky, then circle the map dropping things.
+		local start = os.clock()
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local function pathPoint(a: number, t: number): Vector3
+			return Vector3.new(math.cos(a) * event.Radius, event.Height + math.sin(t * 1.3) * 5, math.sin(a) * event.Radius)
+		end
+		root.CFrame = CFrame.new(pathPoint(angle, 0) + Vector3.new(0, 400, 0))
+		local arrive = TweenService:Create(root, TweenInfo.new(4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			CFrame = CFrame.lookAt(pathPoint(angle, 0), pathPoint(angle + 0.1, 0)),
+		})
+		arrive:Play()
+		arrive.Completed:Wait()
+		Founders.Play(giant, Founders.Wave, false)
+		task.delay(2.5, function()
+			if giant.Parent then
+				Founders.Play(giant, Founders.Dance, true)
+			end
+		end)
+
+		local speed = 0.12 -- radians per second around the circle
+		local nextDrop = os.clock() + 1
+		local last = os.clock()
+		while workspace:GetServerTimeNow() < (ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number) and giant.Parent do
+			local now = os.clock()
+			angle += speed * (now - last)
+			last = now
+			local t = now - start
+			local here = pathPoint(angle, t)
+			root.CFrame = CFrame.lookAt(here, pathPoint(angle + 0.05, t))
+			if now >= nextDrop then
+				nextDrop = now + event.DropEvery * rng:NextNumber(0.7, 1.3)
+				founderDrop(here, event.BrainrotChance, event.BrainrotLuck, event.Mutations)
+			end
+			task.wait()
+		end
+		removeGiant(giant, true)
+	else
+		-- No giant (shouldn't happen): still drop things from the sky.
+		while workspace:GetServerTimeNow() < (ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number) do
+			founderDrop(randomDropPosition() + Vector3.new(0, 90, 0), event.BrainrotChance, event.BrainrotLuck, event.Mutations)
+			task.wait(event.DropEvery)
+		end
+	end
+	ReplicatedStorage:SetAttribute("FounderEvent", "")
+	ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
+	founderEventRunning = nil
 end
 
 -- Admin panel --------------------------------------------------------------
@@ -2171,6 +2411,21 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		local minutes = parseAmount(value) or Config.AdminAbuse.DurationMinutes
 		ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", workspace:GetServerTimeNow() + minutes * 60)
 		Announce:FireAllClients("abuse", admin.DisplayName, "")
+		return
+	elseif action == "FounderEvent" then
+		local eventId = tostring(value)
+		if not Config.FounderEvents[eventId] then
+			return
+		end
+		if founderEventRunning then
+			notify(admin, "A founder event is already running.")
+			return
+		end
+		task.spawn(runFounderEvent, eventId)
+		return
+	elseif action == "FounderEventStop" then
+		stopFounderEvent()
+		notify(admin, "Founder event ended.")
 		return
 	elseif action == "AbuseStop" then
 		ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)

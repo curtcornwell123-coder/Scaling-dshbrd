@@ -1,10 +1,11 @@
 --!strict
 -- The big admin abuse show. The moment admin abuse starts (the weekly one or
--- one an admin starts by hand), every player gets a full-screen intro: a
--- flash, spinning light rays, a giant rainbow "ADMIN ABUSE!" title, falling
--- confetti, a camera shake and fireworks over the map. While it's live the
--- lighting gently cycles party colors and fireworks keep going off. Purely
--- visual and client-side.
+-- one an admin starts by hand), every player gets a full-screen intro:
+-- flashes, spinning light rays, a giant rainbow "ADMIN ABUSE!" title, the
+-- boosts popping in, falling confetti, a camera shake and fireworks over the
+-- map. While it's live the lighting gently cycles party colors and fireworks
+-- keep going off. Founder events (Corny's, Ace's...) get their own intro.
+-- Purely visual and client-side; the giants themselves are built by the server.
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -235,31 +236,58 @@ end
 
 -- The big intro --------------------------------------------------------------
 
-local function playIntro()
-	introPlaying = true
-	-- 1. White flash, and the world flashes red.
-	local flash = Instance.new("Frame")
-	flash.BackgroundColor3 = Color3.new(1, 1, 1)
-	flash.BorderSizePixel = 0
-	flash.Size = UDim2.fromScale(1, 1)
-	flash.ZIndex = 10
-	flash.Parent = gui
-	tween(flash, 0.7, { BackgroundTransparency = 1 })
-	task.delay(0.8, function()
-		flash:Destroy()
-	end)
-	local redTint = Instance.new("ColorCorrectionEffect")
-	redTint.Name = "AdminAbuseFlash"
-	redTint.TintColor = Color3.fromRGB(255, 120, 120)
-	redTint.Contrast = 0.2
-	redTint.Parent = Lighting
-	tween(redTint, 2.5, { TintColor = Color3.new(1, 1, 1), Contrast = 0 })
-	task.delay(2.6, function()
-		redTint:Destroy()
-	end)
-	shake(1.4, 6)
+type Intro = {
+	Title: string,
+	Subtitle: () -> string,
+	Colors: { Color3 }, -- light rays and confetti-ish accents
+	Gradient: (number) -> ColorSequence, -- title colors over time
+	Tint: Color3, -- the world flashes this color
+	Chips: { string }, -- little boxes that pop in under the title
+	Fireworks: number,
+	Confetti: number,
+}
 
-	-- 2. Dark backdrop with spinning red and gold light rays.
+local function cycle(colors: { Color3 }): (number) -> ColorSequence
+	return function(offset: number): ColorSequence
+		local keys = {}
+		local n = #colors
+		for i = 0, n do
+			local c = colors[(math.floor(i + offset * n) % n) + 1]
+			table.insert(keys, ColorSequenceKeypoint.new(i / n, c))
+		end
+		return ColorSequence.new(keys)
+	end
+end
+
+local function playIntro(intro: Intro)
+	introPlaying = true
+	-- 1. Two white flashes, the world flashes color and the camera shakes.
+	for k = 0, 1 do
+		task.delay(k * 0.35, function()
+			local flash = Instance.new("Frame")
+			flash.BackgroundColor3 = Color3.new(1, 1, 1)
+			flash.BorderSizePixel = 0
+			flash.Size = UDim2.fromScale(1, 1)
+			flash.ZIndex = 10
+			flash.Parent = gui
+			tween(flash, 0.6, { BackgroundTransparency = 1 })
+			task.delay(0.7, function()
+				flash:Destroy()
+			end)
+		end)
+	end
+	local tint = Instance.new("ColorCorrectionEffect")
+	tint.Name = "AdminAbuseFlash"
+	tint.TintColor = intro.Tint
+	tint.Contrast = 0.25
+	tint.Parent = Lighting
+	tween(tint, 3, { TintColor = Color3.new(1, 1, 1), Contrast = 0 })
+	task.delay(3.1, function()
+		tint:Destroy()
+	end)
+	shake(1.6, 8)
+
+	-- 2. Dark backdrop, a pulsing rainbow border and spinning light rays.
 	local backdrop = Instance.new("Frame")
 	backdrop.BackgroundColor3 = Color3.new(0, 0, 0)
 	backdrop.BackgroundTransparency = 0.45
@@ -267,23 +295,31 @@ local function playIntro()
 	backdrop.Size = UDim2.fromScale(1, 1)
 	backdrop.ZIndex = 1
 	backdrop.Parent = gui
+	local border = Instance.new("UIStroke")
+	border.Thickness = 14
+	border.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	border.Color = Color3.new(1, 1, 1)
+	border.Parent = backdrop
+	local borderColors = Instance.new("UIGradient")
+	borderColors.Color = rainbow(0)
+	borderColors.Parent = border
 
 	local rays = Instance.new("Frame")
 	rays.BackgroundTransparency = 1
 	rays.AnchorPoint = Vector2.new(0.5, 0.5)
-	rays.Position = UDim2.fromScale(0.5, 0.45)
+	rays.Position = UDim2.fromScale(0.5, 0.4)
 	rays.Size = UDim2.fromOffset(10, 10)
 	rays.ZIndex = 2
 	rays.Parent = gui
-	for k = 0, 7 do
+	for k = 0, 11 do
 		local ray = Instance.new("Frame")
 		ray.BorderSizePixel = 0
-		ray.BackgroundColor3 = if k % 2 == 0 then RED else GOLD
+		ray.BackgroundColor3 = intro.Colors[k % #intro.Colors + 1]
 		ray.BackgroundTransparency = 0.35
 		ray.AnchorPoint = Vector2.new(0.5, 0.5)
 		ray.Position = UDim2.fromScale(0.5, 0.5)
-		ray.Size = UDim2.fromOffset(70, 2600)
-		ray.Rotation = k * 22.5
+		ray.Size = UDim2.fromOffset(60, 2600)
+		ray.Rotation = k * 15
 		ray.ZIndex = 2
 		ray.Parent = rays
 		local fade = Instance.new("UIGradient")
@@ -302,35 +338,35 @@ local function playIntro()
 	raysScale.Parent = rays
 	tween(raysScale, 0.6, { Scale = 1 }, Enum.EasingStyle.Back)
 
-	-- 3. Giant rainbow title that slams in, then a subtitle.
+	-- 3. Giant title that slams in, then a subtitle.
 	local title = Instance.new("TextLabel")
 	title.BackgroundTransparency = 1
 	title.AnchorPoint = Vector2.new(0.5, 0.5)
-	title.Position = UDim2.fromScale(0.5, 0.42)
+	title.Position = UDim2.fromScale(0.5, 0.36)
 	title.Size = UDim2.fromScale(0.9, 0.24)
 	title.Font = Enum.Font.FredokaOne
-	title.Text = "ADMIN ABUSE!"
+	title.Text = intro.Title
 	title.TextScaled = true
 	title.TextColor3 = Color3.new(1, 1, 1)
 	title.ZIndex = 6
 	title.Parent = gui
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = 6
-	stroke.Color = Color3.fromRGB(40, 0, 0)
+	stroke.Color = Color3.fromRGB(30, 0, 10)
 	stroke.Parent = title
 	local colors = Instance.new("UIGradient")
-	colors.Color = rainbow(0)
+	colors.Color = intro.Gradient(0)
 	colors.Parent = title
 	local titleScale = Instance.new("UIScale")
-	titleScale.Scale = 5
+	titleScale.Scale = 6
 	titleScale.Parent = title
 	tween(titleScale, 0.55, { Scale = 1 }, Enum.EasingStyle.Back)
 
 	local subtitle = Instance.new("TextLabel")
 	subtitle.BackgroundTransparency = 1
 	subtitle.AnchorPoint = Vector2.new(0.5, 0.5)
-	subtitle.Position = UDim2.fromScale(0.5, 0.6)
-	subtitle.Size = UDim2.fromScale(0.7, 0.07)
+	subtitle.Position = UDim2.fromScale(0.5, 0.53)
+	subtitle.Size = UDim2.fromScale(0.75, 0.065)
 	subtitle.Font = Enum.Font.FredokaOne
 	subtitle.TextScaled = true
 	subtitle.TextColor3 = GOLD
@@ -342,42 +378,136 @@ local function playIntro()
 	subStroke.Transparency = 1
 	subStroke.Parent = subtitle
 	task.delay(0.5, function()
-		-- Set now so the admin's name (sent alongside) has arrived.
-		subtitle.Text = if startedBy then startedBy .. " is abusing! Drops & cash rain incoming!" else "Drops & cash rain incoming! Grab everything!"
+		-- Set now so anything sent alongside (like the admin's name) has arrived.
+		subtitle.Text = intro.Subtitle()
 		tween(subtitle, 0.4, { TextTransparency = 0 })
 		tween(subStroke, 0.4, { Transparency = 0 })
 	end)
 
-	-- 4. Confetti, fireworks and party lighting.
-	confetti(140, 6)
-	task.spawn(fireworksAroundMe, 12, 0.35)
-	startParty()
+	-- 4. The boosts pop in one by one, each with a little shake.
+	local chipRow = Instance.new("Frame")
+	chipRow.BackgroundTransparency = 1
+	chipRow.AnchorPoint = Vector2.new(0.5, 0)
+	chipRow.Position = UDim2.fromScale(0.5, 0.6)
+	chipRow.Size = UDim2.fromScale(0.95, 0.18)
+	chipRow.ZIndex = 6
+	chipRow.Parent = gui
+	local chipLayout = Instance.new("UIGridLayout")
+	chipLayout.CellSize = UDim2.new(0, 190, 0, 50)
+	chipLayout.CellPadding = UDim2.fromOffset(10, 10)
+	chipLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	chipLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	chipLayout.Parent = chipRow
+	for i, chipText in intro.Chips do
+		task.delay(0.9 + i * 0.3, function()
+			local chip = Instance.new("TextLabel")
+			chip.LayoutOrder = i
+			chip.BackgroundColor3 = intro.Colors[(i - 1) % #intro.Colors + 1]:Lerp(Color3.new(0, 0, 0), 0.35)
+			chip.Font = Enum.Font.FredokaOne
+			chip.Text = chipText
+			chip.TextScaled = true
+			chip.TextColor3 = Color3.new(1, 1, 1)
+			chip.ZIndex = 7
+			chip.Parent = chipRow
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(0, 12)
+			corner.Parent = chip
+			local chipStroke = Instance.new("UIStroke")
+			chipStroke.Thickness = 3
+			chipStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+			chipStroke.Color = GOLD
+			chipStroke.Parent = chip
+			local padding = Instance.new("UIPadding")
+			padding.PaddingLeft = UDim.new(0, 8)
+			padding.PaddingRight = UDim.new(0, 8)
+			padding.PaddingTop = UDim.new(0, 6)
+			padding.PaddingBottom = UDim.new(0, 6)
+			padding.Parent = chip
+			local chipScale = Instance.new("UIScale")
+			chipScale.Scale = 2.5
+			chipScale.Parent = chip
+			tween(chipScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+			shake(0.25, 3)
+		end)
+	end
 
-	-- Animate: rays spin, the title pulses, wobbles and cycles colors.
+	-- 5. Confetti and fireworks.
+	confetti(intro.Confetti, 7)
+	task.spawn(fireworksAroundMe, intro.Fireworks, 0.25)
+
+	-- Animate: rays spin, the border and title cycle colors, the title pulses.
 	local started = os.clock()
 	local animate = RunService.RenderStepped:Connect(function()
 		local t = os.clock() - started
-		rays.Rotation = t * 40
-		colors.Color = rainbow(t * 0.5)
+		rays.Rotation = t * 45
+		colors.Color = intro.Gradient(t * 0.5)
+		borderColors.Rotation = (t * 120) % 360
+		border.Thickness = 12 + math.sin(t * 8) * 4
 		if t > 0.6 then
-			titleScale.Scale = 1 + math.sin(t * 6) * 0.05
+			titleScale.Scale = 1 + math.sin(t * 6) * 0.06
 			title.Rotation = math.sin(t * 3) * 4
 		end
 	end)
 
-	-- 5. After a few seconds everything flies away.
-	task.wait(4.5)
+	-- 6. After a few seconds everything flies away.
+	task.wait(1.2 + #intro.Chips * 0.3 + 3.5)
 	tween(titleScale, 0.4, { Scale = 0 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
 	tween(raysScale, 0.5, { Scale = 0 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 	tween(subtitle, 0.3, { TextTransparency = 1 })
 	tween(subStroke, 0.3, { Transparency = 1 })
 	tween(backdrop, 0.6, { BackgroundTransparency = 1 })
+	tween(border, 0.6, { Transparency = 1 })
+	for _, chip in chipRow:GetChildren() do
+		if chip:IsA("TextLabel") then
+			tween(chip, 0.3, { BackgroundTransparency = 1, TextTransparency = 1 })
+		end
+	end
 	task.wait(0.7)
 	animate:Disconnect()
-	for _, item: GuiObject in { title, subtitle, rays, backdrop } :: { GuiObject } do
+	for _, item: GuiObject in { title, subtitle, rays, backdrop, chipRow } :: { GuiObject } do
 		item:Destroy()
 	end
 	introPlaying = false
+end
+
+local boosts = Config.AdminAbuseBoosts
+local ABUSE_INTRO: Intro = {
+	Title = "ADMIN ABUSE!",
+	Subtitle = function()
+		return if startedBy then startedBy .. " is abusing! The founders are here!" else "The founders are here! Grab everything!"
+	end,
+	Colors = { RED, GOLD, Color3.fromRGB(190, 90, 255) },
+	Gradient = rainbow,
+	Tint = Color3.fromRGB(255, 120, 120),
+	Chips = {
+		string.format("x%d CASH", boosts.Income),
+		string.format("x%d LUCK", boosts.Luck),
+		"SUPER SPEED",
+		"SUPER JUMP",
+		"FREE GIFT",
+		"GIANT FOUNDERS",
+	},
+	Fireworks = 24,
+	Confetti = 220,
+}
+
+local function founderIntro(eventId: string): Intro?
+	local event = Config.FounderEvents[eventId]
+	if not event then
+		return nil
+	end
+	return {
+		Title = event.Title,
+		Subtitle = function()
+			return event.Subtitle
+		end,
+		Colors = event.Colors,
+		Gradient = cycle(event.Colors),
+		Tint = event.Colors[1]:Lerp(Color3.new(1, 1, 1), 0.4),
+		Chips = event.Chips,
+		Fireworks = 16,
+		Confetti = 180,
+	}
 end
 
 -- The gift card: pops up after the intro showing what you got.
@@ -431,7 +561,7 @@ showGift = function(brainrotId: string, mutationId: string?, diamonds: number, s
 	line(72, 36, string.format("+%d Diamonds", diamonds), Color3.fromRGB(120, 180, 255))
 	line(112, 36, string.format("+%d Shards", shards), Color3.fromRGB(140, 220, 255))
 	line(152, 36, "+ " .. brainrotName, rarityColor)
-	line(200, 30, "2x Cash, Server Luck & Speed while it lasts!", Color3.fromRGB(120, 255, 140))
+	line(200, 30, string.format("x%d Cash, x%d Luck, Speed & Jump while it lasts!", boosts.Income, boosts.Luck), Color3.fromRGB(120, 255, 140))
 
 	tween(scale, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
 	confetti(60, 3)
@@ -442,15 +572,14 @@ showGift = function(brainrotId: string, mutationId: string?, diamonds: number, s
 end
 
 -- A smaller "it's over" card when it ends.
-local function playOutro()
-	stopParty()
+local function playOutro(text: string)
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
 	label.AnchorPoint = Vector2.new(0.5, 0.5)
 	label.Position = UDim2.fromScale(0.5, 0.3)
 	label.Size = UDim2.fromScale(0.6, 0.1)
 	label.Font = Enum.Font.FredokaOne
-	label.Text = "ADMIN ABUSE IS OVER"
+	label.Text = text
 	label.TextScaled = true
 	label.TextColor3 = RED
 	label.TextTransparency = 1
@@ -477,19 +606,40 @@ local function isLive(): boolean
 	return (manualEnd ~= nil and manualEnd > now) or Config.AdminAbuseStatus(now) == "live"
 end
 
+-- Founder events (Corny's, Ace's...)
+local currentFounderEvent = ""
+local function onFounderEvent()
+	local eventId = ReplicatedStorage:GetAttribute("FounderEvent") :: string? or ""
+	if eventId == currentFounderEvent then
+		return
+	end
+	local previous = Config.FounderEvents[currentFounderEvent]
+	currentFounderEvent = eventId
+	local intro = founderIntro(eventId)
+	if intro then
+		task.spawn(playIntro, intro)
+	elseif previous then
+		task.spawn(playOutro, string.upper(previous.Founder) .. " FLEW AWAY!")
+	end
+end
+ReplicatedStorage:GetAttributeChangedSignal("FounderEvent"):Connect(onFounderEvent)
+onFounderEvent()
+
 local wasLive = false
 local nextFirework = 0
 while true do
 	local live = isLive()
 	if live and not wasLive then
-		task.spawn(playIntro)
-		nextFirework = os.clock() + 8
+		task.spawn(playIntro, ABUSE_INTRO)
+		startParty()
+		nextFirework = os.clock() + 10
 	elseif wasLive and not live then
 		startedBy = nil
-		task.spawn(playOutro)
+		stopParty()
+		task.spawn(playOutro, "ADMIN ABUSE IS OVER")
 	elseif live and os.clock() >= nextFirework then
 		-- Every few seconds while it's live, a couple more fireworks.
-		task.spawn(fireworksAroundMe, 2, 0.4)
+		task.spawn(fireworksAroundMe, 3, 0.4)
 		nextFirework = os.clock() + math.random(4, 7)
 	end
 	wasLive = live

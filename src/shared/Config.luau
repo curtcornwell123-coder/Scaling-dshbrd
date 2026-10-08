@@ -220,26 +220,49 @@ export type WallSkin = {
 
 Config.WallSkins = {
 	{ Id = "Classic", Name = "Classic Grey", Cost = 0, Currency = "Shards" },
-	{ Id = "RedBrick", Name = "Red Brick", Cost = 50, Currency = "Shards", Color = Color3.fromRGB(165, 65, 50), Material = Enum.Material.Brick, FloorColor = Color3.fromRGB(150, 105, 75), FloorMaterial = Enum.Material.WoodPlanks },
-	{ Id = "Candy", Name = "Candy Pink", Cost = 100, Currency = "Shards", Color = Color3.fromRGB(255, 160, 205), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 225, 245), FloorColor = Color3.fromRGB(255, 225, 238), FloorMaterial = Enum.Material.SmoothPlastic },
-	{ Id = "Ice", Name = "Frozen Ice", Cost = 150, Currency = "Shards", Color = Color3.fromRGB(175, 220, 255), Material = Enum.Material.Ice, Glass = Color3.fromRGB(225, 245, 255), FloorColor = Color3.fromRGB(215, 238, 255), FloorMaterial = Enum.Material.Ice },
-	{ Id = "Jungle", Name = "Jungle Stone", Cost = 200, Currency = "Shards", Color = Color3.fromRGB(85, 120, 70), Material = Enum.Material.Slate, Glass = Color3.fromRGB(150, 220, 120), FloorColor = Color3.fromRGB(100, 85, 60), FloorMaterial = Enum.Material.Ground },
-	{ Id = "Cyber", Name = "Cyber Neon", Cost = 300, Currency = "Shards", Color = Color3.fromRGB(30, 30, 40), Material = Enum.Material.Metal, Glass = Color3.fromRGB(0, 255, 200), GlassNeon = true, FloorColor = Color3.fromRGB(35, 35, 45), FloorMaterial = Enum.Material.DiamondPlate },
-	{ Id = "Gold", Name = "Royal Gold", Cost = 4, Currency = "Diamonds", Color = Color3.fromRGB(255, 200, 60), Material = Enum.Material.Foil, Glass = Color3.fromRGB(255, 240, 180) },
-	{ Id = "Galaxy", Name = "Galaxy", Cost = 9, Currency = "Diamonds", Color = Color3.fromRGB(45, 25, 85), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(200, 120, 255), GlassNeon = true, FloorColor = Color3.fromRGB(25, 15, 50), FloorMaterial = Enum.Material.Glass },
+	{ Id = "RedBrick", Name = "Red Brick", Cost = 250, Currency = "Shards", Color = Color3.fromRGB(165, 65, 50), Material = Enum.Material.Brick, FloorColor = Color3.fromRGB(150, 105, 75), FloorMaterial = Enum.Material.WoodPlanks },
+	{ Id = "Candy", Name = "Candy Pink", Cost = 600, Currency = "Shards", Color = Color3.fromRGB(255, 160, 205), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 225, 245), FloorColor = Color3.fromRGB(255, 225, 238), FloorMaterial = Enum.Material.SmoothPlastic },
+	{ Id = "Ice", Name = "Frozen Ice", Cost = 1200, Currency = "Shards", Color = Color3.fromRGB(175, 220, 255), Material = Enum.Material.Ice, Glass = Color3.fromRGB(225, 245, 255), FloorColor = Color3.fromRGB(215, 238, 255), FloorMaterial = Enum.Material.Ice },
+	{ Id = "Jungle", Name = "Jungle Stone", Cost = 2000, Currency = "Shards", Color = Color3.fromRGB(85, 120, 70), Material = Enum.Material.Slate, Glass = Color3.fromRGB(150, 220, 120), FloorColor = Color3.fromRGB(100, 85, 60), FloorMaterial = Enum.Material.Ground },
+	{ Id = "Cyber", Name = "Cyber Neon", Cost = 3500, Currency = "Shards", Color = Color3.fromRGB(30, 30, 40), Material = Enum.Material.Metal, Glass = Color3.fromRGB(0, 255, 200), GlassNeon = true, FloorColor = Color3.fromRGB(35, 35, 45), FloorMaterial = Enum.Material.DiamondPlate },
+	{ Id = "Gold", Name = "Royal Gold", Cost = 12, Currency = "Diamonds", Color = Color3.fromRGB(255, 200, 60), Material = Enum.Material.Foil, Glass = Color3.fromRGB(255, 240, 180) },
+	{ Id = "Galaxy", Name = "Galaxy", Cost = 25, Currency = "Diamonds", Color = Color3.fromRGB(45, 25, 85), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(200, 120, 255), GlassNeon = true, FloorColor = Color3.fromRGB(25, 15, 50), FloorMaterial = Enum.Material.Glass },
+	{ Id = "Crystal", Name = "Crystal Palace", Cost = 45, Currency = "Diamonds", Color = Color3.fromRGB(150, 225, 255), Material = Enum.Material.Glass, Glass = Color3.fromRGB(220, 250, 255), GlassNeon = true, FloorColor = Color3.fromRGB(200, 240, 255), FloorMaterial = Enum.Material.Glass },
+	{ Id = "Lava", Name = "Lava Core", Cost = 75, Currency = "Diamonds", Color = Color3.fromRGB(55, 25, 20), Material = Enum.Material.CrackedLava, Glass = Color3.fromRGB(255, 120, 30), GlassNeon = true, FloorColor = Color3.fromRGB(45, 22, 18), FloorMaterial = Enum.Material.Slate },
+	{ Id = "Celestial", Name = "Celestial", Cost = 120, Currency = "Diamonds", Color = Color3.fromRGB(245, 240, 228), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 210, 90), GlassNeon = true, FloorColor = Color3.fromRGB(250, 246, 236), FloorMaterial = Enum.Material.Marble },
 } :: { WallSkin }
 
--- Diamond Shop: the booth by the spawn (like a ticket shop). Diamonds only
--- come from weekly quests, so these are the rare, fun rewards.
+-- Skins are a ladder: to buy one you must own the one before it that costs
+-- the same currency (Red Brick -> Candy Pink -> ... and Royal Gold ->
+-- Galaxy -> ...). Returns the skin you need first, if any.
+function Config.SkinRequirement(skin: WallSkin): WallSkin?
+	local previous: WallSkin? = nil
+	for _, other in Config.WallSkins do
+		if other.Id == skin.Id then
+			return previous
+		end
+		if other.Currency == skin.Currency and other.Cost > 0 then
+			previous = other
+		end
+	end
+	return nil
+end
+
+-- Diamond Shop: the counter in the shop tent (like a ticket shop). Diamonds
+-- only come from weekly quests (up to 3 a week) and the admin abuse gift
+-- (3 a week), so everything here is priced to be saved up for. Shards are
+-- easy to earn (~650 a week), so a Shard Pouch is a poor trade on purpose.
 export type DiamondItem = { Id: string, Name: string, Description: string, Cost: number }
 
 Config.DiamondShop = {
-	{ Id = "ShardPack", Name = "Shard Pouch", Description = "Get 150 Shards for skins.", Cost = 1 },
-	{ Id = "CashBoost", Name = "2x Cash (30 min)", Description = "Double your income for 30 minutes. Stacks.", Cost = 2 },
-	{ Id = "ServerLuck", Name = "Server Luck (15 min)", Description = "More Rare+ spawns for EVERYONE. Be a hero.", Cost = 3 },
+	{ Id = "ShardPack", Name = "Shard Pouch", Description = "Get 400 Shards for skins.", Cost = 2 },
+	{ Id = "CashBoost", Name = "2x Cash (30 min)", Description = "Double your income for 30 minutes. Stacks.", Cost = 3 },
+	{ Id = "ServerLuck", Name = "Server Luck (15 min)", Description = "More Rare+ spawns for EVERYONE. Be a hero.", Cost = 5 },
+	{ Id = "CashBoostBig", Name = "2x Cash (3 hours)", Description = "Double your income for 3 hours. Stacks.", Cost = 12 },
 } :: { DiamondItem }
-Config.ShardPackAmount = 150
+Config.ShardPackAmount = 400
 Config.CashBoostSeconds = 30 * 60
+Config.BigCashBoostSeconds = 3 * 60 * 60
 
 function Config.GetWallSkin(id: string?): WallSkin?
 	for _, skin in Config.WallSkins do
@@ -402,12 +425,76 @@ Config.AdminAbuse = {
 	CountdownMinutes = 60,
 }
 
--- What everyone gets during admin abuse.
+-- What everyone gets during admin abuse. It's rare (once a week), so it's big.
 Config.AdminAbuseBoosts = {
-	Income = 2, -- x2 cash for everyone while it's live (stacks with other boosts)
-	Luck = 2, -- Server Luck for everyone while it's live (same as the bought one)
-	WalkSpeed = 22, -- normal walking speed while it's live (16 normally; carrying is unchanged)
+	Income = 3, -- x3 cash for everyone while it's live (stacks with other boosts)
+	Luck = 3, -- x3 luck for rare spawns and mutations (bought Server Luck is x2)
+	WalkSpeed = 24, -- normal walking speed while it's live (16 normally; carrying is unchanged)
+	JumpHeight = 13, -- normal jump is 7.2
 }
+
+-- Founders --------------------------------------------------------------------
+-- The game's founders show up as giants during admin abuse, and each has an
+-- event of their own. Put each founder's Roblox UserId (the number in their
+-- profile link: roblox.com/users/<UserId>/profile) or their Username here so
+-- the giants wear their real avatars.
+export type Founder = { Id: string, Name: string, UserId: number, Username: string }
+Config.Founders = {
+	{ Id = "Corny", Name = "Corny", UserId = 0, Username = "" },
+	{ Id = "Ace", Name = "Ace", UserId = 0, Username = "" },
+} :: { Founder }
+Config.FounderGiantScale = 12 -- how giant they are during admin abuse
+Config.FounderGiantDropEvery = 7 -- seconds between things each giant throws during admin abuse
+Config.FounderCashDrop = 25000 -- cash in each bag a founder throws or drops
+
+-- Founder events: each stars only that founder, wearing their special event
+-- outfit (not their normal avatar). Admins start them from the admin panel.
+export type FounderEvent = {
+	Founder: string,
+	OutfitId: number, -- their special event outfit (0 = Corny's built-in look-alike)
+	Title: string,
+	Subtitle: string,
+	DurationMinutes: number,
+	Scale: number,
+	Height: number, -- how high above the map they float
+	Radius: number, -- size of the circle they fly around
+	DropEvery: number, -- seconds between drops
+	BrainrotChance: number, -- chance each drop is a brainrot (else a cash bag)
+	BrainrotLuck: number,
+	Mutations: { { Id: string, Chance: number } }, -- extra mutation chances on their brainrots (percent)
+	Colors: { Color3 }, -- intro colors
+	Chips: { string }, -- the little boxes under the intro title
+}
+Config.FounderEvents = {
+	Corny = {
+		Founder = "Corny",
+		-- To use the real outfit: save it as a Costume on Roblox and put its
+		-- outfit id here. Until then a look-alike of it is built from parts.
+		OutfitId = 0,
+		Title = "CORNY EVENT!",
+		Subtitle = "Corny is flying over the map! Grab everything he drops!",
+		DurationMinutes = 5,
+		Scale = 9,
+		Height = 125,
+		Radius = 150,
+		DropEvery = 2,
+		BrainrotChance = 0.3,
+		BrainrotLuck = 4,
+		-- Sprinkles like his hat, rainbow like his pants.
+		Mutations = { { Id = "Candy", Chance = 45 }, { Id = "Rainbow", Chance = 8 } },
+		Colors = { Color3.fromRGB(255, 120, 190), Color3.fromRGB(120, 210, 255), Color3.fromRGB(255, 230, 90), Color3.fromRGB(130, 240, 130) },
+		Chips = { "SPRINKLE DROPS", "45% CANDY", "8% RAINBOW", "CASH BAGS" },
+	},
+} :: { [string]: FounderEvent }
+
+function Config.GetFounder(id: string): Founder?
+	for _, founder in Config.Founders do
+		if founder.Id == id then
+			return founder
+		end
+	end
+	return nil
+end
 -- A gift for every player who's online during admin abuse, at most once a
 -- week (so starting it again the same week doesn't give a second one).
 -- Diamonds normally come only from weekly quests (1 a week), so 3 is a big

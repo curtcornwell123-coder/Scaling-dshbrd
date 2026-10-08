@@ -836,11 +836,17 @@ local function renderQuests()
 			b.Text = "EQUIP"
 			b.BackgroundColor3 = Color3.fromRGB(60, 140, 255)
 		else
+			local needed = Config.SkinRequirement(skin)
 			local balance = if skin.Currency == "Diamonds" then data.Diamonds else data.Shards
-			b.Text = string.format("%d %s", skin.Cost, skin.Currency)
-			b.BackgroundColor3 = if (balance or 0) >= skin.Cost
-				then (if skin.Currency == "Diamonds" then DIAMOND_COLOR else GREEN)
-				else Color3.fromRGB(90, 90, 100)
+			if needed and not (data.Skins and table.find(data.Skins, needed.Id)) then
+				b.Text = "Unlock " .. needed.Name .. " first"
+				b.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+			else
+				b.Text = string.format("%s %s", Config.FormatNumber(skin.Cost), skin.Currency)
+				b.BackgroundColor3 = if (balance or 0) >= skin.Cost
+					then (if skin.Currency == "Diamonds" then DIAMOND_COLOR else GREEN)
+					else Color3.fromRGB(90, 90, 100)
+			end
 		end
 	end
 end
@@ -964,7 +970,7 @@ text(diamondBody, {
 	Size = UDim2.new(1, -10, 0, 20),
 	TextColor3 = Color3.fromRGB(190, 190, 205),
 	TextStrokeTransparency = 1,
-	Text = "Diamonds come from weekly quests. Spend them here!",
+	Text = "Diamonds come from weekly quests and admin abuse. Save up!",
 	LayoutOrder = 1,
 })
 
@@ -1006,7 +1012,9 @@ end
 header(diamondBody, 20, "DIAMOND WALL SKINS", Color3.fromRGB(255, 170, 40))
 for i, skin in Config.WallSkins do
 	if skin.Currency == "Diamonds" then
-		diamondRow(20 + i, skin.Name, "A rare wall skin for your base.", skin.Cost, function()
+		local needed = Config.SkinRequirement(skin)
+		local note = if needed then "Rare wall skin. Unlock " .. needed.Name .. " first." else "A rare wall skin for your base."
+		diamondRow(20 + i, skin.Name, note, skin.Cost, function()
 			local owned = data and data.Skins and table.find(data.Skins, skin.Id)
 			SkinAction:FireServer(if owned then "Equip" else "Buy", skin.Id)
 		end, skin.Id)
@@ -1028,8 +1036,15 @@ local function renderDiamondShop()
 			entry.Button.Text = "EQUIP"
 			entry.Button.BackgroundColor3 = Color3.fromRGB(60, 140, 255)
 		else
-			entry.Button.Text = entry.Cost .. " Diamonds"
-			entry.Button.BackgroundColor3 = if diamonds >= entry.Cost then DIAMOND_COLOR else Color3.fromRGB(90, 90, 100)
+			local skin = entry.SkinId and Config.GetWallSkin(entry.SkinId)
+			local needed = skin and Config.SkinRequirement(skin)
+			if needed and not (data.Skins and table.find(data.Skins, needed.Id)) then
+				entry.Button.Text = "LOCKED"
+				entry.Button.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+			else
+				entry.Button.Text = entry.Cost .. " Diamonds"
+				entry.Button.BackgroundColor3 = if diamonds >= entry.Cost then DIAMOND_COLOR else Color3.fromRGB(90, 90, 100)
+			end
 		end
 	end
 end
@@ -1227,6 +1242,22 @@ text(dropRow, {
 	TextWrapped = true,
 	Text = "Cash Rain: each drop = amount box",
 })
+
+-- Founder events: one button per founder event, plus a stop button.
+local founderRow = adminRow(9, 40)
+local founderEventIds = {}
+for eventId in Config.FounderEvents do
+	table.insert(founderEventIds, eventId)
+end
+table.sort(founderEventIds)
+for _, eventId in founderEventIds do
+	smallButton(founderRow, eventId .. " Event", Color3.fromRGB(255, 120, 190), 170, function()
+		send("FounderEvent", eventId)
+	end)
+end
+smallButton(founderRow, "End Founder Event", GREY, 190, function()
+	send("FounderEventStop", nil)
+end)
 
 -- Mutation picker for Give / Spawn / Drop below.
 adminHeader(10, "BRAINROTS")

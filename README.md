@@ -136,22 +136,33 @@ The admin panel can drop any brainrot (with any mutation) from the sky, start a 
 
 There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. It's set to **Saturday 2:00 PM Central time (Oklahoma)**, and daylight saving is handled automatically. Change it in `Config.AdminAbuse`. Admins can also start or end it any time.
 
-When it starts, everyone gets a huge intro: a white flash and red camera flash, a camera shake, spinning red and gold light rays, a giant rainbow **ADMIN ABUSE!** title that slams in (with the admin's name if one started it), falling confetti and a volley of fireworks over the map. While it runs, the lighting gently cycles party colors and fireworks keep popping. An "ADMIN ABUSE IS OVER" card shows when it ends. (All of it is in `src/client/AdminAbuse.client.luau`.)
+When it starts, everyone gets a huge intro: two white flashes and a red flash over the world, a camera shake, a pulsing rainbow border, spinning light rays, a giant rainbow **ADMIN ABUSE!** title that slams in (with the admin's name if one started it), the boosts popping in one by one (x3 CASH, x3 LUCK, SUPER SPEED, SUPER JUMP, FREE GIFT, GIANT FOUNDERS), lots of confetti and a volley of fireworks over the map. While it runs, the lighting gently cycles party colors and fireworks keep popping. An "ADMIN ABUSE IS OVER" card shows when it ends. (All of it is in `src/client/AdminAbuse.client.luau`.)
 
 **Admin abuse boosts and gift** (tune them in `Config.AdminAbuseBoosts` and `Config.AdminAbuseGift`):
-- While it's live, everyone gets **2x cash**, **Server Luck** and walks faster (22 instead of 16; carrying stays slow so stealing stays fair).
+- While it's live, everyone gets **3x cash**, **3x luck** (rare spawns and mutations), walks faster (24 instead of 16) and jumps higher. Carrying a stolen brainrot stays slow so stealing stays fair.
+- **Giant founders** (Corny and Ace, in their normal Roblox avatars) rise out of the ground at the edges of the map, wave, dance and keep throwing cash bags and brainrots for everyone to grab.
 - Everyone online gets a gift, shown on a pop-up card: **3 Diamonds, 150 Shards and a free brainrot** (rolled with Brainrot Rain luck). It's once per player per week, so starting admin abuse again the same week doesn't hand out more. Players who join while it's live still get theirs.
-- Why 3 Diamonds: normally the only way to get Diamonds is 1 a week from weekly quests. 3 a week from admin abuse makes it a big reward worth showing up for, while Gold walls (4) and Galaxy walls (9) still take some effort.
+- Why 3 Diamonds: weekly quests give up to 3 a week, so admin abuse doubles that for anyone who shows up, while the Diamond skins (12 to 120) still take real saving.
+
+### Founders and founder events
+
+The founders are set in `Config.Founders`. Put each founder's Roblox **UserId** (the number in their profile link, `roblox.com/users/<UserId>/profile`) or **Username** there so their giants wear their real avatars during admin abuse. A founder without one doesn't appear.
+
+Each founder also has their own event, starring only them in a special event outfit (not their normal avatar). Start it from the admin panel (**Corny Event**, and **End Founder Event** to stop it early).
+
+- **Corny Event** (5 minutes): a big intro in Corny's sprinkle colors, then a giant Corny swoops down from the sky with jetpack flames and a sparkle trail, waves, and dances while he flies in a big circle above the map. Every couple of seconds he drops something on the ground below him: cash bags, or brainrots with a 45% Candy and 8% Rainbow mutation chance. He flies off when it ends.
+- His event outfit: until it's set, he's built from parts to look like his screenshots (black suit and tie, pixel shades, white sprinkle top hat with a red band, rainbow-striped pants and jetpack). For the exact outfit, save it as a Costume on Roblox and put its outfit id in `OutfitId` in `Config.FounderEvents.Corny`.
+- **Ace's event** comes next: it slots into `Config.FounderEvents` the same way.
 
 ## Quests, Shards, Diamonds and the Diamond Shop
 
 Fair progression for free-to-play players. None of this can be bought with Robux.
 
 - **Daily quests:** 3 a day, the same for everyone, and new ones at midnight Oklahoma time. Each pays **10 Shards**.
-- **Weekly quests:** 3 a week, new every Monday, and much harder. Each pays **1 Diamond + 100 Shards**. Weekly quests are the only way to earn Diamonds.
-- **Wall skins:** open the **QUESTS** button to see them. Most cost Shards (Red Brick 50, Candy 100, Ice 150, Jungle 200, Cyber Neon 300). The best two cost Diamonds (Royal Gold 4, Galaxy 9). Skins only change the look; your base level still sets the wall height. Every floor of your base matches your skin. With Classic, floors are the same grey in your walls' material (wood, brick, concrete, steel or diamond).
+- **Weekly quests:** 3 a week, new every Monday, and much harder. Each pays **1 Diamond + 100 Shards**. Diamonds only come from weekly quests and the weekly admin abuse gift.
+- **Wall skins:** open the **QUESTS** button to see them. They're a ladder: you have to own the one before to buy the next. Shard skins: Red Brick 250 → Candy Pink 600 → Frozen Ice 1,200 → Jungle Stone 2,000 → Cyber Neon 3,500 (about 11 weeks of Shards in all). Diamond skins: Royal Gold 12 → Galaxy 25 → Crystal Palace 45 → Lava Core 75 → Celestial 120, the long-term flex. Skins only change the look; your base level still sets the wall height. Every floor of your base matches your skin. With Classic, floors are the same grey in your walls' material (wood, brick, concrete, steel or diamond).
 - **Shop tent:** a blue-and-cream striped circus-style tent (like Bee Swarm's) past the bases near the cave the brainrots come out of, with a little spinning diamond on top.
-  - The left counter spends Diamonds: Shard Pouch (1), 2x Cash for 30 min (2), Server Luck for everyone for 15 min (3), plus the Diamond wall skins.
+  - The left counter spends Diamonds: Shard Pouch (2 for 400 Shards), 2x Cash for 30 min (3), Server Luck for everyone for 15 min (5), 2x Cash for 3 hours (12), plus the Diamond wall skins.
   - The right counter opens the **Robux shop**: the limited event brainrot, gamepasses and boosts.
 
 Quest pools, goals, rewards, skins and shop items are all in `Config.luau`.
