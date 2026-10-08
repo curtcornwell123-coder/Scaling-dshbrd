@@ -293,6 +293,16 @@ local function cornyLookAlike(): Model
 	return model
 end
 
+local function humanoidAccessories(model: Model): { Accessory }
+	local list = {}
+	for _, child in model:GetChildren() do
+		if child:IsA("Accessory") then
+			table.insert(list, child)
+		end
+	end
+	return list
+end
+
 -- Scale fix-up ----------------------------------------------------------------
 -- Model:ScaleTo doesn't reliably scale everything on newer avatars: the head
 -- and the hats and hair on it could stay normal size (or get shrunk back)
@@ -371,6 +381,35 @@ end
 
 -- Giants --------------------------------------------------------------------
 
+-- Parts of a giant are only for looking at: no collisions or touches. Its
+-- limbs are held rigid: newer avatars hang them on physics joints
+-- (AnimationConstraints), which can't hold up limbs this big, so those are
+-- made kinematic (rigid, like classic joints). Scripts are removed.
+local function prepareGiantParts(giant: Model)
+	for _, d in giant:GetDescendants() do
+		if d:IsA("BasePart") then
+			if d ~= giant.PrimaryPart then
+				d.Anchored = false
+			end
+			d.CanCollide = false
+			d.CanQuery = false
+			d.CanTouch = false
+			d.Massless = true
+			d.CastShadow = true
+		elseif d:IsA("Script") or d:IsA("LocalScript") then
+			d:Destroy()
+		elseif d:IsA("AnimationConstraint") then
+			pcall(function()
+				(d :: any).IsKinematic = true
+			end)
+			pcall(function()
+				(d :: any).MaxForce = math.huge;
+				(d :: any).MaxTorque = math.huge
+			end)
+		end
+	end
+end
+
 -- Builds a giant founder, `scale` times normal size, standing on `ground`
 -- (feet at that point) facing `lookAt`. The root is anchored and every other
 -- part is welded to it, so moving the root moves the whole giant.
@@ -408,28 +447,7 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 	end
 	local giant = model or cornyLookAlike()
 	giant.Name = founder.Name .. "Giant"
-	for _, d in giant:GetDescendants() do
-		if d:IsA("BasePart") then
-			d.Anchored = false
-			d.CanCollide = false
-			d.CanQuery = false
-			d.CanTouch = false
-			d.Massless = true
-			d.CastShadow = true
-		elseif d:IsA("Script") or d:IsA("LocalScript") then
-			d:Destroy()
-		elseif d:IsA("AnimationConstraint") then
-			-- Newer avatars hang their limbs on physics joints; make them hold
-			-- rigidly like classic joints so a giant's limbs can't sag or fall.
-			pcall(function()
-				(d :: any).IsKinematic = true
-			end)
-			pcall(function()
-				(d :: any).MaxForce = math.huge;
-				(d :: any).MaxTorque = math.huge
-			end)
-		end
-	end
+	prepareGiantParts(giant)
 	local root = giant:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
 		giant:Destroy()
@@ -439,35 +457,80 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 	giant.PrimaryPart = root
 	local humanoid = giant:FindFirstChildOfClass("Humanoid")
 	if humanoid then
+		-- Leave Roblox's avatar system alone as much as possible: it's what
+		-- puts the head, face and clothing on (switching off its health,
+		-- state machine or auto-scaling left giants headless and unclothed).
+		-- The giant can't move anyway: its root is anchored and its limbs
+		-- are held rigid (above).
 		humanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		humanoid.BreakJointsOnDeath = false
 		humanoid.RequiresNeck = false
-		-- A giant is a statue that dances: no walking, falling, ragdolling or
-		-- dying (that's what knocked them over and into the ground). Emotes
-		-- still play through the Animator.
-		humanoid.MaxHealth = math.huge
-		humanoid.Health = math.huge
-		for _, state in { Enum.HumanoidStateType.Dead, Enum.HumanoidStateType.FallingDown, Enum.HumanoidStateType.Ragdoll, Enum.HumanoidStateType.Freefall, Enum.HumanoidStateType.Physics } do
-			humanoid:SetStateEnabled(state, false)
-		end
-		humanoid.EvaluateStateMachine = false
-		-- Roblox's automatic avatar scaling would quietly resize the head and
-		-- accessories back toward normal size after the giant is scaled up
-		-- (tiny head floating over a huge body). The giant's size is set
-		-- once, by ScaleTo below, so switch it off first.
-		humanoid.AutomaticScalingEnabled = false
+		humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
 	end
-	-- Send the giant to players all in one go: if parts arrived separately,
-	-- a late head would be missing and clothing (which needs the whole body)
-	-- wouldn't show.
+	-- Send the giant to players all in one go, so a late part can't be missing.
 	pcall(function()
 		giant.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	end)
+	-- Built out of sight below the map, then moved into place by the caller.
+	giant:PivotTo(CFrame.new(0, -300, 0))
 	giant.Parent = parent
-	local originals = recordSizes(giant)
-	giant:ScaleTo(scale)
-	scaleInfo[giant] = { Originals = originals, Scale = scale }
-	Founders.FixScale(giant)
+
+	if humanoid and humanoid.RigType == Enum.HumanoidRigType.R15 then
+		-- Real avatars: grow them the way Roblox grows any avatar, through the
+		-- Humanoid's own body scale values. Roblox then rebuilds the whole
+		-- avatar at that size itself, head, face, clothing and accessories
+		-- included.
+		-- Measured on the upper torso, a body part Roblox always resizes.
+		local measure = (giant:FindFirstChild("UpperTorso") or root) :: BasePart
+		local startHeight = measure.Size.Y
+		for _, name in { "BodyHeightScale", "BodyWidthScale", "BodyDepthScale", "HeadScale" } do
+			local value = humanoid:FindFirstChild(name)
+			if value and value:IsA("NumberValue") then
+				value.Value *= scale
+			end
+		end
+		-- Wait for Roblox to finish resizing it.
+		local deadline = os.clock() + 3
+		while os.clock() < deadline and measure.Size.Y < startHeight * scale * 0.9 do
+			task.wait(0.1)
+		end
+		task.wait(0.3)
+		-- If Roblox wouldn't make it that big, scale up the rest of the way.
+		local reached = measure.Size.Y / startHeight
+		if reached < scale * 0.9 then
+			local originals = recordSizes(giant)
+			local extra = scale / math.max(reached, 0.01)
+			giant:ScaleTo(giant:GetScale() * extra)
+			scaleInfo[giant] = { Originals = originals, Scale = extra }
+			Founders.FixScale(giant)
+		end
+	else
+		-- Look-alikes are plain welded parts: ScaleTo handles them perfectly.
+		giant:ScaleTo(scale)
+	end
+	-- Resizing can rebuild joints, so hold them rigid again.
+	prepareGiantParts(giant)
+	root.Anchored = true
+
+	-- A line in the Output window describing what was built, to help track
+	-- down any problem with how a giant looks.
+	do
+		local head = giant:FindFirstChild("Head")
+		local headInfo = if head and head:IsA("BasePart")
+			then string.format("head %s (size %.0f, see-through %.1f)", head.ClassName, head.Size.Y, head.Transparency)
+			else "NO HEAD"
+		local torso = giant:FindFirstChild("UpperTorso") or giant:FindFirstChild("Torso")
+		print(string.format(
+			"[Founders] %s giant: %s, shirt %s, pants %s, %d accessories, torso height %.0f (wanted scale %s)",
+			founder.Name,
+			headInfo,
+			if giant:FindFirstChildOfClass("Shirt") then "yes" else "no",
+			if giant:FindFirstChildOfClass("Pants") then "yes" else "no",
+			#humanoidAccessories(giant),
+			if torso and torso:IsA("BasePart") then torso.Size.Y else 0,
+			tostring(scale)
+		))
+	end
 
 	-- Name tag over their head
 	local tag = Instance.new("BillboardGui")
