@@ -381,10 +381,11 @@ end
 
 -- Giants --------------------------------------------------------------------
 
--- Parts of a giant are only for looking at: no collisions or touches. Its
--- limbs are held rigid: newer avatars hang them on physics joints
--- (AnimationConstraints), which can't hold up limbs this big, so those are
--- made kinematic (rigid, like classic joints). Scripts are removed.
+-- Parts of a giant are only for looking at: no collisions or touches, and
+-- massless, so the joints hold the limbs up easily from the anchored root.
+-- Scripts are removed. The joints themselves are left exactly as Roblox
+-- made them (changing them, e.g. making them kinematic with infinite force,
+-- broke the head and clothing).
 local function prepareGiantParts(giant: Model)
 	for _, d in giant:GetDescendants() do
 		if d:IsA("BasePart") then
@@ -398,14 +399,6 @@ local function prepareGiantParts(giant: Model)
 			d.CastShadow = true
 		elseif d:IsA("Script") or d:IsA("LocalScript") then
 			d:Destroy()
-		elseif d:IsA("AnimationConstraint") then
-			pcall(function()
-				(d :: any).IsKinematic = true
-			end)
-			pcall(function()
-				(d :: any).MaxForce = math.huge;
-				(d :: any).MaxTorque = math.huge
-			end)
 		end
 	end
 end
@@ -508,7 +501,7 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 		-- Look-alikes are plain welded parts: ScaleTo handles them perfectly.
 		giant:ScaleTo(scale)
 	end
-	-- Resizing can rebuild joints, so hold them rigid again.
+	-- Resizing can add or rebuild parts, so set them up again.
 	prepareGiantParts(giant)
 	root.Anchored = true
 
@@ -677,22 +670,29 @@ Founders.SagePose = {
 	LeftElbow = { 90, 0, 55 },
 } :: Pose
 
--- Puts a giant (a real avatar) into `pose` and freezes it there: every body
--- part and accessory is placed directly from the avatar's joints, with the
--- pose's turns added, and then anchored. Nothing is left to the physics
--- engine, so the pose always shows and the body can't droop, fall or sink.
--- Move it afterwards with PivotTo.
-function Founders.FreezePose(giant: Model, pose: Pose)
-	if not giant.PrimaryPart then
-		return
-	end
-	local placed = solveRig(giant, pose)
-	for _, part in giant:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.Anchored = true
-			local cf = placed[part]
-			if cf then
-				part.CFrame = cf
+-- Puts a giant (a real avatar) into `pose` by turning the joints where each
+-- limb connects: the C0 of classic joints (Motor6D), or the joint's
+-- attachment on the parent part for newer avatars (AnimationConstraint).
+-- Nothing is anchored or rebuilt, so Roblox keeps drawing the avatar's head
+-- and clothing normally. Safe to call again: it always starts from each
+-- joint's original setting.
+local originalC0: { [Motor6D]: CFrame } = setmetatable({}, { __mode = "k" }) :: any
+local originalAttachment: { [Attachment]: CFrame } = setmetatable({}, { __mode = "k" }) :: any
+
+function Founders.ApplyPose(giant: Model, pose: Pose)
+	for _, joint in giant:GetDescendants() do
+		local angles = pose[joint.Name]
+		if angles then
+			local turn = CFrame.Angles(math.rad(angles[1]), math.rad(angles[2]), math.rad(angles[3]))
+			if joint:IsA("Motor6D") then
+				local original = originalC0[joint] or joint.C0
+				originalC0[joint] = original
+				joint.C0 = original * turn
+			elseif joint:IsA("AnimationConstraint") and joint.Attachment0 then
+				local attachment = joint.Attachment0 :: Attachment
+				local original = originalAttachment[attachment] or attachment.CFrame
+				originalAttachment[attachment] = original
+				attachment.CFrame = original * turn
 			end
 		end
 	end

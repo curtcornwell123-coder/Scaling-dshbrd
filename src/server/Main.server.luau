@@ -2362,8 +2362,8 @@ local function placeGiant(giant: Model, spot: Vector3, feetY: number): Vector3
 end
 
 -- Re-checks a giant a few times while Roblox finishes building it: fixes
--- anything that didn't scale up (like the head), re-locks its pose and puts
--- its feet back at `feetY`.
+-- anything that didn't scale up, re-applies its pose and puts its feet back
+-- at `feetY`.
 local function settleGiant(giant: Model, feetY: number, pose: Founders.Pose?)
 	for _ = 1, 3 do
 		task.wait(0.4)
@@ -2372,7 +2372,7 @@ local function settleGiant(giant: Model, feetY: number, pose: Founders.Pose?)
 		end
 		Founders.FixScale(giant)
 		if pose then
-			Founders.FreezePose(giant, pose)
+			Founders.ApplyPose(giant, pose)
 		end
 		groundGiant(giant, feetY, 0.5)
 	end
@@ -2510,9 +2510,9 @@ local function runFounderEvent(eventId: string, minutes: number)
 		local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
 		if giant then
 			-- Their pose: an animation if one is set, otherwise the floating
-			-- sage pose, frozen in place before they're moved into the beam.
+			-- sage pose (set by turning their joints).
 			if poseId == "" then
-				Founders.FreezePose(giant, Founders.SagePose)
+				Founders.ApplyPose(giant, Founders.SagePose)
 			end
 			local feetY = spot.Y + floatHeight
 			local size = placeGiant(giant, spot, feetY)
@@ -2576,7 +2576,6 @@ local function runFounderEvent(eventId: string, minutes: number)
 		if not giant then
 			return
 		end
-		Founders.FreezePose(giant, {})
 		local size = placeGiant(giant, spot, spot.Y)
 		giantPoof(spot, size.Y, event.Colors[1])
 		settleGiant(giant, spot.Y, {})
