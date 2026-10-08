@@ -3348,8 +3348,9 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		Announce:FireAllClients("abuse", admin.DisplayName, "")
 		return
 	elseif action == "FounderEvent" then
-		-- Founders only (Corny and Ace), not other admins.
-		if not founderOf(admin) then
+		-- Each founder starts only their own event (Corny's, Ace's).
+		local founder = founderOf(admin)
+		if not founder then
 			notify(admin, "Only the founders can start founder events.")
 			return
 		end
@@ -3357,6 +3358,10 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		local eventId = tostring(info.Id)
 		local event = Config.FounderEvents[eventId]
 		if not event then
+			return
+		end
+		if event.Founder ~= founder.Id then
+			notify(admin, "That's " .. event.Founder .. "'s event: only " .. event.Founder .. " can start it.")
 			return
 		end
 		if founderEventRunning then

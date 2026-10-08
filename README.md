@@ -157,7 +157,7 @@ The founders are set in `Config.Founders`: **Corny** (Roblox username `Cornywell
 
 To find an outfit id for `OutfitId`: open `https://avatar.roblox.com/v1/users/<UserId>/outfits?itemsPerPage=50` in a browser, find the costume's `"name"`, and copy the `"id"` just before it.
 
-Each founder also has their own event, starring only them in a special event outfit (not their normal avatar). **Only Corny and Ace can start or end these**; other admins don't even see the buttons. Start one from the admin panel's **FOUNDER** tab (**START CORNY EVENT**, and **END FOUNDER EVENT** to stop it early). It runs for the number of minutes in that tab's **Minutes** box.
+Each founder also has their own event, starring only them in a special event outfit (not their normal avatar). **Each founder can only start their own event** (Corny's or Ace's; the FOUNDER tab shows just theirs as START MY EVENT), and only founders can end them; other admins don't even see the tab. Start one from the admin panel's **FOUNDER** tab (**START CORNY EVENT**, and **END FOUNDER EVENT** to stop it early). It runs for the number of minutes in that tab's **Minutes** box.
 
 ### Loading screen
 

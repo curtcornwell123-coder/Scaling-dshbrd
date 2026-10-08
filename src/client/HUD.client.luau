@@ -1585,6 +1585,8 @@ local founderTab: AdminTab
 local limitedGiveRows: { Frame } = {}
 -- Making codes: only Config.CodeMaker (Corny) sees this box.
 local codeMakerCards: { Frame } = {}
+-- Each founder only sees the button for their own event.
+local founderEventButtons: { { Button: TextButton, Founder: string } } = {}
 do
 
 	local ORANGE = Color3.fromRGB(255, 150, 40)
@@ -1952,7 +1954,7 @@ do
 	founderPage, founderTab = adminTab("FOUNDER", PINK)
 	founderTab.Button.Visible = false
 
-	local founderEvents = section(founderPage, 1, "MY FOUNDER EVENT", "Only Corny and Ace can start these. Runs for the minutes you type here.", PINK)
+	local founderEvents = section(founderPage, 1, "MY FOUNDER EVENT", "Your own event: only you can start it. Runs for the minutes you type here.", PINK)
 	local founderMinutesRow = controls(founderEvents, 1)
 	label(founderMinutesRow, "Minutes", 100)
 	local founderMinutesBox = inputBox(founderMinutesRow, "5", "how long", 80)
@@ -1963,9 +1965,11 @@ do
 	table.sort(founderEventIds)
 	local founderEventRow = controls(founderEvents, 2)
 	for _, eventId in founderEventIds do
-		smallButton(founderEventRow, "START " .. string.upper(eventId) .. " EVENT", PINK, 220, function()
+		local startButton = smallButton(founderEventRow, "START MY EVENT", PINK, 220, function()
 			send("FounderEvent", { Id = eventId, Minutes = founderMinutesBox.Text })
 		end)
+		startButton.Visible = false
+		table.insert(founderEventButtons, { Button = startButton, Founder = Config.FounderEvents[eventId].Founder })
 	end
 	local founderStopRow = controls(founderEvents, 3)
 	smallButton(founderStopRow, "END FOUNDER EVENT", GREY, 230, function()
@@ -2155,6 +2159,9 @@ local function render()
 	end
 	for _, card in codeMakerCards do
 		card.Visible = data.FounderId == Config.CodeMaker
+	end
+	for _, entry in founderEventButtons do
+		entry.Button.Visible = data.FounderId == entry.Founder
 	end
 	if founderTab.Page.Visible and not data.IsFounder then
 		selectTab(playersTab)
