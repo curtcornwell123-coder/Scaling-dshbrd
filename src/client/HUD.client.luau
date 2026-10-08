@@ -34,6 +34,12 @@ local DARK = Color3.fromRGB(25, 25, 35)
 local GREEN = Color3.fromRGB(70, 210, 90)
 local GOLD = Color3.fromRGB(255, 200, 50)
 local RED = Color3.fromRGB(235, 60, 70)
+-- One dark look for every window (matches the shop).
+local PANEL_BG = Color3.fromRGB(32, 32, 40)
+local PANEL_DARK = Color3.fromRGB(22, 22, 28)
+local TILE = Color3.fromRGB(44, 44, 54)
+local EDGE = Color3.fromRGB(12, 12, 16)
+local UI_GREY = Color3.fromRGB(90, 90, 100)
 
 local data: any = nil
 
@@ -112,11 +118,18 @@ local cashPanel = Instance.new("Frame")
 cashPanel.AnchorPoint = Vector2.new(0.5, 0)
 cashPanel.Position = UDim2.new(0.5, 0, 0, 8)
 cashPanel.Size = UDim2.fromOffset(320, 112)
-cashPanel.BackgroundColor3 = DARK
-cashPanel.BackgroundTransparency = 0.2
-corner(cashPanel, 14)
-stroke(cashPanel, 2, GREEN)
+cashPanel.BackgroundColor3 = PANEL_BG
+cashPanel.BackgroundTransparency = 0.1
+corner(cashPanel, 10)
+stroke(cashPanel, 3, EDGE)
 cashPanel.Parent = gui
+local cashAccent = Instance.new("Frame")
+cashAccent.BorderSizePixel = 0
+cashAccent.BackgroundColor3 = GREEN
+cashAccent.AnchorPoint = Vector2.new(0.5, 1)
+cashAccent.Position = UDim2.new(0.5, 0, 1, -4)
+cashAccent.Size = UDim2.new(1, -24, 0, 3)
+cashAccent.Parent = cashPanel
 
 local cashLabel = text(cashPanel, {
 	Position = UDim2.fromOffset(10, 4),
@@ -140,7 +153,7 @@ local currencyLabel = text(cashPanel, {
 	Position = UDim2.fromOffset(10, 90),
 	Size = UDim2.new(1, -20, 0, 18),
 	TextColor3 = Color3.fromRGB(140, 220, 255),
-	Text = "Shards 0   |   Diamonds 0",
+	Text = "🔷 0   💎 0",
 })
 
 local luckLabel = text(gui, {
@@ -184,10 +197,39 @@ local sideLayout = Instance.new("UIListLayout")
 sideLayout.Padding = UDim.new(0, 10)
 sideLayout.Parent = side
 
-local shopButton = button(side, "SHOP", Color3.fromRGB(255, 150, 40), UDim2.fromOffset(130, 56))
-local rebirthButton = button(side, "REBIRTH", Color3.fromRGB(170, 80, 255), UDim2.fromOffset(130, 56))
-local questsButton = button(side, "QUESTS", Color3.fromRGB(60, 170, 255), UDim2.fromOffset(130, 56))
-local followButton = button(side, "FOLLOW", Color3.fromRGB(60, 200, 120), UDim2.fromOffset(130, 56))
+-- Menu buttons styled like the shop's category tiles: a big icon and a label.
+local function sideButton(label: string, emoji: string, color: Color3): TextButton
+	local b = Instance.new("TextButton")
+	b.Size = UDim2.fromOffset(130, 56)
+	b.BackgroundColor3 = color
+	b.Text = ""
+	b.AutoButtonColor = true
+	corner(b, 10)
+	stroke(b, 2, color:Lerp(Color3.new(0, 0, 0), 0.45))
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(color:Lerp(WHITE, 0.3), color)
+	gradient.Rotation = 90
+	gradient.Parent = b
+	text(b, {
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 6, 0.5, 0),
+		Size = UDim2.fromOffset(40, 40),
+		TextStrokeTransparency = 1,
+		Text = emoji,
+	})
+	text(b, {
+		Position = UDim2.fromOffset(48, 10),
+		Size = UDim2.new(1, -54, 1, -20),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = label,
+	})
+	b.Parent = side
+	return b
+end
+local shopButton = sideButton("SHOP", "🛒", Color3.fromRGB(255, 150, 40))
+local rebirthButton = sideButton("REBIRTH", "🔁", Color3.fromRGB(170, 80, 255))
+local questsButton = sideButton("QUESTS", "📜", Color3.fromRGB(60, 170, 255))
+local followButton = sideButton("FOLLOW", "🐾", Color3.fromRGB(60, 200, 120))
 
 -- Toasts -------------------------------------------------------------------
 
@@ -316,20 +358,27 @@ local function modal(title: string, color: Color3, height: number): (Frame, Fram
 	frame.AnchorPoint = Vector2.new(0.5, 0.5)
 	frame.Position = UDim2.fromScale(0.5, 0.5)
 	frame.Size = UDim2.fromOffset(560, height)
-	frame.BackgroundColor3 = DARK
+	frame.BackgroundColor3 = PANEL_BG
 	frame.Visible = false
-	corner(frame, 16)
-	stroke(frame, 3, color)
+	corner(frame, 10)
+	stroke(frame, 4, EDGE)
 	frame.Parent = gui
 
+	-- Title in the window's color, with a matching line under the header.
 	text(frame, {
-		Position = UDim2.fromOffset(16, 10),
-		Size = UDim2.new(1, -80, 0, 40),
+		Position = UDim2.fromOffset(16, 8),
+		Size = UDim2.new(1, -80, 0, 42),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = color,
 		Text = title,
 	})
-	local close = button(frame, "X", RED, UDim2.fromOffset(44, 44))
+	local line = Instance.new("Frame")
+	line.BorderSizePixel = 0
+	line.BackgroundColor3 = color
+	line.Position = UDim2.fromOffset(16, 54)
+	line.Size = UDim2.new(1, -32, 0, 3)
+	line.Parent = frame
+	local close = button(frame, "X", UI_GREY, UDim2.fromOffset(44, 44))
 	close.Position = UDim2.new(1, -54, 0, 8)
 	close.MouseButton1Click:Connect(function()
 		frame.Visible = false
@@ -337,8 +386,8 @@ local function modal(title: string, color: Color3, height: number): (Frame, Fram
 
 	local body = Instance.new("Frame")
 	body.BackgroundTransparency = 1
-	body.Position = UDim2.fromOffset(16, 60)
-	body.Size = UDim2.new(1, -32, 1, -76)
+	body.Position = UDim2.fromOffset(16, 66)
+	body.Size = UDim2.new(1, -32, 1, -80)
 	body.Parent = frame
 	return frame, body
 end
@@ -378,17 +427,6 @@ shopFrame.Visible = false
 corner(shopFrame, 10)
 stroke(shopFrame, 4, Color3.fromRGB(12, 12, 16))
 shopFrame.Parent = gui
-local shopScale = Instance.new("UIScale")
-shopScale.Parent = shopFrame
-local function fitShop()
-	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-	shopScale.Scale = math.min(1, (viewport.Y - 30) / 560, (viewport.X - 30) / 760)
-end
-fitShop()
-if camera then
-	camera:GetPropertyChangedSignal("ViewportSize"):Connect(fitShop)
-end
-
 local function box(parent: Instance, position: UDim2, size: UDim2, color: Color3, radius: number?): Frame
 	local f = Instance.new("Frame")
 	f.Position = position
@@ -957,7 +995,7 @@ local upgradeCards: { [string]: UpgradeCard } = {}
 local function upgradeCard(order: number, kind: string, title: string, color: Color3)
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, 0, 0, 100)
-	card.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	card.BackgroundColor3 = TILE
 	card.LayoutOrder = order
 	corner(card, 12)
 	stroke(card, 2, color)
@@ -1108,7 +1146,7 @@ type QuestRow = { Text: TextLabel, Fill: Frame, Count: TextLabel }
 local function questRow(order: number): QuestRow
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -10, 0, 58)
-	row.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	row.BackgroundColor3 = TILE
 	row.LayoutOrder = order
 	corner(row, 10)
 	row.Parent = questsBody
@@ -1175,7 +1213,7 @@ local skinRows: { [string]: Frame } = {}
 for i, skin in Config.WallSkins do
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -10, 0, 50)
-	row.BackgroundColor3 = if skin.FounderOnly then Color3.fromRGB(25, 32, 55) else Color3.fromRGB(40, 40, 55)
+	row.BackgroundColor3 = if skin.FounderOnly then Color3.fromRGB(25, 32, 55) else TILE
 	row.LayoutOrder = 21 + i
 	-- Founder-only skins are hidden until we know you're that founder.
 	row.Visible = skin.FounderOnly == nil
@@ -1335,7 +1373,7 @@ local function renderFollowers()
 			local mutation = Config.GetMutation(entry.Mutation)
 			local row = Instance.new("Frame")
 			row.Size = UDim2.new(1, -10, 0, 44)
-			row.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+			row.BackgroundColor3 = TILE
 			row.LayoutOrder = i
 			corner(row, 8)
 			row.Parent = followList
@@ -1533,19 +1571,6 @@ local HINT = Color3.fromRGB(170, 170, 185)
 
 local adminFrame, adminFrameBody = modal("ADMIN PANEL", RED, 640)
 adminFrame.Size = UDim2.fromOffset(640, 640)
--- Shrinks to fit smaller screens.
-local adminScale = Instance.new("UIScale")
-adminScale.Parent = adminFrame
-local function fitAdmin()
-	local camera = workspace.CurrentCamera
-	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-	adminScale.Scale = math.min(1, (viewport.Y - 40) / 640, (viewport.X - 40) / 640)
-end
-fitAdmin()
-if workspace.CurrentCamera then
-	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fitAdmin)
-end
-
 local function inputBox(parent: Instance, default: string, hint: string, width: number): TextBox
 	local box = Instance.new("TextBox")
 	box.Size = UDim2.fromOffset(width, 38)
@@ -1572,7 +1597,7 @@ end
 -- Who the Players and Brainrots buttons act on. Always at the top.
 local targetBar = Instance.new("Frame")
 targetBar.Size = UDim2.new(1, 0, 0, 44)
-targetBar.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+targetBar.BackgroundColor3 = TILE
 corner(targetBar, 10)
 targetBar.Parent = adminFrameBody
 local targetLayout = Instance.new("UIListLayout")
@@ -1647,7 +1672,7 @@ local function section(page: Instance, order: number, title: string, hint: strin
 	local card = Instance.new("Frame")
 	card.Size = UDim2.new(1, -12, 0, 0)
 	card.AutomaticSize = Enum.AutomaticSize.Y
-	card.BackgroundColor3 = Color3.fromRGB(36, 36, 50)
+	card.BackgroundColor3 = PANEL_DARK
 	card.LayoutOrder = order
 	corner(card, 12)
 	stroke(card, 2, color)
@@ -1844,7 +1869,7 @@ local limitedGiveRows: { Frame } = {}
 for i, brainrot in Config.Brainrots do
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, 0, 0, 36)
-	row.BackgroundColor3 = Color3.fromRGB(46, 46, 62)
+	row.BackgroundColor3 = TILE
 	row.LayoutOrder = 100 + i
 	corner(row, 8)
 	row.Parent = listCard
@@ -1940,7 +1965,7 @@ end)
 
 selectTab(playersTab)
 
-local adminButton = button(side, "ADMIN", RED, UDim2.fromOffset(130, 56))
+local adminButton = sideButton("ADMIN", "🛠️", RED)
 adminButton.Visible = false
 adminButton.MouseButton1Click:Connect(function()
 	shopFrame.Visible = false
@@ -1974,7 +1999,7 @@ local function render()
 	renderQuests()
 	renderFollowers()
 	renderDiamondShop()
-	currencyLabel.Text = string.format("Shards %d   |   Diamonds %d", data.Shards or 0, data.Diamonds or 0)
+	currencyLabel.Text = string.format("🔷 %d Shards     💎 %d Diamonds", data.Shards or 0, data.Diamonds or 0)
 	rebirthInfo.Text = string.format(
 		"Rebirth %d\nCost: %s\nIncome x%.1f  ->  x%.1f\nYou keep gamepasses. Cash and brainrots reset.",
 		data.Rebirths,
