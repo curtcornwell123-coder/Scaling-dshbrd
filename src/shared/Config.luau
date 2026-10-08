@@ -216,6 +216,10 @@ export type WallSkin = {
 	-- (so Classic floors follow the base level: wood, brick, concrete...).
 	FloorColor: Color3?,
 	FloorMaterial: Enum.Material?,
+	-- Only this founder (Config.Founders Id) can have it; it's free for them
+	-- and hidden from everyone else.
+	FounderOnly: string?,
+	Corn: boolean?, -- corn cobs on the walls and the Corny Games logo on the windows
 }
 
 Config.WallSkins = {
@@ -230,18 +234,23 @@ Config.WallSkins = {
 	{ Id = "Crystal", Name = "Crystal Palace", Cost = 45, Currency = "Diamonds", Color = Color3.fromRGB(150, 225, 255), Material = Enum.Material.Glass, Glass = Color3.fromRGB(220, 250, 255), GlassNeon = true, FloorColor = Color3.fromRGB(200, 240, 255), FloorMaterial = Enum.Material.Glass },
 	{ Id = "Lava", Name = "Lava Core", Cost = 75, Currency = "Diamonds", Color = Color3.fromRGB(55, 25, 20), Material = Enum.Material.CrackedLava, Glass = Color3.fromRGB(255, 120, 30), GlassNeon = true, FloorColor = Color3.fromRGB(45, 22, 18), FloorMaterial = Enum.Material.Slate },
 	{ Id = "Celestial", Name = "Celestial", Cost = 120, Currency = "Diamonds", Color = Color3.fromRGB(245, 240, 228), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 210, 90), GlassNeon = true, FloorColor = Color3.fromRGB(250, 246, 236), FloorMaterial = Enum.Material.Marble },
+	-- Corny's own skin, like his logo: navy walls, gold trim, corn everywhere.
+	{ Id = "Corny", Name = "Corny Gold (Corny only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Corny", Corn = true, Color = Color3.fromRGB(25, 32, 55), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 205, 60), FloorColor = Color3.fromRGB(255, 215, 90), FloorMaterial = Enum.Material.SmoothPlastic },
 } :: { WallSkin }
 
 -- Skins are a ladder: to buy one you must own the one before it that costs
 -- the same currency (Red Brick -> Candy Pink -> ... and Royal Gold ->
 -- Galaxy -> ...). Returns the skin you need first, if any.
 function Config.SkinRequirement(skin: WallSkin): WallSkin?
+	if skin.FounderOnly then
+		return nil
+	end
 	local previous: WallSkin? = nil
 	for _, other in Config.WallSkins do
 		if other.Id == skin.Id then
 			return previous
 		end
-		if other.Currency == skin.Currency and other.Cost > 0 then
+		if other.Currency == skin.Currency and other.Cost > 0 and not other.FounderOnly then
 			previous = other
 		end
 	end

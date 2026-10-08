@@ -109,6 +109,7 @@ type Session = {
 	LastCollect: number,
 	IsAdmin: boolean,
 	IsFounder: boolean,
+	FounderId: string, -- "Corny", "Ace", or "" for everyone else
 	LastLimitedTry: number,
 	FollowerModels: { Model },
 }
@@ -557,6 +558,7 @@ local function snapshot(session: Session)
 		PlotIndex = if plot then plot.Parts.Index else 0,
 		IsAdmin = session.IsAdmin,
 		IsFounder = session.IsFounder,
+		FounderId = session.FounderId,
 		Limited = limitedOwned(session),
 		Shards = data.Shards,
 		CashBoostLeft = math.max(0, data.CashBoostUntil - os.time()),
@@ -1476,7 +1478,16 @@ SkinAction.OnServerEvent:Connect(function(player: Player, action: unknown, skinI
 		return
 	end
 	local data = session.Data
-	if action == "Buy" and not table.find(data.Skins, skin.Id) then
+	-- Founder-only skins (Corny Gold): only that founder can claim or wear
+	-- it. Checked here on the server, so nobody else can get it.
+	if skin.FounderOnly and skin.FounderOnly ~= session.FounderId then
+		notify(player, string.format("Only %s can use %s!", skin.FounderOnly, skin.Name))
+		return
+	end
+	if action == "Buy" and skin.FounderOnly and not table.find(data.Skins, skin.Id) then
+		table.insert(data.Skins, skin.Id)
+		notify(player, "Claimed " .. skin.Name .. "!")
+	elseif action == "Buy" and not table.find(data.Skins, skin.Id) then
 		local needed = Config.SkinRequirement(skin)
 		if needed and not table.find(data.Skins, needed.Id) then
 			notify(player, string.format("Unlock %s first!", needed.Name))
@@ -1857,6 +1868,7 @@ local function load(player: Player)
 		LastCollect = 0,
 		IsAdmin = false,
 		IsFounder = false,
+		FounderId = "",
 		LastLimitedTry = 0,
 		FollowerModels = {},
 	}
@@ -1895,7 +1907,14 @@ local function load(player: Player)
 	end
 
 	session.IsAdmin = checkAdmin(player)
-	session.IsFounder = founderOf(player) ~= nil
+	local founder = founderOf(player)
+	session.IsFounder = founder ~= nil
+	session.FounderId = if founder then founder.Id else ""
+	-- A founder-only skin is only ever on its founder's base.
+	local equipped = Config.GetWallSkin(session.Data.Skin)
+	if equipped and equipped.FounderOnly and equipped.FounderOnly ~= session.FounderId then
+		session.Data.Skin = "Classic"
+	end
 
 	if not player.Parent then
 		sessions[player] = nil
@@ -2943,6 +2962,29 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		end
 		local saved = Founders.SaveEventLook(founder.Id, character)
 		notify(admin, if saved then "Saved! Your event giant will look exactly like you do now." else "Used your look for now, but it couldn't be saved. Try again.")
+		return
+	elseif action == "SaveEventOutfit" then
+		local founder = founderOf(admin)
+		if not founder then
+			notify(admin, "Only the founders can set an event look.")
+			return
+		end
+		-- Accepts just the number, or a pasted link with the number in it.
+		local outfitId = tonumber(string.match(tostring(value), "%d+") or "")
+		if not outfitId then
+			notify(admin, "Paste the outfit ID (the number) first.")
+			return
+		end
+		local saved = Founders.SaveEventOutfit(founder.Id, outfitId)
+		notify(admin, if saved then "Saved! Your event giant will wear outfit " .. outfitId .. "." else "Couldn't find outfit " .. outfitId .. ". Check the number.")
+		return
+	elseif action == "ResetEventLook" then
+		local founder = founderOf(admin)
+		if not founder then
+			return
+		end
+		Founders.ResetEventLook(founder.Id)
+		notify(admin, "Your event giant will wear your normal avatar again.")
 		return
 	elseif action == "FounderEventStop" then
 		if not founderOf(admin) then

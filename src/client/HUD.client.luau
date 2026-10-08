@@ -781,13 +781,20 @@ local balanceLabel = text(questsBody, {
 	LayoutOrder = 21,
 })
 local skinButtons: { [string]: TextButton } = {}
+local skinRows: { [string]: Frame } = {}
 for i, skin in Config.WallSkins do
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -10, 0, 50)
-	row.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	row.BackgroundColor3 = if skin.FounderOnly then Color3.fromRGB(25, 32, 55) else Color3.fromRGB(40, 40, 55)
 	row.LayoutOrder = 21 + i
+	-- Founder-only skins are hidden until we know you're that founder.
+	row.Visible = skin.FounderOnly == nil
 	corner(row, 10)
+	if skin.FounderOnly then
+		stroke(row, 2, GOLD)
+	end
 	row.Parent = questsBody
+	skinRows[skin.Id] = row
 	local swatch = Instance.new("Frame")
 	swatch.Position = UDim2.fromOffset(10, 9)
 	swatch.Size = UDim2.fromOffset(32, 32)
@@ -835,7 +842,13 @@ local function renderQuests()
 	for _, skin in Config.WallSkins do
 		local b = skinButtons[skin.Id]
 		local owned = data.Skins and table.find(data.Skins, skin.Id)
-		if data.Skin == skin.Id then
+		if skin.FounderOnly then
+			skinRows[skin.Id].Visible = data.FounderId == skin.FounderOnly
+		end
+		if skin.FounderOnly and not owned then
+			b.Text = "CLAIM (FREE)"
+			b.BackgroundColor3 = GOLD
+		elseif data.Skin == skin.Id then
 			b.Text = "EQUIPPED"
 			b.BackgroundColor3 = GOLD
 		elseif owned then
@@ -1017,7 +1030,7 @@ for i, item in Config.DiamondShop do
 end
 header(diamondBody, 20, "DIAMOND WALL SKINS", Color3.fromRGB(255, 170, 40))
 for i, skin in Config.WallSkins do
-	if skin.Currency == "Diamonds" then
+	if skin.Currency == "Diamonds" and not skin.FounderOnly then
 		local needed = Config.SkinRequirement(skin)
 		local note = if needed then "Rare wall skin. Unlock " .. needed.Name .. " first." else "A rare wall skin for your base."
 		diamondRow(20 + i, skin.Name, note, skin.Cost, function()
@@ -1108,43 +1121,29 @@ task.spawn(function()
 end)
 
 -- Admin panel (only shown to admins; the server checks every action too) ---
+-- One tab per job (Players, Events, Brainrots, and Founder for Corny and
+-- Ace), and inside each tab every job gets its own labelled box.
 
-local adminFrame, adminFrameBody = modal("ADMIN", RED, 620)
-local adminBody = Instance.new("ScrollingFrame")
-adminBody.BackgroundTransparency = 1
-adminBody.Size = UDim2.fromScale(1, 1)
-adminBody.CanvasSize = UDim2.new()
-adminBody.AutomaticCanvasSize = Enum.AutomaticSize.Y
-adminBody.ScrollBarThickness = 6
-adminBody.Parent = adminFrameBody
-local adminLayout = Instance.new("UIListLayout")
-adminLayout.Padding = UDim.new(0, 8)
-adminLayout.SortOrder = Enum.SortOrder.LayoutOrder
-adminLayout.Parent = adminBody
+local ORANGE = Color3.fromRGB(255, 150, 40)
+local PURPLE = Color3.fromRGB(170, 80, 255)
+local GREY = Color3.fromRGB(90, 90, 100)
+local BLUE = Color3.fromRGB(60, 140, 255)
+local PINK = Color3.fromRGB(255, 120, 190)
+local HINT = Color3.fromRGB(170, 170, 185)
 
-local function adminRow(order: number, height: number): Frame
-	local row = Instance.new("Frame")
-	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1, -10, 0, height)
-	row.LayoutOrder = order
-	row.Parent = adminBody
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.Padding = UDim.new(0, 6)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = row
-	return row
+local adminFrame, adminFrameBody = modal("ADMIN PANEL", RED, 640)
+adminFrame.Size = UDim2.fromOffset(640, 640)
+-- Shrinks to fit smaller screens.
+local adminScale = Instance.new("UIScale")
+adminScale.Parent = adminFrame
+local function fitAdmin()
+	local camera = workspace.CurrentCamera
+	local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+	adminScale.Scale = math.min(1, (viewport.Y - 40) / 640, (viewport.X - 40) / 640)
 end
-
-local function adminHeader(order: number, label: string)
-	text(adminBody, {
-		Size = UDim2.new(1, -10, 0, 26),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = GOLD,
-		Text = label,
-		LayoutOrder = order,
-	})
+fitAdmin()
+if workspace.CurrentCamera then
+	workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fitAdmin)
 end
 
 local function inputBox(parent: Instance, default: string, hint: string, width: number): TextBox
@@ -1153,11 +1152,13 @@ local function inputBox(parent: Instance, default: string, hint: string, width: 
 	box.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
 	box.TextColor3 = WHITE
 	box.PlaceholderText = hint
+	box.PlaceholderColor3 = Color3.fromRGB(130, 130, 145)
 	box.Text = default
 	box.Font = FONT
 	box.TextScaled = true
 	box.ClearTextOnFocus = false
 	corner(box, 8)
+	stroke(box, 1.5, Color3.fromRGB(90, 90, 110))
 	box.Parent = parent
 	return box
 end
@@ -1168,132 +1169,249 @@ local function smallButton(parent: Instance, label: string, color: Color3, width
 	return b
 end
 
-local ORANGE = Color3.fromRGB(255, 150, 40)
-local PURPLE = Color3.fromRGB(170, 80, 255)
-local GREY = Color3.fromRGB(90, 90, 100)
-
--- Player + amount
-adminHeader(1, "PLAYERS")
-local targetRow = adminRow(2, 40)
-text(targetRow, { Size = UDim2.fromOffset(70, 30), Text = "Player" })
-local targetBox = inputBox(targetRow, "me", "me / all / name", 180)
-text(targetRow, {
-	Size = UDim2.fromOffset(230, 22),
-	TextColor3 = Color3.fromRGB(170, 170, 185),
-	Text = "me, all, or start of a name",
+-- Who the Players and Brainrots buttons act on. Always at the top.
+local targetBar = Instance.new("Frame")
+targetBar.Size = UDim2.new(1, 0, 0, 44)
+targetBar.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+corner(targetBar, 10)
+targetBar.Parent = adminFrameBody
+local targetLayout = Instance.new("UIListLayout")
+targetLayout.FillDirection = Enum.FillDirection.Horizontal
+targetLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+targetLayout.Padding = UDim.new(0, 8)
+targetLayout.Parent = targetBar
+local targetPadding = Instance.new("UIPadding")
+targetPadding.PaddingLeft = UDim.new(0, 10)
+targetPadding.Parent = targetBar
+text(targetBar, { Size = UDim2.fromOffset(90, 28), Text = "PLAYER", TextColor3 = GOLD })
+local targetBox = inputBox(targetBar, "me", "me / all / name", 200)
+text(targetBar, {
+	Size = UDim2.fromOffset(270, 20),
+	TextColor3 = HINT,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Text = "me, all, or the start of a name",
 })
 
 local function send(action: string, value: any)
 	AdminAction:FireServer(action, targetBox.Text, value)
 end
 
-local cashRow = adminRow(3, 40)
-local amountBox = inputBox(cashRow, "1m", "e.g. 5000, 25k, 2m", 110)
-smallButton(cashRow, "Give Cash", GREEN, 120, function()
+-- Tabs
+local tabBar = Instance.new("Frame")
+tabBar.BackgroundTransparency = 1
+tabBar.Position = UDim2.fromOffset(0, 52)
+tabBar.Size = UDim2.new(1, 0, 0, 40)
+tabBar.Parent = adminFrameBody
+local tabLayout = Instance.new("UIListLayout")
+tabLayout.FillDirection = Enum.FillDirection.Horizontal
+tabLayout.Padding = UDim.new(0, 6)
+tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+tabLayout.Parent = tabBar
+
+type AdminTab = { Button: TextButton, Page: ScrollingFrame, Color: Color3 }
+local adminTabs: { AdminTab } = {}
+local function selectTab(chosen: AdminTab)
+	for _, tab in adminTabs do
+		local on = tab == chosen
+		tab.Page.Visible = on
+		tab.Button.BackgroundColor3 = if on then tab.Color else Color3.fromRGB(55, 55, 70)
+	end
+end
+
+local function adminTab(label: string, color: Color3): (ScrollingFrame, AdminTab)
+	local tabButton = button(tabBar, label, color, UDim2.fromOffset(142, 40))
+	tabButton.LayoutOrder = #adminTabs + 1
+	local page = Instance.new("ScrollingFrame")
+	page.BackgroundTransparency = 1
+	page.Position = UDim2.fromOffset(0, 100)
+	page.Size = UDim2.new(1, 0, 1, -100)
+	page.CanvasSize = UDim2.new()
+	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	page.ScrollBarThickness = 6
+	page.Visible = false
+	page.Parent = adminFrameBody
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 10)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = page
+	local tab: AdminTab = { Button = tabButton, Page = page, Color = color }
+	table.insert(adminTabs, tab)
+	tabButton.MouseButton1Click:Connect(function()
+		selectTab(tab)
+	end)
+	return page, tab
+end
+
+-- A box with a title, a line saying what it does, and its controls.
+local function section(page: Instance, order: number, title: string, hint: string?, color: Color3): Frame
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, -12, 0, 0)
+	card.AutomaticSize = Enum.AutomaticSize.Y
+	card.BackgroundColor3 = Color3.fromRGB(36, 36, 50)
+	card.LayoutOrder = order
+	corner(card, 12)
+	stroke(card, 2, color)
+	card.Parent = page
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0, 8)
+	padding.PaddingBottom = UDim.new(0, 10)
+	padding.PaddingLeft = UDim.new(0, 10)
+	padding.PaddingRight = UDim.new(0, 10)
+	padding.Parent = card
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 6)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = card
+	text(card, {
+		Size = UDim2.new(1, 0, 0, 24),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = color,
+		Text = title,
+		LayoutOrder = 0,
+	})
+	if hint then
+		text(card, {
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			TextScaled = false,
+			TextSize = 15,
+			TextWrapped = true,
+			TextStrokeTransparency = 1,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = HINT,
+			Text = hint,
+			LayoutOrder = 1,
+		})
+	end
+	return card
+end
+
+-- A row of controls inside a box; wraps onto a new line if it runs out of room.
+local function controls(card: Frame, order: number): Frame
+	local row = Instance.new("Frame")
+	row.BackgroundTransparency = 1
+	row.Size = UDim2.new(1, 0, 0, 0)
+	row.AutomaticSize = Enum.AutomaticSize.Y
+	row.LayoutOrder = 10 + order
+	row.Parent = card
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.Wraps = true
+	layout.VerticalAlignment = Enum.VerticalAlignment.Center
+	layout.Padding = UDim.new(0, 6)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = row
+	return row
+end
+
+local function label(row: Frame, value: string, width: number)
+	text(row, { Size = UDim2.fromOffset(width, 30), Text = value, TextXAlignment = Enum.TextXAlignment.Left })
+end
+
+-- PLAYERS tab ------------------------------------------------------------------
+local playersPage, playersTab = adminTab("PLAYERS", BLUE)
+
+local money = section(playersPage, 1, "MONEY & CURRENCY", "Type an amount (5000, 25k, 2m), then pick what to give the player.", GREEN)
+local amountRow = controls(money, 1)
+label(amountRow, "Amount", 90)
+local amountBox = inputBox(amountRow, "1m", "e.g. 5000, 25k, 2m", 150)
+local cashRow = controls(money, 2)
+smallButton(cashRow, "Give Cash", GREEN, 130, function()
 	send("Cash", amountBox.Text)
 end)
-smallButton(cashRow, "Set Cash", Color3.fromRGB(60, 140, 255), 110, function()
+smallButton(cashRow, "Set Cash", BLUE, 120, function()
 	send("SetCash", amountBox.Text)
 end)
-smallButton(cashRow, "Rebirths", PURPLE, 110, function()
+smallButton(cashRow, "Set Rebirths", PURPLE, 150, function()
 	send("Rebirths", amountBox.Text)
 end)
-local currencyRow = adminRow(3, 40)
-text(currencyRow, { Size = UDim2.fromOffset(110, 30), Text = "Quest $" })
-smallButton(currencyRow, "Give Shards", SHARD_COLOR, 150, function()
+local currencyRow = controls(money, 3)
+smallButton(currencyRow, "Give Shards", SHARD_COLOR, 160, function()
 	send("Shards", amountBox.Text)
 end)
-smallButton(currencyRow, "Give Diamonds", DIAMOND_COLOR, 170, function()
+smallButton(currencyRow, "Give Diamonds", DIAMOND_COLOR, 180, function()
 	send("Diamonds", amountBox.Text)
 end)
 
-local function levelButtons(row: Frame, label: string, count: number, action: string, color: Color3)
-	text(row, { Size = UDim2.fromOffset(62, 30), Text = label })
+local function levelButtons(row: Frame, count: number, action: string, color: Color3)
 	for level = 1, count do
-		smallButton(row, tostring(level), color, 38, function()
+		smallButton(row, tostring(level), color, 42, function()
 			send(action, level)
 		end)
 	end
 end
-levelButtons(adminRow(4, 40), "Base", #Config.WallLevels, "Base", ORANGE)
-levelButtons(adminRow(5, 40), "Lock", #Config.LockLevels, "LockLevel", RED)
-local doorRow = adminRow(5, 40)
-text(doorRow, { Size = UDim2.fromOffset(150, 30), Text = "Infinite Door" })
+local base = section(playersPage, 2, "BASE", "Set the player's base level and door lock level.", ORANGE)
+local baseRow = controls(base, 1)
+label(baseRow, "Base", 70)
+levelButtons(baseRow, #Config.WallLevels, "Base", ORANGE)
+local lockRow = controls(base, 2)
+label(lockRow, "Lock", 70)
+levelButtons(lockRow, #Config.LockLevels, "LockLevel", RED)
+local doorRow = controls(base, 3)
+label(doorRow, "Infinite Door", 160)
 smallButton(doorRow, "ON", Color3.fromRGB(255, 80, 80), 90, function()
 	send("InfiniteLock", true)
 end)
 smallButton(doorRow, "OFF", GREY, 90, function()
 	send("InfiniteLock", false)
 end)
-
-local miscRow = adminRow(6, 40)
-smallButton(miscRow, "Clear Base", RED, 130, function()
+local clearRow = controls(base, 4)
+smallButton(clearRow, "Clear Base", RED, 150, function()
 	send("ClearBase", nil)
 end)
-smallButton(miscRow, "Luck 15m", Color3.fromRGB(60, 180, 120), 130, function()
+
+-- EVENTS tab -------------------------------------------------------------------
+local eventsPage = adminTab("EVENTS", RED)
+
+local abuse = section(eventsPage, 1, "ADMIN ABUSE", "Boosts for everyone, plus the giants and gift drops. Set how many minutes it lasts.", RED)
+local abuseRow = controls(abuse, 1)
+label(abuseRow, "Minutes", 100)
+local minutesBox = inputBox(abuseRow, tostring(Config.AdminAbuse.DurationMinutes), "how long", 80)
+smallButton(abuseRow, "START", RED, 130, function()
+	send("AbuseStart", minutesBox.Text)
+end)
+smallButton(abuseRow, "END", GREY, 100, function()
+	send("AbuseStop", nil)
+end)
+
+local drops = section(eventsPage, 2, "DROPS", "Rain brainrots or cash bags all over the map.", PURPLE)
+local brainrotRainRow = controls(drops, 1)
+smallButton(brainrotRainRow, "Brainrot Rain x" .. Config.BrainrotRainCount, PURPLE, 240, function()
+	send("BrainrotRain", nil)
+end)
+local cashRainRow = controls(drops, 2)
+label(cashRainRow, "Cash per bag", 150)
+local cashRainBox = inputBox(cashRainRow, "100k", "e.g. 50k", 120)
+smallButton(cashRainRow, "Cash Rain", GREEN, 140, function()
+	send("CashRain", cashRainBox.Text)
+end)
+
+local luck = section(eventsPage, 3, "SERVER LUCK", "More rare brainrots spawn for everyone in this server.", Color3.fromRGB(60, 180, 120))
+local luckRow = controls(luck, 1)
+smallButton(luckRow, "Luck 15 min", Color3.fromRGB(60, 180, 120), 160, function()
 	send("Luck", 15)
 end)
-smallButton(miscRow, "Stop Luck", GREY, 120, function()
+smallButton(luckRow, "Stop Luck", GREY, 140, function()
 	send("Luck", 0)
 end)
 
--- Admin abuse + drops
-adminHeader(7, "ADMIN ABUSE & DROPS")
-local abuseRow = adminRow(8, 40)
-text(abuseRow, { Size = UDim2.fromOffset(70, 30), Text = "Minutes" })
-local minutesBox = inputBox(abuseRow, tostring(Config.AdminAbuse.DurationMinutes), "how long", 70)
-smallButton(abuseRow, "Start Admin Abuse", RED, 200, function()
-	send("AbuseStart", minutesBox.Text)
-end)
-smallButton(abuseRow, "End It", GREY, 110, function()
-	send("AbuseStop", nil)
-end)
-local dropRow = adminRow(9, 40)
-smallButton(dropRow, "Brainrot Rain x" .. Config.BrainrotRainCount, PURPLE, 210, function()
-	send("BrainrotRain", nil)
-end)
-smallButton(dropRow, "Cash Rain", GREEN, 140, function()
-	send("CashRain", amountBox.Text)
-end)
-text(dropRow, {
-	Size = UDim2.fromOffset(150, 34),
-	TextColor3 = Color3.fromRGB(170, 170, 185),
-	TextWrapped = true,
-	Text = "Cash Rain: each drop = amount box",
-})
-
 -- Message to every server (same as typing /announce in chat).
-local announceRow = adminRow(9, 40)
-local announceBox = inputBox(announceRow, "", "Message to ALL servers", 330)
-announceBox.ClearTextOnFocus = false
-smallButton(announceRow, "Announce", Color3.fromRGB(255, 170, 40), 130, function()
+local announce = section(eventsPage, 4, "ANNOUNCE TO ALL SERVERS", "Shows on everyone's screen in every server. Same as typing /announce in chat.", ORANGE)
+local announceBox = inputBox(controls(announce, 1), "", "Type your message here...", 560)
+announceBox.Size = UDim2.new(1, 0, 0, 44)
+announceBox.TextScaled = false
+announceBox.TextSize = 20
+announceBox.TextXAlignment = Enum.TextXAlignment.Left
+local announceRow = controls(announce, 2)
+smallButton(announceRow, "SEND TO ALL", ORANGE, 180, function()
 	send("GlobalAnnounce", announceBox.Text)
 	announceBox.Text = ""
 end)
 
--- Founder events (only Corny and Ace see these): one button per event, plus
--- a stop button. They run for the Minutes box above.
-local founderRow = adminRow(9, 40)
-founderRow.Visible = false
-local founderEventIds = {}
-for eventId in Config.FounderEvents do
-	table.insert(founderEventIds, eventId)
-end
-table.sort(founderEventIds)
-for _, eventId in founderEventIds do
-	smallButton(founderRow, eventId .. " Event", Color3.fromRGB(255, 120, 190), 170, function()
-		send("FounderEvent", { Id = eventId, Minutes = minutesBox.Text })
-	end)
-end
-smallButton(founderRow, "End Founder Event", GREY, 190, function()
-	send("FounderEventStop", nil)
-end)
-smallButton(founderRow, "Save My Event Look", GOLD, 210, function()
-	send("SaveEventLook", nil)
-end)
+-- BRAINROTS tab ----------------------------------------------------------------
+local brainrotsPage = adminTab("BRAINROTS", PURPLE)
 
 -- Mutation picker for Give / Spawn / Drop below.
-adminHeader(10, "BRAINROTS")
 local mutationChoices = { "None" }
 for _, mutation in Config.Mutations do
 	if not mutation.Exclusive then
@@ -1301,10 +1419,10 @@ for _, mutation in Config.Mutations do
 	end
 end
 local mutationIndex = 1
-local mutationRow = adminRow(11, 40)
-text(mutationRow, { Size = UDim2.fromOffset(100, 30), Text = "Mutation" })
-local mutationButton = smallButton(mutationRow, "None", GREY, 160, function() end)
-smallButton(mutationRow, "Give MAGIC (event)", Color3.fromRGB(170, 110, 255), 220, function()
+local mutationCard = section(brainrotsPage, 1, "MUTATION", "Tap to cycle the mutation used by Give, Spawn and Drop below.", PURPLE)
+local mutationRow = controls(mutationCard, 1)
+local mutationButton = smallButton(mutationRow, "None", GREY, 180, function() end)
+smallButton(mutationRow, "Give MAGIC (event)", Color3.fromRGB(170, 110, 255), 230, function()
 	send("GiveMagic", nil)
 end)
 mutationButton.MouseButton1Click:Connect(function()
@@ -1320,13 +1438,14 @@ local function brainrotValue(id: string): string
 	return if choice == "None" then id else Config.Encode(id, choice)
 end
 
+local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base.  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
 for i, brainrot in Config.Brainrots do
 	local row = Instance.new("Frame")
-	row.Size = UDim2.new(1, -10, 0, 36)
-	row.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	row.Size = UDim2.new(1, 0, 0, 36)
+	row.BackgroundColor3 = Color3.fromRGB(46, 46, 62)
 	row.LayoutOrder = 100 + i
 	corner(row, 8)
-	row.Parent = adminBody
+	row.Parent = listCard
 	local color = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
 	text(row, {
 		Position = UDim2.fromOffset(10, 4),
@@ -1353,6 +1472,60 @@ for i, brainrot in Config.Brainrots do
 	end
 end
 
+-- FOUNDER tab (only Corny and Ace see it) --------------------------------------
+local founderPage, founderTab = adminTab("FOUNDER", PINK)
+founderTab.Button.Visible = false
+
+local founderEvents = section(founderPage, 1, "MY FOUNDER EVENT", "Only Corny and Ace can start these. Runs for the minutes you type here.", PINK)
+local founderMinutesRow = controls(founderEvents, 1)
+label(founderMinutesRow, "Minutes", 100)
+local founderMinutesBox = inputBox(founderMinutesRow, "10", "how long", 80)
+local founderEventIds = {}
+for eventId in Config.FounderEvents do
+	table.insert(founderEventIds, eventId)
+end
+table.sort(founderEventIds)
+local founderEventRow = controls(founderEvents, 2)
+for _, eventId in founderEventIds do
+	smallButton(founderEventRow, "START " .. string.upper(eventId) .. " EVENT", PINK, 220, function()
+		send("FounderEvent", { Id = eventId, Minutes = founderMinutesBox.Text })
+	end)
+end
+local founderStopRow = controls(founderEvents, 3)
+smallButton(founderStopRow, "END FOUNDER EVENT", GREY, 230, function()
+	send("FounderEventStop", nil)
+end)
+
+local look = section(founderPage, 2, "MY EVENT GIANT'S LOOK", "Pick what your giant wears in your event. It saves for good, in every server.", GOLD)
+local saveLookRow = controls(look, 1)
+smallButton(saveLookRow, "USE WHAT I'M WEARING NOW", GOLD, 330, function()
+	send("SaveEventLook", nil)
+end)
+local outfitHint = text(look, {
+	Size = UDim2.new(1, 0, 0, 0),
+	AutomaticSize = Enum.AutomaticSize.Y,
+	TextScaled = false,
+	TextSize = 15,
+	TextWrapped = true,
+	TextStrokeTransparency = 1,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextColor3 = HINT,
+	Text = "Or paste a costume (outfit) ID: the number in the link of a saved costume.",
+	LayoutOrder = 15,
+})
+outfitHint.Name = "OutfitHint"
+local outfitRow = controls(look, 6)
+local outfitBox = inputBox(outfitRow, "", "Paste outfit ID", 260)
+smallButton(outfitRow, "USE OUTFIT", BLUE, 160, function()
+	send("SaveEventOutfit", outfitBox.Text)
+end)
+local resetLookRow = controls(look, 7)
+smallButton(resetLookRow, "RESET TO MY NORMAL AVATAR", GREY, 330, function()
+	send("ResetEventLook", nil)
+end)
+
+selectTab(playersTab)
+
 local adminButton = button(side, "ADMIN", RED, UDim2.fromOffset(130, 56))
 adminButton.Visible = false
 adminButton.MouseButton1Click:Connect(function()
@@ -1369,7 +1542,10 @@ local function render()
 	end
 	cashLabel.Text = Config.FormatCash(data.Cash)
 	adminButton.Visible = data.IsAdmin == true
-	founderRow.Visible = data.IsFounder == true
+	founderTab.Button.Visible = data.IsFounder == true
+	if founderTab.Page.Visible and not data.IsFounder then
+		selectTab(playersTab)
+	end
 	incomeLabel.Text = string.format("+%s/s   x%.1f income", Config.FormatCash(data.Income), data.Multiplier)
 	if (data.CashBoostLeft or 0) > 0 then
 		incomeLabel.Text ..= string.format("  (2x boost %dm)", math.ceil(data.CashBoostLeft / 60))

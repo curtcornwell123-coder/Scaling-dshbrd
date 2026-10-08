@@ -136,7 +136,102 @@ export type WallStyle = {
 	Material: Enum.Material,
 	Glass: Color3,
 	GlassNeon: boolean?,
+	Corn: boolean?, -- Corny's own skin: corn cobs, gold trim, and his logo on the windows
 }
+
+local CORN_YELLOW = Color3.fromRGB(255, 205, 40)
+local CORN_GOLD = Color3.fromRGB(250, 196, 60)
+local CORN_LEAF = Color3.fromRGB(70, 185, 110)
+local CORN_LEAF_DARK = Color3.fromRGB(40, 140, 85)
+local CORN_NAVY = Color3.fromRGB(20, 28, 48)
+
+local function decoration(parent: Instance, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+	local p = block(parent, name, size, cframe, color, material)
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	return p
+end
+
+-- A standing corn cob with two leaves, its back against a wall at `cf`
+-- (cf's -Z points out of the wall).
+local function cornCob(folder: Instance, cf: CFrame, height: number)
+	local width = height * 0.38
+	local body = cf * CFrame.new(0, 0, -width / 2)
+	decoration(folder, "CornCob", Vector3.new(height * 0.8, width, width), body * CFrame.Angles(0, 0, math.pi / 2), CORN_YELLOW, Enum.Material.Pebble).Shape = Enum.PartType.Cylinder
+	decoration(folder, "CornTip", Vector3.one * width, body * CFrame.new(0, height * 0.4, 0), CORN_YELLOW, Enum.Material.Pebble).Shape = Enum.PartType.Ball
+	for _, side in { -1, 1 } do
+		-- Wedges slope up toward the cob, like husk leaves peeling away.
+		decoration(folder, "CornLeaf", Vector3.new(0.2, height * 0.55, width * 0.7),
+			body * CFrame.new(side * width * 0.3, -height * 0.25, -width * 0.15) * CFrame.Angles(0, 0, side * 0.35) * CFrame.Angles(0, if side < 0 then 0 else math.pi, 0),
+			if side < 0 then CORN_LEAF_DARK else CORN_LEAF, Enum.Material.SmoothPlastic).Shape = Enum.PartType.Wedge
+	end
+end
+
+-- The Corny Games logo (gold ring, corn cob, leaves) on one face of a window.
+-- Small enough in the middle that you can still see in past it.
+local function cornLogo(window: BasePart, face: Enum.NormalId)
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "CornLogo"
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 30
+	gui.LightInfluence = 0
+	gui.Parent = window
+
+	local ring = Instance.new("Frame")
+	ring.AnchorPoint = Vector2.new(0.5, 0.5)
+	ring.Position = UDim2.fromScale(0.5, 0.5)
+	ring.Size = UDim2.fromScale(0.62, 0.62)
+	ring.BackgroundColor3 = CORN_NAVY
+	ring.BackgroundTransparency = 0.15
+	ring.Parent = gui
+	local aspect = Instance.new("UIAspectRatioConstraint")
+	aspect.DominantAxis = Enum.DominantAxis.Width
+	aspect.Parent = ring
+	local round = Instance.new("UICorner")
+	round.CornerRadius = UDim.new(1, 0)
+	round.Parent = ring
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = CORN_GOLD
+	stroke.Thickness = 8
+	stroke.Parent = ring
+
+	local function shape(name: string, position: UDim2, size: UDim2, color: Color3, radius: UDim, rotation: number?, z: number?): Frame
+		local f = Instance.new("Frame")
+		f.Name = name
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = position
+		f.Size = size
+		f.Rotation = rotation or 0
+		f.BackgroundColor3 = color
+		f.BorderSizePixel = 0
+		f.ZIndex = z or 1
+		f.Parent = ring
+		local c = Instance.new("UICorner")
+		c.CornerRadius = radius
+		c.Parent = f
+		return f
+	end
+
+	local cob = shape("Cob", UDim2.fromScale(0.5, 0.42), UDim2.fromScale(0.34, 0.58), CORN_YELLOW, UDim.new(0.5, 0), 0, 1)
+	for row = 0, 4 do
+		for column = 0, 2 do
+			local kernel = Instance.new("Frame")
+			kernel.AnchorPoint = Vector2.new(0.5, 0.5)
+			kernel.Position = UDim2.fromScale(0.25 + column * 0.25, 0.16 + row * 0.15)
+			kernel.Size = UDim2.fromScale(0.2, 0.11)
+			kernel.BackgroundColor3 = Color3.fromRGB(255, 225, 90)
+			kernel.BorderSizePixel = 0
+			kernel.ZIndex = 2
+			kernel.Parent = cob
+		end
+	end
+	shape("LeafLeft", UDim2.fromScale(0.38, 0.72), UDim2.fromScale(0.2, 0.42), CORN_LEAF_DARK, UDim.new(1, 0), -30, 3)
+	shape("LeafRight", UDim2.fromScale(0.62, 0.72), UDim2.fromScale(0.2, 0.42), CORN_LEAF_DARK, UDim.new(1, 0), 30, 3)
+	shape("LeafMiddle", UDim2.fromScale(0.5, 0.76), UDim2.fromScale(0.16, 0.3), CORN_LEAF, UDim.new(1, 0), 0, 4)
+end
 
 local function wallSegment(folder: Instance, cf: CFrame, length: number, height: number, style: WallStyle)
 	local function piece(name: string, x: number, y: number, width: number, h: number): Part
@@ -155,6 +250,22 @@ local function wallSegment(folder: Instance, cf: CFrame, length: number, height:
 	local head = height - math.clamp(height * 0.08, 1, 2)
 	piece("WallBottom", 0, 0, length, sill)
 	piece("WallTop", 0, head, length, height - head)
+	if style.Corn then
+		-- Gold trim along the window sills and tops, on both sides.
+		for _, y in { sill, head } do
+			decoration(folder, "CornTrim", Vector3.new(length, 0.35, WALL_THICKNESS + 0.3), cf * CFrame.new(0, y, 0), CORN_GOLD, Enum.Material.Foil)
+		end
+	end
+	-- Corn cobs on the pillars between windows, on both sides of the wall.
+	local function cobs(x: number)
+		if not style.Corn then
+			return
+		end
+		local cobHeight = math.min(4, (head - sill) * 0.3)
+		for _, side in { -1, 1 } do
+			cornCob(folder, cf * CFrame.new(x, sill + (head - sill) / 2, side * WALL_THICKNESS / 2) * CFrame.Angles(0, if side < 0 then 0 else math.pi, 0), cobHeight)
+		end
+	end
 
 	local count = math.max(1, math.floor(length / 12))
 	local spacing = length / count
@@ -165,15 +276,21 @@ local function wallSegment(folder: Instance, cf: CFrame, length: number, height:
 		local gapStart = center - windowWidth / 2
 		if gapStart - left > 0.01 then
 			piece("WallPillar", (left + gapStart) / 2, sill, gapStart - left, head - sill)
+			cobs((left + gapStart) / 2)
 		end
 		local glass = block(folder, "Window", Vector3.new(windowWidth, head - sill, 0.4), cf * CFrame.new(center, sill + (head - sill) / 2, 0), style.Glass, if style.GlassNeon then Enum.Material.Neon else Enum.Material.Glass)
 		-- Clear enough to see right through, with just a tint of the skin's color.
 		glass.Transparency = if style.GlassNeon then 0.6 else 0.7
 		glass.Reflectance = 0.1
+		if style.Corn and i % 2 == 1 then
+			cornLogo(glass, Enum.NormalId.Front)
+			cornLogo(glass, Enum.NormalId.Back)
+		end
 		left = center + windowWidth / 2
 	end
 	if length / 2 - left > 0.01 then
 		piece("WallPillar", (left + length / 2) / 2, sill, length / 2 - left, head - sill)
+		cobs((left + length / 2) / 2)
 	end
 end
 
@@ -412,6 +529,7 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 		Material = if skin and skin.Material then skin.Material else info.Material,
 		Glass = if skin and skin.Glass then skin.Glass else GLASS_COLOR,
 		GlassNeon = if skin then skin.GlassNeon else nil,
+		Corn = if skin then skin.Corn else nil,
 	}
 	-- Floors match the skin; Classic floors are grey in the walls' material.
 	for _, floor in parts.Floors do

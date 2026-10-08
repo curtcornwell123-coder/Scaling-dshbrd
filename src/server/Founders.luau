@@ -172,6 +172,37 @@ function Founders.SaveEventLook(founderId: string, character: Model): boolean
 	end))
 end
 
+-- Saves a costume (outfit id) as a founder's event look, for good.
+function Founders.SaveEventOutfit(founderId: string, outfitId: number): boolean
+	local ok, desc = pcall(function()
+		return Players:GetHumanoidDescriptionFromOutfitId(outfitId)
+	end)
+	if not ok or not desc then
+		return false
+	end
+	savedLooks[founderId] = desc
+	local store = lookStore
+	if not store then
+		return true
+	end
+	pcall(function()
+		store:SetAsync("look_" .. founderId, serialize(desc))
+	end)
+	return true
+end
+
+-- Forgets a founder's saved event look, so their giant wears their normal
+-- avatar (or the event's own outfit) again.
+function Founders.ResetEventLook(founderId: string)
+	savedLooks[founderId] = nil
+	local store = lookStore
+	if store then
+		pcall(function()
+			store:RemoveAsync("look_" .. founderId)
+		end)
+	end
+end
+
 -- The founder's character right now, if they're in this server.
 local function liveDescription(founder: Config.Founder): HumanoidDescription?
 	for _, player in Players:GetPlayers() do
