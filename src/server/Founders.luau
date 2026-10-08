@@ -387,7 +387,7 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 	tag.LightInfluence = 0
 	tag.MaxDistance = 1500
 	local _, size = giant:GetBoundingBox()
-	tag.StudsOffsetWorldSpace = Vector3.new(0, size.Y * 0.55 + scale * 0.6, 0)
+	tag.StudsOffsetWorldSpace = Vector3.new(0, size.Y * 0.6 + scale * 1.6, 0) -- well clear of their head (and hat)
 	tag.Adornee = root
 	tag.Parent = root
 	local label = Instance.new("TextLabel")
