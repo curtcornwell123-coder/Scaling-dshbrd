@@ -443,8 +443,14 @@ Config.Founders = {
 	{ Id = "Corny", Name = "Corny", UserId = 0, Username = "Cornywell10" },
 	{ Id = "Ace", Name = "Ace", UserId = 0, Username = "Meishappy2341" },
 } :: { Founder }
-Config.FounderGiantScale = 12 -- how giant they are during admin abuse
-Config.FounderGiantDropEvery = 7 -- seconds between things each giant throws during admin abuse
+-- During admin abuse they tower just outside the fence (like the devs in
+-- Grow a Garden), dancing and throwing things onto the map.
+Config.FounderGiantScale = 24 -- about 125 studs tall
+Config.FounderGiantSpots = {
+	Corny = Vector3.new(-170, 0, 470),
+	Ace = Vector3.new(170, 0, -470),
+} :: { [string]: Vector3 }
+Config.FounderGiantDropEvery = 6 -- seconds between things each giant throws during admin abuse
 Config.FounderCashDrop = 25000 -- cash in each bag a founder throws or drops
 
 -- Founder events: each stars only that founder, wearing their special event
@@ -456,14 +462,14 @@ export type FounderEvent = {
 	Subtitle: string,
 	DurationMinutes: number,
 	Scale: number,
-	Height: number, -- how high above the map they float
-	Radius: number, -- size of the circle they fly around
-	DropEvery: number, -- seconds between drops
+	Spot: Vector3, -- where they hover (under their feet), off to the side of the map
+	DropEvery: number, -- seconds between throws
 	BrainrotChance: number, -- chance each drop is a brainrot (else a cash bag)
 	BrainrotLuck: number,
 	Mutations: { { Id: string, Chance: number } }, -- extra mutation chances on their brainrots (percent)
 	Colors: { Color3 }, -- intro colors
 	Chips: { string }, -- the little boxes under the intro title
+	RainbowSky: boolean?, -- the sky turns rainbow while it runs
 }
 Config.FounderEvents = {
 	Corny = {
@@ -472,18 +478,18 @@ Config.FounderEvents = {
 		-- outfit id here. Until then a look-alike of it is built from parts.
 		OutfitId = 0,
 		Title = "CORNY EVENT!",
-		Subtitle = "Corny is flying over the map! Grab everything he drops!",
+		Subtitle = "Giant Corny is here! Grab everything he throws!",
 		DurationMinutes = 5,
-		Scale = 9,
-		Height = 125,
-		Radius = 150,
-		DropEvery = 2,
+		Scale = 32, -- about 165 studs tall
+		Spot = Vector3.new(0, 14, 480), -- hovering just past the fence, under the rainbow
+		DropEvery = 1.6,
 		BrainrotChance = 0.3,
 		BrainrotLuck = 4,
 		-- Sprinkles like his hat, rainbow like his pants.
 		Mutations = { { Id = "Candy", Chance = 45 }, { Id = "Rainbow", Chance = 8 } },
 		Colors = { Color3.fromRGB(255, 120, 190), Color3.fromRGB(120, 210, 255), Color3.fromRGB(255, 230, 90), Color3.fromRGB(130, 240, 130) },
 		Chips = { "SPRINKLE DROPS", "45% CANDY", "8% RAINBOW", "CASH BAGS" },
+		RainbowSky = true,
 	},
 } :: { [string]: FounderEvent }
 

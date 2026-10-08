@@ -1992,6 +1992,39 @@ local function dropPositionNear(point: Vector3): Vector3
 	return randomDropPosition()
 end
 
+-- Throws a part (a drop's root) from `from` to `to` in a high arc, like a
+-- giant founder tossing it onto the map, then calls `landed`.
+local function throwArc(part: BasePart, from: Vector3, to: Vector3, rotation: CFrame, landed: () -> ())
+	local distance = ((to - from) * Vector3.new(1, 0, 1)).Magnitude
+	local duration = math.clamp(distance / 160, 1.2, 3.2)
+	local peak = math.max(from.Y, to.Y) + 30 + distance * 0.15
+	local started = os.clock()
+	local connection: RBXScriptConnection
+	connection = RunService.Heartbeat:Connect(function()
+		if not part.Parent then
+			connection:Disconnect()
+			return
+		end
+		local t = math.min((os.clock() - started) / duration, 1)
+		local flat = from:Lerp(to, t)
+		-- Quadratic curve through `peak` at the top
+		local y = (1 - t) ^ 2 * from.Y + 2 * (1 - t) * t * (2 * peak - (from.Y + to.Y) / 2) + t ^ 2 * to.Y
+		part.CFrame = CFrame.new(flat.X, y, flat.Z) * rotation * CFrame.Angles(t * 8, t * 5, 0)
+		if t >= 1 then
+			connection:Disconnect()
+			part.CFrame = CFrame.new(to) * rotation
+			landed()
+		end
+	end)
+end
+
+-- A random landing spot anywhere on the open map.
+local function randomOpenPosition(): Vector3
+	local angle = rng:NextNumber(0, math.pi * 2)
+	local distance = math.sqrt(rng:NextNumber()) * 330
+	return dropPositionNear(Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance))
+end
+
 local function fallBeam(position: Vector3, color: Color3): BasePart
 	local beam = Instance.new("Part")
 	beam.Name = "DropBeam"
@@ -2009,9 +2042,10 @@ local function fallBeam(position: Vector3, color: Color3): BasePart
 	return beam
 end
 
--- `from`: where it falls from (a founder); otherwise straight down from the sky.
+-- `from`: a giant founder's hand it's thrown from (lands anywhere on the
+-- map); otherwise it falls straight down from the sky.
 local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?, from: Vector3?)
-	local landing = if from then dropPositionNear(from) else randomDropPosition()
+	local landing = if from then randomOpenPosition() else randomDropPosition()
 	local facing = CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 	local model = BrainrotModel.Create(brainrot, mutation, CFrame.new(from or landing + Vector3.new(0, 90, 0)) * facing, false)
 	local root = model.PrimaryPart :: BasePart
@@ -2033,13 +2067,19 @@ local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?, from: 
 	prompt.Parent = root
 	model.Parent = dropsFolder
 
-	local fall = TweenService:Create(root, TweenInfo.new(2.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
-		CFrame = CFrame.new(landing + Vector3.new(0, 0.5, 0)) * facing,
-	})
-	fall.Completed:Connect(function()
-		prompt.Enabled = true
-	end)
-	fall:Play()
+	if from then
+		throwArc(root, from, landing + Vector3.new(0, 0.5, 0), facing, function()
+			prompt.Enabled = true
+		end)
+	else
+		local fall = TweenService:Create(root, TweenInfo.new(2.5, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
+			CFrame = CFrame.new(landing + Vector3.new(0, 0.5, 0)) * facing,
+		})
+		fall.Completed:Connect(function()
+			prompt.Enabled = true
+		end)
+		fall:Play()
+	end
 
 	prompt.Triggered:Connect(function(player)
 		local session = sessions[player]
@@ -2072,7 +2112,7 @@ local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?, from: 
 end
 
 local function dropCash(amount: number, from: Vector3?)
-	local landing = if from then dropPositionNear(from) else randomDropPosition()
+	local landing = if from then randomOpenPosition() else randomDropPosition()
 	local orb = Instance.new("Part")
 	orb.Name = "CashDrop"
 	orb.Shape = Enum.PartType.Ball
@@ -2099,9 +2139,13 @@ local function dropCash(amount: number, from: Vector3?)
 	label.Text = Config.FormatCash(amount)
 	label.Parent = tag
 
-	TweenService:Create(orb, TweenInfo.new(2, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
-		CFrame = CFrame.new(landing + Vector3.new(0, 1.5, 0)),
-	}):Play()
+	if from then
+		throwArc(orb, from, landing + Vector3.new(0, 1.5, 0), CFrame.identity, function() end)
+	else
+		TweenService:Create(orb, TweenInfo.new(2, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
+			CFrame = CFrame.new(landing + Vector3.new(0, 1.5, 0)),
+		}):Play()
+	end
 
 	orb.Touched:Connect(function(hit)
 		local player = Players:GetPlayerFromCharacter(hit.Parent)
@@ -2122,9 +2166,10 @@ local function dropCash(amount: number, from: Vector3?)
 end
 
 -- Founders ------------------------------------------------------------------
--- Giant founders stand at the edges of the map during admin abuse, dancing
--- and throwing cash and brainrots. Each founder also has an event of their
--- own where they fly over the map dropping things (Config.FounderEvents).
+-- Giant founders tower just outside the fence during admin abuse (in their
+-- normal avatars), and each founder has an event of their own where they
+-- hover beside the map in their event outfit (Config.FounderEvents). Either
+-- way they keep dancing and emoting and throw cash and brainrots onto the map.
 
 local foundersFolder = Instance.new("Folder")
 foundersFolder.Name = "Founders"
@@ -2132,13 +2177,25 @@ foundersFolder.Parent = workspace:FindFirstChild("BrainrotHeist")
 ReplicatedStorage:SetAttribute("FounderEvent", "")
 ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
 
+-- Roblox's default emotes, played one after another.
+local GIANT_EMOTES = {
+	"rbxassetid://507770239", -- wave
+	"rbxassetid://507771019", -- dance
+	"rbxassetid://507770677", -- cheer
+	"rbxassetid://507776043", -- dance 2
+	"rbxassetid://507770818", -- laugh
+	"rbxassetid://507777268", -- dance 3
+	"rbxassetid://507770453", -- point
+}
+
+-- Roughly where a giant's hand is, to throw things from.
 local function giantHand(giant: Model): Vector3
 	local root = giant.PrimaryPart :: BasePart
 	local _, size = giant:GetBoundingBox()
-	return root.Position + Vector3.new(0, size.Y * 0.3, 0) + root.CFrame.LookVector * size.Y * 0.15
+	return root.Position + Vector3.new(0, size.Y * 0.2, 0) + root.CFrame.LookVector * size.Y * 0.12
 end
 
--- Something a founder throws or drops: usually a cash bag, sometimes a brainrot.
+-- Something a founder throws: usually a cash bag, sometimes a brainrot.
 local function founderDrop(from: Vector3, brainrotChance: number, luck: number, mutations: { { Id: string, Chance: number } }?)
 	if rng:NextNumber() < brainrotChance then
 		local brainrot = Config.RollConveyor(rng, luck, false)
@@ -2159,62 +2216,73 @@ local function founderDrop(from: Vector3, brainrotChance: number, luck: number, 
 	end
 end
 
--- Admin abuse giants
-local abuseGiants: { Model } = {}
-
-local function removeGiant(giant: Model, rise: boolean)
-	local root = giant.PrimaryPart
-	if not root then
-		giant:Destroy()
-		return
-	end
+-- Brings a giant to life at `spot` (under their feet) facing the map: they
+-- arrive (rise from the ground or come down from the sky), then bob, sway and
+-- cycle through emotes, throwing something every `dropEvery` seconds, while
+-- `active()` is true. Then they leave and are removed.
+local function runGiant(giant: Model, spot: Vector3, hover: boolean, dropEvery: number, active: () -> boolean, drop: (Vector3) -> ())
+	local root = giant.PrimaryPart :: BasePart
+	local height = Founders.RootHeight(giant)
 	local _, size = giant:GetBoundingBox()
-	local goal = root.CFrame + Vector3.new(0, if rise then 500 else -size.Y * 1.1, 0)
-	local move = TweenService:Create(root, TweenInfo.new(if rise then 4 else 3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = goal })
-	move.Completed:Connect(function()
+	local home = CFrame.lookAt(spot + Vector3.new(0, height, 0), Vector3.new(0, spot.Y + height, 0))
+	local away = if hover then home + Vector3.new(0, 600, 0) else home - Vector3.new(0, size.Y * 1.1, 0)
+
+	root.CFrame = away
+	local arrive = TweenService:Create(root, TweenInfo.new(4, if hover then Enum.EasingStyle.Quad else Enum.EasingStyle.Back, Enum.EasingDirection.Out), { CFrame = home })
+	arrive:Play()
+	arrive.Completed:Wait()
+
+	-- Emotes, one after another
+	task.spawn(function()
+		local track: AnimationTrack? = nil
+		local index = rng:NextInteger(1, #GIANT_EMOTES)
+		while giant.Parent and active() do
+			if track then
+				track:Stop(0.4)
+			end
+			track = Founders.Play(giant, GIANT_EMOTES[index], true)
+			index = index % #GIANT_EMOTES + 1
+			task.wait(rng:NextNumber(5, 8))
+		end
+		if track then
+			track:Stop(0.4)
+		end
+	end)
+
+	-- Bob and sway (so even the look-alike, which can't emote, moves), and throw.
+	local started = os.clock()
+	local nextDrop = os.clock() + 1.5
+	while giant.Parent and active() do
+		local t = os.clock() - started
+		local bob = if hover then math.sin(t * 1.4) * size.Y * 0.03 else math.abs(math.sin(t * 2)) * size.Y * 0.01
+		local sway = math.sin(t * 0.7) * math.rad(10)
+		root.CFrame = (home + Vector3.new(0, bob, 0)) * CFrame.Angles(0, sway, math.sin(t * 1.1) * math.rad(3))
+		if os.clock() >= nextDrop then
+			nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
+			drop(giantHand(giant))
+		end
+		task.wait()
+	end
+
+	local leave = TweenService:Create(root, TweenInfo.new(if hover then 4 else 3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = away })
+	leave.Completed:Connect(function()
 		giant:Destroy()
 	end)
-	move:Play()
+	leave:Play()
 end
 
+-- Admin abuse giants
 local function spawnAbuseGiants()
-	local spots = {
-		{ Founder = "Corny", Position = Vector3.new(-90, 0, 215) },
-		{ Founder = "Ace", Position = Vector3.new(90, 0, -215) },
-	}
-	for _, spot in spots do
+	for founderId, spot in Config.FounderGiantSpots do
 		task.spawn(function()
-			local giant = Founders.CreateGiant(spot.Founder, Config.FounderGiantScale, foundersFolder)
-			if not giant then
-				return
-			end
-			table.insert(abuseGiants, giant)
-			local root = giant.PrimaryPart :: BasePart
-			local height = Founders.RootHeight(giant)
-			local _, size = giant:GetBoundingBox()
-			local standing = CFrame.lookAt(spot.Position + Vector3.new(0, height, 0), Vector3.new(0, height, 0))
-			-- Rise up out of the ground, then wave and dance.
-			root.CFrame = standing - Vector3.new(0, size.Y * 1.1, 0)
-			TweenService:Create(root, TweenInfo.new(3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { CFrame = standing }):Play()
-			task.wait(3)
-			local wave = Founders.Play(giant, Founders.Wave, false)
-			task.wait(if wave then 2.5 else 0)
-			Founders.Play(giant, Founders.Dance, true)
-			while giant.Parent and adminAbuseLive() do
-				task.wait(Config.FounderGiantDropEvery + rng:NextNumber(-1.5, 1.5))
-				if giant.Parent and adminAbuseLive() then
-					founderDrop(giantHand(giant), 0.2, Config.BrainrotRainLuck)
-				end
+			local giant = Founders.CreateGiant(founderId, Config.FounderGiantScale, foundersFolder)
+			if giant then
+				runGiant(giant, spot, false, Config.FounderGiantDropEvery, adminAbuseLive, function(hand)
+					founderDrop(hand, 0.2, Config.BrainrotRainLuck)
+				end)
 			end
 		end)
 	end
-end
-
-local function clearAbuseGiants()
-	for _, giant in abuseGiants do
-		removeGiant(giant, false)
-	end
-	table.clear(abuseGiants)
 end
 
 task.spawn(function()
@@ -2223,8 +2291,6 @@ task.spawn(function()
 		local live = adminAbuseLive()
 		if live and not wasLive then
 			spawnAbuseGiants()
-		elseif wasLive and not live then
-			clearAbuseGiants()
 		end
 		wasLive = live
 		task.wait(1)
@@ -2233,6 +2299,10 @@ end)
 
 -- Founder events
 local founderEventRunning: string? = nil
+
+local function founderEventActive(): boolean
+	return workspace:GetServerTimeNow() < (ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number)
+end
 
 local function stopFounderEvent()
 	ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
@@ -2244,22 +2314,24 @@ local function runFounderEvent(eventId: string)
 		return
 	end
 	founderEventRunning = eventId
-	local endsAt = workspace:GetServerTimeNow() + event.DurationMinutes * 60
 	ReplicatedStorage:SetAttribute("FounderEvent", eventId)
-	ReplicatedStorage:SetAttribute("FounderEventEndsAt", endsAt)
+	ReplicatedStorage:SetAttribute("FounderEventEndsAt", workspace:GetServerTimeNow() + event.DurationMinutes * 60)
 	Announce:FireAllClients("founder", event.Founder, "", eventId)
 
+	local function drop(from: Vector3)
+		founderDrop(from, event.BrainrotChance, event.BrainrotLuck, event.Mutations)
+	end
 	-- In their special event outfit, not their normal avatar.
 	local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
 	if giant then
 		local root = giant.PrimaryPart :: BasePart
-		-- Jetpack flames and a sparkle trail while flying
+		-- Jetpack flames and a sparkle trail while hovering
 		for _, side in { -1, 1 } do
 			local flame = Instance.new("Attachment")
 			flame.Position = Vector3.new(side * root.Size.X * 0.45, -root.Size.Y * 0.2, root.Size.Z * 0.9)
 			flame.Parent = root
 			local fire = Instance.new("Fire")
-			fire.Size = event.Scale * 1.6
+			fire.Size = event.Scale * 1.2
 			fire.Heat = -15
 			fire.Color = Color3.fromRGB(255, 140, 40)
 			fire.SecondaryColor = Color3.fromRGB(255, 230, 90)
@@ -2271,51 +2343,15 @@ local function runFounderEvent(eventId: string)
 		trail.LightEmission = 1
 		trail.Rate = 40
 		trail.Lifetime = NumberRange.new(1, 2)
-		trail.Speed = NumberRange.new(2, 6)
+		trail.Speed = NumberRange.new(4, 10)
 		trail.SpreadAngle = Vector2.new(180, 180)
 		trail.Size = NumberSequence.new(event.Scale * 0.3, 0)
 		trail.Parent = root
-
-		-- Swoop down from the sky, then circle the map dropping things.
-		local start = os.clock()
-		local angle = rng:NextNumber(0, math.pi * 2)
-		local function pathPoint(a: number, t: number): Vector3
-			return Vector3.new(math.cos(a) * event.Radius, event.Height + math.sin(t * 1.3) * 5, math.sin(a) * event.Radius)
-		end
-		root.CFrame = CFrame.new(pathPoint(angle, 0) + Vector3.new(0, 400, 0))
-		local arrive = TweenService:Create(root, TweenInfo.new(4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-			CFrame = CFrame.lookAt(pathPoint(angle, 0), pathPoint(angle + 0.1, 0)),
-		})
-		arrive:Play()
-		arrive.Completed:Wait()
-		Founders.Play(giant, Founders.Wave, false)
-		task.delay(2.5, function()
-			if giant.Parent then
-				Founders.Play(giant, Founders.Dance, true)
-			end
-		end)
-
-		local speed = 0.12 -- radians per second around the circle
-		local nextDrop = os.clock() + 1
-		local last = os.clock()
-		while workspace:GetServerTimeNow() < (ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number) and giant.Parent do
-			local now = os.clock()
-			angle += speed * (now - last)
-			last = now
-			local t = now - start
-			local here = pathPoint(angle, t)
-			root.CFrame = CFrame.lookAt(here, pathPoint(angle + 0.05, t))
-			if now >= nextDrop then
-				nextDrop = now + event.DropEvery * rng:NextNumber(0.7, 1.3)
-				founderDrop(here, event.BrainrotChance, event.BrainrotLuck, event.Mutations)
-			end
-			task.wait()
-		end
-		removeGiant(giant, true)
+		runGiant(giant, event.Spot, true, event.DropEvery, founderEventActive, drop)
 	else
 		-- No giant (shouldn't happen): still drop things from the sky.
-		while workspace:GetServerTimeNow() < (ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number) do
-			founderDrop(randomDropPosition() + Vector3.new(0, 90, 0), event.BrainrotChance, event.BrainrotLuck, event.Mutations)
+		while founderEventActive() do
+			drop(randomOpenPosition() + Vector3.new(0, 120, 0))
 			task.wait(event.DropEvery)
 		end
 	end

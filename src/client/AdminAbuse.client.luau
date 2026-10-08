@@ -201,6 +201,108 @@ local function confetti(count: number, seconds: number)
 	end)
 end
 
+-- Rainbow sky (Corny's event) ------------------------------------------------
+-- The sky slowly cycles through the rainbow and two giant rainbows arch over
+-- the map. Everything is put back when the event ends.
+
+type SkyState = { Arcs: { BasePart }, Tint: ColorCorrectionEffect, Saved: { [string]: any }? }
+local rainbowSky: SkyState? = nil
+
+local function buildRainbowArcs(): { BasePart }
+	local parts: { BasePart } = {}
+	local folder = Instance.new("Folder")
+	folder.Name = "RainbowSky"
+	folder.Parent = workspace
+	local bands = 7
+	local thickness = 14
+	local segments = 40
+	for _, z in { 520, -520 } do
+		for band = 0, bands - 1 do
+			local radius = 430 - band * thickness
+			local color = Color3.fromHSV(band / bands * 0.8, 0.8, 1)
+			for k = 0, segments - 1 do
+				local a0 = k / segments * math.pi
+				local a1 = (k + 1) / segments * math.pi
+				local mid = (a0 + a1) / 2
+				local chord = 2 * radius * math.sin((a1 - a0) / 2)
+				local p = Instance.new("Part")
+				p.Name = "Rainbow"
+				p.Anchored = true
+				p.CanCollide = false
+				p.CanQuery = false
+				p.CanTouch = false
+				p.CastShadow = false
+				p.Material = Enum.Material.Neon
+				p.Color = color
+				p.Transparency = 1
+				p.Size = Vector3.new(chord * 1.04, thickness, 4)
+				p.CFrame = CFrame.new(math.cos(mid) * radius, math.sin(mid) * radius - 40, z) * CFrame.Angles(0, 0, mid + math.pi / 2)
+				p.Parent = folder
+				table.insert(parts, p)
+			end
+		end
+	end
+	return parts
+end
+
+local function startRainbowSky()
+	if rainbowSky then
+		return
+	end
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	local saved: { [string]: any }? = nil
+	if atmosphere then
+		saved = { Color = atmosphere.Color, Decay = atmosphere.Decay, Haze = atmosphere.Haze, Glare = atmosphere.Glare, Density = atmosphere.Density }
+	end
+	local tint = Instance.new("ColorCorrectionEffect")
+	tint.Name = "RainbowSkyTint"
+	tint.Parent = Lighting
+	local arcs = buildRainbowArcs()
+	for _, p in arcs do
+		tween(p, 2, { Transparency = 0.2 })
+	end
+	local state: SkyState = { Arcs = arcs, Tint = tint, Saved = saved }
+	rainbowSky = state
+	task.spawn(function()
+		local started = os.clock()
+		while rainbowSky == state do
+			local hue = ((os.clock() - started) * 0.06) % 1
+			if atmosphere then
+				atmosphere.Density = 0.22
+				atmosphere.Haze = 2.6
+				atmosphere.Glare = 1.2
+				atmosphere.Color = Color3.fromHSV(hue, 0.55, 1)
+				atmosphere.Decay = Color3.fromHSV((hue + 0.35) % 1, 0.7, 0.95)
+			end
+			tint.TintColor = Color3.fromHSV(hue, 0.08, 1)
+			task.wait(0.05)
+		end
+	end)
+end
+
+local function stopRainbowSky()
+	local state = rainbowSky
+	rainbowSky = nil
+	if not state then
+		return
+	end
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	if atmosphere and state.Saved then
+		tween(atmosphere, 2, state.Saved)
+	end
+	tween(state.Tint, 2, { TintColor = Color3.new(1, 1, 1) })
+	for _, p in state.Arcs do
+		tween(p, 2, { Transparency = 1 })
+	end
+	task.delay(2.2, function()
+		state.Tint:Destroy()
+		local folder = workspace:FindFirstChild("RainbowSky")
+		if folder then
+			folder:Destroy()
+		end
+	end)
+end
+
 -- Party lighting while it's live ---------------------------------------------
 
 local party: ColorCorrectionEffect? = nil
@@ -616,6 +718,12 @@ local function onFounderEvent()
 	local previous = Config.FounderEvents[currentFounderEvent]
 	currentFounderEvent = eventId
 	local intro = founderIntro(eventId)
+	local event = Config.FounderEvents[eventId]
+	if event and event.RainbowSky then
+		startRainbowSky()
+	else
+		stopRainbowSky()
+	end
 	if intro then
 		task.spawn(playIntro, intro)
 	elseif previous then
