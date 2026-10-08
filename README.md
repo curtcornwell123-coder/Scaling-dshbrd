@@ -136,6 +136,8 @@ The admin panel can drop any brainrot (with any mutation) from the sky, start a 
 
 There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. It's set to **Saturday 2:00 PM Central time (Oklahoma)**, and daylight saving is handled automatically. Change it in `Config.AdminAbuse`. Admins can also start or end it any time.
 
+When it starts, everyone gets a huge intro: a white flash and red camera flash, a camera shake, spinning red and gold light rays, a giant rainbow **ADMIN ABUSE!** title that slams in (with the admin's name if one started it), falling confetti and a volley of fireworks over the map. While it runs, the lighting gently cycles party colors and fireworks keep popping. An "ADMIN ABUSE IS OVER" card shows when it ends. (All of it is in `src/client/AdminAbuse.client.luau`.)
+
 ## Quests, Shards, Diamonds and the Diamond Shop
 
 Fair progression for free-to-play players. None of this can be bought with Robux.
