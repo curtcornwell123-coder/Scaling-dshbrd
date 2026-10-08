@@ -274,6 +274,12 @@ local function luckMultiplier(): number
 	if adminAbuseLive() then
 		luck = math.max(luck, Config.AdminAbuseBoosts.Luck)
 	end
+	-- Founder events with a luck boost (Ace's)
+	local founderEvent = Config.FounderEvents[ReplicatedStorage:GetAttribute("FounderEvent") :: string? or ""]
+	local founderEndsAt = ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number?
+	if founderEvent and founderEvent.Luck and founderEndsAt and workspace:GetServerTimeNow() < founderEndsAt then
+		luck = math.max(luck, founderEvent.Luck)
+	end
 	return luck
 end
 
@@ -2443,24 +2449,28 @@ local function runFounderEvent(eventId: string, minutes: number)
 
 	-- One UFO on each side of the map (event.Spots), all at once. They share
 	-- the throwing, so the total drop rate stays the same.
-	local dropEvery = event.DropEvery * #event.Spots
+	local dropEvery = (event.DropEvery or 2) * #event.Spots
 	local function drop(from: Vector3)
-		founderDrop(from, event.BrainrotChance, event.BrainrotLuck, event.Mutations)
+		founderDrop(from, event.BrainrotChance or 0.3, event.BrainrotLuck or 1, event.Mutations)
 	end
+	local ufoSize = event.UfoSize or 260
+	local ufoHeight = event.UfoHeight or 230
+	local floatHeight = event.FloatHeight or 35
+	local poseId = event.PoseAnimationId or ""
 
 	local function runUfo(spot: Vector3)
 		local side = if spot.Z < 0 then -1 else 1
 		-- 1. A UFO flies in from outside the map and hovers over the spot.
-		local ufo = Founders.CreateUfo(event.UfoSize)
-		local hover = CFrame.new(spot.X, event.UfoHeight, spot.Z)
+		local ufo = Founders.CreateUfo(ufoSize)
+		local hover = CFrame.new(spot.X, ufoHeight, spot.Z)
 		local arriveFrom = hover + Vector3.new(-700, 350, 420 * side)
 		ufo:PivotTo(arriveFrom)
 		ufo.Parent = foundersFolder
 		glide(ufo, arriveFrom, hover, 5)
 
 		-- 2. The light beam switches on underneath it.
-		local beamTop = Vector3.new(spot.X, event.UfoHeight - event.UfoSize * 0.14, spot.Z)
-		local beam = Founders.CreateBeam(beamTop, Vector3.new(spot.X, spot.Y, spot.Z), event.UfoSize * 0.3, event.UfoSize * 0.62)
+		local beamTop = Vector3.new(spot.X, ufoHeight - ufoSize * 0.14, spot.Z)
+		local beam = Founders.CreateBeam(beamTop, Vector3.new(spot.X, spot.Y, spot.Z), ufoSize * 0.3, ufoSize * 0.62)
 		beam.Parent = foundersFolder
 		for _, part in beam:GetChildren() do
 			if part:IsA("BasePart") and part.Name ~= "BeamSparkles" then
@@ -2475,14 +2485,14 @@ local function runFounderEvent(eventId: string, minutes: number)
 		if giant then
 			-- Their pose: an animation if one is set, otherwise the floating
 			-- sage pose, frozen in place before they're moved into the beam.
-			if event.PoseAnimationId == "" then
+			if poseId == "" then
 				Founders.FreezePose(giant, Founders.SagePose)
 			end
-			local feetY = spot.Y + event.FloatHeight
+			local feetY = spot.Y + floatHeight
 			local size = placeGiant(giant, spot, feetY)
 			giantPoof(Vector3.new(spot.X, feetY, spot.Z), size.Y, event.Colors[1])
-			if event.PoseAnimationId ~= "" then
-				Founders.Play(giant, event.PoseAnimationId, true, 1, 1, Enum.AnimationPriority.Action)
+			if poseId ~= "" then
+				Founders.Play(giant, poseId, true, 1, 1, Enum.AnimationPriority.Action)
 			end
 			local aura = Founders.AddAura(giant)
 
@@ -2506,7 +2516,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 			end
 
 			-- 4. Beamed back up into the UFO.
-			glide(giant, giant:GetPivot(), giant:GetPivot() + Vector3.new(0, event.UfoHeight - feetY, 0), 2.5)
+			glide(giant, giant:GetPivot(), giant:GetPivot() + Vector3.new(0, ufoHeight - feetY, 0), 2.5)
 			giant:Destroy()
 		else
 			-- No giant (shouldn't happen): the UFO drops things itself.
@@ -2532,11 +2542,90 @@ local function runFounderEvent(eventId: string, minutes: number)
 		ufo:Destroy()
 	end
 
+	-- Ace's style: standing in the water while the dancer brainrot (Cigna
+	-- Glamourina) flies around him spinning ballet pirouettes.
+	local function runBallet(spot: Vector3)
+		local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
+		if not giant then
+			return
+		end
+		Founders.FreezePose(giant, {})
+		local size = placeGiant(giant, spot, spot.Y)
+		giantPoof(spot, size.Y, event.Colors[1])
+		local aura = Founders.AddAura(giant)
+		aura.OutlineColor = event.Colors[1]
+
+		-- Two dancers circling him, a little out of step with each other.
+		local dancerInfo = event.Dancer and Config.GetBrainrot(event.Dancer)
+		local dancers: { Model } = {}
+		if dancerInfo then
+			for i = 1, 2 do
+				local dancer = BrainrotModel.Create(dancerInfo, nil, CFrame.new(spot + Vector3.new(0, size.Y * 0.5, 0)), false, nil, false, size.Y * 0.06)
+				local tag = dancer.PrimaryPart and dancer.PrimaryPart:FindFirstChild("Tag")
+				if tag then
+					tag:Destroy()
+				end
+				dancer.Name = "BalletDancer" .. i
+				dancer.Parent = foundersFolder
+				table.insert(dancers, dancer)
+			end
+		end
+
+		local started = os.clock()
+		local nextColor = 0
+		while giant.Parent and founderEventActive() do
+			local t = os.clock() - started
+			for i, dancer in dancers do
+				local phase = (i - 1) * math.pi
+				local angle = t * 0.55 + phase
+				local radius = size.Y * (0.5 + 0.06 * math.sin(t * 0.7 + phase))
+				-- Leaps: a rise and fall every few seconds, with a slow float between.
+				local height = size.Y * (0.45 + 0.2 * math.abs(math.sin(t * 0.9 + phase)))
+				local position = spot + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius)
+				-- Pirouette: spinning on the spot as it goes round, leaning into the turn.
+				dancer:PivotTo(CFrame.new(position) * CFrame.Angles(0, t * 3 + phase, 0) * CFrame.Angles(0, 0, math.rad(12)))
+			end
+			if os.clock() >= nextColor then
+				nextColor = os.clock() + 0.15
+				aura.OutlineColor = event.Colors[1]:Lerp(event.Colors[3], (math.sin(t * 1.5) + 1) / 2)
+			end
+			RunService.Heartbeat:Wait()
+		end
+		for _, dancer in dancers do
+			local _, dancerSize = dancer:GetBoundingBox()
+			giantPoof(dancer:GetPivot().Position, dancerSize.Y, event.Colors[2])
+			dancer:Destroy()
+		end
+		giantPoof(spot, size.Y, event.Colors[1])
+		giant:Destroy()
+	end
+
+	-- The guaranteed brainrot, with a rare mutation, a little after it starts.
+	local guaranteed = event.Guaranteed and Config.GetBrainrot(event.Guaranteed)
+	if guaranteed then
+		task.delay(10, function()
+			if not founderEventActive() then
+				return
+			end
+			local rare = {}
+			for _, mutation in Config.Mutations do
+				if mutation.Chance > 0 and mutation.Chance <= 1 and Config.MutationAllowed(guaranteed, mutation.Id) then
+					table.insert(rare, mutation.Id)
+				end
+			end
+			spawnOnConveyor(guaranteed, if #rare > 0 then rare[rng:NextInteger(1, #rare)] else nil)
+		end)
+	end
+
 	local running = 0
 	for _, spot in event.Spots do
 		running += 1
 		task.spawn(function()
-			runUfo(spot)
+			if event.Style == "Ballet" then
+				runBallet(spot)
+			else
+				runUfo(spot)
+			end
 			running -= 1
 		end)
 	end

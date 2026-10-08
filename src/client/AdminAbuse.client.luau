@@ -236,10 +236,13 @@ local function skyPart(model: Model, size: Vector3, cframe: CFrame): Part
 	return p
 end
 
-local function startRainbowSky()
+-- `style`: "Rainbow" (Corny's) or "Pink" (Ace's: soft pinks drifting
+-- between rose and lilac).
+local function startRainbowSky(style: string)
 	if rainbowSky then
 		return
 	end
+	local pink = style == "Pink"
 	local model = Instance.new("Model")
 	model.Name = "RainbowSky"
 	local panels: { BasePart } = {}
@@ -277,11 +280,18 @@ local function startRainbowSky()
 	local connection = RunService.RenderStepped:Connect(function()
 		local t = os.clock() - started
 		for i, p in panels do
-			-- The rainbow goes twice around the horizon (so you always see lots
-			-- of colors), slowly turning.
-			p.Color = Color3.fromHSV((i / SKY_PANELS * 2 + t * 0.05) % 1, 0.75, 0.95)
+			if pink then
+				local wave = math.sin(i / SKY_PANELS * math.pi * 4 + t * 0.4)
+				p.Color = Color3.fromHSV((0.9 + 0.055 * wave) % 1, 0.5 + 0.12 * wave, 1)
+			else
+				-- The rainbow goes twice around the horizon (so you always see
+				-- lots of colors), slowly turning.
+				p.Color = Color3.fromHSV((i / SKY_PANELS * 2 + t * 0.05) % 1, 0.75, 0.95)
+			end
 		end
-		local top = Color3.fromHSV((t * 0.05) % 1, 0.6, 0.9)
+		local top = if pink
+			then Color3.fromHSV(0.9 + 0.04 * math.sin(t * 0.3), 0.4, 1)
+			else Color3.fromHSV((t * 0.05) % 1, 0.6, 0.9)
 		for _, tile in ceiling do
 			tile.Color = top
 		end
@@ -308,6 +318,229 @@ local function stopRainbowSky()
 	task.delay(2.2, function()
 		state.Connection:Disconnect()
 		state.Model:Destroy()
+	end)
+end
+
+-- Ballet scene (Ace's event) -------------------------------------------------
+-- Knee-deep water flows out over the map, lily pads (some with pink
+-- flowers) drop into it and bob, pink sparkly dust drifts everywhere, and the
+-- theme song plays. All on this player's screen; put back when it ends.
+
+local WATER_TOP = 2.2 -- about knee height
+local WATER_RADIUS = 440 -- just past the fence
+
+type BalletState = { Water: BasePart, Pads: { Model }, Dust: BasePart, Music: Sound?, Connection: RBXScriptConnection, Running: boolean }
+local ballet: BalletState? = nil
+
+local function lilyPad(parent: Instance, rng: Random): Model
+	local pad = Instance.new("Model")
+	pad.Name = "LilyPad"
+	local width = rng:NextNumber(6, 11)
+	local leaf = Instance.new("Part")
+	leaf.Name = "Leaf"
+	leaf.Shape = Enum.PartType.Cylinder
+	leaf.Anchored = true
+	leaf.CanCollide = false
+	leaf.CanQuery = false
+	leaf.CanTouch = false
+	leaf.Size = Vector3.new(0.25, width, width)
+	leaf.Color = Color3.fromRGB(70, 165, 75):Lerp(Color3.fromRGB(120, 200, 90), rng:NextNumber())
+	leaf.Material = Enum.Material.SmoothPlastic
+	leaf.CFrame = CFrame.Angles(0, 0, math.pi / 2)
+	leaf.Parent = pad
+	pad.PrimaryPart = leaf
+	if rng:NextNumber() < 0.4 then
+		-- A pink water lily: petals around a yellow middle
+		local function bit(size: Vector3, offset: Vector3, color: Color3)
+			local p = Instance.new("Part")
+			p.Shape = Enum.PartType.Ball
+			p.Anchored = true
+			p.CanCollide = false
+			p.CanQuery = false
+			p.CanTouch = false
+			p.Size = size
+			p.Color = color
+			p.Material = Enum.Material.SmoothPlastic
+			p.CFrame = CFrame.new(offset)
+			p.Parent = pad
+		end
+		for k = 1, 6 do
+			local a = k / 6 * math.pi * 2
+			bit(Vector3.new(1.4, 1.4, 1.4), Vector3.new(math.cos(a) * 0.9, 0.5, math.sin(a) * 0.9), Color3.fromRGB(255, 150, 205))
+		end
+		bit(Vector3.new(1, 1, 1), Vector3.new(0, 0.7, 0), Color3.fromRGB(255, 230, 110))
+	end
+	pad.Parent = parent
+	return pad
+end
+
+local function startBallet(event: Config.FounderEvent)
+	if ballet then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "BalletScene"
+	folder.Parent = workspace
+
+	-- The water flows out from the middle and rises to knee height.
+	local water = Instance.new("Part")
+	water.Name = "BalletWater"
+	water.Shape = Enum.PartType.Cylinder
+	water.Anchored = true
+	water.CanCollide = false
+	water.CanQuery = false
+	water.CanTouch = false
+	water.CastShadow = false
+	water.Material = Enum.Material.SmoothPlastic
+	water.Color = Color3.fromRGB(150, 205, 255)
+	water.Transparency = 0.42
+	water.Reflectance = 0.25
+	water.Size = Vector3.new(3, 120, 120)
+	water.CFrame = CFrame.new(0, -1.6, 0) * CFrame.Angles(0, 0, math.pi / 2)
+	water.Parent = folder
+	tween(water, 6, { Size = Vector3.new(3, WATER_RADIUS * 2, WATER_RADIUS * 2), CFrame = CFrame.new(0, WATER_TOP - 1.5, 0) * CFrame.Angles(0, 0, math.pi / 2) }, Enum.EasingStyle.Sine)
+
+	-- Pink sparkly dust and soft puffs all around the camera.
+	local dust = Instance.new("Part")
+	dust.Name = "BalletDust"
+	dust.Anchored = true
+	dust.CanCollide = false
+	dust.CanQuery = false
+	dust.CanTouch = false
+	dust.Transparency = 1
+	dust.Size = Vector3.new(180, 70, 180)
+	dust.Parent = folder
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Texture = SPARKLE
+	sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 160, 220), Color3.fromRGB(255, 225, 245))
+	sparkle.LightEmission = 0.8
+	sparkle.Rate = 90
+	sparkle.Lifetime = NumberRange.new(3, 5)
+	sparkle.Speed = NumberRange.new(1, 3)
+	sparkle.SpreadAngle = Vector2.new(180, 180)
+	sparkle.Shape = Enum.ParticleEmitterShape.Box
+	sparkle.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	sparkle.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.3, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	sparkle.Parent = dust
+	local puffs = Instance.new("ParticleEmitter")
+	puffs.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	puffs.Color = ColorSequence.new(Color3.fromRGB(255, 180, 225))
+	puffs.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.4, 0.6), NumberSequenceKeypoint.new(1, 1) })
+	puffs.LightEmission = 0.4
+	puffs.Rate = 14
+	puffs.Lifetime = NumberRange.new(4, 6)
+	puffs.Speed = NumberRange.new(0.5, 1.5)
+	puffs.SpreadAngle = Vector2.new(180, 180)
+	puffs.Shape = Enum.ParticleEmitterShape.Box
+	puffs.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	puffs.Size = NumberSequence.new(1.5, 3)
+	puffs.Parent = dust
+
+	-- The theme song
+	local music: Sound? = nil
+	if event.MusicId and event.MusicId ~= "" then
+		local sound = Instance.new("Sound")
+		sound.Name = "BalletMusic"
+		sound.SoundId = event.MusicId
+		sound.Looped = true
+		sound.Volume = 0
+		sound.Parent = game:GetService("SoundService")
+		sound:Play()
+		tween(sound, 3, { Volume = 0.6 })
+		music = sound
+	end
+
+	local pads: { Model } = {}
+	local padPhase: { [Model]: number } = {}
+	local state: BalletState
+	local connection = RunService.RenderStepped:Connect(function()
+		local camera = workspace.CurrentCamera
+		dust.CFrame = CFrame.new(camera.CFrame.Position)
+		local t = os.clock()
+		for _, pad in pads do
+			local phase = padPhase[pad]
+			if phase and pad:GetAttribute("Floating") then
+				local base = pad:GetAttribute("Base") :: Vector3
+				pad:PivotTo(CFrame.new(base + Vector3.new(0, math.sin(t * 1.3 + phase) * 0.15, 0)) * CFrame.Angles(0, phase + math.sin(t * 0.3 + phase) * 0.2, 0))
+			end
+		end
+	end)
+	state = { Water = water, Pads = pads, Dust = dust, Music = music, Connection = connection, Running = true }
+	ballet = state
+
+	-- Lily pads drop in over the first half minute.
+	task.spawn(function()
+		local rng = Random.new()
+		task.wait(3)
+		for _ = 1, 70 do
+			if not state.Running then
+				break
+			end
+			local pad = lilyPad(folder, rng)
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local distance = math.sqrt(rng:NextNumber()) * (WATER_RADIUS - 30)
+			local landing = Vector3.new(math.cos(angle) * distance, WATER_TOP + 0.1, math.sin(angle) * distance)
+			local phase = rng:NextNumber(0, math.pi * 2)
+			pad:PivotTo(CFrame.new(landing + Vector3.new(0, rng:NextNumber(80, 140), 0)) * CFrame.Angles(rng:NextNumber(-0.6, 0.6), phase, rng:NextNumber(-0.6, 0.6)))
+			table.insert(pads, pad)
+			padPhase[pad] = phase
+			-- Flutter down, then float
+			task.spawn(function()
+				local from = pad:GetPivot()
+				local to = CFrame.new(landing) * CFrame.Angles(0, phase, 0)
+				local started = os.clock()
+				while pad.Parent do
+					local k = math.min((os.clock() - started) / 2.5, 1)
+					local eased = k * k
+					local sway = math.sin(k * math.pi * 3) * (1 - k) * 6
+					pad:PivotTo(from:Lerp(to, eased) + Vector3.new(sway, 0, 0))
+					if k >= 1 then
+						break
+					end
+					RunService.RenderStepped:Wait()
+				end
+				pad:SetAttribute("Base", landing)
+				pad:SetAttribute("Floating", true)
+			end)
+			task.wait(rng:NextNumber(0.2, 0.5))
+		end
+	end)
+end
+
+local function stopBallet()
+	local state = ballet
+	ballet = nil
+	if not state then
+		return
+	end
+	state.Running = false
+	for _, emitter in state.Dust:GetChildren() do
+		if emitter:IsA("ParticleEmitter") then
+			emitter.Enabled = false
+		end
+	end
+	tween(state.Water, 4, { Size = Vector3.new(3, 120, 120), CFrame = CFrame.new(0, -1.6, 0) * CFrame.Angles(0, 0, math.pi / 2), Transparency = 1 }, Enum.EasingStyle.Sine)
+	for _, pad in state.Pads do
+		pad:SetAttribute("Floating", false)
+		for _, part in pad:GetDescendants() do
+			if part:IsA("BasePart") then
+				tween(part, 3, { Transparency = 1 })
+			end
+		end
+	end
+	local music = state.Music
+	if music then
+		tween(music, 3, { Volume = 0 })
+	end
+	task.delay(4.2, function()
+		state.Connection:Disconnect()
+		local folder = state.Water.Parent
+		if folder then
+			folder:Destroy()
+		end
+		if music then
+			music:Destroy()
+		end
 	end)
 end
 
@@ -806,15 +1039,20 @@ local function onFounderEvent()
 	currentFounderEvent = eventId
 	local intro = founderIntro(eventId)
 	local event = Config.FounderEvents[eventId]
-	if event and event.RainbowSky then
-		startRainbowSky()
+	if event and event.Sky then
+		startRainbowSky(event.Sky)
 	else
 		stopRainbowSky()
+	end
+	if event and event.Water then
+		startBallet(event)
+	else
+		stopBallet()
 	end
 	if intro then
 		task.spawn(playIntro, intro)
 	elseif previous then
-		task.spawn(playOutro, string.upper(previous.Founder) .. " FLEW AWAY!")
+		task.spawn(playOutro, if previous.Style == "Ballet" then "THE BALLET IS OVER!" else string.upper(previous.Founder) .. " FLEW AWAY!")
 	end
 end
 ReplicatedStorage:GetAttributeChangedSignal("FounderEvent"):Connect(onFounderEvent)

@@ -464,22 +464,31 @@ export type FounderEvent = {
 	Subtitle: string,
 	DurationMinutes: number,
 	Scale: number,
-	Spots: { Vector3 }, -- the ground under each UFO (one per side of the map)
-	UfoSize: number, -- the UFO's width
-	UfoHeight: number, -- how high the UFO hovers
-	FloatHeight: number, -- how high their feet float in the beam
-	PoseAnimationId: string, -- the pose they hold in the beam ("" = Roblox's standing idle)
-	DropEvery: number, -- seconds between throws
-	BrainrotChance: number, -- chance each drop is a brainrot (else a cash bag)
-	BrainrotLuck: number,
-	Mutations: { { Id: string, Chance: number } }, -- extra mutation chances on their brainrots (percent)
+	Spots: { Vector3 }, -- where they appear (one per side of the map)
+	-- "Ufo": they float in a UFO's beam throwing things (Corny's).
+	-- "Ballet": they stand in the water while Cigna Glamourina dances around them (Ace's).
+	Style: string,
+	UfoSize: number?, -- the UFO's width
+	UfoHeight: number?, -- how high the UFO hovers
+	FloatHeight: number?, -- how high their feet float in the beam
+	PoseAnimationId: string?, -- the pose they hold ("" = the built-in pose)
+	DropEvery: number?, -- seconds between throws (nil = no throwing)
+	BrainrotChance: number?, -- chance each throw is a brainrot (else a cash bag)
+	BrainrotLuck: number?,
+	Mutations: { { Id: string, Chance: number } }?, -- extra mutation chances on their brainrots (percent)
+	Luck: number?, -- server luck while it runs (like bought Server Luck)
+	Guaranteed: string?, -- a brainrot that's sure to come down the conveyor, with a rare mutation
+	Dancer: string?, -- a brainrot that flies around them dancing ballet
 	Colors: { Color3 }, -- intro colors
 	Chips: { string }, -- the little boxes under the intro title
-	RainbowSky: boolean?, -- the sky turns rainbow while it runs
+	Sky: string?, -- "Rainbow" or "Pink": the sky changes while it runs
+	Water: boolean?, -- knee-deep water floods the map, with lily pads falling into it
+	MusicId: string?, -- theme song (an audio id, "rbxassetid://123..."), "" = none
 }
 Config.FounderEvents = {
 	Corny = {
 		Founder = "Corny",
+		Style = "Ufo",
 		-- To use the real outfit: save it as a Costume on Roblox and put its
 		-- outfit id here. Until then a look-alike of it is built from parts.
 		OutfitId = 0,
@@ -503,7 +512,27 @@ Config.FounderEvents = {
 		Mutations = { { Id = "Candy", Chance = 45 }, { Id = "Rainbow", Chance = 8 } },
 		Colors = { Color3.fromRGB(255, 120, 190), Color3.fromRGB(120, 210, 255), Color3.fromRGB(255, 230, 90), Color3.fromRGB(130, 240, 130) },
 		Chips = { "SPRINKLE DROPS", "45% CANDY", "8% RAINBOW", "CASH BAGS" },
-		RainbowSky = true,
+		Sky = "Rainbow",
+	},
+	Ace = {
+		Founder = "Ace",
+		Style = "Ballet",
+		OutfitId = 0, -- his event look: Save My Event Look in the admin panel (or an outfit id)
+		Title = "ACE'S ADMIN EVENT!",
+		Subtitle = "Ace brought the ballet! x2 Luck and a guaranteed Ballerina Capuchina!",
+		DurationMinutes = 5,
+		Scale = 19, -- about 120 studs tall
+		Spots = { Vector3.new(0, 0, 240), Vector3.new(0, 0, -240) },
+		Luck = 2,
+		Guaranteed = "BallerinaCapuchina",
+		Dancer = "CignaGlamourina",
+		Colors = { Color3.fromRGB(255, 130, 200), Color3.fromRGB(255, 190, 230), Color3.fromRGB(230, 120, 255), Color3.fromRGB(255, 220, 240) },
+		Chips = { "x2 LUCK", "BALLERINA GUARANTEED", "RARE MUTATION", "BALLET TIME" },
+		Sky = "Pink",
+		Water = true,
+		-- The Sugar Plum Fairy: find it in the Creator Store (Audio) and put
+		-- its id here, e.g. "rbxassetid://1234567890".
+		MusicId = "",
 	},
 } :: { [string]: FounderEvent }
 
