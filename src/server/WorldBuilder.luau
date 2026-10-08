@@ -50,6 +50,10 @@ local ENTRANCE_WIDTH = 16
 local FLOOR_TOP = 1
 local WALL_COLOR = Color3.fromRGB(140, 140, 145) -- every base's fence is the same grey
 local CAVE_DEPTH = 30
+local SIGN_STUDS_PER_UNIT = 0.035 -- billboard sizes below are in "units"; 400 units = 14 studs
+local TUNNEL_TOP = 16.5 -- roughly where the carved tunnel's ceiling is
+local MOUNTAIN_RING = 255 -- distance from the map center to the mountain peaks
+local BARRIER_RADIUS = 205 -- invisible wall just inside the mountains
 
 local PLOT_COLORS = {
 	Color3.fromRGB(255, 120, 120),
@@ -78,9 +82,11 @@ end
 
 local function billboard(adornee: BasePart, size: Vector2, offset: Vector3, text: string, color: Color3): TextLabel
 	local gui = Instance.new("BillboardGui")
-	gui.Size = UDim2.fromOffset(size.X, size.Y)
+	-- Sized in studs, so signs shrink with distance like real signs.
+	gui.Size = UDim2.fromScale(size.X * SIGN_STUDS_PER_UNIT, size.Y * SIGN_STUDS_PER_UNIT)
 	gui.StudsOffsetWorldSpace = offset
-	gui.MaxDistance = 120
+	gui.MaxDistance = 400
+	gui.LightInfluence = 0
 	gui.Adornee = adornee
 	gui.Parent = adornee
 
@@ -365,7 +371,7 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 	signPost.CanCollide = false
 	local ownerLabel = billboard(signPost, Vector2.new(400, 80), Vector3.zero, "EMPTY BASE", Color3.new(1, 1, 1))
 	local labelGui = ownerLabel.Parent :: BillboardGui
-	labelGui.MaxDistance = 250
+	labelGui.MaxDistance = 500
 
 	return {
 		Index = index,
@@ -529,54 +535,16 @@ local function buildCave(parent: Instance, name: string, mouthPosition: Vector3,
 	cave.Parent = parent
 	local mouthX = 0
 
-	local rock = Color3.fromRGB(105, 95, 90)
 	local darkRock = Color3.fromRGB(45, 40, 40)
 	local backX = mouthX - CAVE_DEPTH
 	local centerX = (mouthX + backX) / 2
 	local halfWidth = 9 -- tunnel half-width; the belt and rails fit inside
 	local height = 15 -- tunnel height
-	local wall = 10
 
-	-- Shell: two side walls, a roof and a back wall, leaving a tunnel open at the mouth.
-	for _, side in { -1, 1 } do
-		block(cave, "CaveWall", Vector3.new(CAVE_DEPTH, height + 6, wall), CFrame.new(centerX, (height + 6) / 2, side * (halfWidth + wall / 2)), rock, Enum.Material.Rock)
-		block(cave, "CaveInner", Vector3.new(CAVE_DEPTH, height, 0.4), CFrame.new(centerX, height / 2, side * (halfWidth + 0.2)), darkRock, Enum.Material.Slate)
-	end
-	block(cave, "CaveRoof", Vector3.new(CAVE_DEPTH, 8, halfWidth * 2 + wall * 2), CFrame.new(centerX, height + 4, 0), rock, Enum.Material.Rock)
-	block(cave, "CaveCeiling", Vector3.new(CAVE_DEPTH, 0.4, halfWidth * 2), CFrame.new(centerX, height - 0.2, 0), darkRock, Enum.Material.Slate)
-	block(cave, "CaveBack", Vector3.new(4, height + 8, halfWidth * 2 + wall * 2), CFrame.new(backX - 2, (height + 8) / 2, 0), rock, Enum.Material.Rock)
+	-- The rock itself is Terrain: carveTunnel cuts this tunnel into the
+	-- mountains. These parts are the dressing inside it.
 	block(cave, "CaveFloor", Vector3.new(CAVE_DEPTH, 0.6, halfWidth * 2), CFrame.new(centerX, 0.3, 0), darkRock, Enum.Material.Slate)
-
-	-- Boulders piled over the shell so it reads as a hill, not a box.
 	local rng = Random.new(seed)
-	local function boulder(position: Vector3, size: number, color: Color3)
-		local b = Instance.new("Part")
-		b.Name = "Boulder"
-		b.Shape = Enum.PartType.Ball
-		b.Anchored = true
-		b.Size = Vector3.new(size, size, size)
-		b.CFrame = CFrame.new(position) * CFrame.Angles(rng:NextNumber(0, 6), rng:NextNumber(0, 6), 0)
-		b.Color = color
-		b.Material = Enum.Material.Rock
-		b.TopSurface = Enum.SurfaceType.Smooth
-		b.BottomSurface = Enum.SurfaceType.Smooth
-		b.Parent = cave
-	end
-	for _ = 1, 26 do
-		local x = rng:NextNumber(backX, mouthX - 2)
-		local z = rng:NextNumber(-halfWidth - wall, halfWidth + wall)
-		local y = if math.abs(z) < halfWidth + 2 then rng:NextNumber(height + 6, height + 10) else rng:NextNumber(6, height + 8)
-		local shade = rng:NextNumber(0.85, 1.15)
-		boulder(Vector3.new(x, y, z), rng:NextNumber(7, 13), Color3.new(rock.R * shade, rock.G * shade, rock.B * shade))
-	end
-
-	-- Arch of rocks framing the mouth.
-	for i = 0, 10 do
-		local angle = math.pi * i / 10
-		local z = math.cos(angle) * (halfWidth + 2.5)
-		local y = math.sin(angle) * (height - 2) + 1.5
-		boulder(Vector3.new(mouthX + 0.5, y, z), rng:NextNumber(3.5, 5), rock:Lerp(darkRock, 0.25))
-	end
 
 	-- Stalactites hanging in the entrance.
 	for _, z in { -6, -2.5, 1.5, 5 } do
@@ -585,7 +553,7 @@ local function buildCave(parent: Instance, name: string, mouthPosition: Vector3,
 		spike.Name = "Stalactite"
 		spike.Anchored = true
 		spike.Size = Vector3.new(1.2, length, 1.2)
-		spike.CFrame = CFrame.new(mouthX - 2, height - length / 2 - 0.3, z) * CFrame.Angles(math.pi, 0, 0)
+		spike.CFrame = CFrame.new(mouthX - 3, TUNNEL_TOP - length / 2 + 0.5, z) * CFrame.Angles(math.pi, 0, 0)
 		spike.Color = darkRock
 		spike.Material = Enum.Material.Slate
 		spike.Parent = cave
@@ -617,6 +585,103 @@ local function buildCave(parent: Instance, name: string, mouthPosition: Vector3,
 
 	cave.WorldPivot = CFrame.new()
 	cave:PivotTo(CFrame.new(mouthPosition) * CFrame.Angles(0, if facing < 0 then math.pi else 0, 0))
+end
+
+-- Mountains ---------------------------------------------------------------------
+-- A ring of Terrain mountains around the whole map: grassy foothills, rocky
+-- slopes and snowy peaks. Built once when the server starts.
+
+local function materialFor(t: number, y: number, rng: Random): Enum.Material
+	if t > 0.78 then
+		return Enum.Material.Snow
+	elseif t > 0.62 then
+		return if rng:NextNumber() < 0.5 then Enum.Material.Snow else Enum.Material.Rock
+	elseif t > 0.28 or y > 30 then
+		return if rng:NextNumber() < 0.65 then Enum.Material.Rock else Enum.Material.Slate
+	end
+	return if rng:NextNumber() < 0.7 then Enum.Material.Grass else Enum.Material.Ground
+end
+
+-- One mountain: stacked, shrinking, slightly wobbly balls of terrain.
+local function mountain(terrain: Terrain, rng: Random, x: number, z: number, radius: number, height: number)
+	local steps = math.max(5, math.floor(height / 18))
+	for i = 0, steps do
+		local t = i / steps
+		local r = radius * (1 - t) ^ 0.85 + 5
+		local wobble = radius * 0.15 * (1 - t)
+		local center = Vector3.new(x + rng:NextNumber(-wobble, wobble), height * t * 0.92, z + rng:NextNumber(-wobble, wobble))
+		terrain:FillBall(center, r, materialFor(t, center.Y, rng))
+	end
+end
+
+local function buildMountains(rng: Random)
+	local terrain = workspace.Terrain
+	-- Front ring of peaks, joined by lower ridges, then a taller back ring.
+	local count = 28
+	local previous: Vector3? = nil
+	local first: Vector3? = nil
+	for i = 1, count do
+		local angle = (i / count) * math.pi * 2 + rng:NextNumber(-0.04, 0.04)
+		local distance = MOUNTAIN_RING + rng:NextNumber(-8, 14)
+		local point = Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+		mountain(terrain, rng, point.X, point.Z, rng:NextNumber(42, 58), rng:NextNumber(95, 175))
+		if previous then
+			local mid = (previous + point) / 2
+			mountain(terrain, rng, mid.X, mid.Z, rng:NextNumber(34, 44), rng:NextNumber(45, 75))
+		end
+		previous = point
+		first = first or point
+	end
+	if previous and first then
+		local mid = (previous + first) / 2
+		mountain(terrain, rng, mid.X, mid.Z, 40, 60)
+	end
+	for i = 1, 18 do
+		local angle = (i / 18) * math.pi * 2 + 0.17
+		local distance = MOUNTAIN_RING + 60 + rng:NextNumber(-10, 10)
+		mountain(terrain, rng, math.cos(angle) * distance, math.sin(angle) * distance, rng:NextNumber(60, 75), rng:NextNumber(160, 240))
+	end
+end
+
+-- A rocky hill at one end of the conveyor, joined to the mountain ring,
+-- with a rough tunnel carved through it for the conveyor.
+local function carveTunnel(rng: Random, mouthX: number, facing: number)
+	local terrain = workspace.Terrain
+	local inward = -facing -- direction from the mouth into the mountain
+	for i, offset in { 24, 50, 78, 104 } do
+		local x = mouthX + inward * offset
+		mountain(terrain, rng, x, rng:NextNumber(-4, 4), 34 + i * 3, 38 + i * 10)
+	end
+	-- Rounded tunnel along the conveyor, flared at the mouth.
+	local length = 120
+	local tunnel = CFrame.new(mouthX + inward * (length / 2 - 4), 7, 0) * CFrame.Angles(0, 0, math.pi / 2)
+	terrain:FillCylinder(tunnel, length, 10, Enum.Material.Air)
+	terrain:FillBall(Vector3.new(mouthX - inward * 2, 7, 0), 12, Enum.Material.Air)
+	-- Keep the area in front of the mouth clear of foothills.
+	terrain:FillBlock(CFrame.new(mouthX - inward * 12, 12, 0), Vector3.new(20, 24, 30), Enum.Material.Air)
+end
+
+-- Invisible wall just inside the mountains so nobody can climb out.
+local function buildBarrier(parent: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "MapBarrier"
+	folder.Parent = parent
+	local segments = 64
+	local width = 2 * math.pi * BARRIER_RADIUS / segments + 2
+	for i = 1, segments do
+		local angle = (i / segments) * math.pi * 2
+		local position = Vector3.new(math.cos(angle) * BARRIER_RADIUS, 250, math.sin(angle) * BARRIER_RADIUS)
+		local wall = Instance.new("Part")
+		wall.Name = "Barrier"
+		wall.Anchored = true
+		wall.Transparency = 1
+		wall.CanQuery = false
+		wall.CanTouch = false
+		wall.CastShadow = false
+		wall.Size = Vector3.new(width, 500, 2)
+		wall.CFrame = CFrame.lookAt(position, Vector3.new(0, 250, 0))
+		wall.Parent = folder
+	end
 end
 
 -- The Diamond Shop: a bright booth by the spawn with a giant spinning
@@ -673,7 +738,7 @@ local function buildShop(parent: Instance, center: Vector3)
 		prompt:SetAttribute("Action", info.Action)
 		prompt.Parent = counter
 		local label = billboard(counter, Vector2.new(260, 50), Vector3.new(0, 5.5, 0), info.Sign, info.Color)
-		;(label.Parent :: BillboardGui).MaxDistance = 90
+		;(label.Parent :: BillboardGui).MaxDistance = 250
 	end
 
 	-- Big glowing sign on the back wall
@@ -681,7 +746,7 @@ local function buildShop(parent: Instance, center: Vector3)
 	signAnchor.Transparency = 1
 	signAnchor.CanCollide = false
 	local sign = billboard(signAnchor, Vector2.new(460, 90), Vector3.zero, "DIAMOND SHOP", cyan)
-	;(sign.Parent :: BillboardGui).MaxDistance = 300
+	;(sign.Parent :: BillboardGui).MaxDistance = 500
 
 	-- Giant spinning diamond on top (spun by Effects.client via the tag)
 	block(shop, "DiamondStand", Vector3.new(3, 2, 3), at(0, 15, 0), gold, Enum.Material.Foil)
@@ -732,10 +797,20 @@ function WorldBuilder.Build(): World
 
 	Lighting.ClockTime = 14
 	Lighting.Brightness = 2
+	-- Light haze so the distant mountains fade into the sky.
+	if not Lighting:FindFirstChildOfClass("Atmosphere") then
+		local atmosphere = Instance.new("Atmosphere")
+		atmosphere.Density = 0.3
+		atmosphere.Offset = 0.2
+		atmosphere.Color = Color3.fromRGB(200, 215, 230)
+		atmosphere.Decay = Color3.fromRGB(110, 125, 145)
+		atmosphere.Haze = 1.2
+		atmosphere.Parent = Lighting
+	end
 
 	-- Ground under everything, in case the Baseplate was removed. Its top sits
 	-- slightly above the Baseplate's so the two surfaces don't flicker.
-	block(root, "Ground", Vector3.new(700, 2, 400), CFrame.new(0, -0.9, 0), Color3.fromRGB(90, 160, 80), Enum.Material.Grass)
+	block(root, "Ground", Vector3.new(700, 2, 700), CFrame.new(0, -0.9, 0), Color3.fromRGB(90, 160, 80), Enum.Material.Grass)
 
 	-- Conveyor
 	local columnsPerSide = Config.PlotCount // 2
@@ -753,15 +828,20 @@ function WorldBuilder.Build(): World
 	-- into a second cave at the far end.
 	local mouthX = -length / 2 + 14
 	local exitMouthX = length / 2 - 14
+	local terrainRng = Random.new(2026)
+	buildMountains(terrainRng)
+	carveTunnel(terrainRng, mouthX, 1)
+	carveTunnel(terrainRng, exitMouthX, -1)
+	buildBarrier(root)
 	buildCave(root, "BrainrotCave", Vector3.new(mouthX, 0, 0), 1, 7)
 	buildCave(root, "ExitCave", Vector3.new(exitMouthX, 0, 0), -1, 11)
 	local startX = mouthX - 10
 	local endX = exitMouthX + 10
-	local sign = block(conveyorFolder, "ShopSign", Vector3.new(1, 1, 1), CFrame.new(mouthX - CAVE_DEPTH / 2, 30, 0), Color3.new(1, 1, 1))
+	local sign = block(conveyorFolder, "ShopSign", Vector3.new(1, 1, 1), CFrame.new(mouthX + 6, 28, 0), Color3.new(1, 1, 1))
 	sign.Transparency = 1
 	sign.CanCollide = false
 	local signLabel = billboard(sign, Vector2.new(420, 90), Vector3.zero, "BRAINROT CONVEYOR\nBuy one before it's gone!", Color3.fromRGB(255, 230, 80))
-	;(signLabel.Parent :: BillboardGui).MaxDistance = 300
+	;(signLabel.Parent :: BillboardGui).MaxDistance = 500
 
 	-- Plots: half on each side of the conveyor, entrances facing it.
 	local plotsFolder = Instance.new("Folder")

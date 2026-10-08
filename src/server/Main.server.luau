@@ -688,13 +688,7 @@ local function placeBrainrot(plot: Plot, index: number, id: string, mutation: st
 	if buy then
 		buy:Destroy()
 	end
-	local tag = root:FindFirstChild("Tag")
-	local price = tag and tag:FindFirstChild("Price")
-	if price then
-		price:Destroy()
-		local gui = tag :: BillboardGui
-		gui.Size = UDim2.fromOffset(200, gui.Size.Y.Offset - 20)
-	end
+	BrainrotModel.RemovePrice(m)
 
 	local owner = plot.Owner
 	m:SetAttribute("PlotIndex", plot.Parts.Index)
@@ -732,9 +726,9 @@ local function updateVipPedestals(plot: Plot)
 		if locked and not tag then
 			local gui = Instance.new("BillboardGui")
 			gui.Name = "VipTag"
-			gui.Size = UDim2.fromOffset(120, 40)
+			gui.Size = UDim2.fromScale(4, 1.3)
 			gui.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
-			gui.MaxDistance = 60
+			gui.MaxDistance = 150
 			gui.Parent = pedestal
 			local l = Instance.new("TextLabel")
 			l.BackgroundTransparency = 1
@@ -1527,7 +1521,7 @@ local function updateVipTag(player: Player)
 	if session.Owns.VIP and not existing then
 		local gui = Instance.new("BillboardGui")
 		gui.Name = "VipTag"
-		gui.Size = UDim2.fromOffset(100, 30)
+		gui.Size = UDim2.fromScale(2.2, 0.7)
 		gui.StudsOffset = Vector3.new(0, 2.5, 0)
 		gui.MaxDistance = 80
 		gui.Parent = head
@@ -1863,9 +1857,9 @@ local function dropCash(amount: number)
 	orb.Parent = dropsFolder
 
 	local tag = Instance.new("BillboardGui")
-	tag.Size = UDim2.fromOffset(110, 34)
+	tag.Size = UDim2.fromScale(3.5, 1.1)
 	tag.StudsOffset = Vector3.new(0, 2.5, 0)
-	tag.MaxDistance = 120
+	tag.MaxDistance = 250
 	tag.Parent = orb
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1

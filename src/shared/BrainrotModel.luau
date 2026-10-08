@@ -760,11 +760,33 @@ end
 
 -- Name tag -----------------------------------------------------------------
 
+-- Name tags are sized in studs (not pixels), so they shrink with distance
+-- like real signs instead of covering the screen when you zoom out.
+local TAG_STUDS_PER_ROW_UNIT = 0.03 -- a 26-unit name row is ~0.8 studs tall
+local TAG_WIDTH = 6
+
+-- Re-fits the tag to its visible rows (rows store their height as "Units").
+local function relayout(tag: BillboardGui)
+	local total = 0
+	for _, row in tag:GetChildren() do
+		if row:IsA("TextLabel") then
+			total += row:GetAttribute("Units") :: number
+		end
+	end
+	local scale = tag:GetAttribute("Scale") :: number? or 1
+	tag.Size = UDim2.fromScale(TAG_WIDTH * scale, math.max(total, 1) * TAG_STUDS_PER_ROW_UNIT * scale)
+	for _, row in tag:GetChildren() do
+		if row:IsA("TextLabel") then
+			row.Size = UDim2.fromScale(1, (row:GetAttribute("Units") :: number) / math.max(total, 1))
+		end
+	end
+end
+
 local function label(parent: Instance, name: string, text: string, color: Color3, size: number, order: number): TextLabel
 	local l = Instance.new("TextLabel")
 	l.Name = name
 	l.BackgroundTransparency = 1
-	l.Size = UDim2.new(1, 0, 0, size)
+	l:SetAttribute("Units", size)
 	l.Font = Enum.Font.FredokaOne
 	l.TextScaled = true
 	l.TextColor3 = color
@@ -839,7 +861,8 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 		local light = Instance.new("PointLight")
 		light.Color = rarity.Color
 		light.Range = 10 * s
-		light.Brightness = 2
+		-- Event Specials keep their sparkle but glow softer.
+		light.Brightness = if brainrot.Rarity == "EventSpecial" then 0.6 else 2
 		light.Parent = root
 	end
 	if rarity.Order >= 5 then
@@ -857,13 +880,13 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 		applyMutation(model, root, mutation, s)
 	end
 
-	-- Name tag
+	-- Name tag (world-sized; a bit bigger for bigger brainrots)
 	local tag = Instance.new("BillboardGui")
 	tag.Name = "Tag"
-	local rows = (if priceTag then 92 else 72) + (if mutation then 22 else 0) + (if serial then 22 else 0)
-	tag.Size = UDim2.fromOffset(200, rows)
-	tag.StudsOffsetWorldSpace = V(0, topY + 1.5, 0)
-	tag.MaxDistance = 80
+	tag:SetAttribute("Scale", math.sqrt(s))
+	tag.StudsOffsetWorldSpace = V(0, topY + 1.2, 0)
+	tag.MaxDistance = 150
+	tag.LightInfluence = 0
 	tag.Adornee = root
 	tag.Parent = root
 
@@ -886,8 +909,20 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 	if serial and limited then
 		label(tag, "Serial", string.format("#%d of %d", serial, limited.Stock + limited.Reserved), Color3.fromRGB(255, 215, 90), 22, 5)
 	end
+	relayout(tag)
 
 	return model
+end
+
+-- Removes the price row once a brainrot is bought.
+function BrainrotModel.RemovePrice(model: Model)
+	local root = model.PrimaryPart
+	local tag = root and root:FindFirstChild("Tag")
+	local price = tag and tag:FindFirstChild("Price")
+	if tag and price and tag:IsA("BillboardGui") then
+		price:Destroy()
+		relayout(tag)
+	end
 end
 
 return BrainrotModel

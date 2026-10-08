@@ -4,7 +4,7 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
 
 ## How it plays
 
-1. **Buy.** Brainrots walk out of a cave and ride a conveyor down the middle of the map, disappearing into another cave at the far end. Hold **E** next to one to buy it, and it walks to your base.
+1. **Buy.** Brainrots walk out of a tunnel in the mountains and ride a conveyor down the middle of the map, disappearing into a tunnel at the far end. Hold **E** next to one to buy it, and it walks to your base.
 2. **Earn.** Each brainrot on a pedestal makes cash every second. The cash piles up on the green **COLLECT** pad, so step on it to bank it.
 3. **Steal.** Walk into someone else's base and hold **E** on a brainrot. It goes over your head, you move slower, and you have to run it back to your own base.
 4. **Defend.** Everyone has a **Slap** tool. Slap a thief and the brainrot runs back home.
@@ -139,6 +139,12 @@ Quest pools, goals, rewards, skins and shop items are all in `Config.luau`.
 ## Followers
 
 Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around as minis. **PICK MY 3 RAREST** does it in one tap. If one gets stolen, sold or reset by a rebirth, its mini disappears. Limited event brainrots can't be stolen, so theirs stay.
+
+## The map
+
+- A ring of tall Terrain mountains circles the whole map: grassy foothills, rocky slopes and snowy peaks, softened by a light haze. An invisible wall just inside them keeps everyone in.
+- The conveyor's caves are rough tunnels carved into rocky hills joined to the mountains, with glowing crystals and stalactites.
+- All floating text (name tags, signs) is sized in the world, so it shrinks with distance like a real sign instead of covering the screen.
 
 ## Base looks
 
