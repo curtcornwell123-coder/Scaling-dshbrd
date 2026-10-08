@@ -396,563 +396,569 @@ end
 -- A dark shop window: SHOP title with your Cash and Diamonds, a row of
 -- category tiles, a FEATURED limited brainrot, a game pass shopBanner you can
 -- flip through, an ON SALE row of boosts, and a code box along the bottom.
-
-local SHOP_BG = Color3.fromRGB(32, 32, 40)
-local SHOP_PANEL = Color3.fromRGB(22, 22, 28)
-local SHOP_TILE = Color3.fromRGB(44, 44, 54)
-local SHOP_PINK = Color3.fromRGB(235, 80, 210)
-local SHOP_CYAN = Color3.fromRGB(70, 200, 255)
-local SHOP_PURPLE = Color3.fromRGB(150, 90, 255)
-local SHOP_GREY = Color3.fromRGB(90, 90, 100)
-
-local PASS_ICONS: { [string]: string } = { DoubleCash = "💰", VIP = "👑", LongerLock = "⏱️", InfiniteLock = "♾️" }
-local PASS_COLORS: { [string]: Color3 } = {
-	DoubleCash = Color3.fromRGB(60, 190, 90),
-	VIP = Color3.fromRGB(240, 180, 40),
-	LongerLock = Color3.fromRGB(60, 150, 255),
-	InfiniteLock = Color3.fromRGB(235, 60, 70),
-}
-local PRODUCT_ICONS: { [string]: string } = { SmallCash = "💵", BigCash = "🏦", ServerLuck = "🍀", InstantLock = "🔒" }
-
+-- (Kept in its own block: a script can only have 200 locals at the top.)
+local shopFrame: Frame
+local renderLimited: () -> ()
+local buyLimitedItem: (string) -> ()
 -- Opens another menu (Diamond Shop, Skins); set once those menus exist.
 local openMenu: (string) -> () = function() end
+do
 
-local shopFrame = Instance.new("Frame")
-shopFrame.Name = "Shop"
-shopFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-shopFrame.Position = UDim2.fromScale(0.5, 0.5)
-shopFrame.Size = UDim2.fromOffset(760, 560)
-shopFrame.BackgroundColor3 = SHOP_BG
-shopFrame.Visible = false
-corner(shopFrame, 10)
-stroke(shopFrame, 4, Color3.fromRGB(12, 12, 16))
-shopFrame.Parent = gui
-local function box(parent: Instance, position: UDim2, size: UDim2, color: Color3, radius: number?): Frame
-	local f = Instance.new("Frame")
-	f.Position = position
-	f.Size = size
-	f.BackgroundColor3 = color
-	f.BorderSizePixel = 0
-	if radius then
-		corner(f, radius)
+	local SHOP_BG = Color3.fromRGB(32, 32, 40)
+	local SHOP_PANEL = Color3.fromRGB(22, 22, 28)
+	local SHOP_TILE = Color3.fromRGB(44, 44, 54)
+	local SHOP_PINK = Color3.fromRGB(235, 80, 210)
+	local SHOP_CYAN = Color3.fromRGB(70, 200, 255)
+	local SHOP_PURPLE = Color3.fromRGB(150, 90, 255)
+	local SHOP_GREY = Color3.fromRGB(90, 90, 100)
+
+	local PASS_ICONS: { [string]: string } = { DoubleCash = "💰", VIP = "👑", LongerLock = "⏱️", InfiniteLock = "♾️" }
+	local PASS_COLORS: { [string]: Color3 } = {
+		DoubleCash = Color3.fromRGB(60, 190, 90),
+		VIP = Color3.fromRGB(240, 180, 40),
+		LongerLock = Color3.fromRGB(60, 150, 255),
+		InfiniteLock = Color3.fromRGB(235, 60, 70),
+	}
+	local PRODUCT_ICONS: { [string]: string } = { SmallCash = "💵", BigCash = "🏦", ServerLuck = "🍀", InstantLock = "🔒" }
+
+
+	shopFrame = Instance.new("Frame")
+	shopFrame.Name = "Shop"
+	shopFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+	shopFrame.Position = UDim2.fromScale(0.5, 0.5)
+	shopFrame.Size = UDim2.fromOffset(760, 560)
+	shopFrame.BackgroundColor3 = SHOP_BG
+	shopFrame.Visible = false
+	corner(shopFrame, 10)
+	stroke(shopFrame, 4, Color3.fromRGB(12, 12, 16))
+	shopFrame.Parent = gui
+	local function box(parent: Instance, position: UDim2, size: UDim2, color: Color3, radius: number?): Frame
+		local f = Instance.new("Frame")
+		f.Position = position
+		f.Size = size
+		f.BackgroundColor3 = color
+		f.BorderSizePixel = 0
+		if radius then
+			corner(f, radius)
+		end
+		f.Parent = parent
+		return f
 	end
-	f.Parent = parent
-	return f
-end
 
-local function icon(parent: Instance, emoji: string, position: UDim2, size: UDim2): TextLabel
-	return text(parent, {
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = position,
-		Size = size,
-		Text = emoji,
-		TextStrokeTransparency = 1,
-	})
-end
-
--- Fills in a Robux price once Roblox tells us (ids of 0 aren't set up yet).
-local function showPrice(target: any, id: number, infoType: Enum.InfoType)
-	if id == 0 then
-		target.Text = "SOON"
-		return
+	local function icon(parent: Instance, emoji: string, position: UDim2, size: UDim2): TextLabel
+		return text(parent, {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = position,
+			Size = size,
+			Text = emoji,
+			TextStrokeTransparency = 1,
+		})
 	end
-	target.Text = "R$ ..."
-	task.spawn(function()
-		local ok, info = pcall(function()
-			return MarketplaceService:GetProductInfo(id, infoType)
+
+	-- Fills in a Robux price once Roblox tells us (ids of 0 aren't set up yet).
+	local function showPrice(target: any, id: number, infoType: Enum.InfoType)
+		if id == 0 then
+			target.Text = "SOON"
+			return
+		end
+		target.Text = "R$ ..."
+		task.spawn(function()
+			local ok, info = pcall(function()
+				return MarketplaceService:GetProductInfo(id, infoType)
+			end)
+			if ok and info and info.PriceInRobux and target.Text == "R$ ..." then
+				target.Text = "R$ " .. tostring(info.PriceInRobux)
+			end
 		end)
-		if ok and info and info.PriceInRobux and target.Text == "R$ ..." then
-			target.Text = "R$ " .. tostring(info.PriceInRobux)
+	end
+
+	-- Header: SHOP, your Cash and Diamonds, close
+	text(shopFrame, {
+		Position = UDim2.fromOffset(16, 8),
+		Size = UDim2.fromOffset(130, 46),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "SHOP",
+	})
+	local function currencyBar(x: number, color: Color3, symbol: string): TextLabel
+		local bar = box(shopFrame, UDim2.fromOffset(x, 14), UDim2.fromOffset(200, 34), color, 8)
+		local gradient = Instance.new("UIGradient")
+		gradient.Color = ColorSequence.new(color:Lerp(WHITE, 0.25), color)
+		gradient.Rotation = 90
+		gradient.Parent = bar
+		local badge = box(bar, UDim2.fromOffset(-8, -4), UDim2.fromOffset(42, 42), color:Lerp(Color3.new(0, 0, 0), 0.15), 21)
+		stroke(badge, 2, color:Lerp(WHITE, 0.4))
+		icon(badge, symbol, UDim2.fromScale(0.5, 0.5), UDim2.fromScale(0.8, 0.8))
+		return text(bar, {
+			Position = UDim2.fromOffset(40, 3),
+			Size = UDim2.new(1, -78, 1, -6),
+			TextXAlignment = Enum.TextXAlignment.Right,
+			Text = "0",
+		})
+	end
+	local cashAmount = currencyBar(170, Color3.fromRGB(240, 170, 40), "💵")
+	local diamondAmount = currencyBar(400, SHOP_PURPLE, "💎")
+	local moreDiamonds = button(shopFrame, "+", SHOP_PURPLE:Lerp(WHITE, 0.2), UDim2.fromOffset(34, 34))
+	moreDiamonds.Position = UDim2.fromOffset(570, 14)
+	moreDiamonds.MouseButton1Click:Connect(function()
+		openMenu("Diamonds")
+	end)
+	local closeShop = button(shopFrame, "X", SHOP_GREY, UDim2.fromOffset(44, 44))
+	closeShop.Position = UDim2.new(1, -56, 0, 9)
+	closeShop.MouseButton1Click:Connect(function()
+		shopFrame.Visible = false
+	end)
+
+	-- Pages under the tiles
+	local shopPages: { [string]: Frame } = {}
+	local function shopPage(name: string): Frame
+		local page = box(shopFrame, UDim2.fromOffset(12, 148), UDim2.new(1, -24, 1, -212), SHOP_BG)
+		page.BackgroundTransparency = 1
+		page.Visible = false
+		shopPages[name] = page
+		return page
+	end
+	local function showShopPage(name: string)
+		for pageName, page in shopPages do
+			page.Visible = pageName == name
+		end
+	end
+
+	-- Category tiles
+	local tiles = box(shopFrame, UDim2.fromOffset(12, 64), UDim2.new(1, -24, 0, 76), SHOP_BG)
+	tiles.BackgroundTransparency = 1
+	local tileLayout = Instance.new("UIListLayout")
+	tileLayout.FillDirection = Enum.FillDirection.Horizontal
+	tileLayout.Padding = UDim.new(0, 8)
+	tileLayout.Parent = tiles
+	local function tile(label: string, emoji: string, color: Color3, onClick: () -> ())
+		local t = Instance.new("TextButton")
+		t.Size = UDim2.fromOffset(140, 76)
+		t.BackgroundColor3 = color
+		t.Text = ""
+		t.AutoButtonColor = true
+		corner(t, 10)
+		stroke(t, 2, color:Lerp(Color3.new(0, 0, 0), 0.4))
+		local gradient = Instance.new("UIGradient")
+		gradient.Color = ColorSequence.new(color:Lerp(WHITE, 0.3), color)
+		gradient.Rotation = 90
+		gradient.Parent = t
+		t.Parent = tiles
+		icon(t, emoji, UDim2.fromScale(0.5, 0.36), UDim2.fromOffset(46, 46))
+		text(t, {
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -4),
+			Size = UDim2.new(1, -10, 0, 26),
+			Text = label,
+		})
+		t.MouseButton1Click:Connect(onClick)
+	end
+	tile("Featured", "⭐", SHOP_PINK, function()
+		showShopPage("Home")
+	end)
+	tile("Passes", "🎟️", Color3.fromRGB(255, 140, 50), function()
+		showShopPage("Passes")
+	end)
+	tile("Boosts", "⚡", Color3.fromRGB(140, 220, 60), function()
+		showShopPage("Boosts")
+	end)
+	tile("Diamonds", "💎", SHOP_PURPLE, function()
+		openMenu("Diamonds")
+	end)
+	tile("Skins", "🧱", Color3.fromRGB(60, 170, 255), function()
+		openMenu("Skins")
+	end)
+
+	-- Code box along the bottom
+	local codeBar = box(shopFrame, UDim2.new(0, 12, 1, -56), UDim2.new(1, -24, 0, 44), SHOP_PANEL, 8)
+	text(codeBar, {
+		Position = UDim2.fromOffset(12, 6),
+		Size = UDim2.fromOffset(330, 32),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Font = Enum.Font.GothamBold,
+		Text = "Have a code? Enter it here!",
+	})
+	local codeBox = Instance.new("TextBox")
+	codeBox.Position = UDim2.new(1, -330, 0, 5)
+	codeBox.Size = UDim2.fromOffset(270, 34)
+	codeBox.BackgroundColor3 = SHOP_TILE
+	codeBox.Font = FONT
+	codeBox.PlaceholderText = "Code"
+	codeBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 160)
+	codeBox.Text = ""
+	codeBox.TextColor3 = WHITE
+	codeBox.TextScaled = true
+	codeBox.ClearTextOnFocus = false
+	corner(codeBox, 6)
+	codeBox.Parent = codeBar
+	local redeem = button(codeBar, "✔", GREEN, UDim2.fromOffset(44, 34))
+	redeem.Position = UDim2.new(1, -50, 0, 5)
+	local redeeming = false
+	redeem.MouseButton1Click:Connect(function()
+		if redeeming or codeBox.Text == "" then
+			return
+		end
+		redeeming = true
+		local ok, message = RedeemCode:InvokeServer(codeBox.Text)
+		redeeming = false
+		toast(message or (if ok then "Code redeemed!" else "That code doesn't work."), if ok then GREEN else RED)
+		if ok then
+			codeBox.Text = ""
 		end
 	end)
-end
 
--- Header: SHOP, your Cash and Diamonds, close
-text(shopFrame, {
-	Position = UDim2.fromOffset(16, 8),
-	Size = UDim2.fromOffset(130, 46),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	Text = "SHOP",
-})
-local function currencyBar(x: number, color: Color3, symbol: string): TextLabel
-	local bar = box(shopFrame, UDim2.fromOffset(x, 14), UDim2.fromOffset(200, 34), color, 8)
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new(color:Lerp(WHITE, 0.25), color)
-	gradient.Rotation = 90
-	gradient.Parent = bar
-	local badge = box(bar, UDim2.fromOffset(-8, -4), UDim2.fromOffset(42, 42), color:Lerp(Color3.new(0, 0, 0), 0.15), 21)
-	stroke(badge, 2, color:Lerp(WHITE, 0.4))
-	icon(badge, symbol, UDim2.fromScale(0.5, 0.5), UDim2.fromScale(0.8, 0.8))
-	return text(bar, {
-		Position = UDim2.fromOffset(40, 3),
-		Size = UDim2.new(1, -78, 1, -6),
-		TextXAlignment = Enum.TextXAlignment.Right,
-		Text = "0",
+	-- Item card: icon, price and a name ribbon (used on every page).
+	type Card = { Frame: TextButton, Price: TextLabel }
+	local function itemCard(parent: Instance, size: UDim2, emoji: string, name: string, ribbon: Color3, onClick: () -> ()): Card
+		local card = Instance.new("TextButton")
+		card.Size = size
+		card.BackgroundColor3 = SHOP_TILE
+		card.Text = ""
+		card.AutoButtonColor = true
+		corner(card, 6)
+		stroke(card, 2, Color3.fromRGB(15, 15, 20))
+		card.Parent = parent
+		icon(card, emoji, UDim2.new(0.5, 0, 0.4, 0), UDim2.fromScale(0.5, 0.45))
+		local price = text(card, {
+			AnchorPoint = Vector2.new(1, 0),
+			Position = UDim2.new(1, -6, 0.62, 0),
+			Size = UDim2.new(1, -12, 0.14, 0),
+			TextXAlignment = Enum.TextXAlignment.Right,
+			TextColor3 = Color3.fromRGB(120, 255, 140),
+			Text = "",
+		})
+		local band = box(card, UDim2.new(0, 3, 1, -27), UDim2.new(1, -6, 0, 24), ribbon, 4)
+		text(band, {
+			Position = UDim2.fromOffset(4, 2),
+			Size = UDim2.new(1, -8, 1, -4),
+			Text = name,
+		})
+		card.MouseButton1Click:Connect(onClick)
+		return { Frame = card, Price = price }
+	end
+
+	local function buyPass(pass: Config.GamePass)
+		if pass.Id == 0 or (data and data.Owns[pass.Key]) then
+			return
+		end
+		MarketplaceService:PromptGamePassPurchase(player, pass.Id)
+	end
+	local function buyProduct(product: Config.Product)
+		if product.Id ~= 0 then
+			MarketplaceService:PromptProductPurchase(player, product.Id)
+		end
+	end
+
+	-- Reserves a limited item and opens the Robux prompt (server does the rest).
+	local buyingLimited = false
+	buyLimitedItem = function(itemId: string)
+		if buyingLimited then
+			return
+		end
+		buyingLimited = true
+		local ok, message = BuyLimited:InvokeServer(itemId)
+		buyingLimited = false
+		if not ok and message then
+			toast(message)
+		end
+	end
+
+	-- HOME page ----------------------------------------------------------------
+	local home = shopPage("Home")
+
+	-- FEATURED: the limited event brainrot, spinning in a little window.
+	local featuredId = Config.CurrentEvent
+	local featured = Config.GetBrainrot(featuredId)
+	local featuredItem = Config.LimitedItems[featuredId]
+	local featuredColumn = box(home, UDim2.fromOffset(0, 0), UDim2.new(0, 190, 1, 0), SHOP_PANEL, 8)
+	text(featuredColumn, {
+		Position = UDim2.fromOffset(0, 4),
+		Size = UDim2.new(1, 0, 0, 34),
+		TextColor3 = SHOP_PINK,
+		Text = "FEATURED",
 	})
-end
-local cashAmount = currencyBar(170, Color3.fromRGB(240, 170, 40), "💵")
-local diamondAmount = currencyBar(400, SHOP_PURPLE, "💎")
-local moreDiamonds = button(shopFrame, "+", SHOP_PURPLE:Lerp(WHITE, 0.2), UDim2.fromOffset(34, 34))
-moreDiamonds.Position = UDim2.fromOffset(570, 14)
-moreDiamonds.MouseButton1Click:Connect(function()
-	openMenu("Diamonds")
-end)
-local closeShop = button(shopFrame, "X", SHOP_GREY, UDim2.fromOffset(44, 44))
-closeShop.Position = UDim2.new(1, -56, 0, 9)
-closeShop.MouseButton1Click:Connect(function()
-	shopFrame.Visible = false
-end)
-
--- Pages under the tiles
-local shopPages: { [string]: Frame } = {}
-local function shopPage(name: string): Frame
-	local page = box(shopFrame, UDim2.fromOffset(12, 148), UDim2.new(1, -24, 1, -212), SHOP_BG)
-	page.BackgroundTransparency = 1
-	page.Visible = false
-	shopPages[name] = page
-	return page
-end
-local function showShopPage(name: string)
-	for pageName, page in shopPages do
-		page.Visible = pageName == name
-	end
-end
-
--- Category tiles
-local tiles = box(shopFrame, UDim2.fromOffset(12, 64), UDim2.new(1, -24, 0, 76), SHOP_BG)
-tiles.BackgroundTransparency = 1
-local tileLayout = Instance.new("UIListLayout")
-tileLayout.FillDirection = Enum.FillDirection.Horizontal
-tileLayout.Padding = UDim.new(0, 8)
-tileLayout.Parent = tiles
-local function tile(label: string, emoji: string, color: Color3, onClick: () -> ())
-	local t = Instance.new("TextButton")
-	t.Size = UDim2.fromOffset(140, 76)
-	t.BackgroundColor3 = color
-	t.Text = ""
-	t.AutoButtonColor = true
-	corner(t, 10)
-	stroke(t, 2, color:Lerp(Color3.new(0, 0, 0), 0.4))
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new(color:Lerp(WHITE, 0.3), color)
-	gradient.Rotation = 90
-	gradient.Parent = t
-	t.Parent = tiles
-	icon(t, emoji, UDim2.fromScale(0.5, 0.36), UDim2.fromOffset(46, 46))
-	text(t, {
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -4),
-		Size = UDim2.new(1, -10, 0, 26),
-		Text = label,
+	local window = Instance.new("ViewportFrame")
+	window.AnchorPoint = Vector2.new(0.5, 0)
+	window.Position = UDim2.new(0.5, 0, 0, 42)
+	window.Size = UDim2.fromOffset(130, 118)
+	window.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+	window.Ambient = Color3.fromRGB(200, 200, 210)
+	window.LightColor = WHITE
+	corner(window, 6)
+	stroke(window, 2, Color3.fromRGB(60, 60, 70))
+	window.Parent = featuredColumn
+	local featuredName = text(featuredColumn, {
+		Position = UDim2.fromOffset(6, 164),
+		Size = UDim2.new(1, -12, 0, 22),
+		Text = if featured then featured.DisplayName else "",
 	})
-	t.MouseButton1Click:Connect(onClick)
-end
-tile("Featured", "⭐", SHOP_PINK, function()
-	showShopPage("Home")
-end)
-tile("Passes", "🎟️", Color3.fromRGB(255, 140, 50), function()
-	showShopPage("Passes")
-end)
-tile("Boosts", "⚡", Color3.fromRGB(140, 220, 60), function()
-	showShopPage("Boosts")
-end)
-tile("Diamonds", "💎", SHOP_PURPLE, function()
-	openMenu("Diamonds")
-end)
-tile("Skins", "🧱", Color3.fromRGB(60, 170, 255), function()
-	openMenu("Skins")
-end)
-
--- Code box along the bottom
-local codeBar = box(shopFrame, UDim2.new(0, 12, 1, -56), UDim2.new(1, -24, 0, 44), SHOP_PANEL, 8)
-text(codeBar, {
-	Position = UDim2.fromOffset(12, 6),
-	Size = UDim2.fromOffset(330, 32),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	Font = Enum.Font.GothamBold,
-	Text = "Have a code? Enter it here!",
-})
-local codeBox = Instance.new("TextBox")
-codeBox.Position = UDim2.new(1, -330, 0, 5)
-codeBox.Size = UDim2.fromOffset(270, 34)
-codeBox.BackgroundColor3 = SHOP_TILE
-codeBox.Font = FONT
-codeBox.PlaceholderText = "Code"
-codeBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 160)
-codeBox.Text = ""
-codeBox.TextColor3 = WHITE
-codeBox.TextScaled = true
-codeBox.ClearTextOnFocus = false
-corner(codeBox, 6)
-codeBox.Parent = codeBar
-local redeem = button(codeBar, "✔", GREEN, UDim2.fromOffset(44, 34))
-redeem.Position = UDim2.new(1, -50, 0, 5)
-local redeeming = false
-redeem.MouseButton1Click:Connect(function()
-	if redeeming or codeBox.Text == "" then
-		return
-	end
-	redeeming = true
-	local ok, message = RedeemCode:InvokeServer(codeBox.Text)
-	redeeming = false
-	toast(message or (if ok then "Code redeemed!" else "That code doesn't work."), if ok then GREEN else RED)
-	if ok then
-		codeBox.Text = ""
-	end
-end)
-
--- Item card: icon, price and a name ribbon (used on every page).
-type Card = { Frame: TextButton, Price: TextLabel }
-local function itemCard(parent: Instance, size: UDim2, emoji: string, name: string, ribbon: Color3, onClick: () -> ()): Card
-	local card = Instance.new("TextButton")
-	card.Size = size
-	card.BackgroundColor3 = SHOP_TILE
-	card.Text = ""
-	card.AutoButtonColor = true
-	corner(card, 6)
-	stroke(card, 2, Color3.fromRGB(15, 15, 20))
-	card.Parent = parent
-	icon(card, emoji, UDim2.new(0.5, 0, 0.4, 0), UDim2.fromScale(0.5, 0.45))
-	local price = text(card, {
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -6, 0.62, 0),
-		Size = UDim2.new(1, -12, 0.14, 0),
-		TextXAlignment = Enum.TextXAlignment.Right,
-		TextColor3 = Color3.fromRGB(120, 255, 140),
+	local featuredStock = text(featuredColumn, {
+		Position = UDim2.fromOffset(6, 188),
+		Size = UDim2.new(1, -12, 0, 18),
+		TextColor3 = GOLD,
 		Text = "",
 	})
-	local band = box(card, UDim2.new(0, 3, 1, -27), UDim2.new(1, -6, 0, 24), ribbon, 4)
-	text(band, {
-		Position = UDim2.fromOffset(4, 2),
-		Size = UDim2.new(1, -8, 1, -4),
-		Text = name,
-	})
-	card.MouseButton1Click:Connect(onClick)
-	return { Frame = card, Price = price }
-end
-
-local function buyPass(pass: Config.GamePass)
-	if pass.Id == 0 or (data and data.Owns[pass.Key]) then
-		return
-	end
-	MarketplaceService:PromptGamePassPurchase(player, pass.Id)
-end
-local function buyProduct(product: Config.Product)
-	if product.Id ~= 0 then
-		MarketplaceService:PromptProductPurchase(player, product.Id)
-	end
-end
-
--- Reserves a limited item and opens the Robux prompt (server does the rest).
-local buyingLimited = false
-local function buyLimitedItem(itemId: string)
-	if buyingLimited then
-		return
-	end
-	buyingLimited = true
-	local ok, message = BuyLimited:InvokeServer(itemId)
-	buyingLimited = false
-	if not ok and message then
-		toast(message)
-	end
-end
-
--- HOME page ----------------------------------------------------------------
-local home = shopPage("Home")
-
--- FEATURED: the limited event brainrot, spinning in a little window.
-local featuredId = Config.CurrentEvent
-local featured = Config.GetBrainrot(featuredId)
-local featuredItem = Config.LimitedItems[featuredId]
-local featuredColumn = box(home, UDim2.fromOffset(0, 0), UDim2.new(0, 190, 1, 0), SHOP_PANEL, 8)
-text(featuredColumn, {
-	Position = UDim2.fromOffset(0, 4),
-	Size = UDim2.new(1, 0, 0, 34),
-	TextColor3 = SHOP_PINK,
-	Text = "FEATURED",
-})
-local window = Instance.new("ViewportFrame")
-window.AnchorPoint = Vector2.new(0.5, 0)
-window.Position = UDim2.new(0.5, 0, 0, 42)
-window.Size = UDim2.fromOffset(130, 118)
-window.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
-window.Ambient = Color3.fromRGB(200, 200, 210)
-window.LightColor = WHITE
-corner(window, 6)
-stroke(window, 2, Color3.fromRGB(60, 60, 70))
-window.Parent = featuredColumn
-local featuredName = text(featuredColumn, {
-	Position = UDim2.fromOffset(6, 164),
-	Size = UDim2.new(1, -12, 0, 22),
-	Text = if featured then featured.DisplayName else "",
-})
-local featuredStock = text(featuredColumn, {
-	Position = UDim2.fromOffset(6, 188),
-	Size = UDim2.new(1, -12, 0, 18),
-	TextColor3 = GOLD,
-	Text = "",
-})
-local getNow = button(featuredColumn, "GET NOW", Color3.fromRGB(190, 70, 230), UDim2.new(1, -30, 0, 44))
-getNow.Position = UDim2.fromOffset(15, 212)
-getNow.MouseButton1Click:Connect(function()
-	if featuredItem and featuredItem.ProductId ~= 0 and not (data and data.Limited and data.Limited[featuredId]) then
-		buyLimitedItem(featuredId)
-	end
-end)
-local passesButton = button(featuredColumn, "GAME PASSES", SHOP_CYAN, UDim2.new(1, -16, 0, 44))
-passesButton.Position = UDim2.new(0, 8, 1, -52)
-passesButton.MouseButton1Click:Connect(function()
-	showShopPage("Passes")
-end)
-
-local spinning: Model? = nil
-if featured then
-	local model = BrainrotModel.Create(featured, nil, CFrame.new(), false, nil, false, 1)
-	for _, child in model:GetDescendants() do
-		if child:IsA("BillboardGui") or child:IsA("ParticleEmitter") or child:IsA("Script") or child:IsA("LocalScript") then
-			child:Destroy()
+	local getNow = button(featuredColumn, "GET NOW", Color3.fromRGB(190, 70, 230), UDim2.new(1, -30, 0, 44))
+	getNow.Position = UDim2.fromOffset(15, 212)
+	getNow.MouseButton1Click:Connect(function()
+		if featuredItem and featuredItem.ProductId ~= 0 and not (data and data.Limited and data.Limited[featuredId]) then
+			buyLimitedItem(featuredId)
 		end
-	end
-	model.Parent = window
-	local cf, size = model:GetBoundingBox()
-	local viewCamera = Instance.new("Camera")
-	local distance = math.max(size.X, size.Y, size.Z) * 1.5
-	viewCamera.CFrame = CFrame.lookAt(cf.Position + Vector3.new(0, size.Y * 0.1, distance), cf.Position)
-	viewCamera.FieldOfView = 40
-	viewCamera.Parent = window
-	window.CurrentCamera = viewCamera
-	model:PivotTo(CFrame.new(-cf.Position) * model:GetPivot())
-	viewCamera.CFrame = CFrame.lookAt(Vector3.new(0, size.Y * 0.1, distance), Vector3.zero)
-	spinning = model
-end
-
--- Banner: the game passes, one at a time, with arrows (flips every 5s).
-local shopBanner = box(home, UDim2.fromOffset(200, 0), UDim2.new(1, -200, 0, 170), SHOP_PANEL, 8)
-shopBanner.ClipsDescendants = true
-local bannerGradient = Instance.new("UIGradient")
-bannerGradient.Rotation = 20
-bannerGradient.Parent = shopBanner
-local bannerIcon = icon(shopBanner, "", UDim2.new(0.8, 0, 0.5, 0), UDim2.fromOffset(120, 120))
-bannerIcon.Rotation = -8
-local bannerTitle = text(shopBanner, {
-	Position = UDim2.fromOffset(18, 12),
-	Size = UDim2.new(0.62, 0, 0, 44),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	Font = Enum.Font.GothamBlack,
-	Text = "",
-})
-text(shopBanner, {
-	Position = UDim2.fromOffset(18, 58),
-	Size = UDim2.new(0.62, 0, 0, 22),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextColor3 = SHOP_PINK,
-	Text = "GAME PASS  -  FOREVER",
-})
-local bannerText = text(shopBanner, {
-	Position = UDim2.fromOffset(18, 84),
-	Size = UDim2.new(0.6, 0, 0, 40),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextYAlignment = Enum.TextYAlignment.Top,
-	TextScaled = false,
-	TextSize = 17,
-	TextWrapped = true,
-	Font = Enum.Font.GothamBold,
-	TextColor3 = Color3.fromRGB(225, 225, 235),
-	Text = "",
-})
-local bannerBuy = button(shopBanner, "", GREEN, UDim2.fromOffset(130, 38))
-bannerBuy.Position = UDim2.new(0, 18, 1, -46)
-local bannerIndex = 1
-local bannerChanged = os.clock()
-local function showPassBanner(index: number)
-	local passes = Config.GamePasses
-	bannerIndex = (index - 1) % #passes + 1
-	bannerChanged = os.clock()
-	local pass = passes[bannerIndex]
-	local color = PASS_COLORS[pass.Key] or SHOP_PURPLE
-	bannerGradient.Color = ColorSequence.new(color:Lerp(Color3.new(0, 0, 0), 0.25), Color3.fromRGB(40, 20, 70))
-	bannerIcon.Text = PASS_ICONS[pass.Key] or "🎟️"
-	bannerTitle.Text = string.upper(pass.Name)
-	bannerText.Text = pass.Description
-	if data and data.Owns[pass.Key] then
-		bannerBuy.Text = "OWNED"
-		bannerBuy.BackgroundColor3 = SHOP_GREY
-	else
-		bannerBuy.BackgroundColor3 = if pass.Id == 0 then SHOP_GREY else GREEN
-		showPrice(bannerBuy, pass.Id, Enum.InfoType.GamePass)
-	end
-end
-bannerBuy.MouseButton1Click:Connect(function()
-	buyPass(Config.GamePasses[bannerIndex])
-end)
-local function bannerArrow(label: string, step: number, x: number)
-	local arrow = button(shopBanner, label, Color3.fromRGB(30, 30, 40), UDim2.fromOffset(32, 32))
-	arrow.AnchorPoint = Vector2.new(x, 1)
-	arrow.Position = UDim2.new(x, 0, 1, -8)
-	arrow.MouseButton1Click:Connect(function()
-		showPassBanner(bannerIndex + step)
 	end)
-end
-bannerArrow("<", -1, 0.03)
-bannerArrow(">", 1, 0.97)
-showPassBanner(1)
-
--- ON SALE: the boosts.
-local saleHeader = box(home, UDim2.fromOffset(200, 178), UDim2.new(1, -200, 0, 24), SHOP_BG)
-saleHeader.BackgroundTransparency = 1
-text(saleHeader, {
-	Size = UDim2.fromOffset(120, 24),
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextColor3 = GREEN,
-	Text = "ON SALE",
-})
-text(saleHeader, {
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.fromScale(1, 0),
-	Size = UDim2.fromOffset(280, 22),
-	TextXAlignment = Enum.TextXAlignment.Right,
-	FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Italic),
-	TextStrokeTransparency = 1,
-	Text = "Boosts for you (and your server)!",
-})
-local saleRow = box(home, UDim2.fromOffset(200, 206), UDim2.new(1, -200, 1, -206), SHOP_PANEL, 8)
-local salePadding = Instance.new("UIPadding")
-salePadding.PaddingLeft = UDim.new(0, 6)
-salePadding.PaddingTop = UDim.new(0, 6)
-salePadding.Parent = saleRow
-local saleLayout = Instance.new("UIListLayout")
-saleLayout.FillDirection = Enum.FillDirection.Horizontal
-saleLayout.Padding = UDim.new(0, 6)
-saleLayout.Parent = saleRow
-for _, product in Config.Products do
-	local card = itemCard(saleRow, UDim2.fromOffset(122, 130), PRODUCT_ICONS[product.Key] or "⚡", product.Name, SHOP_PINK, function()
-		buyProduct(product)
+	local passesButton = button(featuredColumn, "GAME PASSES", SHOP_CYAN, UDim2.new(1, -16, 0, 44))
+	passesButton.Position = UDim2.new(0, 8, 1, -52)
+	passesButton.MouseButton1Click:Connect(function()
+		showShopPage("Passes")
 	end)
-	showPrice(card.Price, product.Id, Enum.InfoType.Product)
-end
 
--- PASSES page --------------------------------------------------------------
-local passesPage = shopPage("Passes")
-local passGrid = Instance.new("UIGridLayout")
-passGrid.CellSize = UDim2.fromOffset(176, 276)
-passGrid.CellPadding = UDim2.fromOffset(8, 8)
-passGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
-passGrid.Parent = passesPage
-local passButtons: { [string]: TextButton } = {}
-for _, pass in Config.GamePasses do
-	local color = PASS_COLORS[pass.Key] or SHOP_PURPLE
-	local card = box(passesPage, UDim2.new(), UDim2.new(), SHOP_PANEL, 8)
-	stroke(card, 2, color)
-	local top = box(card, UDim2.fromOffset(6, 6), UDim2.new(1, -12, 0, 96), color, 6)
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new(color:Lerp(WHITE, 0.25), color:Lerp(Color3.new(0, 0, 0), 0.3))
-	gradient.Rotation = 90
-	gradient.Parent = top
-	icon(top, PASS_ICONS[pass.Key] or "🎟️", UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(70, 70))
-	text(card, {
-		Position = UDim2.fromOffset(8, 108),
-		Size = UDim2.new(1, -16, 0, 30),
-		Text = pass.Name,
+	local spinning: Model? = nil
+	if featured then
+		local model = BrainrotModel.Create(featured, nil, CFrame.new(), false, nil, false, 1)
+		for _, child in model:GetDescendants() do
+			if child:IsA("BillboardGui") or child:IsA("ParticleEmitter") or child:IsA("Script") or child:IsA("LocalScript") then
+				child:Destroy()
+			end
+		end
+		model.Parent = window
+		local cf, size = model:GetBoundingBox()
+		local viewCamera = Instance.new("Camera")
+		local distance = math.max(size.X, size.Y, size.Z) * 1.5
+		viewCamera.CFrame = CFrame.lookAt(cf.Position + Vector3.new(0, size.Y * 0.1, distance), cf.Position)
+		viewCamera.FieldOfView = 40
+		viewCamera.Parent = window
+		window.CurrentCamera = viewCamera
+		model:PivotTo(CFrame.new(-cf.Position) * model:GetPivot())
+		viewCamera.CFrame = CFrame.lookAt(Vector3.new(0, size.Y * 0.1, distance), Vector3.zero)
+		spinning = model
+	end
+
+	-- Banner: the game passes, one at a time, with arrows (flips every 5s).
+	local shopBanner = box(home, UDim2.fromOffset(200, 0), UDim2.new(1, -200, 0, 170), SHOP_PANEL, 8)
+	shopBanner.ClipsDescendants = true
+	local bannerGradient = Instance.new("UIGradient")
+	bannerGradient.Rotation = 20
+	bannerGradient.Parent = shopBanner
+	local bannerIcon = icon(shopBanner, "", UDim2.new(0.8, 0, 0.5, 0), UDim2.fromOffset(120, 120))
+	bannerIcon.Rotation = -8
+	local bannerTitle = text(shopBanner, {
+		Position = UDim2.fromOffset(18, 12),
+		Size = UDim2.new(0.62, 0, 0, 44),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Font = Enum.Font.GothamBlack,
+		Text = "",
 	})
-	text(card, {
-		Position = UDim2.fromOffset(10, 140),
-		Size = UDim2.new(1, -20, 0, 70),
-		TextScaled = false,
-		TextSize = 15,
-		TextWrapped = true,
+	text(shopBanner, {
+		Position = UDim2.fromOffset(18, 58),
+		Size = UDim2.new(0.62, 0, 0, 22),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = SHOP_PINK,
+		Text = "GAME PASS  -  FOREVER",
+	})
+	local bannerText = text(shopBanner, {
+		Position = UDim2.fromOffset(18, 84),
+		Size = UDim2.new(0.6, 0, 0, 40),
+		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
-		TextStrokeTransparency = 1,
-		Font = Enum.Font.GothamBold,
-		TextColor3 = Color3.fromRGB(200, 200, 210),
-		Text = pass.Description,
-	})
-	local buy = button(card, "", if pass.Id == 0 then SHOP_GREY else GREEN, UDim2.new(1, -20, 0, 44))
-	buy.Position = UDim2.new(0, 10, 1, -54)
-	showPrice(buy, pass.Id, Enum.InfoType.GamePass)
-	buy.MouseButton1Click:Connect(function()
-		buyPass(pass)
-	end)
-	passButtons[pass.Key] = buy
-end
-
--- BOOSTS page --------------------------------------------------------------
-local boostsPage = shopPage("Boosts")
-local boostGrid = Instance.new("UIGridLayout")
-boostGrid.CellSize = UDim2.fromOffset(176, 276)
-boostGrid.CellPadding = UDim2.fromOffset(8, 8)
-boostGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
-boostGrid.Parent = boostsPage
-for _, product in Config.Products do
-	local card = itemCard(boostsPage, UDim2.new(), PRODUCT_ICONS[product.Key] or "⚡", product.Name, Color3.fromRGB(110, 190, 50), function()
-		buyProduct(product)
-	end)
-	showPrice(card.Price, product.Id, Enum.InfoType.Product)
-	text(card.Frame, {
-		Position = UDim2.fromOffset(8, 212),
-		Size = UDim2.new(1, -16, 0, 34),
 		TextScaled = false,
-		TextSize = 14,
+		TextSize = 17,
 		TextWrapped = true,
-		TextStrokeTransparency = 1,
 		Font = Enum.Font.GothamBold,
-		TextColor3 = Color3.fromRGB(200, 200, 210),
-		Text = product.Description,
+		TextColor3 = Color3.fromRGB(225, 225, 235),
+		Text = "",
 	})
-end
-
-showShopPage("Home")
-
--- Spin the featured brainrot and flip the shopBanner while the shop is open.
-RunService.RenderStepped:Connect(function(dt: number)
-	if not shopFrame.Visible then
-		return
-	end
-	local model = spinning
-	if model then
-		model:PivotTo(model:GetPivot() * CFrame.Angles(0, dt * 0.8, 0))
-	end
-	if os.clock() - bannerChanged > 5 then
-		showPassBanner(bannerIndex + 1)
-	end
-end)
-
--- Prices, stock and "OWNED" from your latest data.
-local function renderLimited()
-	if not data then
-		return
-	end
-	cashAmount.Text = Config.FormatCash(data.Cash)
-	diamondAmount.Text = tostring(data.Diamonds or 0)
-	for key, b in passButtons do
-		if data.Owns[key] then
-			b.Text = "OWNED"
-			b.BackgroundColor3 = SHOP_GREY
-		end
-	end
-	if featured and featuredItem then
-		local published = ReplicatedStorage:GetAttribute("LimitedLeft_" .. featuredId) :: number?
-		local left: number = if published then published else featuredItem.Stock
-		featuredStock.Text = if left <= 0 then "SOLD OUT" else string.format("%d / %d LEFT", left, featuredItem.Stock)
-		local serial = data.Limited and data.Limited[featuredId]
-		if serial then
-			getNow.Text = "OWNED #" .. serial
-			getNow.BackgroundColor3 = SHOP_GREY
-		elseif featuredItem.ProductId == 0 then
-			getNow.Text = "SOON"
-			getNow.BackgroundColor3 = SHOP_GREY
-		elseif left <= 0 then
-			getNow.Text = "SOLD OUT"
-			getNow.BackgroundColor3 = SHOP_GREY
+	local bannerBuy = button(shopBanner, "", GREEN, UDim2.fromOffset(130, 38))
+	bannerBuy.Position = UDim2.new(0, 18, 1, -46)
+	local bannerIndex = 1
+	local bannerChanged = os.clock()
+	local function showPassBanner(index: number)
+		local passes = Config.GamePasses
+		bannerIndex = (index - 1) % #passes + 1
+		bannerChanged = os.clock()
+		local pass = passes[bannerIndex]
+		local color = PASS_COLORS[pass.Key] or SHOP_PURPLE
+		bannerGradient.Color = ColorSequence.new(color:Lerp(Color3.new(0, 0, 0), 0.25), Color3.fromRGB(40, 20, 70))
+		bannerIcon.Text = PASS_ICONS[pass.Key] or "🎟️"
+		bannerTitle.Text = string.upper(pass.Name)
+		bannerText.Text = pass.Description
+		if data and data.Owns[pass.Key] then
+			bannerBuy.Text = "OWNED"
+			bannerBuy.BackgroundColor3 = SHOP_GREY
 		else
-			getNow.Text = "GET NOW  R$ " .. featuredItem.PriceRobux
-			getNow.BackgroundColor3 = Color3.fromRGB(190, 70, 230)
+			bannerBuy.BackgroundColor3 = if pass.Id == 0 then SHOP_GREY else GREEN
+			showPrice(bannerBuy, pass.Id, Enum.InfoType.GamePass)
 		end
-	else
-		featuredName.Text = ""
 	end
-end
-for itemId in Config.LimitedItems do
-	ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. itemId):Connect(renderLimited)
+	bannerBuy.MouseButton1Click:Connect(function()
+		buyPass(Config.GamePasses[bannerIndex])
+	end)
+	local function bannerArrow(label: string, step: number, x: number)
+		local arrow = button(shopBanner, label, Color3.fromRGB(30, 30, 40), UDim2.fromOffset(32, 32))
+		arrow.AnchorPoint = Vector2.new(x, 1)
+		arrow.Position = UDim2.new(x, 0, 1, -8)
+		arrow.MouseButton1Click:Connect(function()
+			showPassBanner(bannerIndex + step)
+		end)
+	end
+	bannerArrow("<", -1, 0.03)
+	bannerArrow(">", 1, 0.97)
+	showPassBanner(1)
+
+	-- ON SALE: the boosts.
+	local saleHeader = box(home, UDim2.fromOffset(200, 178), UDim2.new(1, -200, 0, 24), SHOP_BG)
+	saleHeader.BackgroundTransparency = 1
+	text(saleHeader, {
+		Size = UDim2.fromOffset(120, 24),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = GREEN,
+		Text = "ON SALE",
+	})
+	text(saleHeader, {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.fromOffset(280, 22),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		FontFace = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Bold, Enum.FontStyle.Italic),
+		TextStrokeTransparency = 1,
+		Text = "Boosts for you (and your server)!",
+	})
+	local saleRow = box(home, UDim2.fromOffset(200, 206), UDim2.new(1, -200, 1, -206), SHOP_PANEL, 8)
+	local salePadding = Instance.new("UIPadding")
+	salePadding.PaddingLeft = UDim.new(0, 6)
+	salePadding.PaddingTop = UDim.new(0, 6)
+	salePadding.Parent = saleRow
+	local saleLayout = Instance.new("UIListLayout")
+	saleLayout.FillDirection = Enum.FillDirection.Horizontal
+	saleLayout.Padding = UDim.new(0, 6)
+	saleLayout.Parent = saleRow
+	for _, product in Config.Products do
+		local card = itemCard(saleRow, UDim2.fromOffset(122, 130), PRODUCT_ICONS[product.Key] or "⚡", product.Name, SHOP_PINK, function()
+			buyProduct(product)
+		end)
+		showPrice(card.Price, product.Id, Enum.InfoType.Product)
+	end
+
+	-- PASSES page --------------------------------------------------------------
+	local passesPage = shopPage("Passes")
+	local passGrid = Instance.new("UIGridLayout")
+	passGrid.CellSize = UDim2.fromOffset(176, 276)
+	passGrid.CellPadding = UDim2.fromOffset(8, 8)
+	passGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	passGrid.Parent = passesPage
+	local passButtons: { [string]: TextButton } = {}
+	for _, pass in Config.GamePasses do
+		local color = PASS_COLORS[pass.Key] or SHOP_PURPLE
+		local card = box(passesPage, UDim2.new(), UDim2.new(), SHOP_PANEL, 8)
+		stroke(card, 2, color)
+		local top = box(card, UDim2.fromOffset(6, 6), UDim2.new(1, -12, 0, 96), color, 6)
+		local gradient = Instance.new("UIGradient")
+		gradient.Color = ColorSequence.new(color:Lerp(WHITE, 0.25), color:Lerp(Color3.new(0, 0, 0), 0.3))
+		gradient.Rotation = 90
+		gradient.Parent = top
+		icon(top, PASS_ICONS[pass.Key] or "🎟️", UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(70, 70))
+		text(card, {
+			Position = UDim2.fromOffset(8, 108),
+			Size = UDim2.new(1, -16, 0, 30),
+			Text = pass.Name,
+		})
+		text(card, {
+			Position = UDim2.fromOffset(10, 140),
+			Size = UDim2.new(1, -20, 0, 70),
+			TextScaled = false,
+			TextSize = 15,
+			TextWrapped = true,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			TextStrokeTransparency = 1,
+			Font = Enum.Font.GothamBold,
+			TextColor3 = Color3.fromRGB(200, 200, 210),
+			Text = pass.Description,
+		})
+		local buy = button(card, "", if pass.Id == 0 then SHOP_GREY else GREEN, UDim2.new(1, -20, 0, 44))
+		buy.Position = UDim2.new(0, 10, 1, -54)
+		showPrice(buy, pass.Id, Enum.InfoType.GamePass)
+		buy.MouseButton1Click:Connect(function()
+			buyPass(pass)
+		end)
+		passButtons[pass.Key] = buy
+	end
+
+	-- BOOSTS page --------------------------------------------------------------
+	local boostsPage = shopPage("Boosts")
+	local boostGrid = Instance.new("UIGridLayout")
+	boostGrid.CellSize = UDim2.fromOffset(176, 276)
+	boostGrid.CellPadding = UDim2.fromOffset(8, 8)
+	boostGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	boostGrid.Parent = boostsPage
+	for _, product in Config.Products do
+		local card = itemCard(boostsPage, UDim2.new(), PRODUCT_ICONS[product.Key] or "⚡", product.Name, Color3.fromRGB(110, 190, 50), function()
+			buyProduct(product)
+		end)
+		showPrice(card.Price, product.Id, Enum.InfoType.Product)
+		text(card.Frame, {
+			Position = UDim2.fromOffset(8, 212),
+			Size = UDim2.new(1, -16, 0, 34),
+			TextScaled = false,
+			TextSize = 14,
+			TextWrapped = true,
+			TextStrokeTransparency = 1,
+			Font = Enum.Font.GothamBold,
+			TextColor3 = Color3.fromRGB(200, 200, 210),
+			Text = product.Description,
+		})
+	end
+
+	showShopPage("Home")
+
+	-- Spin the featured brainrot and flip the shopBanner while the shop is open.
+	RunService.RenderStepped:Connect(function(dt: number)
+		if not shopFrame.Visible then
+			return
+		end
+		local model = spinning
+		if model then
+			model:PivotTo(model:GetPivot() * CFrame.Angles(0, dt * 0.8, 0))
+		end
+		if os.clock() - bannerChanged > 5 then
+			showPassBanner(bannerIndex + 1)
+		end
+	end)
+
+	-- Prices, stock and "OWNED" from your latest data.
+	renderLimited = function()
+		if not data then
+			return
+		end
+		cashAmount.Text = Config.FormatCash(data.Cash)
+		diamondAmount.Text = tostring(data.Diamonds or 0)
+		for key, b in passButtons do
+			if data.Owns[key] then
+				b.Text = "OWNED"
+				b.BackgroundColor3 = SHOP_GREY
+			end
+		end
+		if featured and featuredItem then
+			local published = ReplicatedStorage:GetAttribute("LimitedLeft_" .. featuredId) :: number?
+			local left: number = if published then published else featuredItem.Stock
+			featuredStock.Text = if left <= 0 then "SOLD OUT" else string.format("%d / %d LEFT", left, featuredItem.Stock)
+			local serial = data.Limited and data.Limited[featuredId]
+			if serial then
+				getNow.Text = "OWNED #" .. serial
+				getNow.BackgroundColor3 = SHOP_GREY
+			elseif featuredItem.ProductId == 0 then
+				getNow.Text = "SOON"
+				getNow.BackgroundColor3 = SHOP_GREY
+			elseif left <= 0 then
+				getNow.Text = "SOLD OUT"
+				getNow.BackgroundColor3 = SHOP_GREY
+			else
+				getNow.Text = "GET NOW  R$ " .. featuredItem.PriceRobux
+				getNow.BackgroundColor3 = Color3.fromRGB(190, 70, 230)
+			end
+		else
+			featuredName.Text = ""
+		end
+	end
+	for itemId in Config.LimitedItems do
+		ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. itemId):Connect(renderLimited)
+	end
 end
 
 -- Rebirth ------------------------------------------------------------------
@@ -1561,409 +1567,420 @@ end)
 -- Admin panel (only shown to admins; the server checks every action too) ---
 -- One tab per job (Players, Events, Brainrots, and Founder for Corny and
 -- Ace), and inside each tab every job gets its own labelled box.
-
-local ORANGE = Color3.fromRGB(255, 150, 40)
-local PURPLE = Color3.fromRGB(170, 80, 255)
-local GREY = Color3.fromRGB(90, 90, 100)
-local BLUE = Color3.fromRGB(60, 140, 255)
-local PINK = Color3.fromRGB(255, 120, 190)
-local HINT = Color3.fromRGB(170, 170, 185)
-
-local adminFrame, adminFrameBody = modal("ADMIN PANEL", RED, 640)
-adminFrame.Size = UDim2.fromOffset(640, 640)
-local function inputBox(parent: Instance, default: string, hint: string, width: number): TextBox
-	local box = Instance.new("TextBox")
-	box.Size = UDim2.fromOffset(width, 38)
-	box.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
-	box.TextColor3 = WHITE
-	box.PlaceholderText = hint
-	box.PlaceholderColor3 = Color3.fromRGB(130, 130, 145)
-	box.Text = default
-	box.Font = FONT
-	box.TextScaled = true
-	box.ClearTextOnFocus = false
-	corner(box, 8)
-	stroke(box, 1.5, Color3.fromRGB(90, 90, 110))
-	box.Parent = parent
-	return box
-end
-
-local function smallButton(parent: Instance, label: string, color: Color3, width: number, onClick: () -> ()): TextButton
-	local b = button(parent, label, color, UDim2.fromOffset(width, 38))
-	b.MouseButton1Click:Connect(onClick)
-	return b
-end
-
--- Who the Players and Brainrots buttons act on. Always at the top.
-local targetBar = Instance.new("Frame")
-targetBar.Size = UDim2.new(1, 0, 0, 44)
-targetBar.BackgroundColor3 = TILE
-corner(targetBar, 10)
-targetBar.Parent = adminFrameBody
-local targetLayout = Instance.new("UIListLayout")
-targetLayout.FillDirection = Enum.FillDirection.Horizontal
-targetLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-targetLayout.Padding = UDim.new(0, 8)
-targetLayout.Parent = targetBar
-local targetPadding = Instance.new("UIPadding")
-targetPadding.PaddingLeft = UDim.new(0, 10)
-targetPadding.Parent = targetBar
-text(targetBar, { Size = UDim2.fromOffset(90, 28), Text = "PLAYER", TextColor3 = GOLD })
-local targetBox = inputBox(targetBar, "me", "me / all / name", 200)
-text(targetBar, {
-	Size = UDim2.fromOffset(270, 20),
-	TextColor3 = HINT,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	Text = "me, all, or the start of a name",
-})
-
-local function send(action: string, value: any)
-	AdminAction:FireServer(action, targetBox.Text, value)
-end
-
--- Tabs
-local tabBar = Instance.new("Frame")
-tabBar.BackgroundTransparency = 1
-tabBar.Position = UDim2.fromOffset(0, 52)
-tabBar.Size = UDim2.new(1, 0, 0, 40)
-tabBar.Parent = adminFrameBody
-local tabLayout = Instance.new("UIListLayout")
-tabLayout.FillDirection = Enum.FillDirection.Horizontal
-tabLayout.Padding = UDim.new(0, 6)
-tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-tabLayout.Parent = tabBar
-
+-- (Kept in its own block: a script can only have 200 locals at the top.)
 type AdminTab = { Button: TextButton, Page: ScrollingFrame, Color: Color3 }
-local adminTabs: { AdminTab } = {}
-local function selectTab(chosen: AdminTab)
-	for _, tab in adminTabs do
-		local on = tab == chosen
-		tab.Page.Visible = on
-		tab.Button.BackgroundColor3 = if on then tab.Color else Color3.fromRGB(55, 55, 70)
-	end
-end
-
-local function adminTab(label: string, color: Color3): (ScrollingFrame, AdminTab)
-	local tabButton = button(tabBar, label, color, UDim2.fromOffset(142, 40))
-	tabButton.LayoutOrder = #adminTabs + 1
-	local page = Instance.new("ScrollingFrame")
-	page.BackgroundTransparency = 1
-	page.Position = UDim2.fromOffset(0, 100)
-	page.Size = UDim2.new(1, 0, 1, -100)
-	page.CanvasSize = UDim2.new()
-	page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	page.ScrollBarThickness = 6
-	page.Visible = false
-	page.Parent = adminFrameBody
-	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 10)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = page
-	local tab: AdminTab = { Button = tabButton, Page = page, Color = color }
-	table.insert(adminTabs, tab)
-	tabButton.MouseButton1Click:Connect(function()
-		selectTab(tab)
-	end)
-	return page, tab
-end
-
--- A box with a title, a line saying what it does, and its controls.
-local function section(page: Instance, order: number, title: string, hint: string?, color: Color3): Frame
-	local card = Instance.new("Frame")
-	card.Size = UDim2.new(1, -12, 0, 0)
-	card.AutomaticSize = Enum.AutomaticSize.Y
-	card.BackgroundColor3 = PANEL_DARK
-	card.LayoutOrder = order
-	corner(card, 12)
-	stroke(card, 2, color)
-	card.Parent = page
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 8)
-	padding.PaddingBottom = UDim.new(0, 10)
-	padding.PaddingLeft = UDim.new(0, 10)
-	padding.PaddingRight = UDim.new(0, 10)
-	padding.Parent = card
-	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 6)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = card
-	text(card, {
-		Size = UDim2.new(1, 0, 0, 24),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = color,
-		Text = title,
-		LayoutOrder = 0,
-	})
-	if hint then
-		text(card, {
-			Size = UDim2.new(1, 0, 0, 0),
-			AutomaticSize = Enum.AutomaticSize.Y,
-			TextScaled = false,
-			TextSize = 15,
-			TextWrapped = true,
-			TextStrokeTransparency = 1,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = HINT,
-			Text = hint,
-			LayoutOrder = 1,
-		})
-	end
-	return card
-end
-
--- A row of controls inside a box; wraps onto a new line if it runs out of room.
-local function controls(card: Frame, order: number): Frame
-	local row = Instance.new("Frame")
-	row.BackgroundTransparency = 1
-	row.Size = UDim2.new(1, 0, 0, 0)
-	row.AutomaticSize = Enum.AutomaticSize.Y
-	row.LayoutOrder = 10 + order
-	row.Parent = card
-	local layout = Instance.new("UIListLayout")
-	layout.FillDirection = Enum.FillDirection.Horizontal
-	layout.Wraps = true
-	layout.VerticalAlignment = Enum.VerticalAlignment.Center
-	layout.Padding = UDim.new(0, 6)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = row
-	return row
-end
-
-local function label(row: Frame, value: string, width: number)
-	text(row, { Size = UDim2.fromOffset(width, 30), Text = value, TextXAlignment = Enum.TextXAlignment.Left })
-end
-
--- PLAYERS tab ------------------------------------------------------------------
-local playersPage, playersTab = adminTab("PLAYERS", BLUE)
-
-local money = section(playersPage, 1, "MONEY & CURRENCY", "Type an amount (5000, 25k, 2m), then pick what to give the player.", GREEN)
-local amountRow = controls(money, 1)
-label(amountRow, "Amount", 90)
-local amountBox = inputBox(amountRow, "1m", "e.g. 5000, 25k, 2m", 150)
-local cashRow = controls(money, 2)
-smallButton(cashRow, "Give Cash", GREEN, 130, function()
-	send("Cash", amountBox.Text)
-end)
-smallButton(cashRow, "Set Cash", BLUE, 120, function()
-	send("SetCash", amountBox.Text)
-end)
-smallButton(cashRow, "Set Rebirths", PURPLE, 150, function()
-	send("Rebirths", amountBox.Text)
-end)
-local currencyRow = controls(money, 3)
-smallButton(currencyRow, "Give Shards", SHARD_COLOR, 160, function()
-	send("Shards", amountBox.Text)
-end)
-smallButton(currencyRow, "Give Diamonds", DIAMOND_COLOR, 180, function()
-	send("Diamonds", amountBox.Text)
-end)
-
-local function levelButtons(row: Frame, count: number, action: string, color: Color3)
-	for level = 1, count do
-		smallButton(row, tostring(level), color, 42, function()
-			send(action, level)
-		end)
-	end
-end
-local base = section(playersPage, 2, "BASE", "Set the player's base level and door lock level.", ORANGE)
-local baseRow = controls(base, 1)
-label(baseRow, "Base", 70)
-levelButtons(baseRow, #Config.WallLevels, "Base", ORANGE)
-local lockRow = controls(base, 2)
-label(lockRow, "Lock", 70)
-levelButtons(lockRow, #Config.LockLevels, "LockLevel", RED)
-local doorRow = controls(base, 3)
-label(doorRow, "Infinite Door", 160)
-smallButton(doorRow, "ON", Color3.fromRGB(255, 80, 80), 90, function()
-	send("InfiniteLock", true)
-end)
-smallButton(doorRow, "OFF", GREY, 90, function()
-	send("InfiniteLock", false)
-end)
-local clearRow = controls(base, 4)
-smallButton(clearRow, "Clear Base", RED, 150, function()
-	send("ClearBase", nil)
-end)
-
--- EVENTS tab -------------------------------------------------------------------
-local eventsPage = adminTab("EVENTS", RED)
-
-local abuse = section(eventsPage, 1, "ADMIN ABUSE", "Boosts for everyone, plus the giants and gift drops. Set how many minutes it lasts.", RED)
-local abuseRow = controls(abuse, 1)
-label(abuseRow, "Minutes", 100)
-local minutesBox = inputBox(abuseRow, tostring(Config.AdminAbuse.DurationMinutes), "how long", 80)
-smallButton(abuseRow, "START", RED, 130, function()
-	send("AbuseStart", minutesBox.Text)
-end)
-smallButton(abuseRow, "END", GREY, 100, function()
-	send("AbuseStop", nil)
-end)
-
-local drops = section(eventsPage, 2, "DROPS", "Rain brainrots or cash bags all over the map.", PURPLE)
-local brainrotRainRow = controls(drops, 1)
-smallButton(brainrotRainRow, "Brainrot Rain x" .. Config.BrainrotRainCount, PURPLE, 240, function()
-	send("BrainrotRain", nil)
-end)
-local cashRainRow = controls(drops, 2)
-label(cashRainRow, "Cash per bag", 150)
-local cashRainBox = inputBox(cashRainRow, "100k", "e.g. 50k", 120)
-smallButton(cashRainRow, "Cash Rain", GREEN, 140, function()
-	send("CashRain", cashRainBox.Text)
-end)
-
-local luck = section(eventsPage, 3, "SERVER LUCK", "More rare brainrots spawn for everyone in this server.", Color3.fromRGB(60, 180, 120))
-local luckRow = controls(luck, 1)
-smallButton(luckRow, "Luck 15 min", Color3.fromRGB(60, 180, 120), 160, function()
-	send("Luck", 15)
-end)
-smallButton(luckRow, "Stop Luck", GREY, 140, function()
-	send("Luck", 0)
-end)
-
--- Message to every server (same as typing /announce in chat).
-local announce = section(eventsPage, 4, "ANNOUNCE TO ALL SERVERS", "Shows on everyone's screen in every server. Same as typing /announce in chat.", ORANGE)
-local announceBox = inputBox(controls(announce, 1), "", "Type your message here...", 560)
-announceBox.Size = UDim2.new(1, 0, 0, 44)
-announceBox.TextScaled = false
-announceBox.TextSize = 20
-announceBox.TextXAlignment = Enum.TextXAlignment.Left
-local announceRow = controls(announce, 2)
-smallButton(announceRow, "SEND TO ALL", ORANGE, 180, function()
-	send("GlobalAnnounce", announceBox.Text)
-	announceBox.Text = ""
-end)
-
--- BRAINROTS tab ----------------------------------------------------------------
-local brainrotsPage = adminTab("BRAINROTS", PURPLE)
-
--- Mutation picker for Give / Spawn / Drop below.
-local mutationChoices = { "None" }
-for _, mutation in Config.Mutations do
-	if not mutation.Exclusive then
-		table.insert(mutationChoices, mutation.Id)
-	end
-end
-local mutationIndex = 1
-local mutationCard = section(brainrotsPage, 1, "MUTATION", "Tap to cycle the mutation used by Give, Spawn and Drop below.", PURPLE)
-local mutationRow = controls(mutationCard, 1)
-local mutationButton = smallButton(mutationRow, "None", GREY, 180, function() end)
-smallButton(mutationRow, "Give MAGIC (event)", Color3.fromRGB(170, 110, 255), 230, function()
-	send("GiveMagic", nil)
-end)
-mutationButton.MouseButton1Click:Connect(function()
-	mutationIndex = mutationIndex % #mutationChoices + 1
-	local choice = mutationChoices[mutationIndex]
-	local mutation = Config.GetMutation(choice)
-	mutationButton.Text = choice
-	mutationButton.BackgroundColor3 = if mutation then mutation.Color else GREY
-end)
-
-local function brainrotValue(id: string): string
-	local choice = mutationChoices[mutationIndex]
-	return if choice == "None" then id else Config.Encode(id, choice)
-end
-
-local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base.  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
+local adminFrame: Frame
+local selectTab: (AdminTab) -> ()
+local playersTab: AdminTab
+local founderTab: AdminTab
 -- Limited brainrots: only Corny sees these rows (the server checks too).
 local limitedGiveRows: { Frame } = {}
-for i, brainrot in Config.Brainrots do
-	local row = Instance.new("Frame")
-	row.Size = UDim2.new(1, 0, 0, 36)
-	row.BackgroundColor3 = TILE
-	row.LayoutOrder = 100 + i
-	corner(row, 8)
-	row.Parent = listCard
-	local color = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
-	local nameLabel = text(row, {
-		Position = UDim2.fromOffset(10, 4),
-		Size = UDim2.new(1, -270, 1, -8),
+do
+
+	local ORANGE = Color3.fromRGB(255, 150, 40)
+	local PURPLE = Color3.fromRGB(170, 80, 255)
+	local GREY = Color3.fromRGB(90, 90, 100)
+	local BLUE = Color3.fromRGB(60, 140, 255)
+	local PINK = Color3.fromRGB(255, 120, 190)
+	local HINT = Color3.fromRGB(170, 170, 185)
+
+	local adminFrameBody
+	adminFrame, adminFrameBody = modal("ADMIN PANEL", RED, 640)
+	adminFrame.Size = UDim2.fromOffset(640, 640)
+	local function inputBox(parent: Instance, default: string, hint: string, width: number): TextBox
+		local box = Instance.new("TextBox")
+		box.Size = UDim2.fromOffset(width, 38)
+		box.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+		box.TextColor3 = WHITE
+		box.PlaceholderText = hint
+		box.PlaceholderColor3 = Color3.fromRGB(130, 130, 145)
+		box.Text = default
+		box.Font = FONT
+		box.TextScaled = true
+		box.ClearTextOnFocus = false
+		corner(box, 8)
+		stroke(box, 1.5, Color3.fromRGB(90, 90, 110))
+		box.Parent = parent
+		return box
+	end
+
+	local function smallButton(parent: Instance, label: string, color: Color3, width: number, onClick: () -> ()): TextButton
+		local b = button(parent, label, color, UDim2.fromOffset(width, 38))
+		b.MouseButton1Click:Connect(onClick)
+		return b
+	end
+
+	-- Who the Players and Brainrots buttons act on. Always at the top.
+	local targetBar = Instance.new("Frame")
+	targetBar.Size = UDim2.new(1, 0, 0, 44)
+	targetBar.BackgroundColor3 = TILE
+	corner(targetBar, 10)
+	targetBar.Parent = adminFrameBody
+	local targetLayout = Instance.new("UIListLayout")
+	targetLayout.FillDirection = Enum.FillDirection.Horizontal
+	targetLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	targetLayout.Padding = UDim.new(0, 8)
+	targetLayout.Parent = targetBar
+	local targetPadding = Instance.new("UIPadding")
+	targetPadding.PaddingLeft = UDim.new(0, 10)
+	targetPadding.Parent = targetBar
+	text(targetBar, { Size = UDim2.fromOffset(90, 28), Text = "PLAYER", TextColor3 = GOLD })
+	local targetBox = inputBox(targetBar, "me", "me / all / name", 200)
+	text(targetBar, {
+		Size = UDim2.fromOffset(270, 20),
+		TextColor3 = HINT,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = color,
-		Text = brainrot.DisplayName,
+		Text = "me, all, or the start of a name",
 	})
-	local limitedItem = Config.LimitedItems[brainrot.Id]
-	if brainrot.Limited and limitedItem then
-		row.Visible = false
-		table.insert(limitedGiveRows, row)
-		-- Shows how many are left; each gift takes one from the shop stock.
-		local function showLeft()
-			local left = ReplicatedStorage:GetAttribute("LimitedLeft_" .. brainrot.Id) :: number?
-			nameLabel.Text = string.format("%s (%d left)", brainrot.DisplayName, left or limitedItem.Stock)
+
+	local function send(action: string, value: any)
+		AdminAction:FireServer(action, targetBox.Text, value)
+	end
+
+	-- Tabs
+	local tabBar = Instance.new("Frame")
+	tabBar.BackgroundTransparency = 1
+	tabBar.Position = UDim2.fromOffset(0, 52)
+	tabBar.Size = UDim2.new(1, 0, 0, 40)
+	tabBar.Parent = adminFrameBody
+	local tabLayout = Instance.new("UIListLayout")
+	tabLayout.FillDirection = Enum.FillDirection.Horizontal
+	tabLayout.Padding = UDim.new(0, 6)
+	tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tabLayout.Parent = tabBar
+
+	local adminTabs: { AdminTab } = {}
+	selectTab = function(chosen: AdminTab)
+		for _, tab in adminTabs do
+			local on = tab == chosen
+			tab.Page.Visible = on
+			tab.Button.BackgroundColor3 = if on then tab.Color else Color3.fromRGB(55, 55, 70)
 		end
-		ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. brainrot.Id):Connect(showLeft)
-		showLeft()
 	end
-	local buttons: { { Label: string, Color: Color3, Action: string } } = {
-		{ Label = "Give", Color = GREEN, Action = "Brainrot" },
-		{ Label = "Spawn", Color = ORANGE, Action = "Spawn" },
-		{ Label = "Drop", Color = PURPLE, Action = "DropBrainrot" },
-	}
-	if brainrot.Limited then
-		-- Limited brainrots come out of the stock, one per player.
-		buttons = { { Label = "Gift", Color = GREEN, Action = "Brainrot" } }
-	end
-	for j, info in buttons do
-		local b = smallButton(row, info.Label, info.Color, 80, function()
-			send(info.Action, brainrotValue(brainrot.Id))
+
+	local function adminTab(label: string, color: Color3): (ScrollingFrame, AdminTab)
+		local tabButton = button(tabBar, label, color, UDim2.fromOffset(142, 40))
+		tabButton.LayoutOrder = #adminTabs + 1
+		local page = Instance.new("ScrollingFrame")
+		page.BackgroundTransparency = 1
+		page.Position = UDim2.fromOffset(0, 100)
+		page.Size = UDim2.new(1, 0, 1, -100)
+		page.CanvasSize = UDim2.new()
+		page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+		page.ScrollBarThickness = 6
+		page.Visible = false
+		page.Parent = adminFrameBody
+		local layout = Instance.new("UIListLayout")
+		layout.Padding = UDim.new(0, 10)
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Parent = page
+		local tab: AdminTab = { Button = tabButton, Page = page, Color = color }
+		table.insert(adminTabs, tab)
+		tabButton.MouseButton1Click:Connect(function()
+			selectTab(tab)
 		end)
-		b.Size = UDim2.fromOffset(80, 30)
-		b.Position = UDim2.new(1, -258 + (j - 1) * 86, 0, 3)
+		return page, tab
 	end
-end
 
--- FOUNDER tab (only Corny and Ace see it) --------------------------------------
-local founderPage, founderTab = adminTab("FOUNDER", PINK)
-founderTab.Button.Visible = false
+	-- A box with a title, a line saying what it does, and its controls.
+	local function section(page: Instance, order: number, title: string, hint: string?, color: Color3): Frame
+		local card = Instance.new("Frame")
+		card.Size = UDim2.new(1, -12, 0, 0)
+		card.AutomaticSize = Enum.AutomaticSize.Y
+		card.BackgroundColor3 = PANEL_DARK
+		card.LayoutOrder = order
+		corner(card, 12)
+		stroke(card, 2, color)
+		card.Parent = page
+		local padding = Instance.new("UIPadding")
+		padding.PaddingTop = UDim.new(0, 8)
+		padding.PaddingBottom = UDim.new(0, 10)
+		padding.PaddingLeft = UDim.new(0, 10)
+		padding.PaddingRight = UDim.new(0, 10)
+		padding.Parent = card
+		local layout = Instance.new("UIListLayout")
+		layout.Padding = UDim.new(0, 6)
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Parent = card
+		text(card, {
+			Size = UDim2.new(1, 0, 0, 24),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = color,
+			Text = title,
+			LayoutOrder = 0,
+		})
+		if hint then
+			text(card, {
+				Size = UDim2.new(1, 0, 0, 0),
+				AutomaticSize = Enum.AutomaticSize.Y,
+				TextScaled = false,
+				TextSize = 15,
+				TextWrapped = true,
+				TextStrokeTransparency = 1,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextColor3 = HINT,
+				Text = hint,
+				LayoutOrder = 1,
+			})
+		end
+		return card
+	end
 
-local founderEvents = section(founderPage, 1, "MY FOUNDER EVENT", "Only Corny and Ace can start these. Runs for the minutes you type here.", PINK)
-local founderMinutesRow = controls(founderEvents, 1)
-label(founderMinutesRow, "Minutes", 100)
-local founderMinutesBox = inputBox(founderMinutesRow, "5", "how long", 80)
-local founderEventIds = {}
-for eventId in Config.FounderEvents do
-	table.insert(founderEventIds, eventId)
-end
-table.sort(founderEventIds)
-local founderEventRow = controls(founderEvents, 2)
-for _, eventId in founderEventIds do
-	smallButton(founderEventRow, "START " .. string.upper(eventId) .. " EVENT", PINK, 220, function()
-		send("FounderEvent", { Id = eventId, Minutes = founderMinutesBox.Text })
+	-- A row of controls inside a box; wraps onto a new line if it runs out of room.
+	local function controls(card: Frame, order: number): Frame
+		local row = Instance.new("Frame")
+		row.BackgroundTransparency = 1
+		row.Size = UDim2.new(1, 0, 0, 0)
+		row.AutomaticSize = Enum.AutomaticSize.Y
+		row.LayoutOrder = 10 + order
+		row.Parent = card
+		local layout = Instance.new("UIListLayout")
+		layout.FillDirection = Enum.FillDirection.Horizontal
+		layout.Wraps = true
+		layout.VerticalAlignment = Enum.VerticalAlignment.Center
+		layout.Padding = UDim.new(0, 6)
+		layout.SortOrder = Enum.SortOrder.LayoutOrder
+		layout.Parent = row
+		return row
+	end
+
+	local function label(row: Frame, value: string, width: number)
+		text(row, { Size = UDim2.fromOffset(width, 30), Text = value, TextXAlignment = Enum.TextXAlignment.Left })
+	end
+
+	-- PLAYERS tab ------------------------------------------------------------------
+	local playersPage
+	playersPage, playersTab = adminTab("PLAYERS", BLUE)
+
+	local money = section(playersPage, 1, "MONEY & CURRENCY", "Type an amount (5000, 25k, 2m), then pick what to give the player.", GREEN)
+	local amountRow = controls(money, 1)
+	label(amountRow, "Amount", 90)
+	local amountBox = inputBox(amountRow, "1m", "e.g. 5000, 25k, 2m", 150)
+	local cashRow = controls(money, 2)
+	smallButton(cashRow, "Give Cash", GREEN, 130, function()
+		send("Cash", amountBox.Text)
 	end)
+	smallButton(cashRow, "Set Cash", BLUE, 120, function()
+		send("SetCash", amountBox.Text)
+	end)
+	smallButton(cashRow, "Set Rebirths", PURPLE, 150, function()
+		send("Rebirths", amountBox.Text)
+	end)
+	local currencyRow = controls(money, 3)
+	smallButton(currencyRow, "Give Shards", SHARD_COLOR, 160, function()
+		send("Shards", amountBox.Text)
+	end)
+	smallButton(currencyRow, "Give Diamonds", DIAMOND_COLOR, 180, function()
+		send("Diamonds", amountBox.Text)
+	end)
+
+	local function levelButtons(row: Frame, count: number, action: string, color: Color3)
+		for level = 1, count do
+			smallButton(row, tostring(level), color, 42, function()
+				send(action, level)
+			end)
+		end
+	end
+	local base = section(playersPage, 2, "BASE", "Set the player's base level and door lock level.", ORANGE)
+	local baseRow = controls(base, 1)
+	label(baseRow, "Base", 70)
+	levelButtons(baseRow, #Config.WallLevels, "Base", ORANGE)
+	local lockRow = controls(base, 2)
+	label(lockRow, "Lock", 70)
+	levelButtons(lockRow, #Config.LockLevels, "LockLevel", RED)
+	local doorRow = controls(base, 3)
+	label(doorRow, "Infinite Door", 160)
+	smallButton(doorRow, "ON", Color3.fromRGB(255, 80, 80), 90, function()
+		send("InfiniteLock", true)
+	end)
+	smallButton(doorRow, "OFF", GREY, 90, function()
+		send("InfiniteLock", false)
+	end)
+	local clearRow = controls(base, 4)
+	smallButton(clearRow, "Clear Base", RED, 150, function()
+		send("ClearBase", nil)
+	end)
+
+	-- EVENTS tab -------------------------------------------------------------------
+	local eventsPage = adminTab("EVENTS", RED)
+
+	local abuse = section(eventsPage, 1, "ADMIN ABUSE", "Boosts for everyone, plus the giants and gift drops. Set how many minutes it lasts.", RED)
+	local abuseRow = controls(abuse, 1)
+	label(abuseRow, "Minutes", 100)
+	local minutesBox = inputBox(abuseRow, tostring(Config.AdminAbuse.DurationMinutes), "how long", 80)
+	smallButton(abuseRow, "START", RED, 130, function()
+		send("AbuseStart", minutesBox.Text)
+	end)
+	smallButton(abuseRow, "END", GREY, 100, function()
+		send("AbuseStop", nil)
+	end)
+
+	local drops = section(eventsPage, 2, "DROPS", "Rain brainrots or cash bags all over the map.", PURPLE)
+	local brainrotRainRow = controls(drops, 1)
+	smallButton(brainrotRainRow, "Brainrot Rain x" .. Config.BrainrotRainCount, PURPLE, 240, function()
+		send("BrainrotRain", nil)
+	end)
+	local cashRainRow = controls(drops, 2)
+	label(cashRainRow, "Cash per bag", 150)
+	local cashRainBox = inputBox(cashRainRow, "100k", "e.g. 50k", 120)
+	smallButton(cashRainRow, "Cash Rain", GREEN, 140, function()
+		send("CashRain", cashRainBox.Text)
+	end)
+
+	local luck = section(eventsPage, 3, "SERVER LUCK", "More rare brainrots spawn for everyone in this server.", Color3.fromRGB(60, 180, 120))
+	local luckRow = controls(luck, 1)
+	smallButton(luckRow, "Luck 15 min", Color3.fromRGB(60, 180, 120), 160, function()
+		send("Luck", 15)
+	end)
+	smallButton(luckRow, "Stop Luck", GREY, 140, function()
+		send("Luck", 0)
+	end)
+
+	-- Message to every server (same as typing /announce in chat).
+	local announce = section(eventsPage, 4, "ANNOUNCE TO ALL SERVERS", "Shows on everyone's screen in every server. Same as typing /announce in chat.", ORANGE)
+	local announceBox = inputBox(controls(announce, 1), "", "Type your message here...", 560)
+	announceBox.Size = UDim2.new(1, 0, 0, 44)
+	announceBox.TextScaled = false
+	announceBox.TextSize = 20
+	announceBox.TextXAlignment = Enum.TextXAlignment.Left
+	local announceRow = controls(announce, 2)
+	smallButton(announceRow, "SEND TO ALL", ORANGE, 180, function()
+		send("GlobalAnnounce", announceBox.Text)
+		announceBox.Text = ""
+	end)
+
+	-- BRAINROTS tab ----------------------------------------------------------------
+	local brainrotsPage = adminTab("BRAINROTS", PURPLE)
+
+	-- Mutation picker for Give / Spawn / Drop below.
+	local mutationChoices = { "None" }
+	for _, mutation in Config.Mutations do
+		if not mutation.Exclusive then
+			table.insert(mutationChoices, mutation.Id)
+		end
+	end
+	local mutationIndex = 1
+	local mutationCard = section(brainrotsPage, 1, "MUTATION", "Tap to cycle the mutation used by Give, Spawn and Drop below.", PURPLE)
+	local mutationRow = controls(mutationCard, 1)
+	local mutationButton = smallButton(mutationRow, "None", GREY, 180, function() end)
+	smallButton(mutationRow, "Give MAGIC (event)", Color3.fromRGB(170, 110, 255), 230, function()
+		send("GiveMagic", nil)
+	end)
+	mutationButton.MouseButton1Click:Connect(function()
+		mutationIndex = mutationIndex % #mutationChoices + 1
+		local choice = mutationChoices[mutationIndex]
+		local mutation = Config.GetMutation(choice)
+		mutationButton.Text = choice
+		mutationButton.BackgroundColor3 = if mutation then mutation.Color else GREY
+	end)
+
+	local function brainrotValue(id: string): string
+		local choice = mutationChoices[mutationIndex]
+		return if choice == "None" then id else Config.Encode(id, choice)
+	end
+
+	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base.  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
+	-- Limited brainrots: only Corny sees these rows (the server checks too).
+	for i, brainrot in Config.Brainrots do
+		local row = Instance.new("Frame")
+		row.Size = UDim2.new(1, 0, 0, 36)
+		row.BackgroundColor3 = TILE
+		row.LayoutOrder = 100 + i
+		corner(row, 8)
+		row.Parent = listCard
+		local color = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
+		local nameLabel = text(row, {
+			Position = UDim2.fromOffset(10, 4),
+			Size = UDim2.new(1, -270, 1, -8),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextColor3 = color,
+			Text = brainrot.DisplayName,
+		})
+		local limitedItem = Config.LimitedItems[brainrot.Id]
+		if brainrot.Limited and limitedItem then
+			row.Visible = false
+			table.insert(limitedGiveRows, row)
+			-- Shows how many are left; each gift takes one from the shop stock.
+			local function showLeft()
+				local left = ReplicatedStorage:GetAttribute("LimitedLeft_" .. brainrot.Id) :: number?
+				nameLabel.Text = string.format("%s (%d left)", brainrot.DisplayName, left or limitedItem.Stock)
+			end
+			ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. brainrot.Id):Connect(showLeft)
+			showLeft()
+		end
+		local buttons: { { Label: string, Color: Color3, Action: string } } = {
+			{ Label = "Give", Color = GREEN, Action = "Brainrot" },
+			{ Label = "Spawn", Color = ORANGE, Action = "Spawn" },
+			{ Label = "Drop", Color = PURPLE, Action = "DropBrainrot" },
+		}
+		if brainrot.Limited then
+			-- Limited brainrots come out of the stock, one per player.
+			buttons = { { Label = "Gift", Color = GREEN, Action = "Brainrot" } }
+		end
+		for j, info in buttons do
+			local b = smallButton(row, info.Label, info.Color, 80, function()
+				send(info.Action, brainrotValue(brainrot.Id))
+			end)
+			b.Size = UDim2.fromOffset(80, 30)
+			b.Position = UDim2.new(1, -258 + (j - 1) * 86, 0, 3)
+		end
+	end
+
+	-- FOUNDER tab (only Corny and Ace see it) --------------------------------------
+	local founderPage
+	founderPage, founderTab = adminTab("FOUNDER", PINK)
+	founderTab.Button.Visible = false
+
+	local founderEvents = section(founderPage, 1, "MY FOUNDER EVENT", "Only Corny and Ace can start these. Runs for the minutes you type here.", PINK)
+	local founderMinutesRow = controls(founderEvents, 1)
+	label(founderMinutesRow, "Minutes", 100)
+	local founderMinutesBox = inputBox(founderMinutesRow, "5", "how long", 80)
+	local founderEventIds = {}
+	for eventId in Config.FounderEvents do
+		table.insert(founderEventIds, eventId)
+	end
+	table.sort(founderEventIds)
+	local founderEventRow = controls(founderEvents, 2)
+	for _, eventId in founderEventIds do
+		smallButton(founderEventRow, "START " .. string.upper(eventId) .. " EVENT", PINK, 220, function()
+			send("FounderEvent", { Id = eventId, Minutes = founderMinutesBox.Text })
+		end)
+	end
+	local founderStopRow = controls(founderEvents, 3)
+	smallButton(founderStopRow, "END FOUNDER EVENT", GREY, 230, function()
+		send("FounderEventStop", nil)
+	end)
+
+	local look = section(founderPage, 2, "MY EVENT GIANT'S LOOK", "Pick what your giant wears in your event. It saves for good, in every server.", GOLD)
+	local saveLookRow = controls(look, 1)
+	smallButton(saveLookRow, "USE WHAT I'M WEARING NOW", GOLD, 330, function()
+		send("SaveEventLook", nil)
+	end)
+	local outfitHint = text(look, {
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		TextScaled = false,
+		TextSize = 15,
+		TextWrapped = true,
+		TextStrokeTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = HINT,
+		Text = "Or paste a costume (outfit) ID: the number in the link of a saved costume.",
+		LayoutOrder = 15,
+	})
+	outfitHint.Name = "OutfitHint"
+	local outfitRow = controls(look, 6)
+	local outfitBox = inputBox(outfitRow, "", "Paste outfit ID", 260)
+	smallButton(outfitRow, "USE OUTFIT", BLUE, 160, function()
+		send("SaveEventOutfit", outfitBox.Text)
+	end)
+	local resetLookRow = controls(look, 7)
+	smallButton(resetLookRow, "RESET TO MY NORMAL AVATAR", GREY, 330, function()
+		send("ResetEventLook", nil)
+	end)
+
+	selectTab(playersTab)
 end
-local founderStopRow = controls(founderEvents, 3)
-smallButton(founderStopRow, "END FOUNDER EVENT", GREY, 230, function()
-	send("FounderEventStop", nil)
-end)
-
-local look = section(founderPage, 2, "MY EVENT GIANT'S LOOK", "Pick what your giant wears in your event. It saves for good, in every server.", GOLD)
-local saveLookRow = controls(look, 1)
-smallButton(saveLookRow, "USE WHAT I'M WEARING NOW", GOLD, 330, function()
-	send("SaveEventLook", nil)
-end)
-local outfitHint = text(look, {
-	Size = UDim2.new(1, 0, 0, 0),
-	AutomaticSize = Enum.AutomaticSize.Y,
-	TextScaled = false,
-	TextSize = 15,
-	TextWrapped = true,
-	TextStrokeTransparency = 1,
-	TextXAlignment = Enum.TextXAlignment.Left,
-	TextColor3 = HINT,
-	Text = "Or paste a costume (outfit) ID: the number in the link of a saved costume.",
-	LayoutOrder = 15,
-})
-outfitHint.Name = "OutfitHint"
-local outfitRow = controls(look, 6)
-local outfitBox = inputBox(outfitRow, "", "Paste outfit ID", 260)
-smallButton(outfitRow, "USE OUTFIT", BLUE, 160, function()
-	send("SaveEventOutfit", outfitBox.Text)
-end)
-local resetLookRow = controls(look, 7)
-smallButton(resetLookRow, "RESET TO MY NORMAL AVATAR", GREY, 330, function()
-	send("ResetEventLook", nil)
-end)
-
-selectTab(playersTab)
 
 local adminButton = sideButton("ADMIN", "🛠️", RED)
 adminButton.Visible = false
