@@ -4,7 +4,7 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
 
 ## How it plays
 
-1. **Buy.** Brainrots ride a conveyor down the middle of the map. Hold **E** next to one to buy it, and it walks to your base.
+1. **Buy.** Brainrots walk out of a cave and ride a conveyor down the middle of the map, disappearing into another cave at the far end. Hold **E** next to one to buy it, and it walks to your base.
 2. **Earn.** Each brainrot on a pedestal makes cash every second. The cash piles up on the green **COLLECT** pad, so step on it to bank it.
 3. **Steal.** Walk into someone else's base and hold **E** on a brainrot. It goes over your head, you move slower, and you have to run it back to your own base.
 4. **Defend.** Everyone has a **Slap** tool. Slap a thief and the brainrot runs back home.

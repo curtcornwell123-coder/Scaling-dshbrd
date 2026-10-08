@@ -404,11 +404,14 @@ function WorldBuilder.SetStories(parts: PlotParts, count: number)
 	sign.CFrame = sign.CFrame.Rotation + Vector3.new(sign.Position.X, storyBase(count) + SIGN_HEIGHT, sign.Position.Z)
 end
 
--- A rocky cave around the start of the conveyor, opening toward +X.
-local function buildCave(parent: Instance, mouthX: number)
+-- A rocky cave around one end of the conveyor. `facing` is the direction
+-- its mouth opens (+1 = toward +X, -1 = toward -X). It's built with the
+-- mouth at the origin and then moved into place.
+local function buildCave(parent: Instance, name: string, mouthPosition: Vector3, facing: number, seed: number)
 	local cave = Instance.new("Model")
-	cave.Name = "BrainrotCave"
+	cave.Name = name
 	cave.Parent = parent
+	local mouthX = 0
 
 	local rock = Color3.fromRGB(105, 95, 90)
 	local darkRock = Color3.fromRGB(45, 40, 40)
@@ -429,7 +432,7 @@ local function buildCave(parent: Instance, mouthX: number)
 	block(cave, "CaveFloor", Vector3.new(CAVE_DEPTH, 0.6, halfWidth * 2), CFrame.new(centerX, 0.3, 0), darkRock, Enum.Material.Slate)
 
 	-- Boulders piled over the shell so it reads as a hill, not a box.
-	local rng = Random.new(7)
+	local rng = Random.new(seed)
 	local function boulder(position: Vector3, size: number, color: Color3)
 		local b = Instance.new("Part")
 		b.Name = "Boulder"
@@ -495,6 +498,9 @@ local function buildCave(parent: Instance, mouthX: number)
 	lightPart.Transparency = 1
 	lightPart.CanCollide = false
 	glow.Parent = lightPart
+
+	cave.WorldPivot = CFrame.new()
+	cave:PivotTo(CFrame.new(mouthPosition) * CFrame.Angles(0, if facing < 0 then math.pi else 0, 0))
 end
 
 function WorldBuilder.Build(): World
@@ -532,11 +538,14 @@ function WorldBuilder.Build(): World
 		block(conveyorFolder, "Rail", Vector3.new(length, 1.5, 1), CFrame.new(0, 1.25, z), Color3.fromRGB(255, 200, 40), Enum.Material.Neon)
 	end
 
-	-- Brainrots spawn inside the cave and ride out of its mouth.
+	-- Brainrots spawn inside one cave, ride out of its mouth, and disappear
+	-- into a second cave at the far end.
 	local mouthX = -length / 2 + 14
-	buildCave(root, mouthX)
+	local exitMouthX = length / 2 - 14
+	buildCave(root, "BrainrotCave", Vector3.new(mouthX, 0, 0), 1, 7)
+	buildCave(root, "ExitCave", Vector3.new(exitMouthX, 0, 0), -1, 11)
 	local startX = mouthX - 10
-	local endX = length / 2 - 6
+	local endX = exitMouthX + 10
 	local sign = block(conveyorFolder, "ShopSign", Vector3.new(1, 1, 1), CFrame.new(mouthX - CAVE_DEPTH / 2, 30, 0), Color3.new(1, 1, 1))
 	sign.Transparency = 1
 	sign.CanCollide = false
@@ -563,7 +572,8 @@ function WorldBuilder.Build(): World
 	spawn.Name = "LobbySpawn"
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(12, 1, 12)
-	spawn.CFrame = CFrame.new(endX + 20, 0.5, 0)
+	-- Beside the middle of the conveyor (the ends are caves now).
+	spawn.CFrame = CFrame.new(0, 0.5, 26)
 	spawn.Color = Color3.fromRGB(255, 200, 40)
 	spawn.Material = Enum.Material.Neon
 	spawn.Neutral = true

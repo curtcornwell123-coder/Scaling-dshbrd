@@ -1413,7 +1413,8 @@ dropsFolder.Parent = workspace:FindFirstChild("BrainrotHeist")
 ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", 0)
 
 local function randomDropPosition(): Vector3
-	local x = rng:NextNumber(world.ConveyorStart.X + 20, world.ConveyorEnd.X - 10)
+	-- Stay clear of the caves at both ends of the conveyor.
+	local x = rng:NextNumber(world.ConveyorStart.X + 25, world.ConveyorEnd.X - 25)
 	local side = if rng:NextNumber() < 0.5 then -1 else 1
 	return Vector3.new(x, 0.1, side * rng:NextNumber(12, 38))
 end
