@@ -457,6 +457,12 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 		-- once, by ScaleTo below, so switch it off first.
 		humanoid.AutomaticScalingEnabled = false
 	end
+	-- Send the giant to players all in one go: if parts arrived separately,
+	-- a late head would be missing and clothing (which needs the whole body)
+	-- wouldn't show.
+	pcall(function()
+		giant.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
+	end)
 	giant.Parent = parent
 	local originals = recordSizes(giant)
 	giant:ScaleTo(scale)
