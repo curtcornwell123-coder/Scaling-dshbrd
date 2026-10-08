@@ -111,7 +111,7 @@ export type Mutation = {
 }
 
 Config.Mutations = {
-	{ Id = "Gold", DisplayName = "Gold", Chance = 5, Multiplier = 2, Color = Color3.fromRGB(255, 200, 50) },
+	{ Id = "Gold", DisplayName = "Gold", Chance = 5, Multiplier = 2, Color = Color3.fromRGB(255, 200, 50), FloorColor = Color3.fromRGB(250, 235, 190), FloorMaterial = Enum.Material.Marble },
 	{ Id = "Diamond", DisplayName = "Diamond", Chance = 2, Multiplier = 3, Color = Color3.fromRGB(140, 230, 255) },
 	{ Id = "Sparkle", DisplayName = "Sparkle", Chance = 1.5, Multiplier = 4, Color = Color3.fromRGB(255, 250, 170) },
 	{ Id = "Lava", DisplayName = "Lava", Chance = 0.8, Multiplier = 5, Color = Color3.fromRGB(255, 100, 20) },
@@ -189,17 +189,21 @@ export type WallSkin = {
 	Material: Enum.Material?, -- nil = the base level's own material
 	Glass: Color3?, -- window tint
 	GlassNeon: boolean?, -- glowing windows
+	-- Every floor of the base. Unset = same grey and material as the walls
+	-- (so Classic floors follow the base level: wood, brick, concrete...).
+	FloorColor: Color3?,
+	FloorMaterial: Enum.Material?,
 }
 
 Config.WallSkins = {
 	{ Id = "Classic", Name = "Classic Grey", Cost = 0, Currency = "Shards" },
-	{ Id = "RedBrick", Name = "Red Brick", Cost = 50, Currency = "Shards", Color = Color3.fromRGB(165, 65, 50), Material = Enum.Material.Brick },
-	{ Id = "Candy", Name = "Candy Pink", Cost = 100, Currency = "Shards", Color = Color3.fromRGB(255, 160, 205), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 225, 245) },
-	{ Id = "Ice", Name = "Frozen Ice", Cost = 150, Currency = "Shards", Color = Color3.fromRGB(175, 220, 255), Material = Enum.Material.Ice, Glass = Color3.fromRGB(225, 245, 255) },
-	{ Id = "Jungle", Name = "Jungle Stone", Cost = 200, Currency = "Shards", Color = Color3.fromRGB(85, 120, 70), Material = Enum.Material.Slate, Glass = Color3.fromRGB(150, 220, 120) },
-	{ Id = "Cyber", Name = "Cyber Neon", Cost = 300, Currency = "Shards", Color = Color3.fromRGB(30, 30, 40), Material = Enum.Material.Metal, Glass = Color3.fromRGB(0, 255, 200), GlassNeon = true },
+	{ Id = "RedBrick", Name = "Red Brick", Cost = 50, Currency = "Shards", Color = Color3.fromRGB(165, 65, 50), Material = Enum.Material.Brick, FloorColor = Color3.fromRGB(150, 105, 75), FloorMaterial = Enum.Material.WoodPlanks },
+	{ Id = "Candy", Name = "Candy Pink", Cost = 100, Currency = "Shards", Color = Color3.fromRGB(255, 160, 205), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 225, 245), FloorColor = Color3.fromRGB(255, 225, 238), FloorMaterial = Enum.Material.SmoothPlastic },
+	{ Id = "Ice", Name = "Frozen Ice", Cost = 150, Currency = "Shards", Color = Color3.fromRGB(175, 220, 255), Material = Enum.Material.Ice, Glass = Color3.fromRGB(225, 245, 255), FloorColor = Color3.fromRGB(215, 238, 255), FloorMaterial = Enum.Material.Ice },
+	{ Id = "Jungle", Name = "Jungle Stone", Cost = 200, Currency = "Shards", Color = Color3.fromRGB(85, 120, 70), Material = Enum.Material.Slate, Glass = Color3.fromRGB(150, 220, 120), FloorColor = Color3.fromRGB(100, 85, 60), FloorMaterial = Enum.Material.Ground },
+	{ Id = "Cyber", Name = "Cyber Neon", Cost = 300, Currency = "Shards", Color = Color3.fromRGB(30, 30, 40), Material = Enum.Material.Metal, Glass = Color3.fromRGB(0, 255, 200), GlassNeon = true, FloorColor = Color3.fromRGB(35, 35, 45), FloorMaterial = Enum.Material.DiamondPlate },
 	{ Id = "Gold", Name = "Royal Gold", Cost = 4, Currency = "Diamonds", Color = Color3.fromRGB(255, 200, 60), Material = Enum.Material.Foil, Glass = Color3.fromRGB(255, 240, 180) },
-	{ Id = "Galaxy", Name = "Galaxy", Cost = 9, Currency = "Diamonds", Color = Color3.fromRGB(45, 25, 85), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(200, 120, 255), GlassNeon = true },
+	{ Id = "Galaxy", Name = "Galaxy", Cost = 9, Currency = "Diamonds", Color = Color3.fromRGB(45, 25, 85), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(200, 120, 255), GlassNeon = true, FloorColor = Color3.fromRGB(25, 15, 50), FloorMaterial = Enum.Material.Glass },
 } :: { WallSkin }
 
 -- Diamond Shop: the booth by the spawn (like a ticket shop). Diamonds only

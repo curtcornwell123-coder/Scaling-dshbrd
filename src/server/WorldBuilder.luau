@@ -21,6 +21,7 @@ export type PlotParts = {
 	WallFolders: { [number]: Folder },
 	Stories: { [number]: Folder }, -- floors 2+; parented only once bought
 	Stairs: { { Carpet: Folder, Base: CFrame } }, -- Base: bottom-front-center of each staircase
+	Floors: { BasePart }, -- ground floor + every upper slab
 	LightSets: { [number]: { Ceiling: Folder, Posts: Folder } },
 	Roof: Folder, -- parented only when every floor is built
 	SignPost: BasePart,
@@ -182,7 +183,10 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		return cf * CFrame.new(x, y, z)
 	end
 
-	block(model, "Floor", Vector3.new(PLOT_SIZE, 1, PLOT_SIZE), at(0, FLOOR_TOP - 0.5, 0), color, Enum.Material.Plastic)
+	-- Floors are restyled by SetWallLevel to match the wall skin.
+	local floors: { BasePart } = {
+		block(model, "Floor", Vector3.new(PLOT_SIZE, 1, PLOT_SIZE), at(0, FLOOR_TOP - 0.5, 0), color, Enum.Material.Plastic),
+	}
 
 	local wallFolders: { [number]: Folder } = {}
 	local groundWalls = Instance.new("Folder")
@@ -227,26 +231,32 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		-- Slab with a hole where the ramp from the floor below comes up.
 		-- Edges stop inside the walls (x/z = +-29) so faces never overlap and flicker.
 		local mainX = if side == -1 then 4.5 else -4.5
-		block(folder, "Slab", Vector3.new(49, 1, 58), at(mainX, y - 0.5, 0), color, Enum.Material.Plastic)
-		block(folder, "Slab", Vector3.new(9, 1, 25), at(side * 24.5, y - 0.5, 16.5), color, Enum.Material.Plastic)
+		table.insert(floors, block(folder, "Slab", Vector3.new(49, 1, 58), at(mainX, y - 0.5, 0), color, Enum.Material.Plastic))
+		table.insert(floors, block(folder, "Slab", Vector3.new(9, 1, 25), at(side * 24.5, y - 0.5, 16.5), color, Enum.Material.Plastic))
 
-		-- Staircase up from the floor below. Players walk on an invisible
-		-- ramp so climbing is smooth; the steps on top are just for looks.
-		local ramp = Instance.new("WedgePart")
-		ramp.Name = "StairRamp"
-		ramp.Anchored = true
-		ramp.Transparency = 1
-		ramp.Size = Vector3.new(STAIR_WIDTH, STORY_HEIGHT, STAIR_RUN)
-		ramp.CFrame = at(side * 24, storyBase(story - 1) + STORY_HEIGHT / 2, -26 + STAIR_RUN / 2)
-		ramp.Parent = folder
-
+		-- Open staircase up from the floor below: floating treads on two side
+		-- beams, so brainrots behind and under it stay visible. Players walk on
+		-- a thin invisible plank along the slope (smooth, and open underneath).
 		local stairBase = at(side * 24, storyBase(story - 1), -26)
 		local rise = STORY_HEIGHT / STAIR_STEPS
 		local run = STAIR_RUN / STAIR_STEPS
+		local slopeLength = math.sqrt(STAIR_RUN ^ 2 + STORY_HEIGHT ^ 2)
+		local slopeAngle = math.atan2(STORY_HEIGHT, STAIR_RUN)
+		-- Center of the slope line, tilted so local +Z climbs toward the back.
+		local slope = stairBase * CFrame.new(0, STORY_HEIGHT / 2, STAIR_RUN / 2) * CFrame.Angles(-slopeAngle, 0, 0)
+
+		local walkway = block(folder, "StairWalkway", Vector3.new(STAIR_WIDTH, 1, slopeLength), slope * CFrame.new(0, -0.5, 0), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+		walkway.Transparency = 1
+
+		local wood = Color3.fromRGB(150, 105, 65)
+		for _, beamSide in { -1, 1 } do
+			local beam = block(folder, "StairBeam", Vector3.new(0.5, 1, slopeLength), slope * CFrame.new(beamSide * (STAIR_WIDTH / 2 - 0.25), -0.7, 0), wood:Lerp(Color3.new(0, 0, 0), 0.25), Enum.Material.WoodPlanks)
+			beam.CanCollide = false
+		end
 		for step = 1, STAIR_STEPS do
 			local top = (step - 0.5) * rise
-			local stepPart = block(folder, "Step", Vector3.new(STAIR_WIDTH, top, run), stairBase * CFrame.new(0, top / 2, (step - 0.5) * run), Color3.fromRGB(150, 105, 65), Enum.Material.WoodPlanks)
-			stepPart.CanCollide = false
+			local tread = block(folder, "Step", Vector3.new(STAIR_WIDTH - 1, 0.4, run * 0.9), stairBase * CFrame.new(0, top - 0.2, (step - 0.5) * run), wood, Enum.Material.WoodPlanks)
+			tread.CanCollide = false
 		end
 		local carpet = Instance.new("Folder")
 		carpet.Name = "Carpet"
@@ -368,6 +378,7 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		WallFolders = wallFolders,
 		Stories = stories,
 		Stairs = stairs,
+		Floors = floors,
 		LightSets = lightSets,
 		Roof = roof,
 		SignPost = signPost,
@@ -391,6 +402,12 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 		Glass = if skin and skin.Glass then skin.Glass else GLASS_COLOR,
 		GlassNeon = if skin then skin.GlassNeon else nil,
 	}
+	-- Floors match the skin; Classic floors are grey in the walls' material.
+	for _, floor in parts.Floors do
+		floor.Color = if skin and skin.FloorColor then skin.FloorColor else style.Color
+		floor.Material = if skin and skin.FloorMaterial then skin.FloorMaterial else style.Material
+	end
+
 	local half = PLOT_SIZE / 2
 	local inner = PLOT_SIZE - WALL_THICKNESS * 2 -- back/front walls fit between the side walls
 	local frontWidth = (inner - ENTRANCE_WIDTH) / 2
@@ -446,7 +463,7 @@ function WorldBuilder.SetCarpet(parts: PlotParts, tier: number)
 		if not info then
 			continue
 		end
-		local width = STAIR_WIDTH - 2
+		local width = STAIR_WIDTH - 1.6
 		for step = 1, STAIR_STEPS do
 			local top = (step - 0.5) * rise
 			local z = (step - 0.5) * run
@@ -457,11 +474,10 @@ function WorldBuilder.SetCarpet(parts: PlotParts, tier: number)
 				p.CastShadow = false
 				return p
 			end
-			piece("CarpetTop", Vector3.new(width, 0.12, run), CFrame.new(0, top + 0.06, z), color, info.Material)
-			piece("CarpetRiser", Vector3.new(width, math.min(rise, top), 0.12), CFrame.new(0, top - math.min(rise, top) / 2, z - run / 2 - 0.06), color, info.Material)
+			piece("CarpetTop", Vector3.new(width, 0.12, run * 0.9), CFrame.new(0, top + 0.06, z), color, info.Material)
 			if info.Trim then
 				for _, side in { -1, 1 } do
-					piece("CarpetTrim", Vector3.new(0.35, 0.16, run), CFrame.new(side * (width / 2 + 0.17), top + 0.08, z), info.Trim, Enum.Material.Foil)
+					piece("CarpetTrim", Vector3.new(0.3, 0.16, run * 0.9), CFrame.new(side * (width / 2 + 0.15), top + 0.08, z), info.Trim, Enum.Material.Foil)
 				end
 			end
 			if info.Glow then

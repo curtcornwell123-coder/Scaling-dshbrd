@@ -129,7 +129,7 @@ Fair progression for free-to-play players. None of this can be bought with Robux
 
 - **Daily quests:** 3 a day, the same for everyone, and new ones at midnight Oklahoma time. Each pays **10 Shards**.
 - **Weekly quests:** 3 a week, new every Monday, and much harder. Each pays **1 Diamond + 100 Shards**. Weekly quests are the only way to earn Diamonds.
-- **Wall skins:** open the **QUESTS** button to see them. Most cost Shards (Red Brick 50, Candy 100, Ice 150, Jungle 200, Cyber Neon 300). The best two cost Diamonds (Royal Gold 4, Galaxy 9). Skins only change the look; your base level still sets the wall height.
+- **Wall skins:** open the **QUESTS** button to see them. Most cost Shards (Red Brick 50, Candy 100, Ice 150, Jungle 200, Cyber Neon 300). The best two cost Diamonds (Royal Gold 4, Galaxy 9). Skins only change the look; your base level still sets the wall height. Every floor of your base matches your skin. With Classic, floors are the same grey in your walls' material (wood, brick, concrete, steel or diamond).
 - **Diamond Shop:** a striped booth with a giant spinning diamond, right by the spawn.
   - The left counter spends Diamonds: Shard Pouch (1), 2x Cash for 30 min (2), Server Luck for everyone for 15 min (3), plus the Diamond wall skins.
   - The right counter opens the **Robux shop**: the limited event brainrot, gamepasses and boosts.
@@ -142,6 +142,7 @@ Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around a
 
 ## Base looks
 
+- Stairs are open (steps on side beams), so you can see brainrots behind and under them.
 - Every floor gets lights: ceiling panels under each floor, or lamp posts on an open top floor.
 - A fully upgraded base (level 5) gets walls all the way up and a peaked roof with a gold ridge and a glowing star.
 
