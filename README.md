@@ -8,9 +8,10 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
 2. **Earn.** Each brainrot on a pedestal makes cash every second. The cash piles up on the green **COLLECT** pad, so step on it to bank it.
 3. **Steal.** Walk into someone else's base and hold **E** on a brainrot. It goes over your head, you move slower, and you have to run it back to your own base.
 4. **Defend.** Everyone has a **Slap** tool. Slap a thief and the brainrot runs back home.
-5. **Lock.** Step on the red **LOCK** pad. A laser closes your entrance for 60s and zaps anyone else who walks through. After that it recharges for 30s, and that's when you're vulnerable.
-6. **Sell** your own brainrots for half price (hold **F**).
-7. **Rebirth.** Reset your cash and brainrots for a permanent income multiplier (+0.5x each time).
+5. **Upgrade walls.** You start with a low wood fence that thieves can hop over. Use the orange post in your base to upgrade: Brick ($1K), Concrete ($25K, too tall to jump), Steel ($500K) and Diamond ($10M). Once your walls are too tall to jump, the entrance is the only way in.
+6. **Lock.** Step on the red **LOCK** pad. A laser closes your entrance for 60s and zaps anyone else who walks through. After that it recharges for 30s, and that's when you're vulnerable.
+7. **Sell** your own brainrots for half price (hold **F**).
+8. **Rebirth.** Reset your cash and brainrots (walls stay) for a permanent income multiplier (+0.5x each time).
 
 Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck purchases are announced to the whole server.
 

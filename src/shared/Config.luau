@@ -99,6 +99,26 @@ Config.LockDuration = 60
 Config.LongerLockDuration = 120 -- with the Longer Lock gamepass
 Config.LockCooldown = 30 -- vulnerable window after a lock ends
 
+-- Walls --------------------------------------------------------------------
+-- Everyone starts with a low fence that thieves can hop over. Players jump
+-- about 7 studs high, so level 3 is the first wall nobody can jump over,
+-- and from then on the entrance (and its lock laser) is the only way in.
+
+export type WallLevel = {
+	Name: string,
+	Height: number,
+	Cost: number,
+	Material: Enum.Material,
+}
+
+Config.WallLevels = {
+	{ Name = "Wood Fence", Height = 3, Cost = 0, Material = Enum.Material.WoodPlanks },
+	{ Name = "Brick Wall", Height = 5.5, Cost = 1000, Material = Enum.Material.Brick },
+	{ Name = "Concrete Wall", Height = 9, Cost = 25000, Material = Enum.Material.Concrete },
+	{ Name = "Steel Wall", Height = 13, Cost = 500000, Material = Enum.Material.DiamondPlate },
+	{ Name = "Diamond Wall", Height = 18, Cost = 10000000, Material = Enum.Material.Glass },
+} :: { WallLevel }
+
 -- Stealing -----------------------------------------------------------------
 
 Config.CarryWalkSpeed = 13 -- thieves move slower while carrying

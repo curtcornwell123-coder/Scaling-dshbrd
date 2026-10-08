@@ -17,6 +17,9 @@ export type PlotParts = {
 	CollectPad: BasePart,
 	LockPad: BasePart,
 	Laser: BasePart,
+	Walls: { BasePart },
+	UpgradePost: BasePart,
+	UpgradeLabel: TextLabel,
 	OwnerLabel: TextLabel,
 	PendingLabel: TextLabel,
 	LockLabel: TextLabel,
@@ -34,7 +37,7 @@ export type World = {
 local PLOT_SIZE = 60
 local PLOT_DISTANCE = 75 -- from the conveyor to each plot's center
 local PLOT_SPACING = 70
-local WALL_HEIGHT = 10
+local SIGN_HEIGHT = 24
 local ENTRANCE_WIDTH = 16
 local FLOOR_TOP = 1
 
@@ -102,16 +105,18 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 
 	block(model, "Floor", Vector3.new(PLOT_SIZE, 1, PLOT_SIZE), at(0, FLOOR_TOP - 0.5, 0), color, Enum.Material.Plastic)
 
+	-- Walls are built 1 stud tall here; SetWallLevel sizes them.
 	local wallColor = color:Lerp(Color3.new(0, 0, 0), 0.35)
-	local wallY = FLOOR_TOP + WALL_HEIGHT / 2
-	block(model, "WallBack", Vector3.new(PLOT_SIZE, WALL_HEIGHT, 2), at(0, wallY, half - 1), wallColor)
-	block(model, "WallLeft", Vector3.new(2, WALL_HEIGHT, PLOT_SIZE), at(-half + 1, wallY, 0), wallColor)
-	block(model, "WallRight", Vector3.new(2, WALL_HEIGHT, PLOT_SIZE), at(half - 1, wallY, 0), wallColor)
 	local frontWidth = (PLOT_SIZE - ENTRANCE_WIDTH) / 2
-	block(model, "WallFrontL", Vector3.new(frontWidth, WALL_HEIGHT, 2), at(-half + frontWidth / 2, wallY, -half + 1), wallColor)
-	block(model, "WallFrontR", Vector3.new(frontWidth, WALL_HEIGHT, 2), at(half - frontWidth / 2, wallY, -half + 1), wallColor)
+	local walls = {
+		block(model, "WallBack", Vector3.new(PLOT_SIZE, 1, 2), at(0, FLOOR_TOP, half - 1), wallColor),
+		block(model, "WallLeft", Vector3.new(2, 1, PLOT_SIZE), at(-half + 1, FLOOR_TOP, 0), wallColor),
+		block(model, "WallRight", Vector3.new(2, 1, PLOT_SIZE), at(half - 1, FLOOR_TOP, 0), wallColor),
+		block(model, "WallFrontL", Vector3.new(frontWidth, 1, 2), at(-half + frontWidth / 2, FLOOR_TOP, -half + 1), wallColor),
+		block(model, "WallFrontR", Vector3.new(frontWidth, 1, 2), at(half - frontWidth / 2, FLOOR_TOP, -half + 1), wallColor),
+	} :: { BasePart }
 
-	local laser = block(model, "Laser", Vector3.new(ENTRANCE_WIDTH, WALL_HEIGHT, 0.6), at(0, wallY, -half + 1), Color3.fromRGB(255, 30, 30), Enum.Material.Neon)
+	local laser = block(model, "Laser", Vector3.new(ENTRANCE_WIDTH, 1, 0.6), at(0, FLOOR_TOP, -half + 1), Color3.fromRGB(255, 30, 30), Enum.Material.Neon)
 	laser.CanCollide = false
 	laser.Transparency = 1
 
@@ -134,7 +139,19 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 	local lockPad = block(model, "LockPad", Vector3.new(8, 0.4, 8), at(-12, FLOOR_TOP + 0.2, -12), Color3.fromRGB(230, 60, 60), Enum.Material.Neon)
 	local lockLabel = billboard(lockPad, Vector2.new(220, 70), Vector3.new(0, 5, 0), "STEP TO LOCK", Color3.fromRGB(255, 140, 140))
 
-	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + WALL_HEIGHT + 4, half - 1), wallColor)
+	local upgradePost = block(model, "UpgradePost", Vector3.new(2, 4, 2), at(-22, FLOOR_TOP + 2, -22), Color3.fromRGB(255, 170, 40), Enum.Material.Neon)
+	local upgradeLabel = billboard(upgradePost, Vector2.new(240, 70), Vector3.new(0, 5, 0), "WALLS", Color3.fromRGB(255, 210, 120))
+	local upgradePrompt = Instance.new("ProximityPrompt")
+	upgradePrompt.Name = "UpgradePrompt"
+	upgradePrompt.ActionText = "Upgrade Walls"
+	upgradePrompt.ObjectText = "Walls"
+	upgradePrompt.HoldDuration = 0.4
+	upgradePrompt.MaxActivationDistance = 10
+	upgradePrompt.RequiresLineOfSight = false
+	upgradePrompt:SetAttribute("Action", "Upgrade")
+	upgradePrompt.Parent = upgradePost
+
+	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + SIGN_HEIGHT, half - 1), wallColor)
 	signPost.Transparency = 1
 	signPost.CanCollide = false
 	local ownerLabel = billboard(signPost, Vector2.new(400, 80), Vector3.zero, "EMPTY BASE", Color3.new(1, 1, 1))
@@ -149,11 +166,35 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		CollectPad = collectPad,
 		LockPad = lockPad,
 		Laser = laser,
+		Walls = walls,
+		UpgradePost = upgradePost,
+		UpgradeLabel = upgradeLabel,
 		OwnerLabel = ownerLabel,
 		PendingLabel = pendingLabel,
 		LockLabel = lockLabel,
 		SpawnCFrame = at(0, FLOOR_TOP + 4, -6) * CFrame.Angles(0, math.pi, 0),
 	}
+end
+
+-- Resizes a base's walls and entrance laser to a wall level from Config.
+function WorldBuilder.SetWallLevel(parts: PlotParts, level: number)
+	local info = Config.WallLevels[level] or Config.WallLevels[1]
+	local function resize(part: BasePart)
+		part.Size = Vector3.new(part.Size.X, info.Height, part.Size.Z)
+		local p = part.Position
+		part.CFrame = part.CFrame.Rotation + Vector3.new(p.X, FLOOR_TOP + info.Height / 2, p.Z)
+	end
+	for _, wall in parts.Walls do
+		resize(wall)
+		wall.Material = info.Material
+		wall.Transparency = if info.Material == Enum.Material.Glass then 0.3 else 0
+	end
+	resize(parts.Laser)
+
+	local nextInfo = Config.WallLevels[level + 1]
+	parts.UpgradeLabel.Text = if nextInfo
+		then string.format("%s (Lv %d)\nNext: %s", info.Name, level, Config.FormatCash(nextInfo.Cost))
+		else string.format("%s (MAX)", info.Name)
 end
 
 function WorldBuilder.Build(): World
@@ -165,6 +206,12 @@ function WorldBuilder.Build(): World
 	local root = Instance.new("Folder")
 	root.Name = "BrainrotHeist"
 	root.Parent = workspace
+
+	-- A Baseplate sitting too high would bury the map; put its top at y = 0.
+	local baseplate = workspace:FindFirstChild("Baseplate")
+	if baseplate and baseplate:IsA("BasePart") then
+		baseplate.CFrame = CFrame.new(0, -baseplate.Size.Y / 2, 0)
+	end
 
 	Lighting.ClockTime = 14
 	Lighting.Brightness = 2
@@ -204,6 +251,7 @@ function WorldBuilder.Build(): World
 		local column = (i - 1) % columnsPerSide
 		local x = (column - (columnsPerSide - 1) / 2) * PLOT_SPACING
 		plots[i] = buildPlot(plotsFolder, i, Vector3.new(x, 0, side * PLOT_DISTANCE))
+		WorldBuilder.SetWallLevel(plots[i], 1)
 	end
 
 	local spawn = Instance.new("SpawnLocation")

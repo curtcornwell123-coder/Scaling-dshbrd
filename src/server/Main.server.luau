@@ -43,6 +43,7 @@ type SaveData = {
 	Rebirths: number,
 	Brainrots: { string }, -- brainrot ids placed in the base, in slot order
 	Steals: number,
+	WallLevel: number,
 	Receipts: { string }, -- recent purchase ids, so a purchase is never granted twice
 }
 
@@ -192,6 +193,7 @@ local function defaultData(): SaveData
 		Rebirths = 0,
 		Brainrots = {},
 		Steals = 0,
+		WallLevel = 1,
 		Receipts = {},
 	}
 end
@@ -209,6 +211,9 @@ local function sanitize(raw: any): SaveData
 	end
 	if type(raw.Steals) == "number" then
 		data.Steals = raw.Steals
+	end
+	if type(raw.WallLevel) == "number" then
+		data.WallLevel = math.clamp(math.floor(raw.WallLevel), 1, #Config.WallLevels)
 	end
 	if type(raw.Brainrots) == "table" then
 		for _, id in raw.Brainrots do
@@ -256,6 +261,7 @@ local function snapshot(session: Session)
 		Placed = if plot then placedCount(plot) else 0,
 		MaxSlots = maxSlots(session),
 		Steals = data.Steals,
+		WallLevel = data.WallLevel,
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
 	}
@@ -632,6 +638,7 @@ local function assignPlot(player: Player, session: Session)
 			plot.Parts.OwnerLabel.Text = player.DisplayName .. "'s Base"
 			session.Plot = plot
 			updateVipPedestals(plot)
+			WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel)
 			for i, id in session.Data.Brainrots do
 				if i > #plot.Parts.Pedestals then
 					break
@@ -656,10 +663,38 @@ local function releasePlot(plot: Plot)
 	plot.Parts.PendingLabel.Text = "COLLECT\n$0"
 	plot.Parts.LockLabel.Text = "STEP TO LOCK"
 	updateVipPedestals(plot)
+	WorldBuilder.SetWallLevel(plot.Parts, 1)
+end
+
+local function onUpgradeWalls(player: Player, plot: Plot)
+	local session = sessions[player]
+	if not session or not session.Loaded or plot.Owner ~= player then
+		return
+	end
+	local level = session.Data.WallLevel
+	local nextLevel = Config.WallLevels[level + 1]
+	if not nextLevel then
+		notify(player, "Your walls are already maxed out!")
+		return
+	end
+	if session.Data.Cash < nextLevel.Cost then
+		notify(player, "You need " .. Config.FormatCash(nextLevel.Cost) .. " for " .. nextLevel.Name .. "!")
+		return
+	end
+	session.Data.Cash -= nextLevel.Cost
+	session.Data.WallLevel = level + 1
+	WorldBuilder.SetWallLevel(plot.Parts, level + 1)
+	notify(player, "Upgraded to " .. nextLevel.Name .. "!")
+	push(player)
 end
 
 for _, plot in plots do
 	updateVipPedestals(plot)
+
+	local upgradePrompt = plot.Parts.UpgradePost:FindFirstChild("UpgradePrompt") :: ProximityPrompt
+	upgradePrompt.Triggered:Connect(function(player)
+		onUpgradeWalls(player, plot)
+	end)
 
 	plot.Parts.CollectPad.Touched:Connect(function(hit)
 		local player = Players:GetPlayerFromCharacter(hit.Parent)

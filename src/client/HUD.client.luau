@@ -467,6 +467,13 @@ updateCarry()
 
 local function updatePrompt(prompt: ProximityPrompt)
 	local action = prompt:GetAttribute("Action")
+	if action == "Upgrade" then
+		-- Prompt lives on the upgrade post, directly inside the plot model.
+		local post = prompt.Parent
+		local plot = post and post.Parent
+		prompt.Enabled = plot ~= nil and plot:GetAttribute("OwnerUserId") == player.UserId
+		return
+	end
 	if action ~= "Sell" and action ~= "Steal" then
 		return
 	end
