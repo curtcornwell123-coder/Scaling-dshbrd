@@ -700,7 +700,7 @@ do
 	local getNow = button(featuredColumn, "GET NOW", Color3.fromRGB(190, 70, 230), UDim2.new(1, -30, 0, 44))
 	getNow.Position = UDim2.fromOffset(15, 212)
 	getNow.MouseButton1Click:Connect(function()
-		if featuredItem and featuredItem.ProductId ~= 0 and not (data and data.Limited and data.Limited[featuredId]) then
+		if featuredItem and Config.LimitedOnSale(featuredItem) and not (data and data.Limited and data.Limited[featuredId]) then
 			buyLimitedItem(featuredId)
 		end
 	end)
@@ -949,7 +949,7 @@ do
 			if serial then
 				getNow.Text = "OWNED #" .. serial
 				getNow.BackgroundColor3 = SHOP_GREY
-			elseif featuredItem.ProductId == 0 then
+			elseif not Config.LimitedOnSale(featuredItem) then
 				getNow.Text = "SOON"
 				getNow.BackgroundColor3 = SHOP_GREY
 			elseif left <= 0 then

@@ -1114,6 +1114,16 @@ local function deliverOwnedLimited(player: Player)
 			continue
 		end
 		local serial = LimitedStock.OwnedSerial(player.UserId, itemId)
+		local item = Config.LimitedItems[itemId]
+		if not serial and item.GamePassId and item.GamePassId ~= 0 then
+			-- Bought the gamepass (maybe on the website) but no copy yet.
+			local ok, owns = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, item.GamePassId :: number)
+			end)
+			if ok and owns then
+				serial = LimitedStock.Claim(player, itemId)
+			end
+		end
 		-- Checked again after the wait: they may have left, or got it meanwhile.
 		session = sessions[player]
 		if serial and session and session.Loaded and not ownsLimited(session, itemId) then
@@ -1705,7 +1715,7 @@ do
 				brainrot.DisplayName,
 				if stock <= 0 then "SOLD OUT" else string.format("%d / %d LEFT", stock, item.Stock),
 				Config.StockCountdown(nextAt, os.time()),
-				if item.ProductId == 0 then "Coming soon!" else string.format("R$ %d  -  1%% MAGIC!", item.PriceRobux)
+				if not Config.LimitedOnSale(item) then "Coming soon!" else string.format("R$ %d  -  1%% MAGIC!", item.PriceRobux)
 			)
 		end
 		-- Ticks every second for the countdown.
@@ -3467,7 +3477,7 @@ BuyLimited.OnServerInvoke = function(player: Player, itemId: unknown): (boolean,
 	if not session or not session.Loaded or not item or not brainrot then
 		return false, "Try again in a moment."
 	end
-	if item.ProductId == 0 then
+	if not Config.LimitedOnSale(item) then
 		return false, "Not on sale yet!"
 	end
 	if ownsLimited(session, brainrot.Id) then
@@ -3482,8 +3492,37 @@ BuyLimited.OnServerInvoke = function(player: Player, itemId: unknown): (boolean,
 	if not ok then
 		return false, message
 	end
-	MarketplaceService:PromptProductPurchase(player, item.ProductId)
+	if item.GamePassId and item.GamePassId ~= 0 then
+		MarketplaceService:PromptGamePassPurchase(player, item.GamePassId)
+	else
+		MarketplaceService:PromptProductPurchase(player, item.ProductId)
+	end
 	return true, nil
+end
+
+-- Limited brainrots sold as a gamepass: once Roblox says it's bought, turn
+-- the reserved copy into theirs (with a serial) and put her in their base.
+local function claimLimitedPass(player: Player, itemId: string)
+	local brainrot = Config.GetBrainrot(itemId)
+	if not brainrot then
+		return
+	end
+	for attempt = 1, 5 do
+		local serial = LimitedStock.Claim(player, itemId)
+		local session = sessions[player]
+		if serial and session and session.Loaded then
+			if not ownsLimited(session, itemId) then
+				local mutation = grantLimited(player, session, brainrot, serial)
+				Announce:FireAllClients("limited", player.DisplayName, itemId, tostring(serial), mutation)
+				save(player)
+			end
+			return
+		end
+		if not player.Parent then
+			return -- they get her when they next join (they own the pass)
+		end
+		task.wait(attempt * 2)
+	end
 end
 
 MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, isPurchased)
@@ -3535,6 +3574,16 @@ end
 
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
 	local session = sessions[player]
+	for itemId, item in Config.LimitedItems do
+		if item.GamePassId == passId then
+			if purchased then
+				task.spawn(claimLimitedPass, player, itemId)
+			else
+				LimitedStock.Release(player, itemId)
+			end
+			return
+		end
+	end
 	if not purchased or not session then
 		return
 	end

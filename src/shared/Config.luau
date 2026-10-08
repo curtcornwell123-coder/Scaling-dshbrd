@@ -33,7 +33,8 @@ export type Brainrot = {
 -- Limited Robux brainrots. Stock is shared by every server (saved in a
 -- DataStore), one per player, and each copy gets a serial number.
 export type LimitedItem = {
-	ProductId: number, -- developer product (0 = not on sale yet)
+	ProductId: number, -- developer product (0 = none)
+	GamePassId: number?, -- or a gamepass (one per player); either puts her on sale
 	PriceRobux: number, -- shown in the shop; the real price is set on the product
 	Stock: number, -- copies for sale
 	Reserved: number, -- extra copies Corny can still give once the shop stock is gone
@@ -662,8 +663,13 @@ function Config.StockCountdown(nextAt: number?, now: number): string
 end
 
 Config.LimitedItems = {
-	CignaGlamourina = { ProductId = 0, PriceRobux = 50, Stock = 500, Reserved = 2 },
+	CignaGlamourina = { ProductId = 0, GamePassId = 2021528297, PriceRobux = 50, Stock = 500, Reserved = 2 },
 } :: { [string]: LimitedItem }
+
+-- Whether a limited item can be bought yet (it has a product or a gamepass).
+function Config.LimitedOnSale(item: LimitedItem): boolean
+	return item.ProductId ~= 0 or (item.GamePassId or 0) ~= 0
+end
 
 -- Admin drops: what the "Brainrot Rain" and "Cash Rain" buttons drop.
 Config.BrainrotRainCount = 10
