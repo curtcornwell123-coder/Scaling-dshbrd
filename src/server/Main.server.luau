@@ -1814,7 +1814,8 @@ local function onCharacter(player: Player, character: Model)
 end
 
 local function checkAdmin(player: Player): boolean
-	if RunService:IsStudio() or table.find(Config.AdminUserIds, player.UserId) then
+	-- The founders (Corny and Ace) are always admins.
+	if RunService:IsStudio() or table.find(Config.AdminUserIds, player.UserId) or founderOf(player) then
 		return true
 	end
 	if game.CreatorType == Enum.CreatorType.User then
