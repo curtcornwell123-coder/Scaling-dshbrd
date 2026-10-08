@@ -40,6 +40,8 @@ local PLOT_SPACING = 70
 local SIGN_HEIGHT = 24
 local ENTRANCE_WIDTH = 16
 local FLOOR_TOP = 1
+local WALL_COLOR = Color3.fromRGB(140, 140, 145) -- every base's fence is the same grey
+local CAVE_DEPTH = 30
 
 local PLOT_COLORS = {
 	Color3.fromRGB(255, 120, 120),
@@ -106,7 +108,7 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 	block(model, "Floor", Vector3.new(PLOT_SIZE, 1, PLOT_SIZE), at(0, FLOOR_TOP - 0.5, 0), color, Enum.Material.Plastic)
 
 	-- Walls are built 1 stud tall here; SetWallLevel sizes them.
-	local wallColor = color:Lerp(Color3.new(0, 0, 0), 0.35)
+	local wallColor = WALL_COLOR
 	local frontWidth = (PLOT_SIZE - ENTRANCE_WIDTH) / 2
 	local walls = {
 		block(model, "WallBack", Vector3.new(PLOT_SIZE, 1, 2), at(0, FLOOR_TOP, half - 1), wallColor),
@@ -197,6 +199,99 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number)
 		else string.format("%s (MAX)", info.Name)
 end
 
+-- A rocky cave around the start of the conveyor, opening toward +X.
+local function buildCave(parent: Instance, mouthX: number)
+	local cave = Instance.new("Model")
+	cave.Name = "BrainrotCave"
+	cave.Parent = parent
+
+	local rock = Color3.fromRGB(105, 95, 90)
+	local darkRock = Color3.fromRGB(45, 40, 40)
+	local backX = mouthX - CAVE_DEPTH
+	local centerX = (mouthX + backX) / 2
+	local halfWidth = 9 -- tunnel half-width; the belt and rails fit inside
+	local height = 15 -- tunnel height
+	local wall = 10
+
+	-- Shell: two side walls, a roof and a back wall, leaving a tunnel open at the mouth.
+	for _, side in { -1, 1 } do
+		block(cave, "CaveWall", Vector3.new(CAVE_DEPTH, height + 6, wall), CFrame.new(centerX, (height + 6) / 2, side * (halfWidth + wall / 2)), rock, Enum.Material.Rock)
+		block(cave, "CaveInner", Vector3.new(CAVE_DEPTH, height, 0.4), CFrame.new(centerX, height / 2, side * (halfWidth + 0.2)), darkRock, Enum.Material.Slate)
+	end
+	block(cave, "CaveRoof", Vector3.new(CAVE_DEPTH, 8, halfWidth * 2 + wall * 2), CFrame.new(centerX, height + 4, 0), rock, Enum.Material.Rock)
+	block(cave, "CaveCeiling", Vector3.new(CAVE_DEPTH, 0.4, halfWidth * 2), CFrame.new(centerX, height - 0.2, 0), darkRock, Enum.Material.Slate)
+	block(cave, "CaveBack", Vector3.new(4, height + 8, halfWidth * 2 + wall * 2), CFrame.new(backX - 2, (height + 8) / 2, 0), rock, Enum.Material.Rock)
+	block(cave, "CaveFloor", Vector3.new(CAVE_DEPTH, 0.6, halfWidth * 2), CFrame.new(centerX, 0.3, 0), darkRock, Enum.Material.Slate)
+
+	-- Boulders piled over the shell so it reads as a hill, not a box.
+	local rng = Random.new(7)
+	local function boulder(position: Vector3, size: number, color: Color3)
+		local b = Instance.new("Part")
+		b.Name = "Boulder"
+		b.Shape = Enum.PartType.Ball
+		b.Anchored = true
+		b.Size = Vector3.new(size, size, size)
+		b.CFrame = CFrame.new(position) * CFrame.Angles(rng:NextNumber(0, 6), rng:NextNumber(0, 6), 0)
+		b.Color = color
+		b.Material = Enum.Material.Rock
+		b.TopSurface = Enum.SurfaceType.Smooth
+		b.BottomSurface = Enum.SurfaceType.Smooth
+		b.Parent = cave
+	end
+	for _ = 1, 26 do
+		local x = rng:NextNumber(backX, mouthX - 2)
+		local z = rng:NextNumber(-halfWidth - wall, halfWidth + wall)
+		local y = if math.abs(z) < halfWidth + 2 then rng:NextNumber(height + 6, height + 10) else rng:NextNumber(6, height + 8)
+		local shade = rng:NextNumber(0.85, 1.15)
+		boulder(Vector3.new(x, y, z), rng:NextNumber(7, 13), Color3.new(rock.R * shade, rock.G * shade, rock.B * shade))
+	end
+
+	-- Arch of rocks framing the mouth.
+	for i = 0, 10 do
+		local angle = math.pi * i / 10
+		local z = math.cos(angle) * (halfWidth + 2.5)
+		local y = math.sin(angle) * (height - 2) + 1.5
+		boulder(Vector3.new(mouthX + 0.5, y, z), rng:NextNumber(3.5, 5), rock:Lerp(darkRock, 0.25))
+	end
+
+	-- Stalactites hanging in the entrance.
+	for _, z in { -6, -2.5, 1.5, 5 } do
+		local length = rng:NextNumber(1.5, 3)
+		local spike = Instance.new("WedgePart")
+		spike.Name = "Stalactite"
+		spike.Anchored = true
+		spike.Size = Vector3.new(1.2, length, 1.2)
+		spike.CFrame = CFrame.new(mouthX - 2, height - length / 2 - 0.3, z) * CFrame.Angles(math.pi, 0, 0)
+		spike.Color = darkRock
+		spike.Material = Enum.Material.Slate
+		spike.Parent = cave
+	end
+
+	-- Glowing crystals inside so you can see brainrots coming.
+	local crystalColors = { Color3.fromRGB(170, 80, 255), Color3.fromRGB(80, 200, 255), Color3.fromRGB(255, 80, 200) }
+	for i = 1, 8 do
+		local side = if i % 2 == 0 then 1 else -1
+		local crystal = Instance.new("Part")
+		crystal.Name = "Crystal"
+		crystal.Anchored = true
+		crystal.CanCollide = false
+		crystal.Size = Vector3.new(0.8, rng:NextNumber(1.5, 3), 0.8)
+		crystal.CFrame = CFrame.new(backX + 3 + (i - 1) * 3.2, rng:NextNumber(2, height - 3), side * (halfWidth - 0.3))
+			* CFrame.Angles(0, 0, rng:NextNumber(-0.5, 0.5))
+		crystal.Color = crystalColors[(i - 1) % #crystalColors + 1]
+		crystal.Material = Enum.Material.Neon
+		crystal.Parent = cave
+	end
+	local glow = Instance.new("PointLight")
+	glow.Color = Color3.fromRGB(180, 120, 255)
+	glow.Range = 24
+	glow.Brightness = 1.5
+	local lightPart = block(cave, "CaveLight", Vector3.new(1, 1, 1), CFrame.new(centerX, height - 3, 0), Color3.new(0, 0, 0))
+	lightPart.Transparency = 1
+	lightPart.CanCollide = false
+	glow.Parent = lightPart
+end
+
 function WorldBuilder.Build(): World
 	local existing = workspace:FindFirstChild("BrainrotHeist")
 	if existing then
@@ -232,9 +327,12 @@ function WorldBuilder.Build(): World
 		block(conveyorFolder, "Rail", Vector3.new(length, 1.5, 1), CFrame.new(0, 1.25, z), Color3.fromRGB(255, 200, 40), Enum.Material.Neon)
 	end
 
-	local startX = -length / 2 + 6
+	-- Brainrots spawn inside the cave and ride out of its mouth.
+	local mouthX = -length / 2 + 14
+	buildCave(root, mouthX)
+	local startX = mouthX - 10
 	local endX = length / 2 - 6
-	local sign = block(conveyorFolder, "ShopSign", Vector3.new(1, 1, 1), CFrame.new(startX, 14, 0), Color3.new(1, 1, 1))
+	local sign = block(conveyorFolder, "ShopSign", Vector3.new(1, 1, 1), CFrame.new(mouthX - CAVE_DEPTH / 2, 30, 0), Color3.new(1, 1, 1))
 	sign.Transparency = 1
 	sign.CanCollide = false
 	local signLabel = billboard(sign, Vector2.new(420, 90), Vector3.zero, "BRAINROT CONVEYOR\nBuy one before it's gone!", Color3.fromRGB(255, 230, 80))
@@ -258,7 +356,7 @@ function WorldBuilder.Build(): World
 	spawn.Name = "LobbySpawn"
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(12, 1, 12)
-	spawn.CFrame = CFrame.new(startX - 20, 0.5, 0)
+	spawn.CFrame = CFrame.new(endX + 20, 0.5, 0)
 	spawn.Color = Color3.fromRGB(255, 200, 40)
 	spawn.Material = Enum.Material.Neon
 	spawn.Neutral = true
