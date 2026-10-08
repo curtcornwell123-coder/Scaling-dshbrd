@@ -464,7 +464,11 @@ export type FounderEvent = {
 	Subtitle: string,
 	DurationMinutes: number,
 	Scale: number,
-	Spot: Vector3, -- where they stand (under their feet), off to the side of the map
+	Spot: Vector3, -- the ground under the UFO, off to the side of the map
+	UfoSize: number, -- the UFO's width
+	UfoHeight: number, -- how high the UFO hovers
+	FloatHeight: number, -- how high their feet float in the beam
+	PoseAnimationId: string, -- the pose they hold in the beam ("" = Roblox's standing idle)
 	DropEvery: number, -- seconds between throws
 	BrainrotChance: number, -- chance each drop is a brainrot (else a cash bag)
 	BrainrotLuck: number,
@@ -482,8 +486,15 @@ Config.FounderEvents = {
 		Title = "CORNY EVENT!",
 		Subtitle = "Giant Corny is here! Grab everything he throws!",
 		DurationMinutes = 5,
-		Scale = 95, -- about 600 studs tall: roughly 10 bases high
-		Spot = Vector3.new(0, 0, 640), -- standing on the grass well past the fence
+		Scale = 19, -- about 120 studs tall
+		Spot = Vector3.new(0, 0, 560), -- just past the fence
+		UfoSize = 260,
+		UfoHeight = 230,
+		FloatHeight = 35,
+		-- Floats in the UFO's beam in a wise sage pose (legs folded back,
+		-- hands together). To use an animation instead, paste its id here
+		-- ("rbxassetid://123...").
+		PoseAnimationId = "",
 		DropEvery = 1.6,
 		BrainrotChance = 0.3,
 		BrainrotLuck = 4,

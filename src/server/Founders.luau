@@ -469,6 +469,194 @@ function Founders.Play(giant: Model, animationId: string, looped: boolean, weigh
 end
 
 Founders.Idle = "rbxassetid://507766388" -- Roblox's normal standing idle
+
+-- Poses ----------------------------------------------------------------------
+-- A held pose made by turning the avatar's joints (degrees around X, Y, Z of
+-- each joint). Facing -Z: +X on a hip/shoulder swings a limb forward, -X on a
+-- knee folds the lower leg back.
+
+export type Pose = { [string]: { number } }
+
+-- Floating like a wise sage: knees bent with the legs folded back, hands
+-- brought together in front of the chest.
+Founders.SagePose = {
+	RightHip = { 30, 0, 0 },
+	LeftHip = { 30, 0, 0 },
+	RightKnee = { -115, 0, 0 },
+	LeftKnee = { -115, 0, 0 },
+	RightAnkle = { 45, 0, 0 },
+	LeftAnkle = { 45, 0, 0 },
+	RightShoulder = { 20, 0, -6 },
+	LeftShoulder = { 20, 0, 6 },
+	RightElbow = { 90, 0, -55 },
+	LeftElbow = { 90, 0, 55 },
+} :: Pose
+
+local originalC0: { [Motor6D]: CFrame } = setmetatable({}, { __mode = "k" }) :: any
+
+-- Puts a giant (a real avatar) into `pose`. Safe to call again: it always
+-- starts from each joint's original position.
+function Founders.ApplyPose(giant: Model, pose: Pose)
+	for _, joint in giant:GetDescendants() do
+		if joint:IsA("Motor6D") then
+			local angles = pose[joint.Name]
+			if angles then
+				local original = originalC0[joint] or joint.C0
+				originalC0[joint] = original
+				joint.C0 = original * CFrame.Angles(math.rad(angles[1]), math.rad(angles[2]), math.rad(angles[3]))
+			end
+		end
+	end
+end
+
+-- A glowing aura around a giant: a soft glow and outline (its OutlineColor
+-- can be cycled), and energy rising off its body. Returns the Highlight.
+function Founders.AddAura(giant: Model): Highlight
+	local highlight = Instance.new("Highlight")
+	highlight.Name = "Aura"
+	highlight.FillColor = Color3.fromRGB(255, 255, 255)
+	highlight.FillTransparency = 0.88
+	highlight.OutlineColor = Color3.fromRGB(255, 120, 220)
+	highlight.OutlineTransparency = 0
+	highlight.DepthMode = Enum.HighlightDepthMode.Occluded
+	highlight.Parent = giant
+	local root = giant.PrimaryPart :: BasePart
+	local _, size = giant:GetBoundingBox()
+	local holder = Instance.new("Part")
+	holder.Name = "AuraVolume"
+	holder.Anchored = false
+	holder.Massless = true
+	holder.CanCollide = false
+	holder.CanQuery = false
+	holder.CanTouch = false
+	holder.Transparency = 1
+	holder.Size = Vector3.new(size.X * 0.5, size.Y * 0.8, size.Z * 0.5)
+	holder.CFrame = root.CFrame
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = root
+	weld.Part1 = holder
+	weld.Parent = holder
+	holder.Parent = giant
+	local energy = Instance.new("ParticleEmitter")
+	energy.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	energy.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 120, 220)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120, 220, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 240, 140)),
+	})
+	energy.LightEmission = 1
+	energy.Rate = 50
+	energy.Lifetime = NumberRange.new(1, 2)
+	energy.Speed = NumberRange.new(size.Y * 0.05, size.Y * 0.12)
+	energy.EmissionDirection = Enum.NormalId.Top
+	energy.SpreadAngle = Vector2.new(15, 15)
+	energy.Shape = Enum.ParticleEmitterShape.Box
+	energy.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	energy.Size = NumberSequence.new(size.Y * 0.025, 0)
+	energy.Parent = holder
+	return highlight
+end
+
+-- UFO ------------------------------------------------------------------------
+-- A flying saucer for founder entrances, built around its center (facing
+-- doesn't matter, it's round). Every part is anchored; move it with PivotTo.
+
+local function ufoPart(model: Model, name: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material, egg: boolean?): Part
+	local p = Instance.new("Part")
+	p.Name = name
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Size = size
+	p.CFrame = cframe
+	p.Color = color
+	p.Material = material
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	if egg then
+		local mesh = Instance.new("SpecialMesh")
+		mesh.MeshType = Enum.MeshType.Sphere
+		mesh.Parent = p
+	end
+	p.Parent = model
+	return p
+end
+
+function Founders.CreateUfo(diameter: number): Model
+	local d = diameter
+	local model = Instance.new("Model")
+	model.Name = "FounderUFO"
+	local hull = ufoPart(model, "Hull", Vector3.new(d, d * 0.2, d), CFrame.new(), Color3.fromRGB(175, 180, 195), Enum.Material.Metal, true)
+	hull.Reflectance = 0.25
+	model.PrimaryPart = hull
+	ufoPart(model, "Belly", Vector3.new(d * 0.62, d * 0.17, d * 0.62), CFrame.new(0, -d * 0.06, 0), Color3.fromRGB(110, 115, 130), Enum.Material.Metal, true)
+	local rim = ufoPart(model, "Rim", Vector3.new(d * 0.035, d * 1.02, d * 1.02), CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(70, 75, 90), Enum.Material.Metal)
+	rim.Shape = Enum.PartType.Cylinder
+	local dome = ufoPart(model, "Dome", Vector3.new(d * 0.38, d * 0.3, d * 0.38), CFrame.new(0, d * 0.09, 0), Color3.fromRGB(120, 230, 255), Enum.Material.Glass, true)
+	dome.Transparency = 0.3
+	-- A ring of colored lights around the rim
+	local lights = 16
+	for i = 1, lights do
+		local angle = i / lights * math.pi * 2
+		local light = ufoPart(model, "RimLight", Vector3.new(d * 0.045, d * 0.045, d * 0.045), CFrame.new(math.cos(angle) * d * 0.49, 0, math.sin(angle) * d * 0.49), Color3.fromHSV(i / lights, 0.7, 1), Enum.Material.Neon)
+		light.Shape = Enum.PartType.Ball
+	end
+	-- The glowing hatch the beam comes out of
+	local hatch = ufoPart(model, "Hatch", Vector3.new(0.6, d * 0.3, d * 0.3), CFrame.new(0, -d * 0.145, 0) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(200, 255, 235), Enum.Material.Neon)
+	hatch.Shape = Enum.PartType.Cylinder
+	local spot = Instance.new("SpotLight")
+	spot.Face = Enum.NormalId.Left -- the cylinder is turned on its side, so "Left" points down
+	spot.Angle = 70
+	spot.Range = 60
+	spot.Brightness = 4
+	spot.Color = Color3.fromRGB(190, 255, 235)
+	spot.Parent = hatch
+	return model
+end
+
+-- The UFO's light beam: glowing see-through rings stacked into a cone from
+-- `top` down to `bottom` (both points on its center line), widening as it
+-- goes down, with sparkles drifting up inside. Starts invisible; fade it in
+-- by tweening each part's Transparency to `Founders.BeamTransparency`.
+Founders.BeamTransparency = 0.78
+
+function Founders.CreateBeam(top: Vector3, bottom: Vector3, topWidth: number, bottomWidth: number): Model
+	local model = Instance.new("Model")
+	model.Name = "UFOBeam"
+	local segments = 8
+	local height = top.Y - bottom.Y
+	for i = 0, segments - 1 do
+		local t = (i + 0.5) / segments
+		local width = topWidth + (bottomWidth - topWidth) * t
+		local center = top:Lerp(bottom, t)
+		local ring = ufoPart(model, "Beam", Vector3.new(height / segments + 0.5, width, width), CFrame.new(center) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(190, 255, 235), Enum.Material.Neon)
+		ring.Shape = Enum.PartType.Cylinder
+		ring.CastShadow = false
+		ring.Transparency = 1
+	end
+	-- Glow on the ground where the beam lands
+	local glow = ufoPart(model, "BeamGlow", Vector3.new(0.4, bottomWidth * 1.1, bottomWidth * 1.1), CFrame.new(bottom + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(190, 255, 235), Enum.Material.Neon)
+	glow.Shape = Enum.PartType.Cylinder
+	glow.Transparency = 1
+	-- Sparkles rising up the beam
+	local volume = ufoPart(model, "BeamSparkles", Vector3.new(bottomWidth * 0.6, height, bottomWidth * 0.6), CFrame.new(top:Lerp(bottom, 0.5)), Color3.new(1, 1, 1), Enum.Material.SmoothPlastic)
+	volume.Transparency = 1
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkles.Color = ColorSequence.new(Color3.fromRGB(200, 255, 240), Color3.fromRGB(255, 255, 200))
+	sparkles.LightEmission = 1
+	sparkles.Rate = 60
+	sparkles.Lifetime = NumberRange.new(2, 4)
+	sparkles.Speed = NumberRange.new(height * 0.08, height * 0.15)
+	sparkles.EmissionDirection = Enum.NormalId.Top
+	sparkles.SpreadAngle = Vector2.new(10, 10)
+	sparkles.Shape = Enum.ParticleEmitterShape.Box
+	sparkles.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	sparkles.Size = NumberSequence.new(bottomWidth * 0.03, 0)
+	sparkles.Parent = volume
+	return model
+end
 Founders.Wave = "rbxassetid://507770239"
 Founders.Dance = "rbxassetid://507771019"
 Founders.Cheer = "rbxassetid://507770677"

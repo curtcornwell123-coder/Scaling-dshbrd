@@ -2329,29 +2329,27 @@ local function groundGiant(giant: Model, groundY: number, tolerance: number)
 	end
 end
 
--- Puts a giant at `spot`, standing with its feet on the ground and facing the
--- map, and keeps it there: it plays `emotes` (one on repeat, or one after
--- another) while `active()` is true, throwing something every `dropEvery`
--- seconds if there's a `drop`. Then it vanishes in a puff.
--- The whole model is placed once with PivotTo and never moved again, so its
--- body can't get left behind.
-local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
+-- Puts a giant at `spot` facing the map, with its feet at `feetY` (the
+-- ground, or in the air for floating). The whole model is moved with PivotTo
+-- so its body can't get left behind. Roblox finishes rebuilding a scaled-up
+-- body a moment after it's made, so the feet are re-measured once it settles.
+-- Returns the giant's size.
+local function placeGiant(giant: Model, spot: Vector3, feetY: number): Vector3
 	local root = giant.PrimaryPart :: BasePart
 	local height = Founders.RootHeight(giant)
-	local home = CFrame.lookAt(spot + Vector3.new(0, height, 0), Vector3.new(0, spot.Y + height, 0))
+	local home = CFrame.lookAt(Vector3.new(spot.X, feetY + height, spot.Z), Vector3.new(0, feetY + height, 0))
 	giant:PivotTo(home * root.CFrame:ToObjectSpace(giant:GetPivot()))
-	-- Roblox finishes rebuilding the scaled-up body a moment after it's made,
-	-- so check where the feet really are once it settles and stand it on the
-	-- ground.
 	for _ = 1, 5 do
 		task.wait(0.1)
-		groundGiant(giant, spot.Y, 0.5)
+		groundGiant(giant, feetY, 0.5)
 	end
 	local _, size = giant:GetBoundingBox()
-	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
+	return size
+end
 
-	-- Standing still in the normal idle pose, doing one emote at a time with
-	-- a short pause between them.
+-- Normal standing idle underneath, and one in-place emote at a time with a
+-- short pause between them, while `active()` is true.
+local function startEmotes(giant: Model, emotes: { string }, active: () -> boolean)
 	Founders.Play(giant, Founders.Idle, true, 1, 1, Enum.AnimationPriority.Idle)
 	task.spawn(function()
 		local index = rng:NextInteger(1, #emotes)
@@ -2363,21 +2361,17 @@ local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEve
 			task.wait(length + rng:NextNumber(1.5, 3))
 		end
 	end)
+end
 
-	-- Safety net for the first few seconds while the body settles: if the
-	-- feet ended up below the ground, lift the giant. After that it never moves.
-	local settleUntil = os.clock() + 8
-	local nextCheck = os.clock() + 1
-
+-- A giant standing on the ground at `spot`, emoting while `active()` is true
+-- (and throwing something every `dropEvery` seconds if there's a `drop`).
+-- Then it vanishes in a puff.
+local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
+	local size = placeGiant(giant, spot, spot.Y)
+	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
+	startEmotes(giant, emotes, active)
 	local nextDrop = os.clock() + 1.5
 	while giant.Parent and active() do
-		if os.clock() < settleUntil and os.clock() >= nextCheck then
-			nextCheck = os.clock() + 1
-			local feet = giantFeetY(giant)
-			if feet and feet < spot.Y - 0.5 then
-				groundGiant(giant, spot.Y, 0.5)
-			end
-		end
 		if drop and os.clock() >= nextDrop then
 			nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
 			drop(giantHand(giant))
@@ -2386,6 +2380,20 @@ local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEve
 	end
 	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
 	giant:Destroy()
+end
+
+-- Glides a model from one CFrame to another over `seconds` (eased), yielding.
+local function glide(model: Model, from: CFrame, to: CFrame, seconds: number)
+	local started = os.clock()
+	while true do
+		local t = math.min((os.clock() - started) / seconds, 1)
+		local eased = t * t * (3 - 2 * t)
+		model:PivotTo(from:Lerp(to, eased))
+		if t >= 1 then
+			break
+		end
+		RunService.Heartbeat:Wait()
+	end
 end
 
 -- Admin abuse giants: just standing there, emoting.
@@ -2436,28 +2444,95 @@ local function runFounderEvent(eventId: string, minutes: number)
 	local function drop(from: Vector3)
 		founderDrop(from, event.BrainrotChance, event.BrainrotLuck, event.Mutations)
 	end
-	-- In their special event outfit, not their normal avatar.
+
+	-- 1. A UFO flies in and hovers over the spot.
+	local spot = event.Spot
+	local ufo = Founders.CreateUfo(event.UfoSize)
+	local hover = CFrame.new(spot.X, event.UfoHeight, spot.Z)
+	local arriveFrom = hover + Vector3.new(-900, 350, 250)
+	ufo:PivotTo(arriveFrom)
+	ufo.Parent = foundersFolder
+	glide(ufo, arriveFrom, hover, 5)
+
+	-- 2. The light beam switches on underneath it.
+	local beamTop = Vector3.new(spot.X, event.UfoHeight - event.UfoSize * 0.14, spot.Z)
+	local beam = Founders.CreateBeam(beamTop, Vector3.new(spot.X, spot.Y, spot.Z), event.UfoSize * 0.3, event.UfoSize * 0.62)
+	beam.Parent = foundersFolder
+	for _, part in beam:GetChildren() do
+		if part:IsA("BasePart") and part.Name ~= "BeamSparkles" then
+			TweenService:Create(part, TweenInfo.new(1), { Transparency = Founders.BeamTransparency }):Play()
+		end
+	end
+	task.wait(1.2)
+
+	-- 3. The founder appears floating in the beam (in their special event
+	-- outfit, not their normal avatar), holding a pose with a rainbow aura.
 	local giant = Founders.CreateGiant(event.Founder, event.Scale, foundersFolder, event.OutfitId)
 	if giant then
-		-- A soft sparkle aura in the event's colors
-		local aura = Instance.new("ParticleEmitter")
-		aura.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-		aura.Color = ColorSequence.new(event.Colors[1], event.Colors[#event.Colors])
-		aura.LightEmission = 1
-		aura.Rate = 25
-		aura.Lifetime = NumberRange.new(1, 2)
-		aura.Speed = NumberRange.new(4, 10)
-		aura.SpreadAngle = Vector2.new(180, 180)
-		aura.Size = NumberSequence.new(event.Scale * 0.25, 0)
-		aura.Parent = giant.PrimaryPart
-		runGiant(giant, event.Spot, GIANT_EMOTES, event.DropEvery, founderEventActive, drop)
+		local feetY = spot.Y + event.FloatHeight
+		local size = placeGiant(giant, spot, feetY)
+		giantPoof(Vector3.new(spot.X, feetY, spot.Z), size.Y, event.Colors[1])
+		-- Their pose: an animation if one is set, otherwise the floating sage
+		-- pose (re-applied a couple of times in case Roblox rebuilds the
+		-- body's joints while it settles).
+		if event.PoseAnimationId ~= "" then
+			Founders.Play(giant, event.PoseAnimationId, true, 1, 1, Enum.AnimationPriority.Action)
+		else
+			Founders.ApplyPose(giant, Founders.SagePose)
+			for _, delay in { 1, 3 } do
+				task.delay(delay, function()
+					if giant.Parent then
+						Founders.ApplyPose(giant, Founders.SagePose)
+					end
+				end)
+			end
+		end
+		local aura = Founders.AddAura(giant)
+
+		-- Float gently up and down in the beam, throwing things, while it runs.
+		local base = giant:GetPivot()
+		local started = os.clock()
+		local nextDrop = os.clock() + 1.5
+		local nextColor = 0
+		while giant.Parent and founderEventActive() do
+			local t = os.clock() - started
+			giant:PivotTo(base + Vector3.new(0, math.sin(t * 0.8) * size.Y * 0.02, 0))
+			if os.clock() >= nextColor then
+				nextColor = os.clock() + 0.1
+				aura.OutlineColor = Color3.fromHSV((t * 0.15) % 1, 0.8, 1)
+			end
+			if os.clock() >= nextDrop then
+				nextDrop = os.clock() + event.DropEvery * rng:NextNumber(0.7, 1.3)
+				drop(giantHand(giant))
+			end
+			RunService.Heartbeat:Wait()
+		end
+
+		-- 4. Beamed back up into the UFO.
+		glide(giant, giant:GetPivot(), giant:GetPivot() + Vector3.new(0, event.UfoHeight - feetY, 0), 2.5)
+		giant:Destroy()
 	else
-		-- No giant (shouldn't happen): still drop things from the sky.
+		-- No giant (shouldn't happen): the UFO drops things itself.
 		while founderEventActive() do
-			drop(randomOpenPosition() + Vector3.new(0, 120, 0))
+			drop(beamTop)
 			task.wait(event.DropEvery)
 		end
 	end
+
+	-- 5. The beam switches off and the UFO flies away.
+	for _, part in beam:GetChildren() do
+		if part:IsA("BasePart") then
+			TweenService:Create(part, TweenInfo.new(0.8), { Transparency = 1 }):Play()
+		end
+		local sparkles = part:FindFirstChildOfClass("ParticleEmitter")
+		if sparkles then
+			sparkles.Enabled = false
+		end
+	end
+	task.wait(0.8)
+	beam:Destroy()
+	glide(ufo, hover, hover + Vector3.new(900, 450, -250), 4)
+	ufo:Destroy()
 	ReplicatedStorage:SetAttribute("FounderEvent", "")
 	ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
 	founderEventRunning = nil
