@@ -134,13 +134,13 @@ Who is an admin: the game's owner (or the group owner, for group games), anyone 
 
 The admin panel can drop any brainrot (with any mutation) from the sky, start a **Brainrot Rain** of 10 lucky brainrots, or start a **Cash Rain** of 30 cash drops (each worth the amount box). First player to grab a drop keeps it.
 
-There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. It's set to **Saturday 2:00 PM Central time (Oklahoma)**, and daylight saving is handled automatically. Change it in `Config.AdminAbuse`. Admins can also start or end it any time.
+There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. It's set to **Saturday 2:00 PM Central time (Oklahoma)**, and daylight saving is handled automatically. Change it in `Config.AdminAbuse`. Admins can also start or end it any time: type how many minutes in the **Minutes** box in the admin panel, then press **Start Admin Abuse**.
 
 When it starts, everyone gets a huge intro: two white flashes and a red flash over the world, a camera shake, a pulsing rainbow border, spinning light rays, a giant rainbow **ADMIN ABUSE!** title that slams in (with the admin's name if one started it), the boosts popping in one by one (x3 CASH, x3 LUCK, SUPER SPEED, SUPER JUMP, FREE GIFT, GIANT FOUNDERS), lots of confetti and a volley of fireworks over the map. While it runs, the lighting gently cycles party colors and fireworks keep popping. An "ADMIN ABUSE IS OVER" card shows when it ends. (All of it is in `src/client/AdminAbuse.client.luau`.)
 
 **Admin abuse boosts and gift** (tune them in `Config.AdminAbuseBoosts` and `Config.AdminAbuseGift`):
 - While it's live, everyone gets **3x cash**, **3x luck** (rare spawns and mutations), walks faster (24 instead of 16) and jumps higher. Carrying a stolen brainrot stays slow so stealing stays fair.
-- **Giant founders** (Corny and Ace, in their normal Roblox avatars, about 125 studs tall) rise out of the ground just outside the fence on opposite sides of the map, like the devs in Grow a Garden. They sway, cycle through emotes (wave, dances, cheer, laugh, point) and keep throwing cash bags and brainrots in big arcs onto the map for everyone to grab.
+- **Giant founders** (Corny and Ace, in their normal Roblox avatars, about 125 studs tall) rise out of the ground just outside the fence on opposite sides of the map, like the devs in Grow a Garden. They just stand there doing one Roblox emote after another (wave, three dances, cheer, laugh, point), over and over.
 - Everyone online gets a gift, shown on a pop-up card: **3 Diamonds, 150 Shards and a free brainrot** (rolled with Brainrot Rain luck). It's once per player per week, so starting admin abuse again the same week doesn't hand out more. Players who join while it's live still get theirs.
 - Why 3 Diamonds: weekly quests give up to 3 a week, so admin abuse doubles that for anyone who shows up, while the Diamond skins (12 to 120) still take real saving.
 
@@ -150,7 +150,11 @@ The founders are set in `Config.Founders`: **Corny** (Roblox username `Cornywell
 
 To find an outfit id for `OutfitId`: open `https://avatar.roblox.com/v1/users/<UserId>/outfits?itemsPerPage=50` in a browser, find the costume's `"name"`, and copy the `"id"` just before it.
 
-Each founder also has their own event, starring only them in a special event outfit (not their normal avatar). Start it from the admin panel (**Corny Event**, and **End Founder Event** to stop it early).
+Each founder also has their own event, starring only them in a special event outfit (not their normal avatar). **Only Corny and Ace can start or end these**; other admins don't even see the buttons. Start one from the admin panel (**Corny Event**, and **End Founder Event** to stop it early). It runs for the number of minutes in the **Minutes** box.
+
+### Announcements to every server
+
+Admins can type **`/announce your message`** (or **`/a your message`**) in chat, or use the **Announce** box in the admin panel. The message drops in as a big card at the top of the screen, and shows in chat, in **every server** of the game. Founders' announcements say "ANNOUNCEMENT FROM CORNY" (or ACE). Messages go through Roblox's text filter first, as Roblox requires, and there's a 5-second cooldown.
 
 - **Corny Event** (5 minutes): a big intro in Corny's sprinkle colors, and the sky turns rainbow: it slowly cycles through the colors and two giant rainbows arch over the map. A huge Corny (about 165 studs tall) comes down from the sky with jetpack flames and a sparkle trail and hovers just past the fence, under the rainbow. He bobs, sways and cycles through emotes, and every second or two throws something in a big arc onto the map: cash bags, or brainrots with a 45% Candy and 8% Rainbow mutation chance (a beam shows where each one will land). He flies off when it ends and the sky goes back to normal.
 - His event outfit: until it's set, he's built from parts to look like his screenshots (black suit and tie, pixel shades, white sprinkle top hat with a red band, rainbow-striped pants and jetpack). For the exact outfit, save it as a Costume on Roblox and put its outfit id in `OutfitId` in `Config.FounderEvents.Corny`.

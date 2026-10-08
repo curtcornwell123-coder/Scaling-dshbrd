@@ -444,13 +444,12 @@ Config.Founders = {
 	{ Id = "Ace", Name = "Ace", UserId = 0, Username = "Meishappy2341" },
 } :: { Founder }
 -- During admin abuse they tower just outside the fence (like the devs in
--- Grow a Garden), dancing and throwing things onto the map.
+-- Grow a Garden), doing one Roblox emote after another.
 Config.FounderGiantScale = 24 -- about 125 studs tall
 Config.FounderGiantSpots = {
 	Corny = Vector3.new(-170, 0, 470),
 	Ace = Vector3.new(170, 0, -470),
 } :: { [string]: Vector3 }
-Config.FounderGiantDropEvery = 6 -- seconds between things each giant throws during admin abuse
 Config.FounderCashDrop = 25000 -- cash in each bag a founder throws or drops
 
 -- Founder events: each stars only that founder, wearing their special event

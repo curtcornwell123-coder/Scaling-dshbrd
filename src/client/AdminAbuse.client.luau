@@ -47,9 +47,12 @@ end
 local startedBy: string? = nil
 local introPlaying = false
 local showGift: (string, string?, number, number) -> ()
+local showAnnouncement: (string, string) -> ()
 Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: string, extra: string?, mutationId: string?)
 	if kind == "abuse" then
 		startedBy = who
+	elseif kind == "global" then
+		task.spawn(showAnnouncement, who, extra or "")
 	elseif kind == "abusegift" then
 		local diamonds, shards = string.match(extra or "", "^(%d+),(%d+)$")
 		task.spawn(showGift, brainrotId, mutationId, tonumber(diamonds) or 0, tonumber(shards) or 0)
@@ -671,6 +674,85 @@ showGift = function(brainrotId: string, mutationId: string?, diamonds: number, s
 	tween(scale, 0.3, { Scale = 0 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
 	task.wait(0.35)
 	card:Destroy()
+end
+
+-- Announcements from admins (/announce), shown in every server: a big card
+-- that drops in at the top of the screen, plus a line in chat.
+local announcementShowing = false
+showAnnouncement = function(from: string, message: string)
+	pcall(function()
+		local channels = game:GetService("TextChatService"):FindFirstChild("TextChannels")
+		local general = channels and channels:FindFirstChild("RBXGeneral")
+		if general and general:IsA("TextChannel") then
+			general:DisplaySystemMessage(string.format("[ANNOUNCEMENT] %s: %s", from, message))
+		end
+	end)
+	-- One card at a time
+	while announcementShowing do
+		task.wait(0.3)
+	end
+	announcementShowing = true
+
+	local card = Instance.new("Frame")
+	card.AnchorPoint = Vector2.new(0.5, 0)
+	card.Position = UDim2.new(0.5, 0, 0, -160)
+	card.Size = UDim2.new(0.6, 0, 0, 120)
+	card.BackgroundColor3 = Color3.fromRGB(25, 20, 40)
+	card.BackgroundTransparency = 0.1
+	card.ZIndex = 20
+	card.Parent = gui
+	local constraint = Instance.new("UISizeConstraint")
+	constraint.MinSize = Vector2.new(300, 0)
+	constraint.MaxSize = Vector2.new(760, math.huge)
+	constraint.Parent = card
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 16)
+	corner.Parent = card
+	local border = Instance.new("UIStroke")
+	border.Thickness = 4
+	border.Color = GOLD
+	border.Parent = card
+	local glow = Instance.new("UIGradient")
+	glow.Color = rainbow(0)
+	glow.Parent = border
+
+	local header = Instance.new("TextLabel")
+	header.BackgroundTransparency = 1
+	header.Position = UDim2.fromOffset(16, 8)
+	header.Size = UDim2.new(1, -32, 0, 34)
+	header.Font = Enum.Font.FredokaOne
+	header.Text = "ANNOUNCEMENT FROM " .. string.upper(from)
+	header.TextScaled = true
+	header.TextColor3 = GOLD
+	header.ZIndex = 21
+	header.Parent = card
+	local body = Instance.new("TextLabel")
+	body.BackgroundTransparency = 1
+	body.Position = UDim2.fromOffset(16, 46)
+	body.Size = UDim2.new(1, -32, 1, -56)
+	body.Font = Enum.Font.FredokaOne
+	body.Text = message
+	body.TextScaled = true
+	body.TextWrapped = true
+	body.TextColor3 = Color3.new(1, 1, 1)
+	body.ZIndex = 21
+	body.Parent = card
+	local bodyStroke = Instance.new("UIStroke")
+	bodyStroke.Thickness = 2
+	bodyStroke.Parent = body
+
+	tween(card, 0.5, { Position = UDim2.new(0.5, 0, 0, 70) }, Enum.EasingStyle.Back)
+	shake(0.3, 2)
+	local started = os.clock()
+	local spin = RunService.RenderStepped:Connect(function()
+		glow.Rotation = ((os.clock() - started) * 120) % 360
+	end)
+	task.wait(8)
+	tween(card, 0.4, { Position = UDim2.new(0.5, 0, 0, -160) }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+	task.wait(0.45)
+	spin:Disconnect()
+	card:Destroy()
+	announcementShowing = false
 end
 
 -- A smaller "it's over" card when it ends.

@@ -1223,8 +1223,10 @@ end)
 -- Admin abuse + drops
 adminHeader(7, "ADMIN ABUSE & DROPS")
 local abuseRow = adminRow(8, 40)
-smallButton(abuseRow, "Start Admin Abuse", RED, 220, function()
-	send("AbuseStart", Config.AdminAbuse.DurationMinutes)
+text(abuseRow, { Size = UDim2.fromOffset(70, 30), Text = "Minutes" })
+local minutesBox = inputBox(abuseRow, tostring(Config.AdminAbuse.DurationMinutes), "how long", 70)
+smallButton(abuseRow, "Start Admin Abuse", RED, 200, function()
+	send("AbuseStart", minutesBox.Text)
 end)
 smallButton(abuseRow, "End It", GREY, 110, function()
 	send("AbuseStop", nil)
@@ -1243,8 +1245,19 @@ text(dropRow, {
 	Text = "Cash Rain: each drop = amount box",
 })
 
--- Founder events: one button per founder event, plus a stop button.
+-- Message to every server (same as typing /announce in chat).
+local announceRow = adminRow(9, 40)
+local announceBox = inputBox(announceRow, "", "Message to ALL servers", 330)
+announceBox.ClearTextOnFocus = false
+smallButton(announceRow, "Announce", Color3.fromRGB(255, 170, 40), 130, function()
+	send("GlobalAnnounce", announceBox.Text)
+	announceBox.Text = ""
+end)
+
+-- Founder events (only Corny and Ace see these): one button per event, plus
+-- a stop button. They run for the Minutes box above.
 local founderRow = adminRow(9, 40)
+founderRow.Visible = false
 local founderEventIds = {}
 for eventId in Config.FounderEvents do
 	table.insert(founderEventIds, eventId)
@@ -1252,7 +1265,7 @@ end
 table.sort(founderEventIds)
 for _, eventId in founderEventIds do
 	smallButton(founderRow, eventId .. " Event", Color3.fromRGB(255, 120, 190), 170, function()
-		send("FounderEvent", eventId)
+		send("FounderEvent", { Id = eventId, Minutes = minutesBox.Text })
 	end)
 end
 smallButton(founderRow, "End Founder Event", GREY, 190, function()
@@ -1336,6 +1349,7 @@ local function render()
 	end
 	cashLabel.Text = Config.FormatCash(data.Cash)
 	adminButton.Visible = data.IsAdmin == true
+	founderRow.Visible = data.IsFounder == true
 	incomeLabel.Text = string.format("+%s/s   x%.1f income", Config.FormatCash(data.Income), data.Multiplier)
 	if (data.CashBoostLeft or 0) > 0 then
 		incomeLabel.Text ..= string.format("  (2x boost %dm)", math.ceil(data.CashBoostLeft / 60))

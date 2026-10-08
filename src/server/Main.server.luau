@@ -7,9 +7,12 @@ local DataStoreService = game:GetService("DataStoreService")
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local MarketplaceService = game:GetService("MarketplaceService")
+local MessagingService = game:GetService("MessagingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TextChatService = game:GetService("TextChatService")
+local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
@@ -103,6 +106,7 @@ type Session = {
 	LastHint: number,
 	LastCollect: number,
 	IsAdmin: boolean,
+	IsFounder: boolean,
 	LastLimitedTry: number,
 	FollowerModels: { Model },
 }
@@ -187,6 +191,17 @@ local function adminAbuseLive(): boolean
 	local now = workspace:GetServerTimeNow()
 	local manualEnd = ReplicatedStorage:GetAttribute("AdminAbuseEndsAt") :: number?
 	return (manualEnd ~= nil and manualEnd > now) or Config.AdminAbuseStatus(now) == "live"
+end
+
+-- Which founder (Corny, Ace) this player is, if any. Only founders can start
+-- the founder events.
+local function founderOf(player: Player): Config.Founder?
+	for _, founder in Config.Founders do
+		if (founder.UserId > 0 and founder.UserId == player.UserId) or (founder.Username ~= "" and string.lower(founder.Username) == string.lower(player.Name)) then
+			return founder
+		end
+	end
+	return nil
 end
 
 local function incomeMultiplier(session: Session): number
@@ -513,6 +528,7 @@ local function snapshot(session: Session)
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
 		IsAdmin = session.IsAdmin,
+		IsFounder = session.IsFounder,
 		Limited = limitedOwned(session),
 		Shards = data.Shards,
 		CashBoostLeft = math.max(0, data.CashBoostUntil - os.time()),
@@ -1783,6 +1799,7 @@ local function load(player: Player)
 		LastHint = 0,
 		LastCollect = 0,
 		IsAdmin = false,
+		IsFounder = false,
 		LastLimitedTry = 0,
 		FollowerModels = {},
 	}
@@ -1821,6 +1838,7 @@ local function load(player: Player)
 	end
 
 	session.IsAdmin = checkAdmin(player)
+	session.IsFounder = founderOf(player) ~= nil
 
 	if not player.Parent then
 		sessions[player] = nil
@@ -2166,10 +2184,11 @@ local function dropCash(amount: number, from: Vector3?)
 end
 
 -- Founders ------------------------------------------------------------------
--- Giant founders tower just outside the fence during admin abuse (in their
--- normal avatars), and each founder has an event of their own where they
--- hover beside the map in their event outfit (Config.FounderEvents). Either
--- way they keep dancing and emoting and throw cash and brainrots onto the map.
+-- Giant founders stand just outside the fence during admin abuse (in their
+-- normal avatars), doing one Roblox emote after another. Each founder also
+-- has an event of their own where they hover beside the map in their event
+-- outfit (Config.FounderEvents), swaying, emoting and throwing cash and
+-- brainrots onto the map.
 
 local foundersFolder = Instance.new("Folder")
 foundersFolder.Name = "Founders"
@@ -2217,10 +2236,11 @@ local function founderDrop(from: Vector3, brainrotChance: number, luck: number, 
 end
 
 -- Brings a giant to life at `spot` (under their feet) facing the map: they
--- arrive (rise from the ground or come down from the sky), then bob, sway and
--- cycle through emotes, throwing something every `dropEvery` seconds, while
--- `active()` is true. Then they leave and are removed.
-local function runGiant(giant: Model, spot: Vector3, hover: boolean, dropEvery: number, active: () -> boolean, drop: (Vector3) -> ())
+-- arrive (rise from the ground or come down from the sky) and cycle through
+-- emotes while `active()` is true. With `drop`, they also bob, sway and throw
+-- something every `dropEvery` seconds; without it they just stand and emote.
+-- Then they leave and are removed.
+local function runGiant(giant: Model, spot: Vector3, hover: boolean, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
 	local root = giant.PrimaryPart :: BasePart
 	local height = Founders.RootHeight(giant)
 	local _, size = giant:GetBoundingBox()
@@ -2252,7 +2272,10 @@ local function runGiant(giant: Model, spot: Vector3, hover: boolean, dropEvery: 
 	-- Bob and sway (so even the look-alike, which can't emote, moves), and throw.
 	local started = os.clock()
 	local nextDrop = os.clock() + 1.5
-	while giant.Parent and active() do
+	while giant.Parent and active() and not drop do
+		task.wait(0.5)
+	end
+	while giant.Parent and active() and drop do
 		local t = os.clock() - started
 		local bob = if hover then math.sin(t * 1.4) * size.Y * 0.03 else math.abs(math.sin(t * 2)) * size.Y * 0.01
 		local sway = math.sin(t * 0.7) * math.rad(10)
@@ -2271,15 +2294,13 @@ local function runGiant(giant: Model, spot: Vector3, hover: boolean, dropEvery: 
 	leave:Play()
 end
 
--- Admin abuse giants
+-- Admin abuse giants: just standing there, emoting.
 local function spawnAbuseGiants()
 	for founderId, spot in Config.FounderGiantSpots do
 		task.spawn(function()
 			local giant = Founders.CreateGiant(founderId, Config.FounderGiantScale, foundersFolder)
 			if giant then
-				runGiant(giant, spot, false, Config.FounderGiantDropEvery, adminAbuseLive, function(hand)
-					founderDrop(hand, 0.2, Config.BrainrotRainLuck)
-				end)
+				runGiant(giant, spot, false, 0, adminAbuseLive)
 			end
 		end)
 	end
@@ -2308,14 +2329,14 @@ local function stopFounderEvent()
 	ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
 end
 
-local function runFounderEvent(eventId: string)
+local function runFounderEvent(eventId: string, minutes: number)
 	local event = Config.FounderEvents[eventId]
 	if not event or founderEventRunning then
 		return
 	end
 	founderEventRunning = eventId
 	ReplicatedStorage:SetAttribute("FounderEvent", eventId)
-	ReplicatedStorage:SetAttribute("FounderEventEndsAt", workspace:GetServerTimeNow() + event.DurationMinutes * 60)
+	ReplicatedStorage:SetAttribute("FounderEventEndsAt", workspace:GetServerTimeNow() + minutes * 60)
 	Announce:FireAllClients("founder", event.Founder, "", eventId)
 
 	local function drop(from: Vector3)
@@ -2360,6 +2381,114 @@ local function runFounderEvent(eventId: string)
 	founderEventRunning = nil
 end
 
+-- Global announcements -------------------------------------------------------
+-- Admins type "/announce <message>" (or "/a <message>") in chat, or use the
+-- admin panel, to show a message on screen in EVERY server. The text is run
+-- through Roblox's filter first, as Roblox requires.
+
+local ANNOUNCE_TOPIC = "BrainrotHeistAnnouncement"
+local lastAnnouncement: { [Player]: { Text: string, At: number } } = {}
+
+local function showAnnouncement(from: string, message: string)
+	Announce:FireAllClients("global", from, "", message)
+end
+
+task.spawn(function()
+	pcall(function()
+		MessagingService:SubscribeAsync(ANNOUNCE_TOPIC, function(packet)
+			local data = packet.Data
+			-- Our own server already showed it.
+			if type(data) == "table" and data.Server ~= game.JobId and type(data.From) == "string" and type(data.Text) == "string" then
+				showAnnouncement(data.From, data.Text)
+			end
+		end)
+	end)
+end)
+
+-- The founder's name ("Corny") for a founder, otherwise their display name.
+local function announcerName(player: Player): string
+	local founder = founderOf(player)
+	return if founder then founder.Name else player.DisplayName
+end
+
+local function announceEverywhere(player: Player, raw: string)
+	local session = sessions[player]
+	if not session or not session.IsAdmin then
+		return
+	end
+	local message = string.sub(string.match(raw, "^%s*(.-)%s*$") or "", 1, 200)
+	if message == "" then
+		notify(player, "Type a message after /announce")
+		return
+	end
+	-- The chat command and the chat fallback can both see the same message.
+	local last = lastAnnouncement[player]
+	if last and last.Text == message and os.clock() - last.At < 3 then
+		return
+	end
+	if last and os.clock() - last.At < 5 then
+		notify(player, "Wait a few seconds between announcements.")
+		return
+	end
+	lastAnnouncement[player] = { Text = message, At = os.clock() }
+	local ok, filtered = pcall(function()
+		local result = TextService:FilterStringAsync(message, player.UserId)
+		return result:GetNonChatStringForBroadcastAsync()
+	end)
+	if not ok or type(filtered) ~= "string" then
+		notify(player, "Couldn't send that announcement. Try again.")
+		return
+	end
+	local from = announcerName(player)
+	showAnnouncement(from, filtered)
+	local sent = pcall(function()
+		MessagingService:PublishAsync(ANNOUNCE_TOPIC, { From = from, Text = filtered, Server = game.JobId })
+	end)
+	notify(player, if sent then "Announced to every server!" else "Announced in this server (other servers couldn't be reached).")
+end
+
+-- The chat command (new chat). Messages starting with /announce or /a.
+local function stripCommand(text: string): string?
+	local lower = string.lower(text)
+	for _, alias in { "/announce", "/a" } do
+		if string.sub(lower, 1, #alias + 1) == alias .. " " then
+			return string.sub(text, #alias + 2)
+		end
+	end
+	return nil
+end
+
+if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+	local command = Instance.new("TextChatCommand")
+	command.Name = "GlobalAnnounce"
+	command.PrimaryAlias = "/announce"
+	command.SecondaryAlias = "/a"
+	command.Triggered:Connect(function(source: TextSource, text: string)
+		local player = Players:GetPlayerByUserId(source.UserId)
+		local message = stripCommand(text)
+		if player and message then
+			announceEverywhere(player, message)
+		end
+	end)
+	command.Parent = TextChatService:FindFirstChild("TextChatCommands") or TextChatService
+end
+-- Old chat (and a fallback for the new one).
+local function watchChat(player: Player)
+	player.Chatted:Connect(function(text)
+		local message = stripCommand(text)
+		if message then
+			announceEverywhere(player, message)
+		end
+	end)
+end
+Players.PlayerAdded:Connect(watchChat)
+for _, player in Players:GetPlayers() do
+	watchChat(player)
+end
+Players.PlayerRemoving:Connect(function(player)
+	lastAnnouncement[player] = nil
+end)
+
 -- Admin panel --------------------------------------------------------------
 
 -- "250", "1.5k", "2M", "-500" -> number
@@ -2398,7 +2527,10 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 	end
 
 	-- Server-wide actions
-	if action == "Spawn" or action == "DropBrainrot" then
+	if action == "GlobalAnnounce" then
+		announceEverywhere(admin, tostring(value))
+		return
+	elseif action == "Spawn" or action == "DropBrainrot" then
 		local brainrot = Config.Decode(tostring(value))
 		if brainrot and brainrot.Limited then
 			notify(admin, brainrot.DisplayName .. " is limited: use Give to hand out a reserved copy.")
@@ -2444,22 +2576,35 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		end)
 		return
 	elseif action == "AbuseStart" then
-		local minutes = parseAmount(value) or Config.AdminAbuse.DurationMinutes
+		local minutes = math.clamp(parseAmount(value) or Config.AdminAbuse.DurationMinutes, 1, 600)
 		ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", workspace:GetServerTimeNow() + minutes * 60)
 		Announce:FireAllClients("abuse", admin.DisplayName, "")
 		return
 	elseif action == "FounderEvent" then
-		local eventId = tostring(value)
-		if not Config.FounderEvents[eventId] then
+		-- Founders only (Corny and Ace), not other admins.
+		if not founderOf(admin) then
+			notify(admin, "Only the founders can start founder events.")
+			return
+		end
+		local info: { [string]: any } = if type(value) == "table" then value :: any else {}
+		local eventId = tostring(info.Id)
+		local event = Config.FounderEvents[eventId]
+		if not event then
 			return
 		end
 		if founderEventRunning then
 			notify(admin, "A founder event is already running.")
 			return
 		end
-		task.spawn(runFounderEvent, eventId)
+		local minutes = math.clamp(parseAmount(info.Minutes) or event.DurationMinutes, 1, 120)
+		task.spawn(runFounderEvent, eventId, minutes)
+		notify(admin, string.format("%s started for %d minutes.", event.Title, minutes))
 		return
 	elseif action == "FounderEventStop" then
+		if not founderOf(admin) then
+			notify(admin, "Only the founders can end founder events.")
+			return
+		end
 		stopFounderEvent()
 		notify(admin, "Founder event ended.")
 		return
