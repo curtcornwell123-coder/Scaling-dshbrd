@@ -349,6 +349,32 @@ local function lilyPad(parent: Instance, rng: Random): Model
 	leaf.CFrame = CFrame.Angles(0, 0, math.pi / 2)
 	leaf.Parent = pad
 	pad.PrimaryPart = leaf
+	-- A soft glowing aura ring around the leaf, with a few sparkles rising off it
+	local aura = Instance.new("Part")
+	aura.Name = "Aura"
+	aura.Shape = Enum.PartType.Cylinder
+	aura.Anchored = true
+	aura.CanCollide = false
+	aura.CanQuery = false
+	aura.CanTouch = false
+	aura.CastShadow = false
+	aura.Size = Vector3.new(0.12, width * 1.35, width * 1.35)
+	aura.Color = Color3.fromRGB(255, 170, 225)
+	aura.Material = Enum.Material.Neon
+	aura.Transparency = 0.65
+	aura.CFrame = CFrame.new(0, -0.08, 0) * CFrame.Angles(0, 0, math.pi / 2)
+	aura.Parent = pad
+	local glow = Instance.new("ParticleEmitter")
+	glow.Texture = SPARKLE
+	glow.Color = ColorSequence.new(Color3.fromRGB(255, 190, 235), Color3.new(1, 1, 1))
+	glow.LightEmission = 1
+	glow.Rate = 4
+	glow.Lifetime = NumberRange.new(1, 2)
+	glow.Speed = NumberRange.new(1, 2.5)
+	glow.EmissionDirection = Enum.NormalId.Right -- the leaf is turned on its side, so "Right" is up
+	glow.SpreadAngle = Vector2.new(25, 25)
+	glow.Size = NumberSequence.new(0.5, 0)
+	glow.Parent = leaf
 	if rng:NextNumber() < 0.4 then
 		-- A pink water lily: petals around a yellow middle
 		local function bit(size: Vector3, offset: Vector3, color: Color3)
@@ -481,10 +507,11 @@ local function startBallet(event: Config.FounderEvent)
 			local distance = math.sqrt(rng:NextNumber()) * (WATER_RADIUS - 30)
 			local landing = Vector3.new(math.cos(angle) * distance, WATER_TOP + 0.1, math.sin(angle) * distance)
 			local phase = rng:NextNumber(0, math.pi * 2)
-			pad:PivotTo(CFrame.new(landing + Vector3.new(0, rng:NextNumber(80, 140), 0)) * CFrame.Angles(rng:NextNumber(-0.6, 0.6), phase, rng:NextNumber(-0.6, 0.6)))
+			-- Flat the whole way down
+			pad:PivotTo(CFrame.new(landing + Vector3.new(0, rng:NextNumber(80, 140), 0)) * CFrame.Angles(0, phase, 0))
 			table.insert(pads, pad)
 			padPhase[pad] = phase
-			-- Flutter down, then float
+			-- Drop straight down, staying flat, then float
 			task.spawn(function()
 				local from = pad:GetPivot()
 				local to = CFrame.new(landing) * CFrame.Angles(0, phase, 0)
@@ -492,8 +519,7 @@ local function startBallet(event: Config.FounderEvent)
 				while pad.Parent do
 					local k = math.min((os.clock() - started) / 2.5, 1)
 					local eased = k * k
-					local sway = math.sin(k * math.pi * 3) * (1 - k) * 6
-					pad:PivotTo(from:Lerp(to, eased) + Vector3.new(sway, 0, 0))
+					pad:PivotTo(from:Lerp(to, eased))
 					if k >= 1 then
 						break
 					end
@@ -525,6 +551,8 @@ local function stopBallet()
 		for _, part in pad:GetDescendants() do
 			if part:IsA("BasePart") then
 				tween(part, 3, { Transparency = 1 })
+			elseif part:IsA("ParticleEmitter") then
+				part.Enabled = false
 			end
 		end
 	end
