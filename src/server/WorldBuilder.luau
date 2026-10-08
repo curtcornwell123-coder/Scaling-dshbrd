@@ -137,6 +137,8 @@ export type WallStyle = {
 	Glass: Color3,
 	GlassNeon: boolean?,
 	Corn: boolean?, -- Corny's own skin: corn cobs, gold trim, and his logo on the windows
+	Trim: Color3?, -- glowing strips along the window sills and tops
+	Moon: boolean?, -- Ace's own skin: a crescent moon over the base
 }
 
 local CORN_YELLOW = Color3.fromRGB(255, 205, 40)
@@ -233,6 +235,56 @@ local function cornLogo(window: BasePart, face: Enum.NormalId)
 	shape("LeafMiddle", UDim2.fromScale(0.5, 0.76), UDim2.fromScale(0.16, 0.3), CORN_LEAF, UDim.new(1, 0), 0, 4)
 end
 
+-- A glowing crescent moon facing the front of the base (`cf` is its center).
+-- `aura`: a halo, sparkles and light around it (for a fully upgraded base).
+local MOON_COLOR = Color3.fromRGB(255, 228, 246)
+local MOON_PINK = Color3.fromRGB(255, 110, 210)
+local function crescentMoon(folder: Instance, cf: CFrame, radius: number, aura: boolean)
+	local thickest = radius * 0.5
+	local segments = 40
+	local from, to = math.rad(70), math.rad(290) -- opens to the right
+	for i = 0, segments - 1 do
+		local t = (i + 0.5) / segments
+		local angle = from + (to - from) * t
+		local width = math.max(0.4, thickest * math.sin(math.pi * t))
+		local length = radius * (to - from) / segments * 1.3
+		decoration(folder, "Moon", Vector3.new(width, length, 1.6), cf * CFrame.Angles(0, 0, angle) * CFrame.new(radius - width / 2, 0, 0), MOON_COLOR, Enum.Material.Neon)
+	end
+	-- A couple of little stars beside it
+	for _, star in { { 0.95, 0.55, 0.9 }, { 1.25, -0.2, 0.6 }, { 0.7, -0.75, 0.5 } } do
+		local s = decoration(folder, "MoonStar", Vector3.one * star[3] * 1.4, cf * CFrame.new(radius * star[1], radius * star[2], 0), MOON_PINK, Enum.Material.Neon)
+		s.Shape = Enum.PartType.Ball
+	end
+	local light = Instance.new("PointLight")
+	light.Color = MOON_PINK
+	light.Range = radius * 3
+	light.Brightness = if aura then 3 else 1.2
+	light.Parent = folder:FindFirstChild("Moon")
+	if aura then
+		-- Halo disc behind the moon, and pink sparkles drifting around it.
+		local halo = decoration(folder, "MoonHalo", Vector3.new(0.3, radius * 3, radius * 3), cf * CFrame.new(0, 0, 1.2) * CFrame.Angles(0, math.pi / 2, 0), MOON_PINK, Enum.Material.Neon)
+		halo.Shape = Enum.PartType.Cylinder
+		halo.Transparency = 0.78
+		local ring = decoration(folder, "MoonRing", Vector3.new(0.4, radius * 3.4, radius * 3.4), cf * CFrame.new(0, 0, 1.4) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(255, 30, 170), Enum.Material.Neon)
+		ring.Shape = Enum.PartType.Cylinder
+		ring.Transparency = 0.55
+		local field = decoration(folder, "MoonAura", Vector3.new(radius * 3.2, radius * 3.2, radius * 1.5), cf, MOON_PINK, Enum.Material.SmoothPlastic)
+		field.Transparency = 1
+		local sparkles = Instance.new("ParticleEmitter")
+		sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		sparkles.Color = ColorSequence.new(MOON_PINK, Color3.fromRGB(255, 255, 255))
+		sparkles.LightEmission = 1
+		sparkles.Rate = 18
+		sparkles.Lifetime = NumberRange.new(1.5, 3)
+		sparkles.Speed = NumberRange.new(0.5, 2)
+		sparkles.SpreadAngle = Vector2.new(180, 180)
+		sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.8), NumberSequenceKeypoint.new(1, 0) })
+		sparkles.Shape = Enum.ParticleEmitterShape.Box
+		sparkles.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+		sparkles.Parent = field
+	end
+end
+
 local function wallSegment(folder: Instance, cf: CFrame, length: number, height: number, style: WallStyle)
 	local function piece(name: string, x: number, y: number, width: number, h: number): Part
 		local p = block(folder, name, Vector3.new(width, h, WALL_THICKNESS), cf * CFrame.new(x, y + h / 2, 0), style.Color, style.Material)
@@ -250,10 +302,11 @@ local function wallSegment(folder: Instance, cf: CFrame, length: number, height:
 	local head = height - math.clamp(height * 0.08, 1, 2)
 	piece("WallBottom", 0, 0, length, sill)
 	piece("WallTop", 0, head, length, height - head)
-	if style.Corn then
-		-- Gold trim along the window sills and tops, on both sides.
+	local trim = style.Trim
+	if trim then
+		-- Trim along the window sills and tops, on both sides.
 		for _, y in { sill, head } do
-			decoration(folder, "CornTrim", Vector3.new(length, 0.35, WALL_THICKNESS + 0.3), cf * CFrame.new(0, y, 0), CORN_GOLD, Enum.Material.Foil)
+			decoration(folder, "Trim", Vector3.new(length, 0.35, WALL_THICKNESS + 0.3), cf * CFrame.new(0, y, 0), trim, if style.Corn then Enum.Material.Foil else Enum.Material.Neon)
 		end
 	end
 	-- Corn cobs on the pillars between windows, on both sides of the wall.
@@ -530,6 +583,8 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 		Glass = if skin and skin.Glass then skin.Glass else GLASS_COLOR,
 		GlassNeon = if skin then skin.GlassNeon else nil,
 		Corn = if skin then skin.Corn else nil,
+		Trim = if skin then skin.Trim else nil,
+		Moon = if skin then skin.Moon else nil,
 	}
 	-- Floors match the skin; Classic floors are grey in the walls' material.
 	for _, floor in parts.Floors do
@@ -575,6 +630,14 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 		else
 			wallSegment(folder, at(0, -half + 1), inner, height, style)
 		end
+	end
+
+	-- Ace's skin: a crescent moon floating over the base, high above the
+	-- roof once it's built, with its aura once the base is fully upgraded.
+	if style.Moon then
+		local topY = if roofed then storyBase(#Config.Stories) + STORY_HEIGHT + 30 else storyBase(stories) + heightOf(stories) + 16
+		local moonFolder = parts.WallFolders[1]
+		crescentMoon(moonFolder, parts.CFrame * CFrame.new(0, topY - FLOOR_TOP, 0), 9, level >= #Config.WallLevels)
 	end
 
 	for i, beam in parts.Lasers do

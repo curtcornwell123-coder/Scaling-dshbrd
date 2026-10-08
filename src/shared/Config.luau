@@ -221,6 +221,8 @@ export type WallSkin = {
 	-- and hidden from everyone else.
 	FounderOnly: string?,
 	Corn: boolean?, -- corn cobs on the walls and the Corny Games logo on the windows
+	Trim: Color3?, -- glowing strips along the window sills and tops
+	Moon: boolean?, -- a crescent moon over the base, with an aura once it's fully upgraded
 }
 
 Config.WallSkins = {
@@ -236,7 +238,9 @@ Config.WallSkins = {
 	{ Id = "Lava", Name = "Lava Core", Cost = 75, Currency = "Diamonds", Color = Color3.fromRGB(55, 25, 20), Material = Enum.Material.CrackedLava, Glass = Color3.fromRGB(255, 120, 30), GlassNeon = true, FloorColor = Color3.fromRGB(45, 22, 18), FloorMaterial = Enum.Material.Slate },
 	{ Id = "Celestial", Name = "Celestial", Cost = 120, Currency = "Diamonds", Color = Color3.fromRGB(245, 240, 228), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 210, 90), GlassNeon = true, FloorColor = Color3.fromRGB(250, 246, 236), FloorMaterial = Enum.Material.Marble },
 	-- Corny's own skin, like his logo: navy walls, gold trim, corn everywhere.
-	{ Id = "Corny", Name = "Corny Gold (Corny only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Corny", Corn = true, Color = Color3.fromRGB(25, 32, 55), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 205, 60), FloorColor = Color3.fromRGB(255, 215, 90), FloorMaterial = Enum.Material.SmoothPlastic },
+	-- Ace's own skin, in Cigna Glamourina's pinks, with a crescent moon on top.
+	{ Id = "Ace", Name = "Glamourina Moon (Ace only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Ace", Moon = true, Trim = Color3.fromRGB(255, 30, 170), Color = Color3.fromRGB(240, 110, 200), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 190, 235), GlassNeon = true, FloorColor = Color3.fromRGB(255, 225, 245), FloorMaterial = Enum.Material.SmoothPlastic },
+	{ Id = "Corny", Name = "Corny Gold (Corny only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Corny", Corn = true, Trim = Color3.fromRGB(250, 196, 60), Color = Color3.fromRGB(25, 32, 55), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 205, 60), FloorColor = Color3.fromRGB(255, 215, 90), FloorMaterial = Enum.Material.SmoothPlastic },
 } :: { WallSkin }
 
 -- Skins are a ladder: to buy one you must own the one before it that costs
