@@ -35,6 +35,7 @@ local Announce: RemoteEvent = makeRemote("RemoteEvent", "Announce")
 local RequestRebirth: RemoteEvent = makeRemote("RemoteEvent", "RequestRebirth")
 local AdminAction: RemoteEvent = makeRemote("RemoteEvent", "AdminAction")
 local BuyLimited: RemoteFunction = makeRemote("RemoteFunction", "BuyLimited")
+local RequestUpgrade: RemoteEvent = makeRemote("RemoteEvent", "RequestUpgrade")
 
 remotes.Parent = ReplicatedStorage
 ReplicatedStorage:SetAttribute("LuckEndsAt", 0)
@@ -345,6 +346,7 @@ local function snapshot(session: Session)
 		WallLevel = data.WallLevel,
 		Stories = data.Stories,
 		LockLevel = data.LockLevel,
+		LockDuration = Config.LockLevels[data.LockLevel].Duration * (if session.Owns.LongerLock then 2 else 1),
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
 		IsAdmin = session.IsAdmin,
@@ -810,19 +812,13 @@ local function updateUpgradeLabel(plot: Plot)
 		return
 	end
 	local data = session.Data
-	local function line(key: string, current: string, nextCost: number?): string
-		return if nextCost
-			then string.format("[%s] %s -> %s", key, current, Config.FormatCash(nextCost))
-			else string.format("[%s] %s (MAX)", key, current)
-	end
-	local nextWall = Config.WallLevels[data.WallLevel + 1]
-	local nextStory = Config.Stories[data.Stories + 1]
-	local nextLock = Config.LockLevels[data.LockLevel + 1]
-	plot.Parts.UpgradeLabel.Text = table.concat({
-		line("E", "Walls: " .. Config.WallLevels[data.WallLevel].Name, nextWall and nextWall.Cost),
-		line("R", string.format("Floors: %d/%d", data.Stories, #Config.Stories), nextStory and nextStory.Cost),
-		line("T", string.format("Lock: %ds", lockDuration(session)), nextLock and nextLock.Cost),
-	}, "\n")
+	plot.Parts.UpgradeLabel.Text = string.format(
+		"UPGRADES\n%s | Floors %d/%d | Lock %ds",
+		Config.WallLevels[data.WallLevel].Name,
+		data.Stories,
+		#Config.Stories,
+		lockDuration(session)
+	)
 end
 
 local function assignPlot(player: Player, session: Session)
@@ -951,14 +947,6 @@ end
 for _, plot in plots do
 	updateVipPedestals(plot)
 
-	for _, prompt in plot.Parts.UpgradePost:GetChildren() do
-		if prompt:IsA("ProximityPrompt") then
-			local kind = prompt:GetAttribute("UpgradeType") :: string
-			prompt.Triggered:Connect(function(player)
-				onUpgrade(player, plot, kind)
-			end)
-		end
-	end
 
 	plot.Parts.CollectPad.Touched:Connect(function(hit)
 		local player = Players:GetPlayerFromCharacter(hit.Parent)
@@ -1019,6 +1007,21 @@ for _, plot in plots do
 		end)
 	end
 end
+
+-- The upgrades panel. You have to be at your base's upgrade post.
+RequestUpgrade.OnServerEvent:Connect(function(player: Player, kind: unknown)
+	local session = sessions[player]
+	local plot = session and session.Plot
+	local hrp = getRoot(player)
+	if not plot or not hrp or type(kind) ~= "string" then
+		return
+	end
+	if (hrp.Position - plot.Parts.UpgradePost.Position).Magnitude > 25 then
+		notify(player, "Go to the upgrade post in your base!")
+		return
+	end
+	onUpgrade(player, plot, kind)
+end)
 
 -- Conveyor -----------------------------------------------------------------
 

@@ -261,27 +261,18 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 	local lockPad = block(model, "LockPad", Vector3.new(8, 0.4, 8), at(-12, FLOOR_TOP + 0.2, -12), Color3.fromRGB(230, 60, 60), Enum.Material.Neon)
 	local lockLabel = billboard(lockPad, Vector2.new(220, 70), Vector3.new(0, 5, 0), "STEP TO LOCK", Color3.fromRGB(255, 140, 140))
 
-	-- One post, three upgrades, each on its own key.
+	-- The upgrade post opens the upgrades panel (see HUD.client).
 	local upgradePost = block(model, "UpgradePost", Vector3.new(2, 4, 2), at(-14, FLOOR_TOP + 2, -24), Color3.fromRGB(255, 170, 40), Enum.Material.Neon)
-	local upgradeLabel = billboard(upgradePost, Vector2.new(300, 110), Vector3.new(0, 6, 0), "UPGRADES", Color3.fromRGB(255, 210, 120))
-	local upgrades: { { Kind: string, Text: string, Key: Enum.KeyCode } } = {
-		{ Kind = "Walls", Text = "Upgrade Walls", Key = Enum.KeyCode.E },
-		{ Kind = "Floors", Text = "Build Floor", Key = Enum.KeyCode.R },
-		{ Kind = "Lock", Text = "Upgrade Lock", Key = Enum.KeyCode.T },
-	}
-	for _, info in upgrades do
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.Name = info.Kind .. "Prompt"
-		prompt.ActionText = info.Text
-		prompt.ObjectText = "Base Upgrades"
-		prompt.KeyboardKeyCode = info.Key
-		prompt.HoldDuration = 0.4
-		prompt.MaxActivationDistance = 10
-		prompt.RequiresLineOfSight = false
-		prompt:SetAttribute("Action", "Upgrade")
-		prompt:SetAttribute("UpgradeType", info.Kind)
-		prompt.Parent = upgradePost
-	end
+	local upgradeLabel = billboard(upgradePost, Vector2.new(260, 80), Vector3.new(0, 5, 0), "UPGRADES", Color3.fromRGB(255, 210, 120))
+	local upgradePrompt = Instance.new("ProximityPrompt")
+	upgradePrompt.Name = "UpgradePrompt"
+	upgradePrompt.ActionText = "Open Upgrades"
+	upgradePrompt.ObjectText = "Base Upgrades"
+	upgradePrompt.HoldDuration = 0
+	upgradePrompt.MaxActivationDistance = 10
+	upgradePrompt.RequiresLineOfSight = false
+	upgradePrompt:SetAttribute("Action", "OpenUpgrades")
+	upgradePrompt.Parent = upgradePost
 
 	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + SIGN_HEIGHT, half - 1), WALL_COLOR)
 	signPost.Transparency = 1

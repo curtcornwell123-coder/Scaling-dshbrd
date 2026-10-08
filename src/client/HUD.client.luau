@@ -3,6 +3,7 @@
 -- which prompts (Buy / Sell / Steal) each player sees.
 
 local MarketplaceService = game:GetService("MarketplaceService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -16,6 +17,7 @@ local Announce = Remotes:WaitForChild("Announce") :: RemoteEvent
 local RequestRebirth = Remotes:WaitForChild("RequestRebirth") :: RemoteEvent
 local AdminAction = Remotes:WaitForChild("AdminAction") :: RemoteEvent
 local BuyLimited = Remotes:WaitForChild("BuyLimited") :: RemoteFunction
+local RequestUpgrade = Remotes:WaitForChild("RequestUpgrade") :: RemoteEvent
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -523,12 +525,120 @@ confirmRebirth.MouseButton1Click:Connect(function()
 	rebirthFrame.Visible = false
 end)
 
+-- Base upgrades panel: opened from the upgrade post in your base --------------
+
+local upgradeFrame, upgradeBody = modal("BASE UPGRADES", Color3.fromRGB(255, 170, 40), 420)
+local upgradeLayout = Instance.new("UIListLayout")
+upgradeLayout.Padding = UDim.new(0, 10)
+upgradeLayout.SortOrder = Enum.SortOrder.LayoutOrder
+upgradeLayout.Parent = upgradeBody
+
+type UpgradeCard = { Now: TextLabel, Next: TextLabel, Button: TextButton }
+local upgradeCards: { [string]: UpgradeCard } = {}
+
+local function upgradeCard(order: number, kind: string, title: string, color: Color3)
+	local card = Instance.new("Frame")
+	card.Size = UDim2.new(1, 0, 0, 100)
+	card.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+	card.LayoutOrder = order
+	corner(card, 12)
+	stroke(card, 2, color)
+	card.Parent = upgradeBody
+
+	text(card, {
+		Position = UDim2.fromOffset(14, 8),
+		Size = UDim2.new(1, -190, 0, 32),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = color,
+		Text = title,
+	})
+	local now = text(card, {
+		Position = UDim2.fromOffset(14, 42),
+		Size = UDim2.new(1, -190, 0, 24),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "",
+	})
+	local nextLabel = text(card, {
+		Position = UDim2.fromOffset(14, 68),
+		Size = UDim2.new(1, -190, 0, 22),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(190, 190, 205),
+		TextStrokeTransparency = 1,
+		Text = "",
+	})
+	local buy = button(card, "UPGRADE", GREEN, UDim2.fromOffset(160, 72))
+	buy.Position = UDim2.new(1, -172, 0, 14)
+	buy.MouseButton1Click:Connect(function()
+		RequestUpgrade:FireServer(kind)
+	end)
+	upgradeCards[kind] = { Now = now, Next = nextLabel, Button = buy }
+end
+
+upgradeCard(1, "Walls", "WALLS", Color3.fromRGB(255, 170, 40))
+upgradeCard(2, "Floors", "FLOORS", Color3.fromRGB(80, 160, 255))
+upgradeCard(3, "Lock", "LOCK TIME", RED)
+
+local function renderUpgrades()
+	if not data or not data.WallLevel then
+		return
+	end
+	local longer = data.Owns and data.Owns.LongerLock
+	local function set(kind: string, now: string, nextText: string?, cost: number?)
+		local card = upgradeCards[kind]
+		card.Now.Text = now
+		if nextText and cost then
+			card.Next.Text = "Next: " .. nextText
+			local affordable = data.Cash >= cost
+			card.Button.Text = "UPGRADE\n" .. Config.FormatCash(cost)
+			card.Button.BackgroundColor3 = if affordable then GREEN else Color3.fromRGB(90, 90, 100)
+		else
+			card.Next.Text = "Fully upgraded!"
+			card.Button.Text = "MAX"
+			card.Button.BackgroundColor3 = GOLD
+		end
+	end
+
+	local wall = Config.WallLevels[data.WallLevel]
+	local nextWall = Config.WallLevels[data.WallLevel + 1]
+	set("Walls", string.format("%s (%d studs tall)", wall.Name, wall.Height), nextWall and string.format("%s (%d studs)", nextWall.Name, nextWall.Height), nextWall and nextWall.Cost)
+
+	local nextStory = Config.Stories[data.Stories + 1]
+	set("Floors", string.format("%d of %d floors", data.Stories, #Config.Stories), nextStory and (nextStory.Name .. " (+" .. Config.UpperFloorSlots .. " slots)"), nextStory and nextStory.Cost)
+
+	local nextLock = Config.LockLevels[data.LockLevel + 1]
+	set("Lock", string.format("Lasers stay on %ds", data.LockDuration or 0), nextLock and string.format("%ds", nextLock.Duration * (if longer then 2 else 1)), nextLock and nextLock.Cost)
+end
+
+-- Opening the panel from the post; it closes again if you walk away.
+local openPost: BasePart? = nil
+ProximityPromptService.PromptTriggered:Connect(function(prompt)
+	if prompt:GetAttribute("Action") == "OpenUpgrades" then
+		openPost = prompt.Parent :: BasePart
+		shopFrame.Visible = false
+		rebirthFrame.Visible = false
+		renderUpgrades()
+		upgradeFrame.Visible = true
+	end
+end)
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if upgradeFrame.Visible and openPost and root and (root.Position - openPost.Position).Magnitude > 30 then
+			upgradeFrame.Visible = false
+		end
+	end
+end)
+
 shopButton.MouseButton1Click:Connect(function()
 	rebirthFrame.Visible = false
+	upgradeFrame.Visible = false
 	shopFrame.Visible = not shopFrame.Visible
 end)
 rebirthButton.MouseButton1Click:Connect(function()
 	shopFrame.Visible = false
+	upgradeFrame.Visible = false
 	rebirthFrame.Visible = not rebirthFrame.Visible
 end)
 
@@ -747,6 +857,7 @@ local function render()
 	slotsLabel.Text = string.format("Base %d/%d   Steals %d", data.Placed, data.MaxSlots, data.Steals)
 
 	renderLimited()
+	renderUpgrades()
 	for key, b in passButtons do
 		if data.Owns[key] then
 			b.Text = "OWNED"
@@ -794,7 +905,7 @@ updateCarry()
 
 local function updatePrompt(prompt: ProximityPrompt)
 	local action = prompt:GetAttribute("Action")
-	if action == "Upgrade" then
+	if action == "OpenUpgrades" then
 		-- Prompt lives on the upgrade post, directly inside the plot model.
 		local post = prompt.Parent
 		local plot = post and post.Parent
