@@ -101,7 +101,7 @@ Who is an admin: the game's owner (or the group owner, for group games), anyone 
 
 The admin panel can drop any brainrot (with any mutation) from the sky, start a **Brainrot Rain** of 10 lucky brainrots, or start a **Cash Rain** of 30 cash drops (each worth the amount box). First player to grab a drop keeps it.
 
-There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. Set the day and time in `Config.AdminAbuse` (in UTC; the default is Saturday 22:00 UTC = 6 PM US Eastern in summer). Admins can also start or end it any time.
+There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. It's set to **Saturday 2:00 PM Central time (Oklahoma)**, and daylight saving is handled automatically. Change it in `Config.AdminAbuse`. Admins can also start or end it any time.
 
 ## Make money (Robux)
 

@@ -188,24 +188,53 @@ Config.AdminGroupRank = 255 -- for group games: this rank and above are admins
 
 -- Admin abuse --------------------------------------------------------------
 -- A weekly event. Everyone sees a countdown during the hour before it, and a
--- LIVE banner while it runs. Times are in UTC:
---   6 PM US Eastern (summer) = 22:00 UTC, 6 PM US Pacific (summer) = 01:00 UTC next day.
+-- LIVE banner while it runs. The time is local to the time zone below, and
+-- US daylight saving time is handled automatically.
 -- Admins can also start or stop it any time from the admin panel.
 
 Config.AdminAbuse = {
 	WeekDay = 7, -- 1 = Sunday, 2 = Monday ... 7 = Saturday
-	Hour = 22,
+	Hour = 14, -- 24-hour clock: 14 = 2 PM
 	Minute = 0,
+	UtcOffset = -6, -- US Central standard time (Oklahoma)
+	UsDaylightSaving = true, -- adds an hour from March to November
 	DurationMinutes = 60,
 	CountdownMinutes = 60,
 }
 
 local WEEK = 7 * 24 * 3600
 
+-- US rule: daylight time runs from the 2nd Sunday of March to the 1st Sunday
+-- of November, switching at 2 AM local time.
+local function isUsDaylightTime(t: { [string]: any }): boolean
+	local month, day, weekday, hour = t.month, t.day, t.wday, t.hour
+	if month > 3 and month < 11 then
+		return true
+	elseif month < 3 or month > 11 then
+		return false
+	end
+	local lastSunday = day - (weekday - 1) -- date of the most recent Sunday
+	if month == 3 then
+		return lastSunday >= 8 and not (weekday == 1 and day <= 14 and hour < 2)
+	end
+	-- November: still daylight time until the first Sunday at 2 AM (1 AM standard).
+	return lastSunday <= 0 or (weekday == 1 and day <= 7 and hour < 1)
+end
+
+-- Seconds to add to UTC to get the event's local time right now.
+function Config.AdminAbuseUtcOffset(now: number): number
+	local schedule = Config.AdminAbuse
+	local offset = schedule.UtcOffset * 3600
+	if schedule.UsDaylightSaving and isUsDaylightTime(os.date("!*t", math.floor(now + offset)) :: any) then
+		offset += 3600
+	end
+	return offset
+end
+
 -- Returns "live" + seconds left, "soon" + seconds until it starts, or nil.
 function Config.AdminAbuseStatus(now: number): (string?, number)
 	local schedule = Config.AdminAbuse
-	local t = os.date("!*t", math.floor(now))
+	local t = os.date("!*t", math.floor(now + Config.AdminAbuseUtcOffset(now)))
 	local intoWeek = (t.wday - 1) * 86400 + t.hour * 3600 + t.min * 60 + t.sec
 	local start = (schedule.WeekDay - 1) * 86400 + schedule.Hour * 3600 + schedule.Minute * 60
 	local duration = schedule.DurationMinutes * 60
