@@ -618,6 +618,106 @@ designs.CignaGlamourina = function(b, c, a)
 	return 8.2
 end
 
+-- Flat 5-pointed star lying on a surface (`frame` faces outward along -Z).
+local function star(b: Builder, name: string, frame: CFrame, size: number, color: Color3)
+	for k = 0, 4 do
+		local angle = rad(k * 72)
+		b.add(name, "Egg", V(size * 0.32, size * 0.62, 0.06), frame * ANG(0, 0, angle) * CF(0, size * 0.3, 0), color, nil, true)
+	end
+	b.add(name, "Ball", V(size * 0.42, size * 0.42, 0.07), frame, color, nil, true)
+end
+
+designs.ScarpinoStellino = function(b, c, a)
+	local blue = c
+	local lightBlue = Color3.fromRGB(165, 180, 230)
+	local cream = a
+	local dark = Color3.fromRGB(50, 48, 60)
+
+	-- Chunky platform sole (toe points forward, -Z)
+	egg(b, "Outsole", V(1.75, 0.22, 2.7), CF(0, 0.11, -0.15), blue)
+	egg(b, "Sole", V(1.85, 0.5, 2.8), CF(0, 0.32, -0.15), cream)
+	egg(b, "SoleStripe", V(1.88, 0.1, 2.83), CF(0, 0.5, -0.15), blue)
+
+	-- High-top upper: ankle shaft at the back, toe box in front
+	egg(b, "Shaft", V(1.5, 1.7, 1.45), CF(0, 1.25, 0.35), cream)
+	egg(b, "ToeBox", V(1.45, 0.75, 1.55), CF(0, 0.82, -0.6), cream)
+	egg(b, "ToeCap", V(1.3, 0.55, 0.75), CF(0, 0.72, -1.2), blue)
+	egg(b, "HeelCounter", V(1.4, 0.9, 0.6), CF(0, 0.95, 0.95), blue)
+	for _, side in { -1, 1 } do
+		egg(b, "SidePanel", V(0.1, 0.85, 1.5), CF(side * 0.74, 1.05, 0.05) * ANG(rad(-12), 0, 0), blue)
+		star(b, "SideStar", CF(side * 0.8, 1.05, 0.15) * ANG(0, side * rad(90), 0), 0.55, lightBlue)
+	end
+	-- Tongue and criss-cross laces
+	egg(b, "Tongue", V(0.62, 1.0, 0.3), CF(0, 1.35, -0.5) * ANG(rad(-15), 0, 0), lightBlue)
+	for i = 0, 3 do
+		local y = 0.95 + i * 0.2
+		capsule(b, "Lace", V(-0.42, y, -0.66 + i * 0.05), V(0.42, y + 0.08, -0.66 + i * 0.05), 0.09, cream)
+	end
+	star(b, "HeelStar", CF(0, 1.15, 1.25) * ANG(0, rad(180), 0), 0.4, cream)
+
+	-- Hoodie collar around the top of the shoe, with drawstrings + star charm
+	for k = 0, 9 do
+		local angle = rad(k * 36)
+		egg(b, "Hood", V(0.55, 0.45, 0.55), CF(math.cos(angle) * 0.6, 2.12, 0.3 + math.sin(angle) * 0.55), cream, Enum.Material.Fabric)
+	end
+	for _, side in { -1, 1 } do
+		capsule(b, "Drawstring", V(side * 0.22, 2.0, -0.28), V(side * 0.28, 1.45, -0.42), 0.07, cream)
+	end
+	star(b, "Charm", CF(0.28, 1.35, -0.48), 0.32, blue)
+
+	-- Short neck post
+	vcyl(b, "Neck", 0.45, 0.42, V(0, 2.4, 0.3), dark)
+
+	-- Head: cream with blue camo patches and a pointed blue beak
+	egg(b, "Head", V(1.15, 1.2, 1.25), CF(0, 3.0, 0.25), cream)
+	for _, patch in { { -0.45, 3.2, 0.5 }, { 0.5, 2.85, 0.45 }, { 0.2, 3.35, 0.75 }, { -0.35, 2.75, 0.05 } } do
+		egg(b, "Camo", V(0.5, 0.42, 0.5), CF(patch[1], patch[2], patch[3]), lightBlue)
+	end
+	for i = 0, 3 do
+		local t = i / 3
+		egg(b, "Beak", V(0.42 - t * 0.28, 0.4 - t * 0.26, 0.4), CF(0, 2.9 - t * 0.04, -0.3 - t * 0.27), blue)
+	end
+
+	-- Big sleepy eyes on the sides of the head
+	for _, side in { -1, 1 } do
+		local eye = V(side * 0.47, 3.05, 0.12)
+		local look = V(side * 0.55, 0, -0.84)
+		egg(b, "Eye", V(0.6, 0.66, 0.6), CF(eye), WHITE, nil, true)
+		ball(b, "Iris", 0.4, eye + look * 0.15, Color3.fromRGB(95, 125, 205), nil, true)
+		ball(b, "Pupil", 0.2, eye + look * 0.26, BLACK, nil, true)
+		ball(b, "Shine", 0.08, eye + look * 0.3 + V(0, 0.06, 0), WHITE, Enum.Material.Neon, true)
+		-- Heavy lid gives the chill, half-closed look
+		egg(b, "Lid", V(0.66, 0.3, 0.66), CF(eye + V(0, 0.22, 0)), blue)
+		for i = -1, 1 do
+			local base = eye + V(side * 0.12, 0.3, -0.05 + i * 0.12)
+			capsule(b, "Lash", base, base + V(side * 0.14, 0.08, i * 0.04 - 0.02), 0.04, BLACK, nil, true)
+		end
+	end
+
+	-- Backwards blue cap with a star and a strap
+	egg(b, "Cap", V(1.25, 0.75, 1.3), CF(0, 3.55, 0.28), blue)
+	egg(b, "CapBrim", V(1.0, 0.12, 0.9), CF(0, 3.32, 0.95) * ANG(rad(-8), 0, 0), blue)
+	capsule(b, "CapStrap", V(-0.35, 3.35, -0.32), V(0.35, 3.35, -0.32), 0.1, cream)
+	star(b, "CapStar", CF(0, 3.62, -0.34) * ANG(rad(-20), 0, 0), 0.42, cream)
+	ball(b, "CapButton", 0.16, V(0, 3.93, 0.28), blue)
+
+	-- Shoelace "hair": thick cream laces draping down from under the cap
+	local strands = {
+		{ -0.62, 0.05, 1.0 }, { -0.66, 0.45, 1.15 }, { -0.5, 0.8, 1.05 },
+		{ 0.62, 0.05, 1.0 }, { 0.66, 0.45, 1.15 }, { 0.5, 0.8, 1.05 },
+		{ -0.2, 0.9, 1.25 }, { 0.2, 0.9, 1.25 },
+	}
+	for i, strand in strands do
+		local x, z, drop = strand[1], strand[2], strand[3]
+		local top = V(x * 0.85, 3.35, z)
+		local mid = V(x * 1.15, 3.35 - drop * 0.5, z + 0.05)
+		local bottom = V(x * 1.05 + (if i % 2 == 0 then 0.08 else -0.08), 3.35 - drop, z + 0.12)
+		capsule(b, "LaceHair", top, mid, 0.13, cream)
+		capsule(b, "LaceHair", mid, bottom, 0.12, cream)
+	end
+	return 4.1
+end
+
 -- Fallback for brainrots without a design yet.
 local function blob(b: Builder, c: Color3, a: Color3): number
 	legs(b, a, 1.0, 0.7)
@@ -962,7 +1062,7 @@ end
 function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cframe: CFrame, priceTag: boolean, serial: number?, mini: boolean?, scaleOverride: number?): Model
 	local rarity = Config.Rarities[brainrot.Rarity]
 	local mutation = Config.GetMutation(mutationId)
-	local s = scaleOverride or (if mini then 0.4 else rarity.Scale)
+	local s = scaleOverride or (if mini then 0.4 else (brainrot.Scale or rarity.Scale))
 
 	local model = Instance.new("Model")
 	model.Name = brainrot.Id

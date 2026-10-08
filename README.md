@@ -36,7 +36,7 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 | 🟪 Epic | 10% | 14.4% | $5K – $15K | $60–150/s |
 | 🟨 Legendary | 4% | 5.7% | $75K – $200K | $500–1.2K/s |
 | 🟥 Mythic | 0.9% | 1.3% | $1.5M – $4M | $6K–15K/s |
-| ⬛ Secret | 0.1% | 0.14% | $50M | $250K/s |
+| ⬛ Secret | 0.1% | 0.14% | $25M – $50M | $120K–250K/s |
 | 💖 Event Special | not on the conveyor | | Robux | see below |
 
 ### Launch event: Cigna Glamourina (limited)

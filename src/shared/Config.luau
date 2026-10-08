@@ -26,6 +26,7 @@ export type Brainrot = {
 	Color: Color3,
 	Accent: Color3,
 	IncomeGrowth: number?, -- income multiplies by this for every rebirth the owner has
+	Scale: number?, -- model size override (otherwise the rarity's size)
 	Limited: boolean?, -- sold for Robux in limited numbers: can't be stolen or sold, kept on rebirth
 }
 
@@ -95,6 +96,8 @@ Config.Brainrots = {
 	-- doubles with every rebirth, so she stays useful without breaking the economy.
 	{ Id = "CignaGlamourina", DisplayName = "Cigna Glamourina", Rarity = "EventSpecial", Price = 0, Income = 2500, IncomeGrowth = 2, Limited = true, Color = Color3.fromRGB(240, 110, 200), Accent = Color3.fromRGB(255, 30, 170) },
 	-- Secret
+	-- A little sneaker creature: kept short on purpose (Scale), but very rare.
+	{ Id = "ScarpinoStellino", DisplayName = "Scarpino Stellino", Rarity = "Secret", Price = 25000000, Income = 120000, Scale = 1.15, Color = Color3.fromRGB(110, 130, 205), Accent = Color3.fromRGB(240, 235, 222) },
 	{ Id = "IlCosmicoCannolo", DisplayName = "Il Cosmico Cannolo", Rarity = "Secret", Price = 50000000, Income = 250000, Color = Color3.fromRGB(30, 10, 60), Accent = Color3.fromRGB(255, 120, 255) },
 } :: { Brainrot }
 
