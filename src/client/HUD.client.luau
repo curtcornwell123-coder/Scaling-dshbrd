@@ -293,6 +293,8 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 		showBanner(who .. "'s " .. brainrot.DisplayName .. " turned MAGIC!", Color3.fromRGB(190, 130, 255))
 	elseif kind == "luck" then
 		showBanner(who .. " bought SERVER LUCK for everyone!", Color3.fromRGB(120, 255, 160))
+	elseif kind == "night" and mutation then
+		showBanner(string.format("NIGHT FALLS! %s mutations are x%s more likely tonight!", string.upper(mutation.DisplayName), extra or "?"), mutation.Color)
 	elseif kind == "rebirth" then
 		showBanner(who .. " reached Rebirth " .. (extra or "") .. "!", Color3.fromRGB(200, 140, 255))
 	end
@@ -1588,6 +1590,12 @@ task.spawn(function()
 		local founderEnds = ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number?
 		if founderEvent and founderEvent.Luck and founderEnds and founderEnds > now then
 			table.insert(active, { Id = "FounderLuck", Name = string.format("x%d LUCK (%s)", founderEvent.Luck, founderEvent.Founder), Color = Color3.fromRGB(255, 150, 210), Left = founderEnds - now })
+		end
+		-- Tonight's night mutation (Corny's event)
+		local nightMutation = Config.GetMutation(ReplicatedStorage:GetAttribute("NightMutation") :: string?)
+		local nightBoost = ReplicatedStorage:GetAttribute("NightBoost") :: number?
+		if nightMutation and nightBoost and nightBoost > 0 and founderEnds and founderEnds > now then
+			table.insert(active, { Id = "NightMutation", Name = string.format("NIGHT: x%d %s", nightBoost, string.upper(nightMutation.DisplayName)), Color = nightMutation.Color, Left = founderEnds - now })
 		end
 		-- Server Luck (bought by someone)
 		local luckEnds = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number?

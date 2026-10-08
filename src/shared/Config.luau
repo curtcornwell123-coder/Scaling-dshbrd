@@ -493,6 +493,12 @@ export type FounderEvent = {
 	Sky: string?, -- "Green", "Pink" or "Rainbow": the sky changes while it runs
 	Water: boolean?, -- knee-deep water floods the map, with lily pads falling into it
 	MusicId: string?, -- theme song (an audio id, "rbxassetid://123..."), "" = none
+	Night: boolean?, -- it turns night while it runs
+	-- Each night one of these mutations is picked at random (Chance is its
+	-- percent chance of being tonight's pick) and is Boost times more likely
+	-- on everything that spawns or drops until morning.
+	NightMutations: { { Id: string, Chance: number, Boost: number } }?,
+	Chaos: boolean?, -- sweeping green searchlights, pulsing lights, mini UFOs and abduction beams
 }
 Config.FounderEvents = {
 	Corny = {
@@ -520,8 +526,18 @@ Config.FounderEvents = {
 		-- Sprinkles like his hat, rainbow like his pants.
 		Mutations = { { Id = "Candy", Chance = 45 }, { Id = "Rainbow", Chance = 8 } },
 		Colors = { Color3.fromRGB(255, 120, 190), Color3.fromRGB(120, 210, 255), Color3.fromRGB(255, 230, 90), Color3.fromRGB(130, 240, 130) },
-		Chips = { "SPRINKLE DROPS", "45% CANDY", "8% RAINBOW", "CASH BAGS" },
+		Chips = { "NIGHT FALLS", "NIGHT MUTATION", "SPRINKLE DROPS", "CASH BAGS" },
 		Sky = "Green",
+		Night = true,
+		NightMutations = {
+			{ Id = "Galaxy", Chance = 30, Boost = 5 },
+			{ Id = "Radioactive", Chance = 25, Boost = 5 },
+			{ Id = "Electric", Chance = 20, Boost = 5 },
+			{ Id = "Void", Chance = 12, Boost = 6 },
+			{ Id = "Cursed", Chance = 10, Boost = 6 },
+			{ Id = "Divine", Chance = 3, Boost = 8 },
+		},
+		Chaos = true,
 		-- Theme song (from Roblox's licensed music library)
 		MusicId = "rbxassetid://1836281845",
 	},
@@ -732,13 +748,15 @@ function Config.Decode(entry: string): (Brainrot?, string?, number?)
 end
 
 -- Rolls a mutation (or nil) for a conveyor spawn.
-function Config.RollMutation(rng: Random, luck: number): string?
+-- `boost`: one mutation made more likely (tonight's night mutation).
+function Config.RollMutation(rng: Random, luck: number, boost: { Id: string, Multiplier: number }?): string?
 	local roll = rng:NextNumber(0, 100)
 	-- Rarest first, so luck can't push a common mutation past a rare one.
 	for i = #Config.Mutations, 1, -1 do
 		local mutation = Config.Mutations[i]
 		if not mutation.Exclusive then
-			roll -= mutation.Chance * luck
+			local extra = if boost and boost.Id == mutation.Id then boost.Multiplier else 1
+			roll -= mutation.Chance * luck * extra
 			if roll < 0 then
 				return mutation.Id
 			end

@@ -7,6 +7,7 @@ local DataStoreService = game:GetService("DataStoreService")
 local CollectionService = game:GetService("CollectionService")
 local Debris = game:GetService("Debris")
 local MarketplaceService = game:GetService("MarketplaceService")
+local Lighting = game:GetService("Lighting")
 local MessagingService = game:GetService("MessagingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -270,6 +271,16 @@ end
 local function isNotable(brainrot: Config.Brainrot, mutationId: string?): boolean
 	local mutation = Config.GetMutation(mutationId)
 	return Config.Rarities[brainrot.Rarity].Order >= 4 or (mutation ~= nil and mutation.Chance <= 0.6)
+end
+
+-- Tonight's night mutation (Corny's event), if it's night.
+local function nightBoost(): { Id: string, Multiplier: number }?
+	local id = ReplicatedStorage:GetAttribute("NightMutation") :: string?
+	local multiplier = ReplicatedStorage:GetAttribute("NightBoost") :: number?
+	if id and id ~= "" and multiplier then
+		return { Id = id, Multiplier = multiplier }
+	end
+	return nil
 end
 
 local function luckMultiplier(): number
@@ -1110,7 +1121,7 @@ local function giveAbuseGift(player: Player, session: Session)
 	data.Diamonds += gift.Diamonds
 	data.Shards += gift.Shards
 	local brainrot = Config.RollConveyor(rng, gift.BrainrotLuck, false)
-	local mutation = Config.RollMutation(rng, gift.BrainrotLuck)
+	local mutation = Config.RollMutation(rng, gift.BrainrotLuck, nightBoost())
 	local plot = session.Plot
 	local index = plot and freeSlot(plot, session)
 	if plot and index then
@@ -1662,7 +1673,7 @@ end
 local function spawnOnConveyor(forced: Config.Brainrot?, forcedMutation: string?)
 	local luck = luckMultiplier()
 	local brainrot = forced or Config.RollConveyor(rng, luck, adminAbuseLive())
-	local mutation = if forced then forcedMutation else Config.RollMutation(rng, luck)
+	local mutation = if forced then forcedMutation else Config.RollMutation(rng, luck, nightBoost())
 	local start = CFrame.lookAt(world.ConveyorStart, world.ConveyorEnd)
 	local model = BrainrotModel.Create(brainrot, mutation, start, true)
 	local root = model.PrimaryPart :: BasePart
@@ -2275,7 +2286,7 @@ local function founderDrop(from: Vector3, brainrotChance: number, luck: number, 
 				roll -= entry.Chance
 			end
 		end
-		dropBrainrot(brainrot, mutation or Config.RollMutation(rng, luck), from)
+		dropBrainrot(brainrot, mutation or Config.RollMutation(rng, luck, nightBoost()), from)
 	else
 		dropCash(Config.FounderCashDrop, from)
 	end
@@ -2473,6 +2484,34 @@ local function runFounderEvent(eventId: string, minutes: number)
 	ReplicatedStorage:SetAttribute("FounderEventEndsAt", workspace:GetServerTimeNow() + minutes * 60)
 	Announce:FireAllClients("founder", event.Founder, "", eventId)
 
+	-- Night falls, and one mutation is picked (by its percent chance) to be
+	-- much more likely until morning.
+	local dayTime = Lighting.ClockTime
+	if event.Night then
+		TweenService:Create(Lighting, TweenInfo.new(5, Enum.EasingStyle.Sine), { ClockTime = 0 }):Play()
+		local picks = event.NightMutations
+		if picks and #picks > 0 then
+			local total = 0
+			for _, pick in picks do
+				total += pick.Chance
+			end
+			local roll = rng:NextNumber(0, total)
+			local chosen = picks[#picks]
+			for _, pick in picks do
+				roll -= pick.Chance
+				if roll < 0 then
+					chosen = pick
+					break
+				end
+			end
+			ReplicatedStorage:SetAttribute("NightMutation", chosen.Id)
+			ReplicatedStorage:SetAttribute("NightBoost", chosen.Boost)
+			task.delay(7, function()
+				Announce:FireAllClients("night", event.Founder, "", tostring(chosen.Boost), chosen.Id)
+			end)
+		end
+	end
+
 	-- One UFO on each side of the map (event.Spots), all at once. They share
 	-- the throwing, so the total drop rate stays the same.
 	local dropEvery = (event.DropEvery or 2) * #event.Spots
@@ -2666,6 +2705,11 @@ local function runFounderEvent(eventId: string, minutes: number)
 	while running > 0 do
 		task.wait(0.5)
 	end
+	if event.Night then
+		ReplicatedStorage:SetAttribute("NightMutation", "")
+		ReplicatedStorage:SetAttribute("NightBoost", 0)
+		TweenService:Create(Lighting, TweenInfo.new(5, Enum.EasingStyle.Sine), { ClockTime = dayTime }):Play()
+	end
 	ReplicatedStorage:SetAttribute("FounderEvent", "")
 	ReplicatedStorage:SetAttribute("FounderEventEndsAt", 0)
 	founderEventRunning = nil
@@ -2846,7 +2890,7 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		task.spawn(function()
 			for _ = 1, Config.BrainrotRainCount do
 				local luck = Config.BrainrotRainLuck
-				dropBrainrot(Config.RollConveyor(rng, luck, adminAbuseLive()), Config.RollMutation(rng, luck))
+				dropBrainrot(Config.RollConveyor(rng, luck, adminAbuseLive()), Config.RollMutation(rng, luck, nightBoost()))
 				task.wait(0.4)
 			end
 		end)

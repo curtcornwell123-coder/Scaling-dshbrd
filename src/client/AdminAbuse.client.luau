@@ -242,7 +242,9 @@ local SKY_TINTS = {
 	Green = { Hue = 0.33, Spread = 0.07, Saturation = 0.7 },
 	Pink = { Hue = 0.9, Spread = 0.055, Saturation = 0.5 },
 }
-local function startRainbowSky(style: string)
+-- `night`: darker and more see-through, so the night sky shows through a
+-- dim glow instead of a bright wall of color.
+local function startRainbowSky(style: string, night: boolean?)
 	if rainbowSky then
 		return
 	end
@@ -274,10 +276,10 @@ local function startRainbowSky(style: string)
 		tween(atmosphere, 2, { Density = 0.12, Haze = 0, Glare = 0 })
 	end
 	for _, p in panels do
-		tween(p, 2, { Transparency = SKY_TRANSPARENCY })
+		tween(p, 2, { Transparency = if night then 0.55 else SKY_TRANSPARENCY })
 	end
 	for _, tile in ceiling do
-		tween(tile, 2, { Transparency = SKY_TRANSPARENCY })
+		tween(tile, 2, { Transparency = if night then 0.7 else SKY_TRANSPARENCY })
 	end
 
 	local started = os.clock()
@@ -286,7 +288,7 @@ local function startRainbowSky(style: string)
 		for i, p in panels do
 			if tint then
 				local wave = math.sin(i / SKY_PANELS * math.pi * 4 + t * 0.4)
-				p.Color = Color3.fromHSV((tint.Hue + tint.Spread * wave) % 1, tint.Saturation + 0.12 * wave, 1)
+				p.Color = Color3.fromHSV((tint.Hue + tint.Spread * wave) % 1, tint.Saturation + 0.12 * wave, if night then 0.45 + 0.1 * wave else 1)
 			else
 				-- The rainbow goes twice around the horizon (so you always see
 				-- lots of colors), slowly turning.
@@ -294,7 +296,7 @@ local function startRainbowSky(style: string)
 			end
 		end
 		local top = if tint
-			then Color3.fromHSV((tint.Hue + tint.Spread * 0.7 * math.sin(t * 0.3)) % 1, tint.Saturation - 0.1, 1)
+			then Color3.fromHSV((tint.Hue + tint.Spread * 0.7 * math.sin(t * 0.3)) % 1, tint.Saturation - 0.1, if night then 0.25 else 1)
 			else Color3.fromHSV((t * 0.05) % 1, 0.6, 0.9)
 		for _, tile in ceiling do
 			tile.Color = top
@@ -556,6 +558,191 @@ local function stopBallet()
 			folder:Destroy()
 		end
 	end)
+end
+
+-- Alien chaos (Corny's event) -------------------------------------------------
+-- Green searchlights sweeping the map from all around it, green lights
+-- pulsing (slowly, never a fast strobe), little UFOs zipping across the sky
+-- and green abduction beams zapping random spots. All on this player's
+-- screen; removed when the event ends.
+
+local GREEN = Color3.fromRGB(90, 255, 120)
+
+type ChaosState = { Folder: Folder, Connection: RBXScriptConnection, Running: boolean }
+local chaos: ChaosState? = nil
+
+local function chaosPart(parent: Instance, size: Vector3, color: Color3, material: Enum.Material, transparency: number): Part
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Size = size
+	p.Color = color
+	p.Material = material
+	p.Transparency = transparency
+	p.Parent = parent
+	return p
+end
+
+local function miniUfo(parent: Instance): Model
+	local ufo = Instance.new("Model")
+	ufo.Name = "MiniUFO"
+	local hull = chaosPart(ufo, Vector3.new(26, 5, 26), Color3.fromRGB(175, 180, 195), Enum.Material.Metal, 0)
+	local hullMesh = Instance.new("SpecialMesh")
+	hullMesh.MeshType = Enum.MeshType.Sphere
+	hullMesh.Parent = hull
+	local dome = chaosPart(ufo, Vector3.new(10, 8, 10), Color3.fromRGB(140, 255, 170), Enum.Material.Glass, 0.3)
+	dome.CFrame = CFrame.new(0, 2.5, 0)
+	local domeMesh = Instance.new("SpecialMesh")
+	domeMesh.MeshType = Enum.MeshType.Sphere
+	domeMesh.Parent = dome
+	for i = 1, 8 do
+		local a = i / 8 * math.pi * 2
+		local light = chaosPart(ufo, Vector3.new(1.6, 1.6, 1.6), GREEN, Enum.Material.Neon, 0)
+		light.Shape = Enum.PartType.Ball
+		light.CFrame = CFrame.new(math.cos(a) * 12.5, 0, math.sin(a) * 12.5)
+	end
+	local glow = Instance.new("PointLight")
+	glow.Color = GREEN
+	glow.Range = 40
+	glow.Brightness = 2
+	glow.Parent = hull
+	ufo.WorldPivot = CFrame.identity
+	ufo.Parent = parent
+	return ufo
+end
+
+local function startChaos()
+	if chaos then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "AlienChaos"
+	folder.Parent = workspace
+	local rng = Random.new()
+
+	-- Searchlights around the edge of the map, sweeping over it
+	type Searchlight = { Base: Vector3, Beam: Part, Phase: number, Speed: number }
+	local searchlights: { Searchlight } = {}
+	for i = 1, 8 do
+		local a = i / 8 * math.pi * 2
+		local base = Vector3.new(math.cos(a) * 380, 2, math.sin(a) * 380)
+		chaosPart(folder, Vector3.new(8, 4, 8), Color3.fromRGB(40, 45, 55), Enum.Material.Metal, 0).CFrame = CFrame.new(base)
+		local beam = chaosPart(folder, Vector3.new(500, 9, 9), GREEN, Enum.Material.Neon, 0.8)
+		beam.Shape = Enum.PartType.Cylinder
+		table.insert(searchlights, { Base = base + Vector3.new(0, 3, 0), Beam = beam, Phase = rng:NextNumber(0, math.pi * 2), Speed = rng:NextNumber(0.25, 0.45) })
+	end
+
+	-- Green lights pulsing around the map (a slow glow, about once a second)
+	type Pulser = { Light: PointLight, Orb: Part, Phase: number }
+	local pulsers: { Pulser } = {}
+	for i = 1, 14 do
+		local a = i / 14 * math.pi * 2
+		local orb = chaosPart(folder, Vector3.new(3, 3, 3), GREEN, Enum.Material.Neon, 0)
+		orb.Shape = Enum.PartType.Ball
+		orb.CFrame = CFrame.new(math.cos(a) * rng:NextNumber(150, 330), rng:NextNumber(25, 45), math.sin(a) * rng:NextNumber(150, 330))
+		local light = Instance.new("PointLight")
+		light.Color = GREEN
+		light.Range = 45
+		light.Parent = orb
+		table.insert(pulsers, { Light = light, Orb = orb, Phase = rng:NextNumber(0, math.pi * 2) })
+	end
+
+	-- Mini UFOs flying loops over the map
+	type Flyer = { Model: Model, Radius: number, Height: number, Speed: number, Phase: number, Wobble: number }
+	local flyers: { Flyer } = {}
+	for _ = 1, 6 do
+		table.insert(flyers, {
+			Model = miniUfo(folder),
+			Radius = rng:NextNumber(120, 340),
+			Height = rng:NextNumber(110, 190),
+			Speed = rng:NextNumber(0.15, 0.3) * (if rng:NextNumber() < 0.5 then -1 else 1),
+			Phase = rng:NextNumber(0, math.pi * 2),
+			Wobble = rng:NextNumber(0.5, 1.5),
+		})
+	end
+
+	local started = os.clock()
+	local connection = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - started
+		for _, light in searchlights do
+			-- Sweep side to side and up and down, aimed over the map
+			local inward = Vector3.new(-light.Base.X, 0, -light.Base.Z).Unit
+			local side = Vector3.new(-inward.Z, 0, inward.X)
+			local sweep = math.sin(t * light.Speed + light.Phase)
+			local lift = 0.35 + 0.25 * math.sin(t * light.Speed * 1.7 + light.Phase)
+			local direction = (inward + side * sweep * 0.9 + Vector3.new(0, lift, 0)).Unit
+			local mid = light.Base + direction * 250
+			light.Beam.CFrame = CFrame.lookAt(mid, mid + direction) * CFrame.Angles(0, math.pi / 2, 0)
+		end
+		for _, pulser in pulsers do
+			local glow = (math.sin(t * 5 + pulser.Phase) + 1) / 2
+			pulser.Light.Brightness = glow * 4
+			pulser.Orb.Transparency = 0.6 - glow * 0.6
+		end
+		for _, flyer in flyers do
+			local a = t * flyer.Speed + flyer.Phase
+			local r = flyer.Radius * (0.8 + 0.2 * math.sin(t * 0.4 * flyer.Wobble + flyer.Phase))
+			local position = Vector3.new(math.cos(a) * r, flyer.Height + math.sin(t * flyer.Wobble) * 12, math.sin(a) * r)
+			flyer.Model:PivotTo(CFrame.new(position) * CFrame.Angles(math.sin(t * 2 + flyer.Phase) * 0.15, t * 2, 0))
+		end
+	end)
+	local state: ChaosState = { Folder = folder, Connection = connection, Running = true }
+	chaos = state
+
+	-- Abduction beams zapping random spots on the map
+	task.spawn(function()
+		while state.Running do
+			task.wait(rng:NextNumber(1.5, 3.5))
+			if not state.Running then
+				break
+			end
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local distance = math.sqrt(rng:NextNumber()) * 350
+			local spot = Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
+			local beam = chaosPart(folder, Vector3.new(260, 14, 14), GREEN, Enum.Material.Neon, 1)
+			beam.Shape = Enum.PartType.Cylinder
+			beam.CFrame = CFrame.new(spot + Vector3.new(0, 130, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+			local ring = chaosPart(folder, Vector3.new(0.4, 22, 22), GREEN, Enum.Material.Neon, 1)
+			ring.Shape = Enum.PartType.Cylinder
+			ring.CFrame = CFrame.new(spot + Vector3.new(0, 0.4, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+			local sparkles = Instance.new("ParticleEmitter")
+			sparkles.Texture = SPARKLE
+			sparkles.Color = ColorSequence.new(GREEN, Color3.new(1, 1, 1))
+			sparkles.LightEmission = 1
+			sparkles.Rate = 0
+			sparkles.Lifetime = NumberRange.new(1, 1.6)
+			sparkles.Speed = NumberRange.new(15, 30)
+			sparkles.SpreadAngle = Vector2.new(20, 20)
+			sparkles.EmissionDirection = Enum.NormalId.Right -- turned on its side, so "Right" is up
+			sparkles.Size = NumberSequence.new(1.2, 0)
+			sparkles.Parent = ring
+			tween(beam, 0.4, { Transparency = 0.55 })
+			tween(ring, 0.4, { Transparency = 0.2 })
+			sparkles:Emit(40)
+			task.delay(1.6, function()
+				tween(beam, 0.6, { Transparency = 1 })
+				tween(ring, 0.6, { Transparency = 1 })
+				task.delay(0.7, function()
+					beam:Destroy()
+					ring:Destroy()
+				end)
+			end)
+		end
+	end)
+end
+
+local function stopChaos()
+	local state = chaos
+	chaos = nil
+	if not state then
+		return
+	end
+	state.Running = false
+	state.Connection:Disconnect()
+	state.Folder:Destroy()
 end
 
 -- Event theme songs ---------------------------------------------------------
@@ -1086,7 +1273,7 @@ local function onFounderEvent()
 	local intro = founderIntro(eventId)
 	local event = Config.FounderEvents[eventId]
 	if event and event.Sky then
-		startRainbowSky(event.Sky)
+		startRainbowSky(event.Sky, event.Night)
 	else
 		stopRainbowSky()
 	end
@@ -1094,6 +1281,11 @@ local function onFounderEvent()
 		startBallet(event)
 	else
 		stopBallet()
+	end
+	if event and event.Chaos then
+		startChaos()
+	else
+		stopChaos()
 	end
 	if event then
 		startEventMusic(event.MusicId)
