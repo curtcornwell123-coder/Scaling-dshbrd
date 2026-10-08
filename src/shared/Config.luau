@@ -513,6 +513,8 @@ Config.FounderEvents = {
 		Colors = { Color3.fromRGB(255, 120, 190), Color3.fromRGB(120, 210, 255), Color3.fromRGB(255, 230, 90), Color3.fromRGB(130, 240, 130) },
 		Chips = { "SPRINKLE DROPS", "45% CANDY", "8% RAINBOW", "CASH BAGS" },
 		Sky = "Green",
+		-- Theme song (from Roblox's licensed music library)
+		MusicId = "rbxassetid://1836281845",
 	},
 	Ace = {
 		Founder = "Ace",

@@ -333,7 +333,7 @@ end
 local WATER_TOP = 2.2 -- about knee height
 local WATER_RADIUS = 440 -- just past the fence
 
-type BalletState = { Water: BasePart, Pads: { Model }, Dust: BasePart, Music: Sound?, Connection: RBXScriptConnection, Running: boolean }
+type BalletState = { Water: BasePart, Pads: { Model }, Dust: BasePart, Connection: RBXScriptConnection, Running: boolean }
 local ballet: BalletState? = nil
 
 local function lilyPad(parent: Instance, rng: Random): Model
@@ -469,20 +469,6 @@ local function startBallet(event: Config.FounderEvent)
 	puffs.Size = NumberSequence.new(1.5, 3)
 	puffs.Parent = dust
 
-	-- The theme song
-	local music: Sound? = nil
-	if event.MusicId and event.MusicId ~= "" then
-		local sound = Instance.new("Sound")
-		sound.Name = "BalletMusic"
-		sound.SoundId = event.MusicId
-		sound.Looped = true
-		sound.Volume = 0
-		sound.Parent = game:GetService("SoundService")
-		sound:Play()
-		tween(sound, 3, { Volume = 0.6 })
-		music = sound
-	end
-
 	local pads: { Model } = {}
 	local padPhase: { [Model]: number } = {}
 	local state: BalletState
@@ -498,7 +484,7 @@ local function startBallet(event: Config.FounderEvent)
 			end
 		end
 	end)
-	state = { Water = water, Pads = pads, Dust = dust, Music = music, Connection = connection, Running = true }
+	state = { Water = water, Pads = pads, Dust = dust, Connection = connection, Running = true }
 	ballet = state
 
 	-- Lily pads drop in over the first half minute.
@@ -563,20 +549,45 @@ local function stopBallet()
 			end
 		end
 	end
-	local music = state.Music
-	if music then
-		tween(music, 3, { Volume = 0 })
-	end
 	task.delay(4.2, function()
 		state.Connection:Disconnect()
 		local folder = state.Water.Parent
 		if folder then
 			folder:Destroy()
 		end
-		if music then
-			music:Destroy()
-		end
 	end)
+end
+
+-- Event theme songs ---------------------------------------------------------
+-- Any founder event with a MusicId plays it, looping, fading in when the
+-- event starts and out when it ends.
+
+local eventMusic: Sound? = nil
+
+local function startEventMusic(musicId: string?)
+	if eventMusic or not musicId or musicId == "" then
+		return
+	end
+	local sound = Instance.new("Sound")
+	sound.Name = "FounderEventMusic"
+	sound.SoundId = musicId
+	sound.Looped = true
+	sound.Volume = 0
+	sound.Parent = game:GetService("SoundService")
+	sound:Play()
+	tween(sound, 3, { Volume = 0.6 })
+	eventMusic = sound
+end
+
+local function stopEventMusic()
+	local sound = eventMusic
+	eventMusic = nil
+	if sound then
+		tween(sound, 3, { Volume = 0 })
+		task.delay(3.1, function()
+			sound:Destroy()
+		end)
+	end
 end
 
 -- Party lighting while it's live ---------------------------------------------
@@ -1083,6 +1094,11 @@ local function onFounderEvent()
 		startBallet(event)
 	else
 		stopBallet()
+	end
+	if event then
+		startEventMusic(event.MusicId)
+	else
+		stopEventMusic()
 	end
 	if intro then
 		task.spawn(playIntro, intro)
