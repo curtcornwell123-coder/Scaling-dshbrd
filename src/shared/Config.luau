@@ -259,6 +259,9 @@ Config.DiamondShop = {
 	{ Id = "CashBoost", Name = "2x Cash (30 min)", Description = "Double your income for 30 minutes. Stacks.", Cost = 3 },
 	{ Id = "ServerLuck", Name = "Server Luck (15 min)", Description = "More Rare+ spawns for EVERYONE. Be a hero.", Cost = 5 },
 	{ Id = "CashBoostBig", Name = "2x Cash (3 hours)", Description = "Double your income for 3 hours. Stacks.", Cost = 12 },
+	-- The same as the Infinite Laser Door gamepass. The most expensive thing
+	-- in the game on purpose: months of weekly quests and admin abuse.
+	{ Id = "InfiniteLock", Name = "Infinite Laser Door", Description = "Your base lasers stay on forever. One-time, permanent.", Cost = 250 },
 } :: { DiamondItem }
 Config.ShardPackAmount = 400
 Config.CashBoostSeconds = 30 * 60
@@ -574,6 +577,7 @@ Config.GamePasses = {
 	{ Key = "DoubleCash", Id = 0, Name = "2x Cash", Description = "Your brainrots make double cash forever." },
 	{ Key = "VIP", Id = 0, Name = "VIP", Description = "+2 base slots and a gold VIP tag." },
 	{ Key = "LongerLock", Id = 0, Name = "Longer Lock", Description = "Your base lock lasts twice as long." },
+	{ Key = "InfiniteLock", Id = 0, Name = "Infinite Laser Door", Description = "Your base lasers stay on forever. Nobody can steal from you." },
 } :: { GamePass }
 
 Config.Products = {

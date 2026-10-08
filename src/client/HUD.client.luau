@@ -639,7 +639,11 @@ local function renderUpgrades()
 	)
 
 	local nextLock = Config.LockLevels[data.LockLevel + 1]
-	set("Lock", string.format("Lasers stay on %ds", data.LockDuration or 0), nextLock and string.format("%ds", nextLock.Duration * (if longer then 2 else 1)), nextLock and nextLock.Cost, nextLock and nextLock.Rebirths)
+	if data.InfiniteLock then
+		set("Lock", "Lasers stay on FOREVER (Infinite Laser Door)", nil, nil)
+	else
+		set("Lock", string.format("Lasers stay on %ds", data.LockDuration or 0), nextLock and string.format("%ds", nextLock.Duration * (if longer then 2 else 1)), nextLock and nextLock.Cost, nextLock and nextLock.Rebirths)
+	end
 end
 
 -- Opening the panel from the post; it closes again if you walk away.
@@ -974,8 +978,8 @@ text(diamondBody, {
 	LayoutOrder = 1,
 })
 
-local diamondButtons: { { Button: TextButton, Cost: number, SkinId: string? } } = {}
-local function diamondRow(order: number, name: string, description: string, cost: number, onBuy: () -> (), skinId: string?)
+local diamondButtons: { { Button: TextButton, Cost: number, SkinId: string?, ItemId: string? } } = {}
+local function diamondRow(order: number, name: string, description: string, cost: number, onBuy: () -> (), skinId: string?, itemId: string?)
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -10, 0, 70)
 	row.BackgroundColor3 = Color3.fromRGB(35, 45, 70)
@@ -1000,14 +1004,14 @@ local function diamondRow(order: number, name: string, description: string, cost
 	local b = button(row, cost .. " Diamonds", DIAMOND_COLOR, UDim2.fromOffset(150, 50))
 	b.Position = UDim2.new(1, -160, 0, 10)
 	b.MouseButton1Click:Connect(onBuy)
-	table.insert(diamondButtons, { Button = b, Cost = cost, SkinId = skinId })
+	table.insert(diamondButtons, { Button = b, Cost = cost, SkinId = skinId, ItemId = itemId })
 end
 
 header(diamondBody, 2, "BOOSTS", GOLD)
 for i, item in Config.DiamondShop do
 	diamondRow(2 + i, item.Name, item.Description, item.Cost, function()
 		DiamondPurchase:FireServer(item.Id)
-	end)
+	end, nil, item.Id)
 end
 header(diamondBody, 20, "DIAMOND WALL SKINS", Color3.fromRGB(255, 170, 40))
 for i, skin in Config.WallSkins do
@@ -1029,7 +1033,10 @@ local function renderDiamondShop()
 	diamondBalance.Text = string.format("You have %d Diamonds", diamonds)
 	for _, entry in diamondButtons do
 		local owned = entry.SkinId and data.Skins and table.find(data.Skins, entry.SkinId)
-		if entry.SkinId and data.Skin == entry.SkinId then
+		if entry.ItemId == "InfiniteLock" and data.InfiniteLock then
+			entry.Button.Text = "OWNED"
+			entry.Button.BackgroundColor3 = GOLD
+		elseif entry.SkinId and data.Skin == entry.SkinId then
 			entry.Button.Text = "EQUIPPED"
 			entry.Button.BackgroundColor3 = GOLD
 		elseif owned then

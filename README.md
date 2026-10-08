@@ -19,7 +19,7 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
      | 4 | 4 | Steel Wall | $40M |
      | 5 | 5 | Diamond Wall | $1.5B |
 
-   - **Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). After rebirthing you can go further: 150s ($25M, 1 rebirth), 180s ($250M, 2 rebirths), 210s ($2B, 4 rebirths), 240s ($40B, 6 rebirths). Lock upgrades are kept when you rebirth. The Longer Lock gamepass doubles it.
+   - **Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). After rebirthing you can go further: 150s ($25M, 1 rebirth), 180s ($250M, 2 rebirths), 210s ($2B, 4 rebirths), 240s ($40B, 6 rebirths). Lock upgrades are kept when you rebirth. The Longer Lock gamepass doubles it. The **Infinite Laser Door** (100 R$ gamepass, or 250 Diamonds) keeps your lasers on forever: your base locks itself as soon as you join and the lock pad shows LOCKED FOREVER.
    - **Stair carpets** come from rebirths: plain wood at first, then a new carpet every 5 rebirths: Red (5), Royal (10), Golden (15), Diamond (20) and Rainbow (25).
 6. **Lock.** Step on the red **LOCK** pad. Red laser beams cross your entrance and zap anyone else who walks through. After the lock ends it recharges for 30s, and that's when you're vulnerable.
 7. **Sell** your own brainrots for half price (hold **F**).
@@ -168,7 +168,7 @@ Fair progression for free-to-play players. None of this can be bought with Robux
 - **Weekly quests:** 3 a week, new every Monday, and much harder. Each pays **1 Diamond + 100 Shards**. Diamonds only come from weekly quests and the weekly admin abuse gift.
 - **Wall skins:** open the **QUESTS** button to see them. They're a ladder: you have to own the one before to buy the next. Shard skins: Red Brick 250 → Candy Pink 600 → Frozen Ice 1,200 → Jungle Stone 2,000 → Cyber Neon 3,500 (about 11 weeks of Shards in all). Diamond skins: Royal Gold 12 → Galaxy 25 → Crystal Palace 45 → Lava Core 75 → Celestial 120, the long-term flex. Skins only change the look; your base level still sets the wall height. Every floor of your base matches your skin. With Classic, floors are the same grey in your walls' material (wood, brick, concrete, steel or diamond).
 - **Shop tent:** a blue-and-cream striped circus-style tent (like Bee Swarm's) past the bases near the cave the brainrots come out of, with a little spinning diamond on top.
-  - The left counter spends Diamonds: Shard Pouch (2 for 400 Shards), 2x Cash for 30 min (3), Server Luck for everyone for 15 min (5), 2x Cash for 3 hours (12), plus the Diamond wall skins.
+  - The left counter spends Diamonds: Shard Pouch (2 for 400 Shards), 2x Cash for 30 min (3), Server Luck for everyone for 15 min (5), 2x Cash for 3 hours (12), the **Infinite Laser Door** (250, one-time, the same as the gamepass), plus the Diamond wall skins.
   - The right counter opens the **Robux shop**: the limited event brainrot, gamepasses and boosts.
 
 Quest pools, goals, rewards, skins and shop items are all in `Config.luau`.
@@ -194,7 +194,7 @@ Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around a
 
 On the [Creator Dashboard](https://create.roblox.com/dashboard/creations), open your experience, then **Monetization**:
 
-- **Passes**: create `2x Cash`, `VIP`, and `Longer Lock`.
+- **Passes**: create `2x Cash`, `VIP`, `Longer Lock` and `Infinite Laser Door`.
 - **Developer Products**: create `Cash Bag`, `Cash Vault`, `Server Luck`, and `Instant Lock`.
 
 Paste each ID into `Config.GamePasses` / `Config.Products` in `src/shared/Config.luau`. Items left at `Id = 0` show as **SOON** in the shop.
@@ -206,6 +206,7 @@ Suggested prices:
 | 2x Cash | Pass | 299 R$ |
 | VIP (+2 base slots, VIP tag) | Pass | 399 R$ |
 | Longer Lock (2x lock time) | Pass | 149 R$ |
+| Infinite Laser Door (lasers never turn off) | Pass | 100 R$ (or 250 Diamonds in the Diamond Shop) |
 | Cash Bag (10 min of income) | Product | 49 R$ |
 | Cash Vault (1 hr of income) | Product | 199 R$ |
 | Server Luck (15 min, whole server) | Product | 149 R$ |

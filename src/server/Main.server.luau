@@ -68,6 +68,7 @@ type SaveData = {
 	Quests: QuestState,
 	CashBoostUntil: number, -- unix time the Diamond Shop 2x Cash boost ends
 	AbuseGiftWeek: number, -- the week this player last got the admin abuse gift
+	InfiniteLock: boolean, -- bought the Infinite Laser Door with Diamonds
 }
 
 type QuestState = {
@@ -296,6 +297,7 @@ local function defaultData(): SaveData
 		Skin = "Classic",
 		CashBoostUntil = 0,
 		AbuseGiftWeek = -1,
+		InfiniteLock = false,
 		Quests = { Day = -1, Week = -1, Daily = {}, Weekly = {}, DailyDone = {}, WeeklyDone = {} },
 	}
 end
@@ -360,6 +362,7 @@ local function sanitize(raw: any): SaveData
 	if type(raw.AbuseGiftWeek) == "number" then
 		data.AbuseGiftWeek = raw.AbuseGiftWeek
 	end
+	data.InfiniteLock = raw.InfiniteLock == true
 	if type(raw.Skin) == "string" and table.find(data.Skins, raw.Skin) then
 		data.Skin = raw.Skin
 	end
@@ -525,6 +528,7 @@ local function snapshot(session: Session)
 		Stories = data.Stories,
 		LockLevel = data.LockLevel,
 		LockDuration = Config.LockLevels[data.LockLevel].Duration * (if session.Owns.LongerLock then 2 else 1),
+		InfiniteLock = session.Owns.InfiniteLock == true or data.InfiniteLock,
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
 		IsAdmin = session.IsAdmin,
@@ -785,6 +789,19 @@ end
 local function lockDuration(session: Session): number
 	local duration = Config.LockLevels[session.Data.LockLevel].Duration
 	return if session.Owns.LongerLock then duration * 2 else duration
+end
+
+-- Infinite Laser Door (gamepass or Diamonds): the lasers never turn off.
+local function hasInfiniteLock(session: Session): boolean
+	return session.Owns.InfiniteLock == true or session.Data.InfiniteLock
+end
+
+local function applyInfiniteLock(plot: Plot, session: Session)
+	if hasInfiniteLock(session) and plot.LockedUntil ~= math.huge then
+		plot.LockedUntil = math.huge
+		plot.CooldownUntil = math.huge
+		setLaser(plot, true)
+	end
 end
 
 local function lockBase(plot: Plot)
@@ -1146,12 +1163,9 @@ local function updateUpgradeLabel(plot: Plot)
 		return
 	end
 	local data = session.Data
-	plot.Parts.UpgradeLabel.Text = string.format(
-		"UPGRADES\nBase Lv %d/%d | Lock %ds",
-		data.WallLevel,
-		#Config.WallLevels,
-		lockDuration(session)
-	)
+	plot.Parts.UpgradeLabel.Text = if hasInfiniteLock(session)
+		then string.format("UPGRADES\nBase Lv %d/%d | Lock FOREVER", data.WallLevel, #Config.WallLevels)
+		else string.format("UPGRADES\nBase Lv %d/%d | Lock %ds", data.WallLevel, #Config.WallLevels, lockDuration(session))
 end
 
 local function assignPlot(player: Player, session: Session)
@@ -1169,6 +1183,7 @@ local function assignPlot(player: Player, session: Session)
 			WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
 			WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
 			setLaser(plot, false)
+			applyInfiniteLock(plot, session)
 			for _, entry in session.Data.Brainrots do
 				local brainrot, mutation, serial = Config.Decode(entry)
 				-- Fill unlocked slots first; if there are more brainrots than
@@ -1227,6 +1242,7 @@ local function applyBaseLevels(plot: Plot, session: Session)
 	WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories, Config.GetWallSkin(session.Data.Skin))
 	WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
 	WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
+	applyInfiniteLock(plot, session)
 	setLaser(plot, os.clock() < plot.LockedUntil)
 	updateVipPedestals(plot)
 	updateUpgradeLabel(plot)
@@ -1253,6 +1269,10 @@ local function onUpgrade(player: Player, plot: Plot, kind: string)
 		end
 		cost, name = nextLevel.Cost, Config.Stories[data.WallLevel + 1].Name .. " + " .. nextLevel.Name
 	elseif kind == "Lock" then
+		if hasInfiniteLock(session) then
+			notify(player, "Your lasers already stay on forever!")
+			return
+		end
 		local nextLock = Config.LockLevels[data.LockLevel + 1]
 		if not nextLock then
 			notify(player, "Your lock is already maxed out!")
@@ -1400,6 +1420,18 @@ DiamondPurchase.OnServerEvent:Connect(function(player: Player, itemId: unknown)
 		data.Shards += Config.ShardPackAmount
 	elseif item.Id == "CashBoost" then
 		data.CashBoostUntil = math.max(os.time(), data.CashBoostUntil) + Config.CashBoostSeconds
+	elseif item.Id == "InfiniteLock" then
+		-- (refunded below if they already have it)
+		if hasInfiniteLock(session) then
+			data.Diamonds += item.Cost
+			notify(player, "You already have the Infinite Laser Door!")
+			push(player)
+			return
+		end
+		data.InfiniteLock = true
+		if session.Plot then
+			applyBaseLevels(session.Plot, session)
+		end
 	elseif item.Id == "CashBoostBig" then
 		data.CashBoostUntil = math.max(os.time(), data.CashBoostUntil) + Config.BigCashBoostSeconds
 	elseif item.Id == "ServerLuck" then
@@ -2932,7 +2964,9 @@ task.spawn(function()
 				plot.Pending += plotIncome(plot, session)
 				plot.Parts.PendingLabel.Text = "COLLECT\n" .. Config.FormatCash(plot.Pending)
 
-				if now < plot.LockedUntil then
+				if plot.LockedUntil == math.huge then
+					plot.Parts.LockLabel.Text = "LOCKED FOREVER"
+				elseif now < plot.LockedUntil then
 					plot.Parts.LockLabel.Text = string.format("LOCKED %ds", math.ceil(plot.LockedUntil - now))
 				else
 					if plot.Parts.Model:GetAttribute("Locked") then
