@@ -1516,7 +1516,124 @@ DiamondPurchase.OnServerEvent:Connect(function(player: Player, itemId: unknown)
 	push(player)
 end)
 
--- Codes from the box at the bottom of the shop (Config.Codes), once each.
+-- Codes from the box at the bottom of the shop, once per player: the ones in
+-- Config.Codes, plus the ones Corny makes in-game (saved for every server).
+local CodeList: RemoteEvent = makeRemote("RemoteEvent", "CodeList")
+local CODES_TOPIC = "BrainrotHeistCodes"
+local codeStore: DataStore? = nil
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore("BrainrotHeistCodes")
+	end)
+	if ok then
+		codeStore = result
+	end
+end
+-- CODE -> its rewards. Kept in sync with the DataStore.
+local liveCodes: { [string]: Config.Code } = {}
+
+local function cleanCode(text: string): string
+	return string.sub(string.upper((string.gsub(text, "[^%w]", ""))), 1, 20)
+end
+
+local function sanitizeCodes(raw: any): { [string]: Config.Code }
+	local out: { [string]: Config.Code } = {}
+	if type(raw) ~= "table" then
+		return out
+	end
+	for key, info in raw do
+		if type(key) == "string" and type(info) == "table" then
+			local function amount(v: any): number?
+				return if type(v) == "number" and v > 0 then v else nil
+			end
+			out[key] = {
+				Code = key,
+				Cash = amount(info.Cash),
+				Shards = amount(info.Shards),
+				Diamonds = amount(info.Diamonds),
+				Expires = amount(info.Expires),
+			}
+		end
+	end
+	return out
+end
+
+local function loadLiveCodes()
+	local store = codeStore
+	if not store then
+		return
+	end
+	local ok, raw = pcall(function()
+		return store:GetAsync("codes")
+	end)
+	if ok then
+		liveCodes = sanitizeCodes(raw)
+	end
+end
+
+-- Changes the saved codes for every server. Returns whether it saved (in a
+-- Studio test that can't reach Roblox, it still works in that server).
+local function changeLiveCodes(change: ({ [string]: Config.Code }) -> ()): boolean
+	local store = codeStore
+	local saved = false
+	if store then
+		saved = pcall(function()
+			store:UpdateAsync("codes", function(raw)
+				local codes = sanitizeCodes(raw)
+				change(codes)
+				return codes
+			end)
+		end)
+	end
+	if saved then
+		loadLiveCodes()
+		pcall(function()
+			MessagingService:PublishAsync(CODES_TOPIC, "changed")
+		end)
+	else
+		change(liveCodes)
+	end
+	return saved
+end
+
+task.spawn(function()
+	pcall(function()
+		MessagingService:SubscribeAsync(CODES_TOPIC, function()
+			loadLiveCodes()
+		end)
+	end)
+	while true do
+		loadLiveCodes()
+		task.wait(60)
+	end
+end)
+
+local function rewardText(code: Config.Code): string
+	local got = {}
+	if code.Cash then
+		table.insert(got, Config.FormatCash(code.Cash))
+	end
+	if code.Shards then
+		table.insert(got, code.Shards .. " Shards")
+	end
+	if code.Diamonds then
+		table.insert(got, code.Diamonds .. " Diamond" .. (if code.Diamonds == 1 then "" else "s"))
+	end
+	return table.concat(got, " + ")
+end
+
+-- Sends Corny the list of codes made in-game (for the admin panel).
+local function sendCodeList(player: Player)
+	local list = {}
+	for key, code in liveCodes do
+		table.insert(list, { Code = key, Reward = rewardText(code), Expires = code.Expires or 0 })
+	end
+	table.sort(list, function(x, y)
+		return x.Code < y.Code
+	end)
+	CodeList:FireClient(player, list)
+end
+
 local lastCodeTry: { [Player]: number } = {}
 Players.PlayerRemoving:Connect(function(player)
 	lastCodeTry[player] = nil
@@ -1531,35 +1648,29 @@ RedeemCode.OnServerInvoke = function(player: Player, typed: unknown): (boolean, 
 		return false, "Slow down a little!"
 	end
 	lastCodeTry[player] = now
-	local wanted = string.upper((string.gsub(string.sub(typed, 1, 40), "%s", "")))
-	for _, code in Config.Codes do
-		if string.upper(code.Code) == wanted then
-			if code.Expires and os.time() > code.Expires then
-				return false, "That code has expired."
-			end
-			local data = session.Data
-			if table.find(data.Codes, wanted) then
-				return false, "You already used that code."
-			end
-			table.insert(data.Codes, wanted)
-			local got = {}
-			if code.Cash then
-				data.Cash += code.Cash
-				table.insert(got, Config.FormatCash(code.Cash))
-			end
-			if code.Shards then
-				data.Shards += code.Shards
-				table.insert(got, code.Shards .. " Shards")
-			end
-			if code.Diamonds then
-				data.Diamonds += code.Diamonds
-				table.insert(got, code.Diamonds .. " Diamond" .. (if code.Diamonds == 1 then "" else "s"))
-			end
-			push(player)
-			return true, "Code redeemed! You got " .. table.concat(got, " + ") .. "!"
+	local wanted = cleanCode(typed)
+	local code: Config.Code? = liveCodes[wanted]
+	for _, fixed in Config.Codes do
+		if cleanCode(fixed.Code) == wanted then
+			code = fixed
 		end
 	end
-	return false, "That code doesn't work."
+	if not code then
+		return false, "That code doesn't work."
+	end
+	if code.Expires and os.time() > code.Expires then
+		return false, "That code has expired."
+	end
+	local data = session.Data
+	if table.find(data.Codes, wanted) then
+		return false, "You already used that code."
+	end
+	table.insert(data.Codes, wanted)
+	data.Cash += code.Cash or 0
+	data.Shards += code.Shards or 0
+	data.Diamonds += code.Diamonds or 0
+	push(player)
+	return true, "Code redeemed! You got " .. rewardText(code) .. "!"
 end
 
 -- Wall skins: buy with Shards/Diamonds, or equip one you own.
@@ -3136,6 +3247,55 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		return
 	elseif action == "GiftLimited" then
 		task.spawn(giftLimited, admin, value)
+		return
+	elseif action == "CreateCode" or action == "DeleteCode" or action == "ListCodes" then
+		local maker = founderOf(admin)
+		if not maker or maker.Id ~= Config.CodeMaker then
+			notify(admin, "Only " .. Config.CodeMaker .. " can make codes.")
+			return
+		end
+		if action == "ListCodes" then
+			sendCodeList(admin)
+			return
+		end
+		local info: { [string]: any } = if type(value) == "table" then value :: any else { Code = value }
+		local key = cleanCode(tostring(info.Code or ""))
+		if key == "" then
+			notify(admin, "Type a code first (letters and numbers).")
+			return
+		end
+		task.spawn(function()
+			local saved
+			if action == "DeleteCode" then
+				saved = changeLiveCodes(function(codes)
+					codes[key] = nil
+				end)
+				notify(admin, "Deleted code " .. key .. (if saved then "." else " (this server only: it couldn't be saved)."))
+			else
+				local limits = Config.CodeLimits
+				local function amount(v: any, cap: number): number?
+					local n = parseAmount(v)
+					return if n and n > 0 then math.min(math.floor(n), cap) else nil
+				end
+				local hours = tonumber(info.Hours) or 0
+				local code: Config.Code = {
+					Code = key,
+					Cash = amount(info.Cash, limits.Cash),
+					Shards = amount(info.Shards, limits.Shards),
+					Diamonds = amount(info.Diamonds, limits.Diamonds),
+					Expires = if hours > 0 then os.time() + math.floor(hours * 3600) else nil,
+				}
+				if not code.Cash and not code.Shards and not code.Diamonds then
+					notify(admin, "Give the code a reward: Cash, Shards or Diamonds.")
+					return
+				end
+				saved = changeLiveCodes(function(codes)
+					codes[key] = code
+				end)
+				notify(admin, string.format("Code %s gives %s%s", key, rewardText(code), if saved then ". Works in every server!" else " (this server only: it couldn't be saved)."))
+			end
+			sendCodeList(admin)
+		end)
 		return
 	elseif action == "Spawn" or action == "DropBrainrot" then
 		local brainrot = Config.Decode(tostring(value))

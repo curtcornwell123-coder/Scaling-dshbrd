@@ -24,6 +24,7 @@ local SetFollowers = Remotes:WaitForChild("SetFollowers") :: RemoteEvent
 local SkinAction = Remotes:WaitForChild("SkinAction") :: RemoteEvent
 local DiamondPurchase = Remotes:WaitForChild("DiamondPurchase") :: RemoteEvent
 local RedeemCode = Remotes:WaitForChild("RedeemCode") :: RemoteFunction
+local CodeList = Remotes:WaitForChild("CodeList") :: RemoteEvent
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -1582,6 +1583,8 @@ local playersTab: AdminTab
 local founderTab: AdminTab
 -- Limited brainrots: only Corny sees these rows (the server checks too).
 local limitedGiveRows: { Frame } = {}
+-- Making codes: only Config.CodeMaker (Corny) sees this box.
+local codeMakerCards: { Frame } = {}
 do
 
 	local ORANGE = Color3.fromRGB(255, 150, 40)
@@ -1808,70 +1811,76 @@ do
 		send("ClearBase", nil)
 	end)
 
-	-- Everything in the Robux shop, free: gamepasses last until they leave.
-	local shopItems = section(playersPage, 3, "SHOP ITEMS (FREE)", "Give the player anything from the shop. Gamepasses last until they leave the game.", Color3.fromRGB(255, 150, 40))
-	local passRow = controls(shopItems, 1)
-	label(passRow, "Passes", 90)
-	for _, pass in Config.GamePasses do
-		smallButton(passRow, pass.Name, PURPLE, 170, function()
-			send("GivePass", pass.Key)
-		end)
+	do
+		-- Everything in the Robux shop, free: gamepasses last until they leave.
+		local shopItems = section(playersPage, 3, "SHOP ITEMS (FREE)", "Give the player anything from the shop. Gamepasses last until they leave the game.", Color3.fromRGB(255, 150, 40))
+		local passRow = controls(shopItems, 1)
+		label(passRow, "Passes", 90)
+		for _, pass in Config.GamePasses do
+			smallButton(passRow, pass.Name, PURPLE, 170, function()
+				send("GivePass", pass.Key)
+			end)
+		end
+		local productRow = controls(shopItems, 2)
+		label(productRow, "Items", 90)
+		for _, product in Config.Products do
+			smallButton(productRow, product.Name, GREEN, 170, function()
+				send("GiveProduct", product.Key)
+			end)
+		end
+
 	end
-	local productRow = controls(shopItems, 2)
-	label(productRow, "Items", 90)
-	for _, product in Config.Products do
-		smallButton(productRow, product.Name, GREEN, 170, function()
-			send("GiveProduct", product.Key)
+
+	do
+		-- EVENTS tab -------------------------------------------------------------------
+		local eventsPage = adminTab("EVENTS", RED)
+
+		local abuse = section(eventsPage, 1, "ADMIN ABUSE", "Boosts for everyone, plus the giants and gift drops. Set how many minutes it lasts.", RED)
+		local abuseRow = controls(abuse, 1)
+		label(abuseRow, "Minutes", 100)
+		local minutesBox = inputBox(abuseRow, tostring(Config.AdminAbuse.DurationMinutes), "how long", 80)
+		smallButton(abuseRow, "START", RED, 130, function()
+			send("AbuseStart", minutesBox.Text)
 		end)
+		smallButton(abuseRow, "END", GREY, 100, function()
+			send("AbuseStop", nil)
+		end)
+
+		local drops = section(eventsPage, 2, "DROPS", "Rain brainrots or cash bags all over the map.", PURPLE)
+		local brainrotRainRow = controls(drops, 1)
+		smallButton(brainrotRainRow, "Brainrot Rain x" .. Config.BrainrotRainCount, PURPLE, 240, function()
+			send("BrainrotRain", nil)
+		end)
+		local cashRainRow = controls(drops, 2)
+		label(cashRainRow, "Cash per bag", 150)
+		local cashRainBox = inputBox(cashRainRow, "100k", "e.g. 50k", 120)
+		smallButton(cashRainRow, "Cash Rain", GREEN, 140, function()
+			send("CashRain", cashRainBox.Text)
+		end)
+
+		local luck = section(eventsPage, 3, "SERVER LUCK", "More rare brainrots spawn for everyone in this server.", Color3.fromRGB(60, 180, 120))
+		local luckRow = controls(luck, 1)
+		smallButton(luckRow, "Luck 15 min", Color3.fromRGB(60, 180, 120), 160, function()
+			send("Luck", 15)
+		end)
+		smallButton(luckRow, "Stop Luck", GREY, 140, function()
+			send("Luck", 0)
+		end)
+
+		-- Message to every server (same as typing /announce in chat).
+		local announce = section(eventsPage, 4, "ANNOUNCE TO ALL SERVERS", "Shows on everyone's screen in every server. Same as typing /announce in chat.", ORANGE)
+		local announceBox = inputBox(controls(announce, 1), "", "Type your message here...", 560)
+		announceBox.Size = UDim2.new(1, 0, 0, 44)
+		announceBox.TextScaled = false
+		announceBox.TextSize = 20
+		announceBox.TextXAlignment = Enum.TextXAlignment.Left
+		local announceRow = controls(announce, 2)
+		smallButton(announceRow, "SEND TO ALL", ORANGE, 180, function()
+			send("GlobalAnnounce", announceBox.Text)
+			announceBox.Text = ""
+		end)
+
 	end
-
-	-- EVENTS tab -------------------------------------------------------------------
-	local eventsPage = adminTab("EVENTS", RED)
-
-	local abuse = section(eventsPage, 1, "ADMIN ABUSE", "Boosts for everyone, plus the giants and gift drops. Set how many minutes it lasts.", RED)
-	local abuseRow = controls(abuse, 1)
-	label(abuseRow, "Minutes", 100)
-	local minutesBox = inputBox(abuseRow, tostring(Config.AdminAbuse.DurationMinutes), "how long", 80)
-	smallButton(abuseRow, "START", RED, 130, function()
-		send("AbuseStart", minutesBox.Text)
-	end)
-	smallButton(abuseRow, "END", GREY, 100, function()
-		send("AbuseStop", nil)
-	end)
-
-	local drops = section(eventsPage, 2, "DROPS", "Rain brainrots or cash bags all over the map.", PURPLE)
-	local brainrotRainRow = controls(drops, 1)
-	smallButton(brainrotRainRow, "Brainrot Rain x" .. Config.BrainrotRainCount, PURPLE, 240, function()
-		send("BrainrotRain", nil)
-	end)
-	local cashRainRow = controls(drops, 2)
-	label(cashRainRow, "Cash per bag", 150)
-	local cashRainBox = inputBox(cashRainRow, "100k", "e.g. 50k", 120)
-	smallButton(cashRainRow, "Cash Rain", GREEN, 140, function()
-		send("CashRain", cashRainBox.Text)
-	end)
-
-	local luck = section(eventsPage, 3, "SERVER LUCK", "More rare brainrots spawn for everyone in this server.", Color3.fromRGB(60, 180, 120))
-	local luckRow = controls(luck, 1)
-	smallButton(luckRow, "Luck 15 min", Color3.fromRGB(60, 180, 120), 160, function()
-		send("Luck", 15)
-	end)
-	smallButton(luckRow, "Stop Luck", GREY, 140, function()
-		send("Luck", 0)
-	end)
-
-	-- Message to every server (same as typing /announce in chat).
-	local announce = section(eventsPage, 4, "ANNOUNCE TO ALL SERVERS", "Shows on everyone's screen in every server. Same as typing /announce in chat.", ORANGE)
-	local announceBox = inputBox(controls(announce, 1), "", "Type your message here...", 560)
-	announceBox.Size = UDim2.new(1, 0, 0, 44)
-	announceBox.TextScaled = false
-	announceBox.TextSize = 20
-	announceBox.TextXAlignment = Enum.TextXAlignment.Left
-	local announceRow = controls(announce, 2)
-	smallButton(announceRow, "SEND TO ALL", ORANGE, 180, function()
-		send("GlobalAnnounce", announceBox.Text)
-		announceBox.Text = ""
-	end)
 
 	-- BRAINROTS tab ----------------------------------------------------------------
 	local brainrotsPage = adminTab("BRAINROTS", PURPLE)
@@ -2000,6 +2009,91 @@ do
 		end)
 	end
 
+	do
+		-- Codes: make one here and it works in every server, saved for good.
+		local codes = section(founderPage, 1, "CODES", "Make a code players type in the shop's code box. It works in every server and saves for good. Each player can use a code once. Hours = how long it lasts (0 = forever).", GOLD)
+		codes.Visible = false
+		table.insert(codeMakerCards, codes)
+		local codeNameRow = controls(codes, 1)
+		label(codeNameRow, "Code", 70)
+		local codeName = inputBox(codeNameRow, "", "e.g. CORNY100", 220)
+		label(codeNameRow, "Hours", 70)
+		local codeHours = inputBox(codeNameRow, "0", "0 = forever", 90)
+		local codeRewardRow = controls(codes, 2)
+		local codeCash = inputBox(codeRewardRow, "", "Cash (e.g. 50k)", 170)
+		local codeShards = inputBox(codeRewardRow, "", "Shards", 130)
+		local codeDiamonds = inputBox(codeRewardRow, "", "Diamonds", 130)
+		local codeButtons = controls(codes, 3)
+		smallButton(codeButtons, "CREATE CODE", GREEN, 200, function()
+			send("CreateCode", {
+				Code = codeName.Text,
+				Cash = codeCash.Text,
+				Shards = codeShards.Text,
+				Diamonds = codeDiamonds.Text,
+				Hours = codeHours.Text,
+			})
+		end)
+		smallButton(codeButtons, "REFRESH LIST", UI_GREY, 180, function()
+			send("ListCodes", nil)
+		end)
+		-- The saved codes, each with a delete button.
+		local codeListFrame = Instance.new("Frame")
+		codeListFrame.BackgroundTransparency = 1
+		codeListFrame.Size = UDim2.new(1, 0, 0, 0)
+		codeListFrame.AutomaticSize = Enum.AutomaticSize.Y
+		codeListFrame.LayoutOrder = 20
+		codeListFrame.Parent = codes
+		local codeListLayout = Instance.new("UIListLayout")
+		codeListLayout.Padding = UDim.new(0, 4)
+		codeListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		codeListLayout.Parent = codeListFrame
+		CodeList.OnClientEvent:Connect(function(list: { { Code: string, Reward: string, Expires: number } })
+			for _, child in codeListFrame:GetChildren() do
+				if child:IsA("Frame") or child:IsA("TextLabel") then
+					child:Destroy()
+				end
+			end
+			if #list == 0 then
+				text(codeListFrame, {
+					Size = UDim2.new(1, 0, 0, 22),
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextColor3 = HINT,
+					Text = "No codes made in-game yet.",
+				})
+				return
+			end
+			for i, entry in list do
+				local row = Instance.new("Frame")
+				row.Size = UDim2.new(1, 0, 0, 36)
+				row.BackgroundColor3 = TILE
+				row.LayoutOrder = i
+				corner(row, 8)
+				row.Parent = codeListFrame
+				local left = entry.Expires - workspace:GetServerTimeNow()
+				local when = if entry.Expires == 0 then "forever"
+					elseif left <= 0 then "EXPIRED"
+					else string.format("%dh %dm left", left // 3600, (left % 3600) // 60)
+				text(row, {
+					Position = UDim2.fromOffset(10, 4),
+					Size = UDim2.new(1, -130, 1, -8),
+					TextXAlignment = Enum.TextXAlignment.Left,
+					Text = string.format("%s  -  %s  (%s)", entry.Code, entry.Reward, when),
+				})
+				local delete = smallButton(row, "DELETE", RED, 100, function()
+					send("DeleteCode", entry.Code)
+				end)
+				delete.Size = UDim2.fromOffset(100, 30)
+				delete.Position = UDim2.new(1, -106, 0, 3)
+			end
+		end)
+		founderTab.Button.MouseButton1Click:Connect(function()
+			if data and data.FounderId == Config.CodeMaker then
+				send("ListCodes", nil)
+			end
+		end)
+
+	end
+
 	local music = section(founderPage, 3, "MY EVENT MUSIC", "Upload a song on create.roblox.com (Audio), then paste its ID here. It plays in your event in every server. Leave it empty and press SET to go back to the default.", Color3.fromRGB(70, 255, 120))
 	local musicRow = controls(music, 1)
 	local musicBox = inputBox(musicRow, "", "Paste sound ID", 260)
@@ -2058,6 +2152,9 @@ local function render()
 	founderTab.Button.Visible = data.IsFounder == true
 	for _, row in limitedGiveRows do
 		row.Visible = data.FounderId == Config.LimitedGiver
+	end
+	for _, card in codeMakerCards do
+		card.Visible = data.FounderId == Config.CodeMaker
 	end
 	if founderTab.Page.Visible and not data.IsFounder then
 		selectTab(playersTab)

@@ -699,6 +699,12 @@ Config.Products = {
 -- player. Add new ones here (letters are matched without caring about caps);
 -- Expires is optional (unix time, e.g. from https://www.epochconverter.com).
 export type Code = { Code: string, Shards: number?, Diamonds: number?, Cash: number?, Expires: number? }
+-- Corny can also make codes in-game (admin panel > FOUNDER > CODES); those
+-- are saved for every server. Only this founder can make or delete them.
+Config.CodeMaker = "Corny"
+-- Most a code made in-game can give (keeps Diamonds rare).
+Config.CodeLimits = { Cash = 1e15, Shards = 5000, Diamonds = 50 }
+
 Config.Codes = {
 	{ Code = "RELEASE", Shards = 100, Diamonds = 1 },
 	{ Code = "CORNY", Cash = 5000 },
