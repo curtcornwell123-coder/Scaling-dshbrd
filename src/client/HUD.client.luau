@@ -1488,6 +1488,131 @@ task.spawn(function()
 	end
 end)
 
+-- Boost badges --------------------------------------------------------------
+-- Bottom right: every boost that's on right now and how long it has left.
+
+local badgeHolder = Instance.new("Frame")
+badgeHolder.Name = "BoostBadges"
+badgeHolder.AnchorPoint = Vector2.new(1, 1)
+badgeHolder.Position = UDim2.new(1, -12, 1, -12)
+badgeHolder.Size = UDim2.fromOffset(220, 330)
+badgeHolder.BackgroundTransparency = 1
+badgeHolder.Parent = gui
+local badgeLayout = Instance.new("UIListLayout")
+badgeLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+badgeLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+badgeLayout.Padding = UDim.new(0, 6)
+badgeLayout.SortOrder = Enum.SortOrder.LayoutOrder
+badgeLayout.Parent = badgeHolder
+
+type Badge = { Frame: Frame, Name: TextLabel, Time: TextLabel }
+local badges: { [string]: Badge } = {}
+
+local function badge(id: string, order: number): Badge
+	local existing = badges[id]
+	if existing then
+		return existing
+	end
+	local frame = Instance.new("Frame")
+	frame.Name = id
+	frame.LayoutOrder = order
+	frame.Size = UDim2.fromOffset(220, 34)
+	frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+	frame.BackgroundTransparency = 0.15
+	frame.Parent = badgeHolder
+	corner(frame, 10)
+	local name = text(frame, {
+		Position = UDim2.fromOffset(10, 0),
+		Size = UDim2.new(1, -80, 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Text = "",
+	})
+	local time = text(frame, {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -10, 0, 0),
+		Size = UDim2.new(0, 64, 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = Color3.fromRGB(220, 220, 235),
+		Text = "",
+	})
+	local made = { Frame = frame, Name = name, Time = time }
+	badges[id] = made
+	return made
+end
+
+local function timeLeft(seconds: number?): string
+	if not seconds then
+		return "FOREVER"
+	end
+	seconds = math.max(0, math.floor(seconds))
+	if seconds >= 3600 then
+		return string.format("%d:%02d:%02d", seconds // 3600, (seconds % 3600) // 60, seconds % 60)
+	end
+	return string.format("%d:%02d", seconds // 60, seconds % 60)
+end
+
+task.spawn(function()
+	local lastSnapshot: any = nil
+	local cashBoostEnds = 0
+	while true do
+		local now = workspace:GetServerTimeNow()
+		if data ~= lastSnapshot then
+			lastSnapshot = data
+			cashBoostEnds = os.clock() + (if data then data.CashBoostLeft or 0 else 0)
+		end
+		type Active = { Id: string, Name: string, Color: Color3, Left: number? }
+		local active: { Active } = {}
+
+		-- Admin abuse (weekly, or started by an admin)
+		local manualEnd = ReplicatedStorage:GetAttribute("AdminAbuseEndsAt") :: number?
+		local status, seconds = Config.AdminAbuseStatus(now)
+		if manualEnd and manualEnd > now then
+			status, seconds = "live", manualEnd - now
+		end
+		if status == "live" then
+			local boosts = Config.AdminAbuseBoosts
+			table.insert(active, { Id = "AbuseCash", Name = string.format("x%d CASH", boosts.Income), Color = Color3.fromRGB(120, 255, 140), Left = seconds })
+			table.insert(active, { Id = "AbuseLuck", Name = string.format("x%d LUCK", boosts.Luck), Color = Color3.fromRGB(120, 255, 200), Left = seconds })
+			table.insert(active, { Id = "AbuseSpeed", Name = "SPEED + JUMP", Color = Color3.fromRGB(120, 200, 255), Left = seconds })
+		end
+		-- Founder events with a luck boost (Ace's)
+		local founderEvent = Config.FounderEvents[ReplicatedStorage:GetAttribute("FounderEvent") :: string? or ""]
+		local founderEnds = ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number?
+		if founderEvent and founderEvent.Luck and founderEnds and founderEnds > now then
+			table.insert(active, { Id = "FounderLuck", Name = string.format("x%d LUCK (%s)", founderEvent.Luck, founderEvent.Founder), Color = Color3.fromRGB(255, 150, 210), Left = founderEnds - now })
+		end
+		-- Server Luck (bought by someone)
+		local luckEnds = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number?
+		if luckEnds and luckEnds > now then
+			table.insert(active, { Id = "ServerLuck", Name = string.format("x%d SERVER LUCK", Config.ServerLuckMultiplier), Color = Color3.fromRGB(120, 255, 160), Left = luckEnds - now })
+		end
+		-- Your own boosts
+		if cashBoostEnds > os.clock() then
+			table.insert(active, { Id = "CashBoost", Name = "x2 CASH BOOST", Color = Color3.fromRGB(255, 220, 90), Left = cashBoostEnds - os.clock() })
+		end
+		if data and data.Owns and data.Owns.DoubleCash then
+			table.insert(active, { Id = "DoubleCash", Name = "x2 CASH PASS", Color = Color3.fromRGB(255, 200, 60), Left = nil })
+		end
+
+		local shown: { [string]: boolean } = {}
+		for i, info in active do
+			local b = badge(info.Id, i)
+			b.Frame.LayoutOrder = i
+			b.Name.Text = info.Name
+			b.Name.TextColor3 = info.Color
+			b.Time.Text = timeLeft(info.Left)
+			shown[info.Id] = true
+		end
+		for id, b in badges do
+			if not shown[id] then
+				b.Frame:Destroy()
+				badges[id] = nil
+			end
+		end
+		task.wait(0.5)
+	end
+end)
+
 -- Server luck timer --------------------------------------------------------
 
 task.spawn(function()

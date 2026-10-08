@@ -236,13 +236,17 @@ local function skyPart(model: Model, size: Vector3, cframe: CFrame): Part
 	return p
 end
 
--- `style`: "Rainbow" (Corny's) or "Pink" (Ace's: soft pinks drifting
--- between rose and lilac).
+-- `style`: "Green" (Corny's: neon greens drifting between lime and mint),
+-- "Pink" (Ace's: soft pinks drifting between rose and lilac) or "Rainbow".
+local SKY_TINTS = {
+	Green = { Hue = 0.33, Spread = 0.07, Saturation = 0.7 },
+	Pink = { Hue = 0.9, Spread = 0.055, Saturation = 0.5 },
+}
 local function startRainbowSky(style: string)
 	if rainbowSky then
 		return
 	end
-	local pink = style == "Pink"
+	local tint = SKY_TINTS[style]
 	local model = Instance.new("Model")
 	model.Name = "RainbowSky"
 	local panels: { BasePart } = {}
@@ -280,17 +284,17 @@ local function startRainbowSky(style: string)
 	local connection = RunService.RenderStepped:Connect(function()
 		local t = os.clock() - started
 		for i, p in panels do
-			if pink then
+			if tint then
 				local wave = math.sin(i / SKY_PANELS * math.pi * 4 + t * 0.4)
-				p.Color = Color3.fromHSV((0.9 + 0.055 * wave) % 1, 0.5 + 0.12 * wave, 1)
+				p.Color = Color3.fromHSV((tint.Hue + tint.Spread * wave) % 1, tint.Saturation + 0.12 * wave, 1)
 			else
 				-- The rainbow goes twice around the horizon (so you always see
 				-- lots of colors), slowly turning.
 				p.Color = Color3.fromHSV((i / SKY_PANELS * 2 + t * 0.05) % 1, 0.75, 0.95)
 			end
 		end
-		local top = if pink
-			then Color3.fromHSV(0.9 + 0.04 * math.sin(t * 0.3), 0.4, 1)
+		local top = if tint
+			then Color3.fromHSV((tint.Hue + tint.Spread * 0.7 * math.sin(t * 0.3)) % 1, tint.Saturation - 0.1, 1)
 			else Color3.fromHSV((t * 0.05) % 1, 0.6, 0.9)
 		for _, tile in ceiling do
 			tile.Color = top

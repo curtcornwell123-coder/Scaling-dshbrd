@@ -481,7 +481,7 @@ export type FounderEvent = {
 	Dancer: string?, -- a brainrot that flies around them dancing ballet
 	Colors: { Color3 }, -- intro colors
 	Chips: { string }, -- the little boxes under the intro title
-	Sky: string?, -- "Rainbow" or "Pink": the sky changes while it runs
+	Sky: string?, -- "Green", "Pink" or "Rainbow": the sky changes while it runs
 	Water: boolean?, -- knee-deep water floods the map, with lily pads falling into it
 	MusicId: string?, -- theme song (an audio id, "rbxassetid://123..."), "" = none
 }
@@ -512,7 +512,7 @@ Config.FounderEvents = {
 		Mutations = { { Id = "Candy", Chance = 45 }, { Id = "Rainbow", Chance = 8 } },
 		Colors = { Color3.fromRGB(255, 120, 190), Color3.fromRGB(120, 210, 255), Color3.fromRGB(255, 230, 90), Color3.fromRGB(130, 240, 130) },
 		Chips = { "SPRINKLE DROPS", "45% CANDY", "8% RAINBOW", "CASH BAGS" },
-		Sky = "Rainbow",
+		Sky = "Green",
 	},
 	Ace = {
 		Founder = "Ace",

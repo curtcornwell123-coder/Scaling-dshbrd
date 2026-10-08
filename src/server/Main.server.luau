@@ -2571,10 +2571,17 @@ local function runFounderEvent(eventId: string, minutes: number)
 			end
 		end
 
+		-- Ace spins slowly on the spot like a pirouette.
+		local home = giant:GetPivot()
+		local root = giant.PrimaryPart :: BasePart
+		local pivotToRoot = home:ToObjectSpace(root.CFrame)
 		local started = os.clock()
 		local nextColor = 0
 		while giant.Parent and founderEventActive() do
 			local t = os.clock() - started
+			-- Turn around the root's vertical line, so he spins in place.
+			local rootNow = (home * pivotToRoot) * CFrame.Angles(0, t * 1.2, 0)
+			giant:PivotTo(rootNow * pivotToRoot:Inverse())
 			for i, dancer in dancers do
 				local phase = (i - 1) * math.pi
 				local angle = t * 0.55 + phase
