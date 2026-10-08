@@ -644,6 +644,16 @@ end
 -- founder Id). Each gift comes out of the shop stock.
 Config.LimitedGiver = "Corny"
 
+-- How often every server re-checks the shared stock (the signs count down
+-- to it). Sales and gifts in your own server show up right away.
+Config.LimitedRefreshSeconds = 300
+
+-- "4:12" until the next stock update (`nextAt` is a unix time).
+function Config.StockCountdown(nextAt: number?, now: number): string
+	local left = math.max(0, math.floor((nextAt or now) - now))
+	return string.format("%d:%02d", left // 60, left % 60)
+end
+
 Config.LimitedItems = {
 	CignaGlamourina = { ProductId = 0, PriceRobux = 50, Stock = 500, Reserved = 2 },
 } :: { [string]: LimitedItem }

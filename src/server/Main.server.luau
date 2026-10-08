@@ -1681,7 +1681,7 @@ do
 
 		-- Live stock sign above it.
 		local signGui = Instance.new("BillboardGui")
-		signGui.Size = UDim2.fromScale(13, 5.5)
+		signGui.Size = UDim2.fromScale(13, 6.5)
 		signGui.StudsOffsetWorldSpace = Vector3.new(0, 11, 0)
 		signGui.MaxDistance = 400
 		signGui.LightInfluence = 0
@@ -1699,15 +1699,22 @@ do
 			local left = ReplicatedStorage:GetAttribute("LimitedLeft_" .. brainrot.Id) :: number?
 			local stock = if left then left else item.Stock
 			-- The stock always shows, even before she's on sale.
+			local nextAt = ReplicatedStorage:GetAttribute("LimitedNextUpdate") :: number?
 			sign.Text = string.format(
-				"LIMITED EVENT\n%s\n%s\n%s",
+				"LIMITED EVENT\n%s\n%s\nStock updates in %s\n%s",
 				brainrot.DisplayName,
 				if stock <= 0 then "SOLD OUT" else string.format("%d / %d LEFT", stock, item.Stock),
+				Config.StockCountdown(nextAt, os.time()),
 				if item.ProductId == 0 then "Coming soon!" else string.format("R$ %d  -  1%% MAGIC!", item.PriceRobux)
 			)
 		end
-		ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. brainrot.Id):Connect(updateSign)
-		updateSign()
+		-- Ticks every second for the countdown.
+		task.spawn(function()
+			while folder.Parent do
+				updateSign()
+				task.wait(1)
+			end
+		end)
 	end
 end
 

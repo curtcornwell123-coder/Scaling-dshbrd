@@ -47,7 +47,7 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 - She **can't be stolen or sold** and **stays through rebirths**. If your base is full when you buy her, she appears as soon as a slot opens.
 - **Income: $2.5K/s, doubling with every rebirth** ($5K at rebirth 1, $10K at 2, … $640K at 8), on top of the rebirth multiplier. In economy simulations she makes about a third of a typical owner's income: progression is roughly 2x faster early on and about 1.4x later, without letting buyers skip the game.
 
-- **Event statue:** a compact spinning statue of her stands right beside the shop tent, with a live stock sign above her head ("487 / 500 LEFT"), shown even before she goes on sale. Tap or click it to buy her right there.
+- **Event statue:** a compact spinning statue of her stands right beside the shop tent, with a stock sign above her head that counts down to the next stock update (every server re-checks the shared stock every 5 minutes, `Config.LimitedRefreshSeconds`; sales and gifts in your own server show right away) ("487 / 500 LEFT"), shown even before she goes on sale. Tap or click it to buy her right there.
 - **Mutation roll:** every copy rolls a mutation when you get it (normal odds), plus a **1% chance of MAGIC**, an event-only mutation (x8 income, purple-to-teal shimmer, swirling stars, floating orbs). Admins can also turn a player's Cigna Magic with **Give MAGIC (event)** in the admin panel (it needs the player to own her). Change the featured event with `Config.CurrentEvent`.
 
 To put her on sale: create a Developer Product named "Cigna Glamourina" priced at **50 Robux**, and paste its ID into `Config.LimitedItems.CignaGlamourina.ProductId`.

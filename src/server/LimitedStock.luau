@@ -216,9 +216,12 @@ function LimitedStock.OwnedSerial(userId: number, itemId: string): number?
 	return if type(serial) == "number" then serial else nil
 end
 
--- Keeps the "X left" numbers in the shop fresh across servers.
+-- Keeps the "X left" numbers in the shop fresh across servers: every server
+-- re-checks on the same 5-minute marks, and the signs count down to the next.
 task.spawn(function()
 	while true do
+		local period = Config.LimitedRefreshSeconds
+		ReplicatedStorage:SetAttribute("LimitedNextUpdate", (os.time() // period + 1) * period)
 		for itemId in Config.LimitedItems do
 			if store and not studioOffline then
 				local ok, raw = pcall(function()
@@ -231,7 +234,8 @@ task.spawn(function()
 				publishLeft(itemId, normalize(memory[itemId]))
 			end
 		end
-		task.wait(30)
+		local nextAt = ReplicatedStorage:GetAttribute("LimitedNextUpdate") :: number
+		task.wait(math.max(1, nextAt - os.time()))
 	end
 end)
 

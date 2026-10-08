@@ -908,6 +908,7 @@ do
 	showShopPage("Home")
 
 	-- Spin the featured brainrot and flip the shopBanner while the shop is open.
+	local lastStockTick = 0
 	RunService.RenderStepped:Connect(function(dt: number)
 		if not shopFrame.Visible then
 			return
@@ -918,6 +919,11 @@ do
 		end
 		if os.clock() - bannerChanged > 5 then
 			showPassBanner(bannerIndex + 1)
+		end
+		-- The stock countdown ticks once a second.
+		if os.clock() - lastStockTick >= 1 then
+			lastStockTick = os.clock()
+			renderLimited()
 		end
 	end)
 
@@ -937,7 +943,8 @@ do
 		if featured and featuredItem then
 			local published = ReplicatedStorage:GetAttribute("LimitedLeft_" .. featuredId) :: number?
 			local left: number = if published then published else featuredItem.Stock
-			featuredStock.Text = if left <= 0 then "SOLD OUT" else string.format("%d / %d LEFT", left, featuredItem.Stock)
+			local nextAt = ReplicatedStorage:GetAttribute("LimitedNextUpdate") :: number?
+		featuredStock.Text = string.format("%s  (%s)", if left <= 0 then "SOLD OUT" else string.format("%d / %d LEFT", left, featuredItem.Stock), Config.StockCountdown(nextAt, workspace:GetServerTimeNow()))
 			local serial = data.Limited and data.Limited[featuredId]
 			if serial then
 				getNow.Text = "OWNED #" .. serial
@@ -1973,9 +1980,17 @@ do
 		})
 		local function showLeft()
 			local left = ReplicatedStorage:GetAttribute("LimitedLeft_" .. giftItemId) :: number?
-			stockLabel.Text = string.format("%d / %d LEFT", left or giftItem.Stock, giftItem.Stock)
+			local nextAt = ReplicatedStorage:GetAttribute("LimitedNextUpdate") :: number?
+			stockLabel.Text = string.format("%d / %d LEFT   (stock updates in %s)", left or giftItem.Stock, giftItem.Stock, Config.StockCountdown(nextAt, workspace:GetServerTimeNow()))
 		end
-		ReplicatedStorage:GetAttributeChangedSignal("LimitedLeft_" .. giftItemId):Connect(showLeft)
+		task.spawn(function()
+			while true do
+				if gift.Visible then
+					showLeft()
+				end
+				task.wait(1)
+			end
+		end)
 		showLeft()
 		local giftRow = controls(gift, 1)
 		local giftName = inputBox(giftRow, "", "Roblox username", 280)
