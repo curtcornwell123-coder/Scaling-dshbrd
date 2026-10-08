@@ -122,6 +122,13 @@ type Carry = {
 }
 
 local world = WorldBuilder.Build()
+do
+	-- Tells the loading screen how much map there is to load.
+	local root = workspace:FindFirstChild("BrainrotHeist")
+	if root then
+		root:SetAttribute("PartCount", #root:GetDescendants())
+	end
+end
 local plots: { Plot } = {}
 for i, parts in world.Plots do
 	plots[i] = {

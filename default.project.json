@@ -11,14 +11,42 @@
         "$properties": {
           "Anchored": true,
           "Locked": true,
-          "Size": [2048, 16, 2048],
+          "Size": [
+            2048,
+            16,
+            2048
+          ],
           "CFrame": {
             "CFrame": {
-              "position": [0, -8, 0],
-              "orientation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+              "position": [
+                0,
+                -8,
+                0
+              ],
+              "orientation": [
+                [
+                  1,
+                  0,
+                  0
+                ],
+                [
+                  0,
+                  1,
+                  0
+                ],
+                [
+                  0,
+                  0,
+                  1
+                ]
+              ]
             }
           },
-          "Color": [0.36, 0.62, 0.32],
+          "Color": [
+            0.36,
+            0.62,
+            0.32
+          ],
           "Material": "Grass",
           "TopSurface": "Smooth",
           "BottomSurface": "Smooth"
@@ -28,6 +56,11 @@
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
+      }
+    },
+    "ReplicatedFirst": {
+      "LoadingScreen": {
+        "$path": "src/first/LoadingScreen.client.luau"
       }
     },
     "ServerScriptService": {
