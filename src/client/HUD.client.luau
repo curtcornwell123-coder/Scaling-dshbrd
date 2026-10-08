@@ -294,7 +294,9 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 	elseif kind == "luck" then
 		showBanner(who .. " bought SERVER LUCK for everyone!", Color3.fromRGB(120, 255, 160))
 	elseif kind == "night" and mutation then
-		showBanner(string.format("NIGHT FALLS! %s mutations are x%s more likely tonight!", string.upper(mutation.DisplayName), extra or "?"), mutation.Color)
+		local nightEvent = Config.FounderEvents[ReplicatedStorage:GetAttribute("FounderEvent") :: string? or ""]
+		local who = if nightEvent then nightEvent.Founder else "the founder"
+		showBanner(string.format("NIGHT FALLS! %s mutations are x%s more likely until %s leaves!", string.upper(mutation.DisplayName), extra or "?", who), mutation.Color)
 	elseif kind == "rebirth" then
 		showBanner(who .. " reached Rebirth " .. (extra or "") .. "!", Color3.fromRGB(200, 140, 255))
 	end
@@ -1479,7 +1481,7 @@ founderTab.Button.Visible = false
 local founderEvents = section(founderPage, 1, "MY FOUNDER EVENT", "Only Corny and Ace can start these. Runs for the minutes you type here.", PINK)
 local founderMinutesRow = controls(founderEvents, 1)
 label(founderMinutesRow, "Minutes", 100)
-local founderMinutesBox = inputBox(founderMinutesRow, "10", "how long", 80)
+local founderMinutesBox = inputBox(founderMinutesRow, "5", "how long", 80)
 local founderEventIds = {}
 for eventId in Config.FounderEvents do
 	table.insert(founderEventIds, eventId)
@@ -1746,7 +1748,8 @@ task.spawn(function()
 			lastSnapshot = data
 			cashBoostEnds = os.clock() + (if data then data.CashBoostLeft or 0 else 0)
 		end
-		type Active = { Id: string, Name: string, Color: Color3, Left: number? }
+		-- Note: shown instead of a countdown (e.g. "UNTIL CORNY LEAVES").
+		type Active = { Id: string, Name: string, Color: Color3, Left: number?, Note: string? }
 		local active: { Active } = {}
 
 		-- Admin abuse (weekly, or started by an admin)
@@ -1771,7 +1774,7 @@ task.spawn(function()
 		local nightMutation = Config.GetMutation(ReplicatedStorage:GetAttribute("NightMutation") :: string?)
 		local nightBoost = ReplicatedStorage:GetAttribute("NightBoost") :: number?
 		if nightMutation and nightBoost and nightBoost > 0 and founderEnds and founderEnds > now then
-			table.insert(active, { Id = "NightMutation", Name = string.format("NIGHT: x%d %s", nightBoost, string.upper(nightMutation.DisplayName)), Color = nightMutation.Color, Left = founderEnds - now })
+			table.insert(active, { Id = "NightMutation", Name = string.format("NIGHT: x%d %s", nightBoost, string.upper(nightMutation.DisplayName)), Color = nightMutation.Color, Note = if founderEvent then "UNTIL " .. string.upper(founderEvent.Founder) .. " LEAVES" else "TONIGHT" })
 		end
 		-- Server Luck (bought by someone)
 		local luckEnds = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number?
@@ -1792,7 +1795,10 @@ task.spawn(function()
 			b.Frame.LayoutOrder = i
 			b.Name.Text = info.Name
 			b.Name.TextColor3 = info.Color
-			b.Time.Text = timeLeft(info.Left)
+			b.Time.Text = if info.Note then info.Note else timeLeft(info.Left)
+			b.Frame.Size = UDim2.fromOffset(if info.Note then 330 else 220, 34)
+			b.Time.Size = UDim2.new(0, if info.Note then 150 else 64, 1, 0)
+			b.Name.Size = UDim2.new(1, if info.Note then -170 else -80, 1, 0)
 			shown[info.Id] = true
 		end
 		for id, b in badges do
