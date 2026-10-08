@@ -156,6 +156,10 @@ Each founder also has their own event, starring only them in a special event out
 
 When players join they see the **Corny Games** loading screen (`src/first/LoadingScreen.client.luau`): the Corny Games emblem (gold ring, corn cob, green leaves) drawn from shapes, "CORNY — GAMES —", and a gold loading bar with the percentage, which fills as the game, the map and its images and sounds actually load (at least 2.5 seconds so it doesn't flash, at most 30 so nobody gets stuck), then fades away. To show the real emblem image instead, upload it to Roblox and put its id in `LOGO_IMAGE` at the top of that file.
 
+### Game music
+
+Background music for normal play is set in `Config.GameMusic` (a list of audio ids; shuffled if there are several). It loops quietly, fades out while a founder event plays its own song and back in afterwards, and players can switch it off with the **MUSIC: ON / OFF** button in the bottom right. `assets/music/brainrot_theme.mp3` is the game's own original, copyright-free theme (bouncy marimba melody, plucky chords, bass, claps; 68 seconds, loops): upload it and put its id in `Config.GameMusic`. Until an id is set, there's no music and no button.
+
 ### Boost badges
 
 The bottom right of the screen lists every boost that's on right now and how long it has left: admin abuse (x3 cash, x3 luck, speed + jump), x2 luck from Ace's event, Server Luck, your own 2x Cash boost from the Diamond Shop, and the 2x Cash gamepass (forever).

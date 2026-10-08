@@ -436,6 +436,15 @@ Config.AdminAbuseBoosts = {
 	JumpHeight = 13, -- normal jump is 7.2
 }
 
+-- Game music ------------------------------------------------------------------
+-- Background music for normal play (audio ids, "rbxassetid://123..."). Plays
+-- on a loop (shuffled if there's more than one), fades out while a founder
+-- event plays its own song, and players can turn it off. Empty = no music.
+-- assets/music/brainrot_theme.mp3 is the game's own theme: upload it and put
+-- its id here.
+Config.GameMusic = {} :: { string }
+Config.GameMusicVolume = 0.35
+
 -- Founders --------------------------------------------------------------------
 -- The game's founders show up as giants during admin abuse, and each has an
 -- event of their own. Put each founder's Roblox UserId (the number in their

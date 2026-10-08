@@ -1502,7 +1502,7 @@ end)
 local badgeHolder = Instance.new("Frame")
 badgeHolder.Name = "BoostBadges"
 badgeHolder.AnchorPoint = Vector2.new(1, 1)
-badgeHolder.Position = UDim2.new(1, -12, 1, -12)
+badgeHolder.Position = UDim2.new(1, -12, 1, -58) -- above the music button
 badgeHolder.Size = UDim2.fromOffset(220, 330)
 badgeHolder.BackgroundTransparency = 1
 badgeHolder.Parent = gui
