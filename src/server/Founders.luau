@@ -293,6 +293,82 @@ local function cornyLookAlike(): Model
 	return model
 end
 
+-- Scale fix-up ----------------------------------------------------------------
+-- Model:ScaleTo doesn't reliably scale everything on newer avatars: the head
+-- and the hats and hair on it could stay normal size (or get shrunk back)
+-- while the body grew. So every size and offset is recorded before scaling,
+-- and FixScale sets anything that ended up wrong to original x scale.
+
+type SizeRecord = {
+	Parts: { [BasePart]: Vector3 },
+	Attachments: { [Attachment]: CFrame },
+	Joints: { [JointInstance]: { CFrame } },
+	Meshes: { [SpecialMesh]: { Vector3 } },
+}
+local scaleInfo: { [Model]: { Originals: SizeRecord, Scale: number } } = setmetatable({}, { __mode = "k" }) :: any
+
+local function recordSizes(model: Model): SizeRecord
+	local record: SizeRecord = { Parts = {}, Attachments = {}, Joints = {}, Meshes = {} }
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") then
+			record.Parts[d] = d.Size
+		elseif d:IsA("Attachment") then
+			record.Attachments[d] = d.CFrame
+		elseif d:IsA("Motor6D") or d:IsA("Weld") then
+			record.Joints[d] = { d.C0, d.C1 }
+		elseif d:IsA("SpecialMesh") then
+			record.Meshes[d] = { d.Scale, d.Offset }
+		end
+	end
+	return record
+end
+
+local function scaled(cf: CFrame, s: number): CFrame
+	return cf.Rotation + cf.Position * s
+end
+
+local function wrong(now: Vector3, expected: Vector3): boolean
+	return (now - expected).Magnitude > math.max(0.05, expected.Magnitude * 0.05)
+end
+
+-- Makes sure every part, attachment, joint and mesh of a giant is its
+-- original size x the giant's scale. Safe to call again later.
+function Founders.FixScale(giant: Model)
+	local info = scaleInfo[giant]
+	if not info then
+		return
+	end
+	local s = info.Scale
+	local o = info.Originals
+	for part, size in o.Parts do
+		if part.Parent and wrong(part.Size, size * s) then
+			part.Size = size * s
+		end
+	end
+	for attachment, cf in o.Attachments do
+		if attachment.Parent and wrong(attachment.CFrame.Position, cf.Position * s) then
+			attachment.CFrame = scaled(cf, s)
+		end
+	end
+	for joint, frames in o.Joints do
+		if joint.Parent then
+			if wrong(joint.C0.Position, frames[1].Position * s) then
+				joint.C0 = scaled(frames[1], s)
+			end
+			if wrong(joint.C1.Position, frames[2].Position * s) then
+				joint.C1 = scaled(frames[2], s)
+			end
+		end
+	end
+	for mesh, values in o.Meshes do
+		-- Only file meshes have absolute sizes; other mesh types follow the part.
+		if mesh.Parent and mesh.MeshType == Enum.MeshType.FileMesh and wrong(mesh.Scale, values[1] * s) then
+			mesh.Scale = values[1] * s
+			mesh.Offset = values[2] * s
+		end
+	end
+end
+
 -- Giants --------------------------------------------------------------------
 
 -- Builds a giant founder, `scale` times normal size, standing on `ground`
@@ -382,7 +458,10 @@ function Founders.CreateGiant(founderId: string, scale: number, parent: Instance
 		humanoid.AutomaticScalingEnabled = false
 	end
 	giant.Parent = parent
+	local originals = recordSizes(giant)
 	giant:ScaleTo(scale)
+	scaleInfo[giant] = { Originals = originals, Scale = scale }
+	Founders.FixScale(giant)
 
 	-- Name tag over their head
 	local tag = Instance.new("BillboardGui")

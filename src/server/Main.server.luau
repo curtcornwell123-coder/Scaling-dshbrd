@@ -2361,6 +2361,23 @@ local function placeGiant(giant: Model, spot: Vector3, feetY: number): Vector3
 	return size
 end
 
+-- Re-checks a giant a few times while Roblox finishes building it: fixes
+-- anything that didn't scale up (like the head), re-locks its pose and puts
+-- its feet back at `feetY`.
+local function settleGiant(giant: Model, feetY: number, pose: Founders.Pose?)
+	for _ = 1, 3 do
+		task.wait(0.4)
+		if not giant.Parent then
+			return
+		end
+		Founders.FixScale(giant)
+		if pose then
+			Founders.FreezePose(giant, pose)
+		end
+		groundGiant(giant, feetY, 0.5)
+	end
+end
+
 -- Normal standing idle underneath, and one in-place emote at a time with a
 -- short pause between them, while `active()` is true.
 local function startEmotes(giant: Model, emotes: { string }, active: () -> boolean)
@@ -2383,6 +2400,7 @@ end
 local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
 	local size = placeGiant(giant, spot, spot.Y)
 	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
+	settleGiant(giant, spot.Y, nil)
 	startEmotes(giant, emotes, active)
 	local nextDrop = os.clock() + 1.5
 	while giant.Parent and active() do
@@ -2502,6 +2520,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 			if poseId ~= "" then
 				Founders.Play(giant, poseId, true, 1, 1, Enum.AnimationPriority.Action)
 			end
+			settleGiant(giant, feetY, if poseId == "" then Founders.SagePose else nil)
 			local aura = Founders.AddAura(giant)
 
 			-- Float gently up and down in the beam, throwing things.
@@ -2560,6 +2579,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 		Founders.FreezePose(giant, {})
 		local size = placeGiant(giant, spot, spot.Y)
 		giantPoof(spot, size.Y, event.Colors[1])
+		settleGiant(giant, spot.Y, {})
 		local aura = Founders.AddAura(giant)
 		aura.OutlineColor = event.Colors[1]
 
