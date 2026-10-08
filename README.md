@@ -153,7 +153,7 @@ When it starts, everyone gets a huge intro: two white flashes and a red flash ov
 
 ### Founders and founder events
 
-The founders are set in `Config.Founders`: **Corny** (Roblox username `Cornywell10`, UserId `469657246`) and **Ace** (`Meishappy2341`). Their giants wear their current Roblox avatars during admin abuse, labelled with their founder names. A UserId (the number in a profile link, `roblox.com/users/<UserId>/profile`) can be used instead of a username. Once a founder has a UserId, only that exact account counts as them, even if someone else later takes their old username; until then the username is used.
+The founders are set in `Config.Founders`: **Corny** (Roblox username `Cornywell10`, UserId `469657246`) and **Ace** (`Meishappy2341`, UserId `8504983999`). Their giants wear their current Roblox avatars during admin abuse, labelled with their founder names. A UserId (the number in a profile link, `roblox.com/users/<UserId>/profile`) can be used instead of a username. Once a founder has a UserId, only that exact account counts as them, even if someone else later takes their old username; until then the username is used.
 
 To find an outfit id for `OutfitId`: open `https://avatar.roblox.com/v1/users/<UserId>/outfits?itemsPerPage=50` in a browser, find the costume's `"name"`, and copy the `"id"` just before it.
 
