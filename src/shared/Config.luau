@@ -550,8 +550,8 @@ Config.FounderEvents = {
 		},
 		Alien = true,
 		Chaos = true,
-		-- Theme song (from Roblox's licensed music library)
-		MusicId = "rbxassetid://1836281845",
+		-- Theme song: "Tractor Beam" (assets/music/alien_abduction_1_tractor_beam.mp3)
+		MusicId = "rbxassetid://81256073930643",
 	},
 	Ace = {
 		Founder = "Ace",
