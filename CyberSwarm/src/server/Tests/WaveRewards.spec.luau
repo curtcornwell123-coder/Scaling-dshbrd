@@ -67,7 +67,8 @@ return function(t: TestRunner.TestApi)
 
 	t.describe("cheapestCost", function()
 		t.it("finds the cheapest robot in a loadout", function()
-			t.expect(WaveMath.cheapestCost({ "Brute", "Scout" }, RobotConfig.Robots)).toBe(RobotConfig.Robots.Scout.cost)
+			t.expect(WaveMath.cheapestCost({ "Brute", "Scout" }, RobotConfig.Robots))
+				.toBe(RobotConfig.Robots.Scout.cost)
 		end)
 
 		t.it("is nil for an empty loadout", function()

@@ -215,7 +215,9 @@ local function renderSlots(snapshot: Types.MatchSnapshot)
 			else
 				local affordable = snapshot.coins >= upgradeCost
 				UIKit.setText(slot.upgradeButton, `UPGRADE  {upgradeCost}`)
-				slot.upgradeButton.BackgroundColor3 = if affordable then Theme.Colors.Secondary else Theme.Colors.PanelDark
+				slot.upgradeButton.BackgroundColor3 = if affordable
+					then Theme.Colors.Secondary
+					else Theme.Colors.PanelDark
 				slot.upgradeButton.TextColor3 = if affordable then Theme.Colors.PanelDark else Theme.Colors.TextDim
 			end
 		end
@@ -236,7 +238,8 @@ local function renderResult(snapshot: Types.MatchSnapshot)
 	resultTitle.Text = if result.won then "VICTORY" else "DEFEAT"
 	resultTitle.TextColor3 = if result.won then Theme.Colors.Success else Theme.Colors.Danger
 	resultReason.Text = Constants.MatchEndText[result.reason] or ""
-	resultStats.Text = `WAVES CLEARED  {result.wavesCompleted}\nCOINS EARNED  +{MathUtil.formatCount(result.coinsAwarded)}`
+	resultStats.Text =
+		`WAVES CLEARED  {result.wavesCompleted}\nCOINS EARNED  +{MathUtil.formatCount(result.coinsAwarded)}`
 end
 
 local function render(snapshot: Types.MatchSnapshot)
@@ -248,7 +251,10 @@ local function render(snapshot: Types.MatchSnapshot)
 	if hqFill.Size.X.Scale ~= fraction then
 		UIKit.tween(hqFill, Theme.Tween.Normal, { Size = UDim2.fromScale(fraction, 1) })
 	end
-	UIKit.setText(hqLabel, `{MathUtil.formatCount(snapshot.baseHealth)} / {MathUtil.formatCount(snapshot.baseMaxHealth)}`)
+	UIKit.setText(
+		hqLabel,
+		`{MathUtil.formatCount(snapshot.baseHealth)} / {MathUtil.formatCount(snapshot.baseMaxHealth)}`
+	)
 
 	local rival = snapshot.rivals[1]
 	rivalLabel.Visible = rival ~= nil
@@ -461,7 +467,13 @@ local function buildSpawnBar(layer: Frame)
 		BackgroundTransparency = 1,
 		Parent = layer,
 	})
-	UIKit.list(bar, Enum.FillDirection.Horizontal, UDim.new(0.012, 0), Enum.HorizontalAlignment.Center, Enum.VerticalAlignment.Bottom)
+	UIKit.list(
+		bar,
+		Enum.FillDirection.Horizontal,
+		UDim.new(0.012, 0),
+		Enum.HorizontalAlignment.Center,
+		Enum.VerticalAlignment.Bottom
+	)
 
 	for index = 1, Constants.MAX_LOADOUT do
 		local frame = UIKit.frame({

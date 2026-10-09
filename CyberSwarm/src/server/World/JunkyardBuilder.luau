@@ -152,8 +152,20 @@ local function buildDeck(scenery: Folder)
 			parent = scenery,
 		})
 	end
-	PartFactory.neon("DeckRail", Vector3.new(44, 0.3, 0.3), CFrame.new(DECK_CENTER + Vector3.new(0, 1.6, -5)), Theme.Colors.Primary, scenery)
-	PartFactory.neon("DeckTrim", Vector3.new(44, 0.2, 0.3), CFrame.new(DECK_CENTER + Vector3.new(0, 0.5, 5)), Theme.Colors.Secondary, scenery)
+	PartFactory.neon(
+		"DeckRail",
+		Vector3.new(44, 0.3, 0.3),
+		CFrame.new(DECK_CENTER + Vector3.new(0, 1.6, -5)),
+		Theme.Colors.Primary,
+		scenery
+	)
+	PartFactory.neon(
+		"DeckTrim",
+		Vector3.new(44, 0.2, 0.3),
+		CFrame.new(DECK_CENTER + Vector3.new(0, 0.5, 5)),
+		Theme.Colors.Secondary,
+		scenery
+	)
 	-- Invisible guard rail so nobody walks off the front edge.
 	local guard = PartFactory.part({
 		name = "DeckGuard",
@@ -169,9 +181,21 @@ end
 local function buildRobotGate(scenery: Folder)
 	local gate = WAYPOINTS[1]
 	for _, side in { -1, 1 } do
-		PartFactory.neon("GatePost", Vector3.new(1, 12, 1), CFrame.new(gate + Vector3.new(0, 6, side * (LANE_WIDTH * 0.5 + 1))), Theme.Colors.Primary, scenery)
+		PartFactory.neon(
+			"GatePost",
+			Vector3.new(1, 12, 1),
+			CFrame.new(gate + Vector3.new(0, 6, side * (LANE_WIDTH * 0.5 + 1))),
+			Theme.Colors.Primary,
+			scenery
+		)
 	end
-	PartFactory.neon("GateBeam", Vector3.new(1, 1, LANE_WIDTH + 3), CFrame.new(gate + Vector3.new(0, 12, 0)), Theme.Colors.Secondary, scenery)
+	PartFactory.neon(
+		"GateBeam",
+		Vector3.new(1, 1, LANE_WIDTH + 3),
+		CFrame.new(gate + Vector3.new(0, 12, 0)),
+		Theme.Colors.Secondary,
+		scenery
+	)
 end
 
 local function scrapHeap(scenery: Folder, center: Vector3, seed: number)
@@ -193,7 +217,9 @@ local function scrapHeap(scenery: Folder, center: Vector3, seed: number)
 end
 
 local function ammoCrates(scenery: Folder, center: Vector3)
-	for index, offset in { Vector3.new(0, 1, 0), Vector3.new(3.2, 1, 0.4), Vector3.new(1.4, 3, 0.2), Vector3.new(-2.8, 1, 1.6) } do
+	for index, offset in
+		{ Vector3.new(0, 1, 0), Vector3.new(3.2, 1, 0.4), Vector3.new(1.4, 3, 0.2), Vector3.new(-2.8, 1, 1.6) }
+	do
 		PartFactory.part({
 			name = "AmmoCrate",
 			size = Vector3.new(3, 2, 2.2),
@@ -274,7 +300,13 @@ local function watchtower(scenery: Folder, center: Vector3)
 		material = Enum.Material.CorrodedMetal,
 		parent = scenery,
 	})
-	PartFactory.neon("Searchlight", Vector3.new(1.2, 1.2, 1.2), CFrame.new(center + Vector3.new(0, 13.4, -2.6)), Military.Amber, scenery).Shape =
+	PartFactory.neon(
+		"Searchlight",
+		Vector3.new(1.2, 1.2, 1.2),
+		CFrame.new(center + Vector3.new(0, 13.4, -2.6)),
+		Military.Amber,
+		scenery
+	).Shape =
 		Enum.PartType.Ball
 end
 
@@ -316,7 +348,13 @@ local function perimeter(scenery: Folder)
 			material = Enum.Material.Metal,
 			parent = scenery,
 		})
-		PartFactory.neon("FenceLight", Vector3.new(0.5, 0.5, 0.5), CFrame.new(position + Vector3.new(0, 6.3, 0)), Military.AlertRed, scenery)
+		PartFactory.neon(
+			"FenceLight",
+			Vector3.new(0.5, 0.5, 0.5),
+			CFrame.new(position + Vector3.new(0, 6.3, 0)),
+			Military.AlertRed,
+			scenery
+		)
 	end
 	for x = -halfX, halfX, step do
 		post(Vector3.new(x, 0, -halfZ))

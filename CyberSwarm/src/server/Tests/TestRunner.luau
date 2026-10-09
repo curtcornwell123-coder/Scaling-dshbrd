@@ -91,7 +91,10 @@ function TestRunner.runSpecs(specs: { Spec }): Summary
 			expect = TestRunner.expect,
 		}
 
-		local collected, collectError = pcall(spec.run, api)
+		local collected, collectError = pcall(function(): any
+			spec.run(api)
+			return nil
+		end)
 		if not collected then
 			summary.failed += 1
 			table.insert(summary.failures, `{spec.name}: could not load ({collectError})`)
@@ -99,7 +102,10 @@ function TestRunner.runSpecs(specs: { Spec }): Summary
 		end
 
 		for _, case in cases do
-			local ok, err = pcall(case.body)
+			local ok, err = pcall(function(): any
+				case.body()
+				return nil
+			end)
 			if ok then
 				summary.passed += 1
 			else
@@ -124,7 +130,7 @@ function TestRunner.run(folder: Instance)
 			end
 		end
 	end
-	table.sort(specs, function(a, b)
+	table.sort(specs, function(a: Spec, b: Spec)
 		return a.name < b.name
 	end)
 

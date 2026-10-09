@@ -46,7 +46,12 @@ local function resolveLoadoutRobot(matchPlayer: MatchPlayer, robotIdRaw: unknown
 end
 
 -- Returns nil on success, or an error code.
-function WaveService.requestSpawn(match: Match, matchPlayer: MatchPlayer, robotIdRaw: unknown, laneRaw: unknown): string?
+function WaveService.requestSpawn(
+	match: Match,
+	matchPlayer: MatchPlayer,
+	robotIdRaw: unknown,
+	laneRaw: unknown
+): string?
 	if match.state ~= "Preparing" or matchPlayer.arena.eliminated then
 		return ErrorCode.WrongPhase
 	end

@@ -1,0 +1,5 @@
+std = "roblox"
+
+[lints]
+# Strict Luau type annotations already cover what this lint guards against.
+shadowing = "allow"

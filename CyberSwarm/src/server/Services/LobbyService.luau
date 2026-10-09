@@ -26,10 +26,6 @@ local LobbyService = {}
 local lobby: LobbyBuilder.Lobby
 local scatter = Random.new()
 
-function LobbyService.getPads(): { LobbyBuilder.PadInfo }
-	return lobby.pads
-end
-
 -- Moves a character, guarded because the character can be mid-respawn or already destroyed.
 function LobbyService.teleport(player: Player, cframe: CFrame): boolean
 	local character = player.Character
@@ -71,15 +67,6 @@ function LobbyService.returnToLobby(player: Player)
 		scatter:NextNumber(-SPAWN_SCATTER, SPAWN_SCATTER)
 	)
 	LobbyService.teleport(player, lobby.spawn.CFrame + offset)
-end
-
-function LobbyService.teleportToPad(player: Player, modeId: string): boolean
-	for _, padInfo in lobby.pads do
-		if padInfo.modeId == modeId then
-			return LobbyService.teleport(player, padInfo.pad.CFrame + Vector3.new(0, Constants.World.PLAYER_SPAWN_LIFT, 0))
-		end
-	end
-	return false
 end
 
 local function onSetLoadout(player: Player, loadout: unknown)

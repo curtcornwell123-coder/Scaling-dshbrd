@@ -165,7 +165,8 @@ local function buildArena(match: Match, index: number, map: ServerTypes.LoadedMa
 	hq.model.Parent = map.model
 
 	local mapDef = MapConfig.Maps[map.mapId]
-	local baseMaxHealth = math.floor(mapDef.baseHealth * (1 + match.mode.baseHealthPerExtraPlayer * math.max(0, #group - 1)))
+	local baseMaxHealth =
+		math.floor(mapDef.baseHealth * (1 + match.mode.baseHealthPerExtraPlayer * math.max(0, #group - 1)))
 
 	local spawnQueues: { { ServerTypes.QueuedRobot } } = {}
 	local spawnHeads: { number } = {}
@@ -306,7 +307,12 @@ local function beginWave(match: Match)
 		local applied = MutationService.applyPending(arena.mutations)
 		if applied ~= nil then
 			TowerService.refreshStats(arena)
-			Notifier.banner(arena.viewers, "Mutation", "MUTATION ACTIVE: " .. string.upper(applied.displayName), applied.description)
+			Notifier.banner(
+				arena.viewers,
+				"Mutation",
+				"MUTATION ACTIVE: " .. string.upper(applied.displayName),
+				applied.description
+			)
 		else
 			Notifier.toast(arena.viewers, "Info", "Swarm released!")
 		end
@@ -332,9 +338,16 @@ local function endMatch(match: Match, outcome: ServerTypes.Outcome)
 	for player, matchPlayer in match.players do
 		if matchPlayer.connected then
 			local won = outcome.winner ~= nil and matchPlayer.arena == outcome.winner
-			local reason = if won
-				then WINNER_REASON[outcome.reason] or outcome.reason
-				else LOSER_REASON[outcome.reason] or outcome.reason
+			local reason: Types.MatchEndReason = outcome.reason
+			local mapped: Types.MatchEndReason? = nil
+			if won then
+				mapped = WINNER_REASON[outcome.reason]
+			else
+				mapped = LOSER_REASON[outcome.reason]
+			end
+			if mapped ~= nil then
+				reason = mapped
+			end
 			local coins = EconomyService.payoutMatch(player, match.mode, won, match.wavesCompleted)
 			match.results[player] = {
 				won = won,
@@ -342,7 +355,12 @@ local function endMatch(match: Match, outcome: ServerTypes.Outcome)
 				wavesCompleted = match.wavesCompleted,
 				coinsAwarded = coins,
 			}
-			Notifier.banner({ player }, if won then "Success" else "Error", if won then "VICTORY" else "DEFEAT", Constants.MatchEndText[reason])
+			Notifier.banner(
+				{ player },
+				if won then "Success" else "Error",
+				if won then "VICTORY" else "DEFEAT",
+				Constants.MatchEndText[reason]
+			)
 		end
 	end
 	enterState(match, "MatchEnd", WaveConfig.matchEndDuration)
@@ -398,7 +416,12 @@ local function finishWave(match: Match)
 	for _, arena in remaining do
 		local rolled = MutationService.rollPending(arena.mutations, match.rng)
 		if rolled ~= nil then
-			Notifier.banner(arena.viewers, "Mutation", "INCOMING: " .. string.upper(rolled.displayName), rolled.description)
+			Notifier.banner(
+				arena.viewers,
+				"Mutation",
+				"INCOMING: " .. string.upper(rolled.displayName),
+				rolled.description
+			)
 		end
 	end
 	enterState(match, "WaveResult", WaveConfig.waveResultDuration)
@@ -629,7 +652,12 @@ function MatchService.startMatch(modeId: string, candidates: { Player }): (boole
 	end))
 
 	local mapName = MapConfig.Maps[mapId].displayName
-	Notifier.banner(connectedPlayers(match), "Info", string.upper(mode.displayName) .. " - " .. string.upper(mapName), "Break through the defense and destroy the Command HQ!")
+	Notifier.banner(
+		connectedPlayers(match),
+		"Info",
+		string.upper(mode.displayName) .. " - " .. string.upper(mapName),
+		"Break through the defense and destroy the Command HQ!"
+	)
 	enterState(match, "Waiting", Constants.Match.WAITING_DURATION)
 	return true, nil
 end
@@ -654,7 +682,12 @@ function MatchService.forceMutation(match: Match, matchPlayer: MatchPlayer, muta
 		return false
 	end
 	TowerService.refreshStats(arena)
-	Notifier.banner(arena.viewers, "Mutation", "MUTATION ACTIVE: " .. string.upper(mutation.displayName), mutation.description)
+	Notifier.banner(
+		arena.viewers,
+		"Mutation",
+		"MUTATION ACTIVE: " .. string.upper(mutation.displayName),
+		mutation.description
+	)
 	match.dirty = true
 	return true
 end

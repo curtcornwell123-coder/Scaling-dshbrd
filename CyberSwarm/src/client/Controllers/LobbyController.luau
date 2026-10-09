@@ -105,7 +105,10 @@ local function refreshProfile(profile: Types.PlayerData)
 			card.stroke.Thickness = 1.5
 			card.button.BackgroundColor3 = Theme.Colors.Panel
 		else
-			UIKit.setText(card.status, if robot.locked then "COMING SOON" else `LOCKED  {MathUtil.formatCount(robot.unlockCost)}`)
+			UIKit.setText(
+				card.status,
+				if robot.locked then "COMING SOON" else `LOCKED  {MathUtil.formatCount(robot.unlockCost)}`
+			)
 			card.status.TextColor3 = Theme.Colors.Secondary
 			card.stroke.Color = Theme.Colors.PanelLight
 			card.stroke.Thickness = 1.5
@@ -143,9 +146,12 @@ local function refreshQueue(queue: Types.QueueSnapshot)
 	queuePanel.Visible = true
 	updateQueueCountdown(queue, true)
 	if queue.countdownEndsAt ~= nil then
-		maid:set("queueTicker", RunService.Heartbeat:Connect(function()
-			updateQueueCountdown(queue, false)
-		end))
+		maid:set(
+			"queueTicker",
+			RunService.Heartbeat:Connect(function()
+				updateQueueCountdown(queue, false)
+			end)
+		)
 	end
 end
 

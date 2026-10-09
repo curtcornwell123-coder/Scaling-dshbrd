@@ -100,7 +100,12 @@ return function(t: TestRunner.TestApi)
 				flying = false,
 				abilities = {},
 				modelPath = "",
-				visual = { size = Vector3.one, color = Color3.new(1, 1, 1), accent = Color3.new(1, 1, 1), shape = "Block" },
+				visual = {
+					size = Vector3.one,
+					color = Color3.new(1, 1, 1),
+					accent = Color3.new(1, 1, 1),
+					shape = "Block",
+				},
 				unlockCost = 0,
 				locked = false,
 				upgradeCosts = {},

@@ -14,6 +14,7 @@ local MutationConfig = require(script.Parent.Config.MutationConfig)
 local MapConfig = require(script.Parent.Config.MapConfig)
 local WaveConfig = require(script.Parent.Config.WaveConfig)
 local ModeConfig = require(script.Parent.Config.ModeConfig)
+local TableUtil = require(script.Parent.Util.TableUtil)
 
 -- Configs are typed loosely here on purpose: the validator must cope with malformed input.
 export type ConfigSet = {
@@ -36,6 +37,8 @@ export type ConfigSet = {
 
 local ConfigValidator = {}
 
+local isTable = TableUtil.isTable
+
 type Issues = { string }
 
 local function expect(issues: Issues, path: string, value: any, typeName: string)
@@ -53,7 +56,7 @@ local function expectPositive(issues: Issues, path: string, value: any)
 end
 
 local function checkVisual(issues: Issues, path: string, visual: any)
-	if typeof(visual) ~= "table" then
+	if not isTable(visual) then
 		table.insert(issues, `{path}.visual is missing`)
 		return
 	end
@@ -93,7 +96,7 @@ end
 local function validateRobots(issues: Issues, set: ConfigSet)
 	for key, robot in set.robots do
 		local path = `RobotConfig.Robots.{key}`
-		if typeof(robot) ~= "table" then
+		if not isTable(robot) then
 			table.insert(issues, `{path} is not a table`)
 			continue
 		end
@@ -117,7 +120,7 @@ local function validateRobots(issues: Issues, set: ConfigSet)
 		end
 		checkVisual(issues, path, robot.visual)
 
-		if typeof(robot.upgradeCosts) ~= "table" then
+		if not isTable(robot.upgradeCosts) then
 			table.insert(issues, `{path}.upgradeCosts should be a table`)
 		else
 			for index, cost in robot.upgradeCosts do
@@ -125,12 +128,12 @@ local function validateRobots(issues: Issues, set: ConfigSet)
 			end
 		end
 
-		if typeof(robot.abilities) ~= "table" then
+		if not isTable(robot.abilities) then
 			table.insert(issues, `{path}.abilities should be a table`)
 		else
 			for index, ability in robot.abilities do
 				local abilityPath = `{path}.abilities[{index}]`
-				local fields = if typeof(ability) == "table" then Constants.ABILITY_FIELDS[ability.kind] else nil
+				local fields = if isTable(ability) then Constants.ABILITY_FIELDS[ability.kind] else nil
 				if fields == nil then
 					table.insert(issues, `{abilityPath}.kind is not a known ability kind`)
 				else
@@ -153,7 +156,7 @@ local function validateRobots(issues: Issues, set: ConfigSet)
 		local robot = set.robots[robotId]
 		if robot == nil then
 			table.insert(issues, `RobotConfig.DefaultUnlocked references unknown robot "{robotId}"`)
-		elseif typeof(robot) == "table" and robot.locked then
+		elseif isTable(robot) and robot.locked then
 			table.insert(issues, `RobotConfig.DefaultUnlocked includes locked robot "{robotId}"`)
 		end
 	end
@@ -162,7 +165,7 @@ end
 local function validateTowers(issues: Issues, set: ConfigSet)
 	for key, tower in set.towers do
 		local path = `TowerConfig.Towers.{key}`
-		if typeof(tower) ~= "table" then
+		if not isTable(tower) then
 			table.insert(issues, `{path} is not a table`)
 			continue
 		end
@@ -189,7 +192,7 @@ end
 local function validateMutations(issues: Issues, set: ConfigSet)
 	for key, mutation in set.mutations do
 		local path = `MutationConfig.Mutations.{key}`
-		if typeof(mutation) ~= "table" then
+		if not isTable(mutation) then
 			table.insert(issues, `{path} is not a table`)
 			continue
 		end
@@ -202,12 +205,12 @@ local function validateMutations(issues: Issues, set: ConfigSet)
 		if typeof(mutation.maxStacks) ~= "number" or mutation.maxStacks < 1 then
 			table.insert(issues, `{path}.maxStacks must be a number of at least 1`)
 		end
-		if typeof(mutation.modifiers) ~= "table" or #mutation.modifiers == 0 then
+		if not isTable(mutation.modifiers) or #mutation.modifiers == 0 then
 			table.insert(issues, `{path}.modifiers must list at least one modifier`)
 		else
 			for index, modifier in mutation.modifiers do
 				local modifierPath = `{path}.modifiers[{index}]`
-				if typeof(modifier) ~= "table" then
+				if not isTable(modifier) then
 					table.insert(issues, `{modifierPath} is not a table`)
 					continue
 				end
@@ -228,7 +231,7 @@ local function validateMutations(issues: Issues, set: ConfigSet)
 	end
 	checkOrder(issues, "MutationConfig", set.mutations, set.mutationOrder)
 	for rarityName, rarity in set.mutationRarities do
-		if typeof(rarity) ~= "table" then
+		if not isTable(rarity) then
 			table.insert(issues, `MutationConfig.Rarities.{rarityName} is not a table`)
 		else
 			expectPositive(issues, `MutationConfig.Rarities.{rarityName}.weight`, rarity.weight)
@@ -242,7 +245,7 @@ end
 local function validateMaps(issues: Issues, set: ConfigSet)
 	for key, map in set.maps do
 		local path = `MapConfig.Maps.{key}`
-		if typeof(map) ~= "table" then
+		if not isTable(map) then
 			table.insert(issues, `{path} is not a table`)
 			continue
 		end
@@ -264,7 +267,7 @@ end
 local function validateModes(issues: Issues, set: ConfigSet)
 	for key, mode in set.modes do
 		local path = `ModeConfig.Modes.{key}`
-		if typeof(mode) ~= "table" then
+		if not isTable(mode) then
 			table.insert(issues, `{path} is not a table`)
 			continue
 		end
@@ -284,14 +287,14 @@ local function validateModes(issues: Issues, set: ConfigSet)
 		end
 		expectPositive(issues, path .. ".queueCountdown", mode.queueCountdown)
 		expectPositive(issues, path .. ".baseHealthPerExtraPlayer", mode.baseHealthPerExtraPlayer)
-		if typeof(mode.rewards) ~= "table" then
+		if not isTable(mode.rewards) then
 			table.insert(issues, `{path}.rewards is missing`)
 		else
 			for _, field in { "winCoins", "lossCoins", "perWaveCoins" } do
 				expectPositive(issues, `{path}.rewards.{field}`, mode.rewards[field])
 			end
 		end
-		if typeof(mode.mapPool) ~= "table" or #mode.mapPool == 0 then
+		if not isTable(mode.mapPool) or #mode.mapPool == 0 then
 			table.insert(issues, `{path}.mapPool must list at least one map`)
 		else
 			for _, mapId in mode.mapPool do
@@ -309,13 +312,16 @@ local function validateDefensePlan(issues: Issues, set: ConfigSet)
 		if typeof(wave) ~= "number" or wave < 1 or wave % 1 ~= 0 then
 			table.insert(issues, `WaveConfig.DefensePlan key {tostring(wave)} must be a positive whole wave number`)
 		end
-		if typeof(towerIds) ~= "table" then
+		if not isTable(towerIds) then
 			table.insert(issues, `WaveConfig.DefensePlan[{tostring(wave)}] must be a list of tower ids`)
 			continue
 		end
 		for _, towerId in towerIds do
 			if set.towers[towerId] == nil then
-				table.insert(issues, `WaveConfig.DefensePlan[{tostring(wave)}] references unknown tower "{tostring(towerId)}"`)
+				table.insert(
+					issues,
+					`WaveConfig.DefensePlan[{tostring(wave)}] references unknown tower "{tostring(towerId)}"`
+				)
 			end
 		end
 	end

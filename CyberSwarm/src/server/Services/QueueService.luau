@@ -8,6 +8,7 @@
 	are handed to MatchService.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -19,13 +20,13 @@ local DataService = require(script.Parent.DataService)
 local LobbyService = require(script.Parent.LobbyService)
 local MatchService = require(script.Parent.MatchService)
 local Notifier = require(script.Parent.Parent.Notifier)
-local LobbyBuilder = require(script.Parent.Parent.World.LobbyBuilder)
 
 local ErrorCode = Constants.ErrorCode
 
 type Queue = {
 	mode: Types.ModeDef,
-	padInfo: LobbyBuilder.PadInfo,
+	pad: BasePart,
+	statusLabel: TextLabel?,
 	players: { Player },
 	countdownEndsAt: number?,
 	countdownEndsAtServer: number?,
@@ -101,7 +102,7 @@ local function padUnder(player: Player): Queue?
 		return nil
 	end
 	for _, queue in queues do
-		if isOnPad(root.Position, queue.padInfo.pad) then
+		if isOnPad(root.Position, queue.pad) then
 			return queue
 		end
 	end
@@ -118,8 +119,9 @@ local function updatePadLabel(queue: Queue, now: number)
 	else
 		text = "STEP ON TO QUEUE"
 	end
-	if queue.padInfo.statusLabel.Text ~= text then
-		queue.padInfo.statusLabel.Text = text
+	local label = queue.statusLabel
+	if label ~= nil and label.Text ~= text then
+		label.Text = text
 	end
 end
 
@@ -208,7 +210,7 @@ local function onJoinRequest(player: Player, modeIdRaw: unknown)
 		return
 	end
 	-- Walking the character onto the pad keeps the pad as the single source of queue membership.
-	if not LobbyService.teleportToPad(player, queue.mode.id) then
+	if not LobbyService.teleport(player, queue.pad.CFrame + Vector3.new(0, Constants.World.PLAYER_SPAWN_LIFT, 0)) then
 		Notifier.error(player, ErrorCode.NoCharacter)
 		return
 	end
@@ -224,18 +226,27 @@ local function onLeaveRequest(player: Player)
 end
 
 function QueueService.init()
-	for _, padInfo in LobbyService.getPads() do
-		local mode = ModeConfig.Modes[padInfo.modeId]
-		if mode ~= nil then
-			queues[mode.id] = {
-				mode = mode,
-				padInfo = padInfo,
-				players = {},
-				countdownEndsAt = nil,
-				countdownEndsAtServer = nil,
-				changed = false,
-			}
+	for _, instance in CollectionService:GetTagged(Constants.Tags.QueuePad) do
+		local modeId = instance:GetAttribute(Constants.Attributes.ModeId)
+		local mode = if type(modeId) == "string" then ModeConfig.Modes[modeId] else nil
+		if mode == nil or not instance:IsA("BasePart") then
+			warn(
+				`[QueueService] Queue pad {instance:GetFullName()} needs a valid {Constants.Attributes.ModeId} attribute.`
+			)
+			continue
 		end
+		-- The optional "Status" billboard shows queue progress above the pad.
+		local status = instance:FindFirstChild("Status")
+		local label = if status ~= nil then status:FindFirstChildOfClass("TextLabel") else nil
+		queues[mode.id] = {
+			mode = mode,
+			pad = instance,
+			statusLabel = label,
+			players = {},
+			countdownEndsAt = nil,
+			countdownEndsAtServer = nil,
+			changed = false,
+		}
 	end
 end
 

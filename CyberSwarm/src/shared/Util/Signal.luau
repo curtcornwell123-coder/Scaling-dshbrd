@@ -8,16 +8,18 @@
 
 export type Connection = {
 	connected: boolean,
-	disconnect: (self: Connection) -> (),
-	destroy: (self: Connection) -> (),
+	disconnect: (self: any) -> (),
+	destroy: (self: any) -> (),
 }
 
+-- `self` is typed loosely on purpose: signals live inside recursive record types (arenas, units),
+-- and a self-referencing method type there trips the old Luau solver's exact-match checks.
 export type Signal<T...> = {
-	connect: (self: Signal<T...>, handler: (T...) -> ()) -> Connection,
-	once: (self: Signal<T...>, handler: (T...) -> ()) -> Connection,
-	fire: (self: Signal<T...>, T...) -> (),
-	disconnectAll: (self: Signal<T...>) -> (),
-	destroy: (self: Signal<T...>) -> (),
+	connect: (self: any, handler: (T...) -> ()) -> Connection,
+	once: (self: any, handler: (T...) -> ()) -> Connection,
+	fire: (self: any, T...) -> (),
+	disconnectAll: (self: any) -> (),
+	destroy: (self: any) -> (),
 }
 
 local ConnectionClass = {}

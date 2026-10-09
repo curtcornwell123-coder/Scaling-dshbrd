@@ -45,7 +45,7 @@ export type ServerEvent<T> = {
 type IntentRecord = {
 	name: string,
 	limiter: RateLimiter.RateLimiter,
-	signal: Signal.Signal<Player, ...unknown>,
+	signal: Signal.Signal<(Player, ...unknown)>,
 }
 
 type ServerEventRecord = {
@@ -63,13 +63,13 @@ local unreliableEvents: { [string]: UnreliableRemoteEvent } = {}
 local initialized = false
 
 local function getReliable(name: string): RemoteEvent
-	local remote = reliableEvents[name]
+	local remote: RemoteEvent? = reliableEvents[name]
 	assert(remote ~= nil, `Remote "{name}" used before Remotes.init()`)
 	return remote
 end
 
 local function getUnreliable(name: string): UnreliableRemoteEvent
-	local remote = unreliableEvents[name]
+	local remote: UnreliableRemoteEvent? = unreliableEvents[name]
 	assert(remote ~= nil, `Remote "{name}" used before Remotes.init()`)
 	return remote
 end

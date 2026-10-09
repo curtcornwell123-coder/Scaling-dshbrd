@@ -61,36 +61,46 @@ local function withDefaults(defaults: Props, props: Props?): Props
 end
 
 function UIKit.frame(props: Props?, children: { Instance }?): Frame
-	return UIKit.create("Frame", withDefaults({
-		BackgroundColor3 = Theme.Colors.Panel,
-		BorderSizePixel = 0,
-	}, props), children) :: Frame
+	return UIKit.create(
+		"Frame",
+		withDefaults({
+			BackgroundColor3 = Theme.Colors.Panel,
+			BorderSizePixel = 0,
+		}, props),
+		children
+	) :: Frame
 end
 
 function UIKit.label(props: Props?, maxTextSize: number?): TextLabel
-	local label = UIKit.create("TextLabel", withDefaults({
-		BackgroundTransparency = 1,
-		Font = Theme.Fonts.Body,
-		TextColor3 = Theme.Colors.Text,
-		TextScaled = true,
-		TextWrapped = true,
-		Text = "",
-	}, props)) :: TextLabel
+	local label = UIKit.create(
+		"TextLabel",
+		withDefaults({
+			BackgroundTransparency = 1,
+			Font = Theme.Fonts.Body,
+			TextColor3 = Theme.Colors.Text,
+			TextScaled = true,
+			TextWrapped = true,
+			Text = "",
+		}, props)
+	) :: TextLabel
 	UIKit.textLimit(label, maxTextSize or Theme.Text.BODY_MAX)
 	return label
 end
 
 function UIKit.button(props: Props?, maxTextSize: number?): TextButton
-	local button = UIKit.create("TextButton", withDefaults({
-		AutoButtonColor = false,
-		BackgroundColor3 = Theme.Colors.PanelLight,
-		BorderSizePixel = 0,
-		Font = Theme.Fonts.Title,
-		TextColor3 = Theme.Colors.Text,
-		TextScaled = true,
-		TextWrapped = true,
-		Text = "",
-	}, props)) :: TextButton
+	local button = UIKit.create(
+		"TextButton",
+		withDefaults({
+			AutoButtonColor = false,
+			BackgroundColor3 = Theme.Colors.PanelLight,
+			BorderSizePixel = 0,
+			Font = Theme.Fonts.Title,
+			TextColor3 = Theme.Colors.Text,
+			TextScaled = true,
+			TextWrapped = true,
+			Text = "",
+		}, props)
+	) :: TextButton
 	UIKit.textLimit(button, maxTextSize or Theme.Text.BODY_MAX)
 	UIKit.corner(button)
 	return button
@@ -166,8 +176,10 @@ end
 
 -- Only writes when the text changed, so per-frame callers never cause needless re-layouts.
 function UIKit.setText(label: TextLabel | TextButton, text: string)
-	if label.Text ~= text then
-		label.Text = text
+	-- Both classes have Text; going through `any` keeps the union simple for the type checker.
+	local target: any = label
+	if target.Text ~= text then
+		target.Text = text
 	end
 end
 
@@ -193,7 +205,9 @@ function UIKit.bindButton(button: GuiButton, maid: Maid.Maid, onActivated: () ->
 	maid:give(button.MouseButton1Up:Connect(function()
 		UIKit.tween(scale, Theme.Tween.Fast, { Scale = 1 })
 	end))
-	maid:give(button.Activated:Connect(onActivated))
+	maid:give(button.Activated:Connect(function()
+		onActivated()
+	end))
 end
 
 -- Creates a ScreenGui in PlayerGui and returns its auto-scaled root frame.

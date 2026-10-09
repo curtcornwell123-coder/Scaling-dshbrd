@@ -12,16 +12,25 @@ export type Destroyable = {
 
 export type MaidTask = RBXScriptConnection | Instance | thread | () -> () | Destroyable
 
-local Maid = {}
-Maid.__index = Maid
+-- An explicit type (rather than one inferred from the metatable) keeps the methods identical in
+-- every module that stores a Maid, which strict mode compares exactly.
+export type Maid = {
+	give: (self: Maid, item: MaidTask) -> (),
+	set: (self: Maid, key: string, item: MaidTask?) -> (),
+	clear: (self: Maid, key: string) -> (),
+	cleanup: (self: Maid) -> (),
+	destroy: (self: Maid) -> (),
+	isDestroyed: (self: Maid) -> boolean,
+}
 
-type MaidData = {
+type MaidState = {
 	_tasks: { MaidTask },
 	_named: { [string]: MaidTask },
 	_destroyed: boolean,
 }
 
-export type Maid = typeof(setmetatable({} :: MaidData, Maid))
+local Maid = {}
+Maid.__index = Maid
 
 local function cleanTask(item: MaidTask)
 	local kind = typeof(item)
@@ -43,26 +52,25 @@ local function cleanTask(item: MaidTask)
 end
 
 function Maid.new(): Maid
-	return setmetatable({
+	local state: MaidState = {
 		_tasks = {},
 		_named = {},
 		_destroyed = false,
-	}, Maid)
+	}
+	return setmetatable(state, Maid) :: any
 end
 
--- Returns the task so creation and registration can happen in one expression.
-function Maid.give<T>(self: Maid, item: T): T
+function Maid.give(self: MaidState, item: MaidTask)
 	if self._destroyed then
 		-- Work that finishes after teardown (for example a late async result) is cleaned immediately instead of leaking.
-		cleanTask(item :: any)
-		return item
+		cleanTask(item)
+		return
 	end
-	table.insert(self._tasks, item :: any)
-	return item
+	table.insert(self._tasks, item)
 end
 
 -- Keyed slot: assigning a new task cleans whatever previously occupied the key.
-function Maid.set(self: Maid, key: string, item: MaidTask?)
+function Maid.set(self: MaidState, key: string, item: MaidTask?)
 	local existing = self._named[key]
 	if existing == item then
 		return
@@ -77,11 +85,11 @@ function Maid.set(self: Maid, key: string, item: MaidTask?)
 	end
 end
 
-function Maid.clear(self: Maid, key: string)
-	self:set(key, nil)
+function Maid.clear(self: MaidState, key: string)
+	Maid.set(self, key, nil)
 end
 
-function Maid.cleanup(self: Maid)
+function Maid.cleanup(self: MaidState)
 	-- Swap containers before cleaning so tasks that touch this maid while cleaning cannot re-enter the same lists.
 	local named = self._named
 	local list = self._tasks
@@ -95,12 +103,12 @@ function Maid.cleanup(self: Maid)
 	end
 end
 
-function Maid.destroy(self: Maid)
+function Maid.destroy(self: MaidState)
 	self._destroyed = true
-	self:cleanup()
+	Maid.cleanup(self)
 end
 
-function Maid.isDestroyed(self: Maid): boolean
+function Maid.isDestroyed(self: MaidState): boolean
 	return self._destroyed
 end
 

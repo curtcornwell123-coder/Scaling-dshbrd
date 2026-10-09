@@ -64,7 +64,7 @@ local function orderedParts(container: Instance, prefix: string): { BasePart }
 			table.insert(entries, { index = index, part = child })
 		end
 	end
-	table.sort(entries, function(a, b)
+	table.sort(entries, function(a: { index: number }, b: { index: number })
 		return a.index < b.index
 	end)
 	local parts = {}
@@ -104,7 +104,7 @@ local function orderedFolders(container: Instance): { Instance }
 			table.insert(entries, { index = index, folder = child })
 		end
 	end
-	table.sort(entries, function(a, b)
+	table.sort(entries, function(a: { index: number }, b: { index: number })
 		return a.index < b.index
 	end)
 	local folders = {}
@@ -156,7 +156,7 @@ local function parseSpawns(model: Model): { CFrame }
 			table.insert(spawns, topOf(child))
 		end
 	end
-	table.sort(spawns, function(a, b)
+	table.sort(spawns, function(a: CFrame, b: CFrame)
 		return a.Position.X < b.Position.X
 	end)
 	return spawns
@@ -166,7 +166,8 @@ local function fallbackCamera(model: Model): CFrame
 	local boxCFrame, boxSize = model:GetBoundingBox()
 	local footprint = math.max(boxSize.X, boxSize.Z)
 	local center = boxCFrame.Position
-	local eye = center + Vector3.new(0, footprint * Constants.Camera.HEIGHT_FACTOR, footprint * Constants.Camera.BACK_FACTOR)
+	local eye = center
+		+ Vector3.new(0, footprint * Constants.Camera.HEIGHT_FACTOR, footprint * Constants.Camera.BACK_FACTOR)
 	return CFrame.lookAt(eye, center)
 end
 
@@ -227,7 +228,9 @@ function MapService.load(mapId: string): ServerTypes.LoadedMap?
 	end
 
 	local cameraPart = model:FindFirstChild(Layout.CAMERA)
-	local cameraCFrame = if cameraPart ~= nil and cameraPart:IsA("BasePart") then cameraPart.CFrame else fallbackCamera(model)
+	local cameraCFrame = if cameraPart ~= nil and cameraPart:IsA("BasePart")
+		then cameraPart.CFrame
+		else fallbackCamera(model)
 
 	local unitFolder = Instance.new("Folder")
 	unitFolder.Name = Layout.UNITS_FOLDER

@@ -92,8 +92,20 @@ local function buildRobot(def: Types.RobotDef): Model
 		canCollide = false,
 		parent = model,
 	})
-	PartFactory.neon("Eye", Vector3.new(size.X * 0.5, size.Y * 0.08, 0.12), CFrame.new(0, size.Y * 0.12, -size.Z * 0.5 - 0.12), visual.accent, model)
-	PartFactory.neon("CoreRing", Vector3.new(size.X * 1.05, size.Y * 0.12, size.Z * 1.05), CFrame.new(0, -size.Y * 0.15, 0), visual.accent, model)
+	PartFactory.neon(
+		"Eye",
+		Vector3.new(size.X * 0.5, size.Y * 0.08, 0.12),
+		CFrame.new(0, size.Y * 0.12, -size.Z * 0.5 - 0.12),
+		visual.accent,
+		model
+	)
+	PartFactory.neon(
+		"CoreRing",
+		Vector3.new(size.X * 1.05, size.Y * 0.12, size.Z * 1.05),
+		CFrame.new(0, -size.Y * 0.15, 0),
+		visual.accent,
+		model
+	)
 
 	if def.flying then
 		local rotor = PartFactory.neon(
@@ -142,7 +154,12 @@ function PlaceholderModels.robot(def: Types.RobotDef): RobotModel
 	local top = boxCFrame.Position.Y + boxSize.Y * 0.5
 	local heightOffset = root.Position.Y - bottom
 
-	local barFill = PartFactory.healthBar(root, math.max(boxSize.X, 2.5), top - root.Position.Y + HEALTH_BAR_GAP, Theme.Colors.Success)
+	local barFill = PartFactory.healthBar(
+		root,
+		math.max(boxSize.X, 2.5),
+		top - root.Position.Y + HEALTH_BAR_GAP,
+		Theme.Colors.Success
+	)
 	robotModel:SetAttribute(Constants.Attributes.RobotId, def.id)
 	CollectionService:AddTag(robotModel, Constants.Tags.Robot)
 
@@ -266,7 +283,9 @@ function PlaceholderModels.tower(def: Types.TowerDef, cframe: CFrame): TowerMode
 				light = assetLight
 			end
 		else
-			warn(`[PlaceholderModels] Asset for tower "{def.id}" needs a PrimaryPart and a Head part; using the placeholder.`)
+			warn(
+				`[PlaceholderModels] Asset for tower "{def.id}" needs a PrimaryPart and a Head part; using the placeholder.`
+			)
 			model:Destroy()
 			model = nil
 		end
@@ -281,7 +300,8 @@ function PlaceholderModels.tower(def: Types.TowerDef, cframe: CFrame): TowerMode
 	local towerModel = model :: Model
 	local towerHead = head :: BasePart
 	towerModel:PivotTo(cframe)
-	local barFill = PartFactory.healthBar(towerHead, 4.5, towerHead.Size.Y * 0.5 + HEALTH_BAR_GAP + 0.6, Theme.Military.Amber)
+	local barFill =
+		PartFactory.healthBar(towerHead, 4.5, towerHead.Size.Y * 0.5 + HEALTH_BAR_GAP + 0.6, Theme.Military.Amber)
 	towerModel:SetAttribute(Constants.Attributes.TowerId, def.id)
 	CollectionService:AddTag(towerModel, Constants.Tags.Tower)
 

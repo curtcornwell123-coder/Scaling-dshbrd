@@ -49,7 +49,7 @@ type Profile = {
 
 type LoadFailure = "locked" | "newer" | "error" | "unavailable"
 
-local KICK_MESSAGES: { [LoadFailure]: string } = {
+local KICK_MESSAGES: { [string]: string } = {
 	locked = "Your Cyber Swarm data is still open on another server. Please rejoin in a minute.",
 	newer = "This server is running an older version of Cyber Swarm. Please rejoin to reach a newer server.",
 	error = "We couldn't load your Cyber Swarm data right now. Your progress is safe - please rejoin shortly.",
@@ -98,10 +98,10 @@ end
 -- removed robot in config can never break a player's loadout.
 local function sanitize(raw: any): Types.PlayerData
 	local defaults = defaultData()
-	if type(raw) ~= "table" then
+	if not TableUtil.isTable(raw) then
 		return defaults
 	end
-	local stored = TableUtil.reconcile(raw, defaults)
+	local stored = TableUtil.reconcile(raw, defaults :: any)
 
 	local unlocked: { string } = {}
 	local owned: { [string]: boolean } = {}
@@ -118,7 +118,7 @@ local function sanitize(raw: any): Types.PlayerData
 	for _, robotId in RobotConfig.DefaultUnlocked do
 		unlock(robotId)
 	end
-	if type(stored.unlockedRobots) == "table" then
+	if TableUtil.isTable(stored.unlockedRobots) then
 		for _, robotId in stored.unlockedRobots do
 			unlock(robotId)
 		end
@@ -126,9 +126,14 @@ local function sanitize(raw: any): Types.PlayerData
 
 	local loadout: { string } = {}
 	local equipped: { [string]: boolean } = {}
-	if type(stored.equippedLoadout) == "table" then
+	if TableUtil.isTable(stored.equippedLoadout) then
 		for _, robotId in stored.equippedLoadout do
-			if type(robotId) == "string" and owned[robotId] and not equipped[robotId] and #loadout < Constants.MAX_LOADOUT then
+			if
+				type(robotId) == "string"
+				and owned[robotId]
+				and not equipped[robotId]
+				and #loadout < Constants.MAX_LOADOUT
+			then
 				equipped[robotId] = true
 				table.insert(loadout, robotId)
 			end
@@ -138,8 +143,8 @@ local function sanitize(raw: any): Types.PlayerData
 		loadout = table.clone(defaults.equippedLoadout)
 	end
 
-	local stats = if type(stored.stats) == "table" then stored.stats else {}
-	local settings = if type(stored.settings) == "table" then stored.settings else {}
+	local stats: any = if TableUtil.isTable(stored.stats) then stored.stats else {}
+	local settings: any = if TableUtil.isTable(stored.settings) then stored.settings else {}
 
 	return {
 		coins = math.max(0, math.floor(numberOr(stored.coins, defaults.coins))),
@@ -170,7 +175,7 @@ local MIGRATIONS: { [number]: (any) -> any } = {
 -- Returns the upgraded record, and true when the record is from a newer schema than this server.
 -- Runs inside UpdateAsync transforms, so it must never yield.
 local function migrate(raw: any): (StoredRecord, boolean)
-	if type(raw) ~= "table" then
+	if not TableUtil.isTable(raw) then
 		return { schemaVersion = DATA.SCHEMA_VERSION, data = defaultData(), lock = nil }, false
 	end
 
@@ -191,8 +196,9 @@ local function migrate(raw: any): (StoredRecord, boolean)
 	end
 
 	local lock: SessionLock? = nil
-	if type(record.lock) == "table" and type(record.lock.jobId) == "string" and type(record.lock.time) == "number" then
-		lock = { jobId = record.lock.jobId, time = record.lock.time }
+	local storedLock: any = record.lock
+	if TableUtil.isTable(storedLock) and type(storedLock.jobId) == "string" and type(storedLock.time) == "number" then
+		lock = { jobId = storedLock.jobId :: string, time = storedLock.time :: number }
 	end
 	return {
 		schemaVersion = DATA.SCHEMA_VERSION,

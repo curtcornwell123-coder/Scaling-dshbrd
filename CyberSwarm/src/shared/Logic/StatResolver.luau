@@ -49,7 +49,8 @@ function StatResolver.resolve(
 				end
 				local multiplier = modifier.multiplier
 				if multiplier ~= nil then
-					multiplierBonuses[modifier.stat] = (multiplierBonuses[modifier.stat] or 0) + (multiplier - 1) * stacks
+					multiplierBonuses[modifier.stat] = (multiplierBonuses[modifier.stat] or 0)
+						+ (multiplier - 1) * stacks
 				end
 			end
 		end
@@ -69,11 +70,7 @@ function StatResolver.resolve(
 end
 
 -- Robot upgrades scale linearly from the base config value per level.
-function StatResolver.robotStats(
-	robot: Types.RobotDef,
-	level: number,
-	rules: Types.RobotUpgradeRules
-): (number, number)
+function StatResolver.robotStats(robot: Types.RobotDef, level: number, rules: Types.RobotUpgradeRules): (number, number)
 	local health = robot.health * (1 + rules.healthPerLevel * level)
 	local damage = robot.damage * (1 + rules.damagePerLevel * level)
 	return health, damage

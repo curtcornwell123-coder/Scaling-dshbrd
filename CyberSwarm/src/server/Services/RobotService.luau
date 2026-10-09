@@ -77,7 +77,13 @@ local function advance(robot: RobotUnit, distance: number): boolean
 	return false
 end
 
-local function nearestTower(arena: Arena, position: Vector3, radius: number, now: number, mustBeActive: boolean): TowerUnit?
+local function nearestTower(
+	arena: Arena,
+	position: Vector3,
+	radius: number,
+	now: number,
+	mustBeActive: boolean
+): TowerUnit?
 	local best: TowerUnit? = nil
 	local bestDistance = radius * radius
 	for _, tower in arena.towers do
@@ -99,7 +105,14 @@ function RobotService.kill(arena: Arena, robot: RobotUnit, reason: ServerTypes.R
 	robot.alive = false
 	if reason == "Destroyed" then
 		local visual = robot.def.visual
-		Effects.send(arena.viewers, "Explosion", robot.position, robot.position, visual.color, math.max(visual.size.X, visual.size.Y))
+		Effects.send(
+			arena.viewers,
+			"Explosion",
+			robot.position,
+			robot.position,
+			visual.color,
+			math.max(visual.size.X, visual.size.Y)
+		)
 	end
 	robot.model:Destroy()
 	arena.robotRemoved:fire(robot, reason)
@@ -139,7 +152,11 @@ local function runHeal(arena: Arena, robot: RobotUnit, ability: Types.AbilityDef
 	local radiusSquared = radius * radius
 	local healed = false
 	for _, ally in arena.robots do
-		if ally.alive and ally.health < ally.maxHealth and MathUtil.distanceSquared(ally.position, robot.position) <= radiusSquared then
+		if
+			ally.alive
+			and ally.health < ally.maxHealth
+			and MathUtil.distanceSquared(ally.position, robot.position) <= radiusSquared
+		then
 			ally.health = math.min(ally.maxHealth, ally.health + amount)
 			ally.barDirty = true
 			healed = true

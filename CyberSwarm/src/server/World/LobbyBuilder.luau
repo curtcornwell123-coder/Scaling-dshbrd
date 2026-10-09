@@ -2,8 +2,9 @@
 --[[
 	LobbyBuilder
 	Generates the hub lobby from Parts: a neon-gridded deck, a spawn, the title sign, and one queue
-	pad per mode in ModeConfig.Order. Pads are tagged so QueueService finds them through
-	CollectionService instead of hard-coded references.
+	pad per mode in ModeConfig.Order. Each pad is self-describing: the QueuePad tag, a ModeId
+	attribute, and a "Status" billboard. QueueService discovers pads through CollectionService, so
+	pads placed by hand in Studio work the same way.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -72,12 +73,14 @@ local function buildPad(model: Model, origin: Vector3, modeId: string, index: nu
 
 	-- Glowing frame around the pad in the mode's colour.
 	local half = PAD_SIZE * 0.5
-	for _, edge in {
-		{ Vector3.new(0, 0.3, half), Vector3.new(PAD_SIZE + 1, 0.3, 0.6) },
-		{ Vector3.new(0, 0.3, -half), Vector3.new(PAD_SIZE + 1, 0.3, 0.6) },
-		{ Vector3.new(half, 0.3, 0), Vector3.new(0.6, 0.3, PAD_SIZE + 1) },
-		{ Vector3.new(-half, 0.3, 0), Vector3.new(0.6, 0.3, PAD_SIZE + 1) },
-	} do
+	for _, edge in
+		{
+			{ Vector3.new(0, 0.3, half), Vector3.new(PAD_SIZE + 1, 0.3, 0.6) },
+			{ Vector3.new(0, 0.3, -half), Vector3.new(PAD_SIZE + 1, 0.3, 0.6) },
+			{ Vector3.new(half, 0.3, 0), Vector3.new(0.6, 0.3, PAD_SIZE + 1) },
+			{ Vector3.new(-half, 0.3, 0), Vector3.new(0.6, 0.3, PAD_SIZE + 1) },
+		}
+	do
 		PartFactory.neon("PadEdge", edge[2], CFrame.new(center + edge[1]), mode.padColor, model)
 	end
 
@@ -92,9 +95,12 @@ local function buildPad(model: Model, origin: Vector3, modeId: string, index: nu
 		)
 	end
 
-	local anchor = PartFactory.marker("PadLabelAnchor", CFrame.new(center + Vector3.new(0, 9, 0)), Vector3.one, model)
-	PartFactory.billboard(anchor, string.upper(mode.displayName), mode.padColor, Vector2.new(14, 3.5), 1.8, 220)
-	local _, statusLabel = PartFactory.billboard(anchor, "STEP ON TO QUEUE", Theme.Colors.Text, Vector2.new(14, 1.6), -0.6, 160)
+	local title =
+		PartFactory.billboard(pad, string.upper(mode.displayName), mode.padColor, Vector2.new(14, 3.5), 10.8, 220)
+	title.Name = "Title"
+	local status, statusLabel =
+		PartFactory.billboard(pad, "STEP ON TO QUEUE", Theme.Colors.Text, Vector2.new(14, 1.6), 8.4, 160)
+	status.Name = "Status"
 	statusLabel.Font = Theme.Fonts.Body
 
 	return {
@@ -126,17 +132,31 @@ function LobbyBuilder.build(parent: Instance): Lobby
 	for offset = -half + GRID_STEP, half - GRID_STEP, GRID_STEP do
 		lineIndex += 1
 		local color = if lineIndex % 2 == 0 then Theme.Colors.Primary else Theme.Colors.Secondary
-		PartFactory.neon("GridX", Vector3.new(FLOOR_SIZE, 0.06, 0.25), CFrame.new(origin + Vector3.new(0, 0.03, offset)), color, model)
-		PartFactory.neon("GridZ", Vector3.new(0.25, 0.06, FLOOR_SIZE), CFrame.new(origin + Vector3.new(offset, 0.03, 0)), color, model)
+		PartFactory.neon(
+			"GridX",
+			Vector3.new(FLOOR_SIZE, 0.06, 0.25),
+			CFrame.new(origin + Vector3.new(0, 0.03, offset)),
+			color,
+			model
+		)
+		PartFactory.neon(
+			"GridZ",
+			Vector3.new(0.25, 0.06, FLOOR_SIZE),
+			CFrame.new(origin + Vector3.new(offset, 0.03, 0)),
+			color,
+			model
+		)
 	end
 
 	-- Invisible walls keep players on the deck; neon rails show where the edge is.
-	for _, wall in {
-		{ Vector3.new(0, WALL_HEIGHT * 0.5, half), Vector3.new(FLOOR_SIZE, WALL_HEIGHT, 1) },
-		{ Vector3.new(0, WALL_HEIGHT * 0.5, -half), Vector3.new(FLOOR_SIZE, WALL_HEIGHT, 1) },
-		{ Vector3.new(half, WALL_HEIGHT * 0.5, 0), Vector3.new(1, WALL_HEIGHT, FLOOR_SIZE) },
-		{ Vector3.new(-half, WALL_HEIGHT * 0.5, 0), Vector3.new(1, WALL_HEIGHT, FLOOR_SIZE) },
-	} do
+	for _, wall in
+		{
+			{ Vector3.new(0, WALL_HEIGHT * 0.5, half), Vector3.new(FLOOR_SIZE, WALL_HEIGHT, 1) },
+			{ Vector3.new(0, WALL_HEIGHT * 0.5, -half), Vector3.new(FLOOR_SIZE, WALL_HEIGHT, 1) },
+			{ Vector3.new(half, WALL_HEIGHT * 0.5, 0), Vector3.new(1, WALL_HEIGHT, FLOOR_SIZE) },
+			{ Vector3.new(-half, WALL_HEIGHT * 0.5, 0), Vector3.new(1, WALL_HEIGHT, FLOOR_SIZE) },
+		}
+	do
 		local barrier = PartFactory.part({
 			name = "Barrier",
 			size = wall[2],
@@ -147,7 +167,13 @@ function LobbyBuilder.build(parent: Instance): Lobby
 		})
 		barrier.CanQuery = false
 		local railSize = Vector3.new(math.max(wall[2].X, 1), 0.4, math.max(wall[2].Z, 1))
-		PartFactory.neon("Rail", railSize, CFrame.new(origin + Vector3.new(wall[1].X, 1.2, wall[1].Z)), Theme.Colors.Secondary, model)
+		PartFactory.neon(
+			"Rail",
+			railSize,
+			CFrame.new(origin + Vector3.new(wall[1].X, 1.2, wall[1].Z)),
+			Theme.Colors.Secondary,
+			model
+		)
 	end
 
 	local spawn = Instance.new("SpawnLocation")
@@ -164,9 +190,24 @@ function LobbyBuilder.build(parent: Instance): Lobby
 	spawn.Parent = model
 
 	-- Title sign floating behind the spawn.
-	local titleAnchor = PartFactory.marker("TitleAnchor", CFrame.new(origin + Vector3.new(0, 22, -half + 8)), Vector3.one, model)
-	PartFactory.billboard(titleAnchor, string.upper(Constants.GAME_NAME), Theme.Colors.Primary, Vector2.new(60, 12), 0, 600)
-	PartFactory.billboard(titleAnchor, "SEND THE SWARM. BREAK THE DEFENSE.", Theme.Colors.Secondary, Vector2.new(50, 3), -7.5, 600)
+	local titleAnchor =
+		PartFactory.marker("TitleAnchor", CFrame.new(origin + Vector3.new(0, 22, -half + 8)), Vector3.one, model)
+	PartFactory.billboard(
+		titleAnchor,
+		string.upper(Constants.GAME_NAME),
+		Theme.Colors.Primary,
+		Vector2.new(60, 12),
+		0,
+		600
+	)
+	PartFactory.billboard(
+		titleAnchor,
+		"SEND THE SWARM. BREAK THE DEFENSE.",
+		Theme.Colors.Secondary,
+		Vector2.new(50, 3),
+		-7.5,
+		600
+	)
 
 	local pads: { PadInfo } = {}
 	for index, modeId in ModeConfig.Order do

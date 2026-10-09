@@ -60,18 +60,25 @@ return function(t: TestRunner.TestApi)
 		local all = MutationRoller.candidates({}, MUTATIONS, ORDER)
 
 		t.it("maps the roll onto rarity weight bands", function()
-			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 0.0, 0) :: Types.MutationDef).id).toBe("CommonOne")
-			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 0.59, 0) :: Types.MutationDef).id).toBe("CommonOne")
-			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 0.61, 0) :: Types.MutationDef).id).toBe("RareOne")
-			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 0.95, 0) :: Types.MutationDef).id).toBe("MythicOne")
-			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 1.0, 0.999) :: Types.MutationDef).id).toBe("MythicOne")
+			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 0.0, 0) :: Types.MutationDef).id)
+				.toBe("CommonOne")
+			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 0.59, 0) :: Types.MutationDef).id)
+				.toBe("CommonOne")
+			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 0.61, 0) :: Types.MutationDef).id)
+				.toBe("RareOne")
+			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 0.95, 0) :: Types.MutationDef).id)
+				.toBe("MythicOne")
+			t.expect((MutationRoller.pick(all, RARITIES, RARITY_ORDER, 1.0, 0.999) :: Types.MutationDef).id)
+				.toBe("MythicOne")
 		end)
 
 		t.it("re-weights over the rarities that still have options", function()
 			-- With every Common maxed, Rare (30) and Mythic (10) split the roll 75% / 25%.
 			local remaining = MutationRoller.candidates({ CommonOne = 2 }, MUTATIONS, ORDER)
-			t.expect((MutationRoller.pick(remaining, RARITIES, RARITY_ORDER, 0.7, 0) :: Types.MutationDef).id).toBe("RareOne")
-			t.expect((MutationRoller.pick(remaining, RARITIES, RARITY_ORDER, 0.8, 0) :: Types.MutationDef).id).toBe("MythicOne")
+			t.expect((MutationRoller.pick(remaining, RARITIES, RARITY_ORDER, 0.7, 0) :: Types.MutationDef).id)
+				.toBe("RareOne")
+			t.expect((MutationRoller.pick(remaining, RARITIES, RARITY_ORDER, 0.8, 0) :: Types.MutationDef).id)
+				.toBe("MythicOne")
 		end)
 
 		t.it("returns nil when every mutation is maxed", function()
@@ -90,9 +97,10 @@ return function(t: TestRunner.TestApi)
 			local counts: { [string]: number } = {}
 			for _, mutationId in MutationConfig.Order do
 				local def = MutationConfig.Mutations[mutationId]
-				while MutationRoller.addStack(counts, def) do
-					-- Keep stacking until the roller refuses.
+				for _ = 1, def.maxStacks do
+					t.expect(MutationRoller.addStack(counts, def)).toBe(true)
 				end
+				t.expect(MutationRoller.addStack(counts, def)).toBe(false)
 				t.expect(counts[mutationId]).toBe(def.maxStacks)
 			end
 			for _, tower in TowerConfig.Towers do

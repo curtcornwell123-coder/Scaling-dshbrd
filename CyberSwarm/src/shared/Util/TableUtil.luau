@@ -43,6 +43,12 @@ function TableUtil.deepFreeze<T>(value: T): T
 	return value
 end
 
+-- A table check that deliberately does not narrow the value's type. Validation code reads
+-- fields off `any` data after this check, and a narrowing check would type it as a bare table.
+function TableUtil.isTable(value: any): boolean
+	return type(value) == "table"
+end
+
 function TableUtil.contains<T>(list: { T }, value: T): boolean
 	return table.find(list, value) ~= nil
 end

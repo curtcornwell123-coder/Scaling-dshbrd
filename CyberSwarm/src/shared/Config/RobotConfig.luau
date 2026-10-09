@@ -65,7 +65,12 @@ local Robots: { [string]: Types.RobotDef } = {
 			{ kind = "Heal", radius = 12, amount = 7, interval = 1 },
 		},
 		modelPath = "Robots/Medic",
-		visual = { size = Vector3.new(2.6, 2.6, 2.6), color = CYAN, accent = Color3.fromRGB(64, 255, 156), shape = "Ball" },
+		visual = {
+			size = Vector3.new(2.6, 2.6, 2.6),
+			color = CYAN,
+			accent = Color3.fromRGB(64, 255, 156),
+			shape = "Ball",
+		},
 		unlockCost = 400,
 		locked = false,
 		upgradeCosts = { 45, 90, 180 },

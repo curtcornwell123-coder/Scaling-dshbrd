@@ -35,7 +35,7 @@ type Toast = {
 local UIController = {}
 
 local maid = Maid.new()
-local layers: { [LayerName]: Frame } = {}
+local layers: { [string]: Frame } = {}
 local toasts: { Toast } = {}
 local nextToast = 1
 local banner: Frame
@@ -84,7 +84,11 @@ function UIController.showToast(text: string, tone: Types.NoticeTone)
 	toast.frame.BackgroundTransparency = 1
 	toast.label.TextTransparency = 1
 	toast.frame.Visible = true
-	UIKit.tween(toast.frame, Theme.Tween.Normal, { Position = UDim2.fromScale(0.5, TOAST_TOP), BackgroundTransparency = 0.1 })
+	UIKit.tween(
+		toast.frame,
+		Theme.Tween.Normal,
+		{ Position = UDim2.fromScale(0.5, TOAST_TOP), BackgroundTransparency = 0.1 }
+	)
 	UIKit.tween(toast.label, Theme.Tween.Normal, { TextTransparency = 0 })
 
 	toast.hideThread = task.delay(TOAST_DURATION, function()
@@ -199,7 +203,7 @@ end
 
 function UIController.init()
 	local _, root = UIKit.screen("CyberSwarmUI", 10, maid)
-	for index, name in { "Lobby", "Hud", "Modal", "Overlay" } :: { LayerName } do
+	for index, name in { "Lobby", "Hud", "Modal", "Overlay" } do
 		layers[name] = UIKit.frame({
 			Name = name,
 			Size = UDim2.fromScale(1, 1),

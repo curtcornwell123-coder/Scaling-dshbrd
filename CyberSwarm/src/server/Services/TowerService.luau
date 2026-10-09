@@ -123,7 +123,11 @@ local function fire(arena: Arena, tower: TowerUnit, target: RobotUnit, now: numb
 		local splashSquared = stats.splashRadius * stats.splashRadius
 		Effects.send(arena.viewers, "Explosion", impact, impact, Theme.Military.Amber, stats.splashRadius)
 		for _, robot in arena.robots do
-			if robot.alive and canTarget(tower, robot) and MathUtil.distanceSquared(impact, robot.position) <= splashSquared then
+			if
+				robot.alive
+				and canTarget(tower, robot)
+				and MathUtil.distanceSquared(impact, robot.position) <= splashSquared
+			then
 				hitRobot(arena, tower, robot, stats.damage, now)
 			end
 		end
@@ -168,7 +172,14 @@ end
 
 -- Robots request hits through arena.towerHitRequested; Reactive Armor absorbs the first
 -- `armorHits` hits each individual robot lands on each tower.
-function TowerService.applyHit(arena: Arena, tower: TowerUnit, source: RobotUnit, damage: number, disableSeconds: number, now: number)
+function TowerService.applyHit(
+	arena: Arena,
+	tower: TowerUnit,
+	source: RobotUnit,
+	damage: number,
+	disableSeconds: number,
+	now: number
+)
 	if tower.destroyed then
 		return
 	end
@@ -191,9 +202,13 @@ function TowerService.applyHit(arena: Arena, tower: TowerUnit, source: RobotUnit
 end
 
 function TowerService.attach(arena: Arena)
-	arena.maid:give(arena.towerHitRequested:connect(function(tower: TowerUnit, source: RobotUnit, damage: number, disableSeconds: number)
-		TowerService.applyHit(arena, tower, source, damage, disableSeconds, os.clock())
-	end))
+	arena.maid:give(
+		arena.towerHitRequested:connect(
+			function(tower: TowerUnit, source: RobotUnit, damage: number, disableSeconds: number)
+				TowerService.applyHit(arena, tower, source, damage, disableSeconds, os.clock())
+			end
+		)
+	)
 end
 
 -- Re-resolves every tower type from base stats + the full mutation stack. Health keeps its ratio
