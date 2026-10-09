@@ -262,8 +262,8 @@ Config.UpperFloorSlots = 10
 
 -- Wall skins -----------------------------------------------------------------
 -- Cosmetic looks for your base walls, bought with Shards (10 per daily
--- quest, 150 per weekly quest, 300 from the weekly admin abuse gift: about
--- 960 a week at most). They can't be bought with Robux, so everyone earns
+-- quest, 150 per weekly quest, 200 from the weekly admin abuse gift: about
+-- 860 a week at most). They can't be bought with Robux, so everyone earns
 -- skins the same way.
 -- A skin keeps your base level's wall height; it just changes the look.
 
@@ -382,7 +382,7 @@ function Config.MissingSkinRequirement(skin: WallSkin, owned: { string }?): Wall
 end
 
 -- Shard Shop: the counter in the shop tent (like a ticket shop). Shards
--- come from quests and the admin abuse gift (~960 a week at most), so
+-- come from quests and the admin abuse gift (~860 a week at most), so
 -- everything here is priced to be saved up for.
 export type ShardItem = { Id: string, Name: string, Description: string, Cost: number }
 
@@ -771,7 +771,7 @@ end
 -- A gift for every player who's online during admin abuse, at most once a
 -- week (so starting it again the same week doesn't give a second one).
 Config.AdminAbuseGift = {
-	Shards = 300,
+	Shards = 200,
 	BrainrotLuck = 5, -- one free brainrot, rolled with the same luck as Brainrot Rain
 }
 
