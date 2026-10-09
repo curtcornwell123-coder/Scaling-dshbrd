@@ -310,11 +310,11 @@ Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around a
 On the [Creator Dashboard](https://create.roblox.com/dashboard/creations), open your experience, then **Monetization**:
 
 - **Passes**: create `2x Cash`, `VIP` and `Infinite Laser Door`.
-- **Developer Products**: create `Cash Bag`, `Cash Vault`, `Server Luck`, and `Instant Lock`.
+- **Developer Products**: create `Cash Bag`, `Cash Vault` and `Server Luck`.
 
 Paste each ID into `Config.GamePasses` / `Config.Products` in `src/shared/Config.luau`. Items left at `Id = 0` show as **SOON** in the shop.
 
-Pictures for the one-time purchases (512x512, upload them as each Developer Product's image) are in `assets/icons/`: `cash_bag.png`, `cash_vault.png`, `server_luck.png` and `instant_lock.png` (`make_icons.py` draws them).
+Pictures for the one-time purchases (512x512, upload them as each Developer Product's image) are in `assets/icons/`: `cash_bag.png`, `cash_vault.png` and `server_luck.png` (`make_icons.py` draws them).
 
 Prices (set on the dashboard; the shop shows Roblox's live price, so changing it there updates the game):
 
@@ -328,7 +328,6 @@ Prices (set on the dashboard; the shop shows Roblox's live price, so changing it
 | Cash Bag (10 min of income, at least $1K) | Product | `3717405260` | 10 R$ |
 | Cash Vault (1 hr of income, at least $25K) | Product | `3717405370` | 39 R$ |
 | Server Luck (15 min, whole server) | Product | `3717405184` | 15 R$ |
-| Instant Lock | Product | not set up yet (shows SOON) | 25 R$ suggested |
 
 Purchases are only confirmed after they're saved, and each one is recorded, so players are never charged without getting the item or granted it twice.
 

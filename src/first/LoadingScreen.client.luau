@@ -197,6 +197,38 @@ local status = make("TextLabel", center, {
 	TextColor3 = Color3.fromRGB(200, 205, 220),
 })
 
+-- If something breaks while loading (on the server or here), show it in red
+-- under the bar, so it can be screenshotted and fixed.
+local problem = make("TextLabel", center, {
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 436),
+	Size = UDim2.fromOffset(420, 90),
+	BackgroundTransparency = 1,
+	Font = Enum.Font.GothamBold,
+	Text = "",
+	TextSize = 14,
+	TextWrapped = true,
+	TextYAlignment = Enum.TextYAlignment.Top,
+	TextColor3 = Color3.fromRGB(255, 90, 90),
+	Visible = false,
+})
+local function showProblem(message: string?)
+	if message and message ~= "" and not problem.Visible then
+		problem.Text = "⚠ " .. message
+		problem.Visible = true
+	end
+end
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local function checkServer()
+	showProblem(ReplicatedStorage:GetAttribute("ServerError") :: string?)
+end
+ReplicatedStorage:GetAttributeChangedSignal("ServerError"):Connect(checkServer)
+checkServer()
+game:GetService("ScriptContext").Error:Connect(function(message: string, trace: string)
+	local where = string.match(trace or "", "^[^\n]+") or ""
+	showProblem("Client: " .. message .. "  [" .. where .. "]")
+end)
+
 -- Shrink everything on small (phone) screens
 local function fit()
 	local camera = workspace.CurrentCamera

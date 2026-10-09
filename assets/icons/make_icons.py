@@ -165,27 +165,4 @@ d.text((215, 600), "x2", font=f, fill=(255, 230, 90), anchor="mm", stroke_width=
 title(img, "SERVER LUCK", (255, 255, 255))
 save(img, "server_luck")
 
-# Instant Lock ----------------------------------------------------------
-img = tile((255, 130, 120), (180, 30, 50))
-img = shadow(img, [280, 650, 744, 745])
-d = ImageDraw.Draw(img)
-d.arc([352, 130, 672, 470], 180, 360, fill=INK, width=96)
-d.arc([370, 148, 654, 452], 180, 360, fill=(190, 195, 210), width=60)
-d.line([(370, 300), (370, 380)], fill=INK, width=0)
-for x in (352 + 48, 672 - 48):
-    d.rectangle([x - 48, 290, x + 48, 400], fill=INK)
-    d.rectangle([x - 30, 290, x + 30, 400], fill=(190, 195, 210))
-d.rounded_rectangle([270, 360, 754, 700], radius=60, fill=(255, 195, 50), outline=INK, width=26)
-d.rounded_rectangle([300, 390, 724, 450], radius=28, fill=(255, 225, 120))
-# lightning bolt
-bolt = [(560, 400), (440, 545), (510, 545), (470, 670), (600, 505), (525, 505), (580, 400)]
-d.polygon(bolt, fill=(255, 255, 255))
-d.line(bolt + [bolt[0]], fill=INK, width=16, joint="curve")
-for (x, y, l, a) in [(190, 420, 90, 200), (180, 560, 100, 180), (835, 430, 90, -20), (845, 570, 100, 0)]:
-    ex = x + math.cos(math.radians(a)) * l
-    ey = y + math.sin(math.radians(a)) * l
-    d.line([(x, y), (ex, ey)], fill=INK, width=34)
-    d.line([(x, y), (ex, ey)], fill=(255, 240, 150), width=16)
-title(img, "INSTANT LOCK", (255, 255, 255))
-save(img, "instant_lock")
 print("done")

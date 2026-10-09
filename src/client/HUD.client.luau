@@ -423,7 +423,7 @@ do
 		VIP = Color3.fromRGB(240, 180, 40),
 		InfiniteLock = Color3.fromRGB(235, 60, 70),
 	}
-	local PRODUCT_ICONS: { [string]: string } = { SmallCash = "💵", BigCash = "🏦", ServerLuck = "🍀", InstantLock = "🔒" }
+	local PRODUCT_ICONS: { [string]: string } = { SmallCash = "💵", BigCash = "🏦", ServerLuck = "🍀" }
 
 
 	shopFrame = Instance.new("Frame")

@@ -981,7 +981,6 @@ Config.Products = {
 	{ Key = "SmallCash", Id = 3717405260, Name = "Cash Bag", Description = "10 minutes of your income (at least $1K)." },
 	{ Key = "BigCash", Id = 3717405370, Name = "Cash Vault", Description = "1 hour of your income (at least $25K)." },
 	{ Key = "ServerLuck", Id = 3717405184, Name = "Server Luck", Description = "More Rare+ spawns for EVERYONE for 15 minutes." },
-	{ Key = "InstantLock", Id = 0, Name = "Instant Lock", Description = "Skip the lock cooldown and lock your base now." },
 } :: { Product }
 
 -- Codes typed into the box at the bottom of the shop. Each works once per

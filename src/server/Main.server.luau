@@ -16,6 +16,25 @@ local TextChatService = game:GetService("TextChatService")
 local TextService = game:GetService("TextService")
 local TweenService = game:GetService("TweenService")
 
+-- If anything on the server breaks, the first error is shown on everyone's
+-- loading screen (ReplicatedStorage "ServerError"), so it can be seen without
+-- Studio's Output. Connected first, before anything else can fail.
+do
+	local function report(message: string)
+		if (ReplicatedStorage:GetAttribute("ServerError") :: string?) == nil then
+			ReplicatedStorage:SetAttribute("ServerError", string.sub(message, 1, 400))
+		end
+	end
+	game:GetService("ScriptContext").Error:Connect(function(message: string, trace: string)
+		report(message .. "  [" .. (string.match(trace or "", "^[^\n]+") or "") .. "]")
+	end)
+	task.delay(20, function()
+		if not workspace:FindFirstChild("BrainrotHeist") then
+			report("The map was never built: the server script stopped before building it.")
+		end
+	end)
+end
+
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local WorldBuilder = require(script.Parent:WaitForChild("WorldBuilder"))
 local BrainrotModel = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BrainrotModel"))
@@ -4597,12 +4616,6 @@ local function grantProduct(player: Player, session: Session, key: string)
 		local current = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number? or 0
 		ReplicatedStorage:SetAttribute("LuckEndsAt", math.max(now, current) + Config.ServerLuckDuration)
 		Announce:FireAllClients("luck", player.DisplayName, "")
-	elseif key == "InstantLock" then
-		local plot = session.Plot
-		if plot then
-			lockBase(plot)
-			notify(player, "Base locked!")
-		end
 	end
 	push(player)
 end
