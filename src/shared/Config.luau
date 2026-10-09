@@ -160,6 +160,7 @@ Config.SellRatio = 0.5 -- selling returns this share of the buy price
 -- Conveyor -----------------------------------------------------------------
 
 Config.ConveyorSpawnInterval = 3 -- seconds between new brainrots
+Config.FreeConveyorEvery = 5 -- every 5th brainrot on the conveyor is a free one (starting money)
 Config.ConveyorTravelTime = 75 -- seconds to ride from one end to the other
 Config.ServerLuckMultiplier = 2 -- doubles the spawn weight of Rare and better (Mythic 0.9% -> ~1.3%)
 Config.ServerLuckDuration = 15 * 60
@@ -235,26 +236,41 @@ export type WallSkin = {
 	Moon: boolean?, -- a crescent moon over the base, with an aura once it's fully upgraded
 	RoleOnly: string?, -- "Tester" or "Mod": only players with that role can have it (free)
 	TopSign: string?, -- a glowing sign floating over the base (in the Trim color)
+	Clover: boolean?, -- four-leaf clovers on the walls (Ace's skin)
+	Pattern: string?, -- "Checker", "Stripes", "Dots", "Diamonds" or "Smileys" on the floors and wall bands
+	PatternColor: Color3?,
+	PatternRainbow: boolean?, -- every stripe/tile its own color
 }
 
 Config.WallSkins = {
 	{ Id = "Classic", Name = "Classic Grey", Cost = 0, Currency = "Shards" },
+	-- Early: cheap and cheerful
+	{ Id = "Picnic", Name = "Picnic Checker", Cost = 80, Currency = "Shards", Color = Color3.fromRGB(250, 248, 240), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 220, 220), Trim = Color3.fromRGB(220, 50, 50), FloorColor = Color3.fromRGB(255, 255, 255), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Checker", PatternColor = Color3.fromRGB(220, 50, 50) },
 	{ Id = "RedBrick", Name = "Red Brick", Cost = 250, Currency = "Shards", Color = Color3.fromRGB(165, 65, 50), Material = Enum.Material.Brick, FloorColor = Color3.fromRGB(150, 105, 75), FloorMaterial = Enum.Material.WoodPlanks },
-	{ Id = "Candy", Name = "Candy Pink", Cost = 600, Currency = "Shards", Color = Color3.fromRGB(255, 160, 205), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 225, 245), FloorColor = Color3.fromRGB(255, 225, 238), FloorMaterial = Enum.Material.SmoothPlastic },
+	{ Id = "BubblegumDots", Name = "Bubblegum Dots", Cost = 400, Currency = "Shards", Color = Color3.fromRGB(255, 120, 190), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 210, 240), FloorColor = Color3.fromRGB(255, 200, 230), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Dots", PatternColor = Color3.fromRGB(120, 200, 255) },
+	{ Id = "Candy", Name = "Candy Pink", Cost = 600, Currency = "Shards", Color = Color3.fromRGB(255, 160, 205), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 225, 245), FloorColor = Color3.fromRGB(255, 225, 238), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Dots", PatternColor = Color3.fromRGB(255, 255, 255) },
+	{ Id = "SmileySunshine", Name = "Smiley Sunshine", Cost = 900, Currency = "Shards", Color = Color3.fromRGB(110, 200, 255), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 240, 150), Trim = Color3.fromRGB(255, 215, 50), FloorColor = Color3.fromRGB(150, 220, 255), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Smileys" },
 	{ Id = "Ice", Name = "Frozen Ice", Cost = 1200, Currency = "Shards", Color = Color3.fromRGB(175, 220, 255), Material = Enum.Material.Ice, Glass = Color3.fromRGB(225, 245, 255), FloorColor = Color3.fromRGB(215, 238, 255), FloorMaterial = Enum.Material.Ice },
-	{ Id = "Jungle", Name = "Jungle Stone", Cost = 2000, Currency = "Shards", Color = Color3.fromRGB(85, 120, 70), Material = Enum.Material.Slate, Glass = Color3.fromRGB(150, 220, 120), FloorColor = Color3.fromRGB(100, 85, 60), FloorMaterial = Enum.Material.Ground },
-	{ Id = "Cyber", Name = "Cyber Neon", Cost = 3500, Currency = "Shards", Color = Color3.fromRGB(30, 30, 40), Material = Enum.Material.Metal, Glass = Color3.fromRGB(0, 255, 200), GlassNeon = true, FloorColor = Color3.fromRGB(35, 35, 45), FloorMaterial = Enum.Material.DiamondPlate },
+	{ Id = "Jungle", Name = "Jungle Stone", Cost = 2000, Currency = "Shards", Color = Color3.fromRGB(85, 120, 70), Material = Enum.Material.Slate, Glass = Color3.fromRGB(150, 220, 120), FloorColor = Color3.fromRGB(100, 85, 60), FloorMaterial = Enum.Material.Ground, Pattern = "Stripes", PatternColor = Color3.fromRGB(70, 110, 50) },
+	{ Id = "Cyber", Name = "Cyber Neon", Cost = 3500, Currency = "Shards", Color = Color3.fromRGB(30, 30, 40), Material = Enum.Material.Metal, Glass = Color3.fromRGB(0, 255, 200), GlassNeon = true, FloorColor = Color3.fromRGB(35, 35, 45), FloorMaterial = Enum.Material.DiamondPlate, Pattern = "Checker", PatternColor = Color3.fromRGB(0, 160, 140) },
+	-- Late: the Shard flex
+	{ Id = "RoyalDiamonds", Name = "Royal Diamonds", Cost = 6000, Currency = "Shards", Color = Color3.fromRGB(90, 40, 140), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 215, 120), GlassNeon = true, Trim = Color3.fromRGB(255, 200, 60), FloorColor = Color3.fromRGB(70, 30, 110), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Diamonds", PatternColor = Color3.fromRGB(255, 200, 60) },
+	-- Diamonds, early
+	{ Id = "MintStripes", Name = "Mint Stripes", Cost = 6, Currency = "Diamonds", Color = Color3.fromRGB(170, 240, 210), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(220, 255, 240), FloorColor = Color3.fromRGB(230, 255, 245), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Stripes", PatternColor = Color3.fromRGB(90, 200, 160) },
 	{ Id = "Gold", Name = "Royal Gold", Cost = 12, Currency = "Diamonds", Color = Color3.fromRGB(255, 200, 60), Material = Enum.Material.Foil, Glass = Color3.fromRGB(255, 240, 180) },
-	{ Id = "Galaxy", Name = "Galaxy", Cost = 25, Currency = "Diamonds", Color = Color3.fromRGB(45, 25, 85), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(200, 120, 255), GlassNeon = true, FloorColor = Color3.fromRGB(25, 15, 50), FloorMaterial = Enum.Material.Glass },
+	{ Id = "Galaxy", Name = "Galaxy", Cost = 25, Currency = "Diamonds", Color = Color3.fromRGB(45, 25, 85), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(200, 120, 255), GlassNeon = true, FloorColor = Color3.fromRGB(25, 15, 50), FloorMaterial = Enum.Material.Glass, Pattern = "Dots", PatternColor = Color3.fromRGB(230, 220, 255) },
 	{ Id = "Crystal", Name = "Crystal Palace", Cost = 45, Currency = "Diamonds", Color = Color3.fromRGB(150, 225, 255), Material = Enum.Material.Glass, Glass = Color3.fromRGB(220, 250, 255), GlassNeon = true, FloorColor = Color3.fromRGB(200, 240, 255), FloorMaterial = Enum.Material.Glass },
 	{ Id = "Lava", Name = "Lava Core", Cost = 75, Currency = "Diamonds", Color = Color3.fromRGB(55, 25, 20), Material = Enum.Material.CrackedLava, Glass = Color3.fromRGB(255, 120, 30), GlassNeon = true, FloorColor = Color3.fromRGB(45, 22, 18), FloorMaterial = Enum.Material.Slate },
-	{ Id = "Celestial", Name = "Celestial", Cost = 120, Currency = "Diamonds", Color = Color3.fromRGB(245, 240, 228), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 210, 90), GlassNeon = true, FloorColor = Color3.fromRGB(250, 246, 236), FloorMaterial = Enum.Material.Marble },
-	-- Corny's own skin, like his logo: navy walls, gold trim, corn everywhere.
+	{ Id = "Celestial", Name = "Celestial", Cost = 120, Currency = "Diamonds", Color = Color3.fromRGB(245, 240, 228), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 210, 90), GlassNeon = true, FloorColor = Color3.fromRGB(250, 246, 236), FloorMaterial = Enum.Material.Marble, Pattern = "Diamonds", PatternColor = Color3.fromRGB(255, 210, 90) },
+	-- Diamonds, late: the long-term goals
+	{ Id = "RainbowRoyale", Name = "Rainbow Royale", Cost = 200, Currency = "Diamonds", Color = Color3.fromRGB(250, 250, 255), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 180, 255), GlassNeon = true, Trim = Color3.fromRGB(255, 120, 255), FloorColor = Color3.fromRGB(255, 255, 255), FloorMaterial = Enum.Material.Marble, Pattern = "Stripes", PatternRainbow = true },
+	{ Id = "VoidEmperor", Name = "Void Emperor", Cost = 350, Currency = "Diamonds", Color = Color3.fromRGB(18, 10, 30), Material = Enum.Material.Slate, Glass = Color3.fromRGB(170, 80, 255), GlassNeon = true, Trim = Color3.fromRGB(150, 60, 255), FloorColor = Color3.fromRGB(25, 15, 40), FloorMaterial = Enum.Material.Slate, Pattern = "Diamonds", PatternColor = Color3.fromRGB(150, 60, 255) },
 	-- Role skins: free for testers (Config.TesterUserIds) and for mods (admins).
 	{ Id = "Tester", Name = "Beta Tester (testers only)", Cost = 0, Currency = "Diamonds", RoleOnly = "Tester", TopSign = "🧪 BETA TESTER", Trim = Color3.fromRGB(0, 230, 255), Color = Color3.fromRGB(235, 245, 250), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(120, 240, 255), GlassNeon = true, FloorColor = Color3.fromRGB(205, 220, 230), FloorMaterial = Enum.Material.DiamondPlate },
 	{ Id = "Mod", Name = "Moderator (mods only)", Cost = 0, Currency = "Diamonds", RoleOnly = "Mod", TopSign = "🛡️ MODERATOR", Trim = Color3.fromRGB(255, 45, 60), Color = Color3.fromRGB(28, 28, 34), Material = Enum.Material.Metal, Glass = Color3.fromRGB(255, 70, 80), GlassNeon = true, FloorColor = Color3.fromRGB(40, 40, 48), FloorMaterial = Enum.Material.DiamondPlate },
 	-- Ace's own skin, in Cigna Glamourina's pinks, with a crescent moon on top.
-	{ Id = "Ace", Name = "Glamourina Moon (Ace only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Ace", Moon = true, Trim = Color3.fromRGB(255, 30, 170), Color = Color3.fromRGB(240, 110, 200), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 190, 235), GlassNeon = true, FloorColor = Color3.fromRGB(255, 225, 245), FloorMaterial = Enum.Material.SmoothPlastic },
+	{ Id = "Ace", Name = "Glamourina Moon (Ace only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Ace", Moon = true, Trim = Color3.fromRGB(255, 30, 170), Color = Color3.fromRGB(240, 110, 200), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 190, 235), GlassNeon = true, FloorColor = Color3.fromRGB(255, 225, 245), FloorMaterial = Enum.Material.SmoothPlastic, Clover = true, Pattern = "Dots", PatternColor = Color3.fromRGB(255, 190, 230) },
+	-- Corny's own skin, like his logo: navy walls, gold trim, corn everywhere.
 	{ Id = "Corny", Name = "Corny Gold (Corny only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Corny", Corn = true, Trim = Color3.fromRGB(250, 196, 60), Color = Color3.fromRGB(25, 32, 55), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 205, 60), FloorColor = Color3.fromRGB(255, 215, 90), FloorMaterial = Enum.Material.SmoothPlastic },
 } :: { WallSkin }
 
@@ -291,6 +307,28 @@ function Config.SkinRequirement(skin: WallSkin): WallSkin?
 		end
 	end
 	return nil
+end
+
+-- The skin you still need before buying `skin`, or nil if you can buy it.
+-- Owning any higher skin of the same ladder counts too, so skins added in
+-- between later never lock out players who are already past them.
+function Config.MissingSkinRequirement(skin: WallSkin, owned: { string }?): WallSkin?
+	local needed = Config.SkinRequirement(skin)
+	if not needed or not owned then
+		return needed
+	end
+	if table.find(owned, needed.Id) then
+		return nil
+	end
+	local past = false
+	for _, other in Config.WallSkins do
+		if other.Id == skin.Id then
+			past = true
+		elseif past and other.Currency == skin.Currency and not Config.IsExclusiveSkin(other) and table.find(owned, other.Id) then
+			return nil
+		end
+	end
+	return needed
 end
 
 -- Diamond Shop: the counter in the shop tent (like a ticket shop). Diamonds
@@ -776,8 +814,11 @@ Config.BigCashMinimum = 25000
 local byId: { [string]: Brainrot } = {}
 local byRarity: { [RarityId]: { Brainrot } } = {}
 -- The conveyor's pools leave out limited (Robux) brainrots: those only come
--- from the shop or a gift, with a serial number.
+-- from the shop or a gift, with a serial number. Free (Price 0) brainrots are
+-- left out too: they ride the conveyor on their own rhythm (FreeConveyorEvery)
+-- and never come from drops or gifts.
 local conveyorByRarity: { [RarityId]: { Brainrot } } = {}
+local freeBrainrots: { Brainrot } = {}
 for _, brainrot in Config.Brainrots do
 	byId[brainrot.Id] = brainrot
 	local list = byRarity[brainrot.Rarity]
@@ -786,10 +827,20 @@ for _, brainrot in Config.Brainrots do
 		byRarity[brainrot.Rarity] = list
 	end
 	table.insert(list, brainrot)
-	if not brainrot.Limited then
+	if brainrot.Price <= 0 and not brainrot.Limited and not Config.Rarities[brainrot.Rarity].EventOnly then
+		table.insert(freeBrainrots, brainrot)
+	elseif not brainrot.Limited then
 		conveyorByRarity[brainrot.Rarity] = conveyorByRarity[brainrot.Rarity] or {}
 		table.insert(conveyorByRarity[brainrot.Rarity], brainrot)
 	end
+end
+
+-- A random free brainrot for the conveyor, if there are any.
+function Config.RollFree(rng: Random): Brainrot?
+	if #freeBrainrots == 0 then
+		return nil
+	end
+	return freeBrainrots[rng:NextInteger(1, #freeBrainrots)]
 end
 
 function Config.GetBrainrot(id: string): Brainrot?

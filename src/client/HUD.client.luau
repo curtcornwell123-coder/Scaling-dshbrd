@@ -1301,9 +1301,9 @@ local function renderQuests()
 			b.Text = "EQUIP"
 			b.BackgroundColor3 = Color3.fromRGB(60, 140, 255)
 		else
-			local needed = Config.SkinRequirement(skin)
+			local needed = Config.MissingSkinRequirement(skin, data.Skins)
 			local balance = if skin.Currency == "Diamonds" then data.Diamonds else data.Shards
-			if needed and not (data.Skins and table.find(data.Skins, needed.Id)) then
+			if needed then
 				b.Text = "Unlock " .. needed.Name .. " first"
 				b.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
 			else
@@ -1505,8 +1505,8 @@ local function renderDiamondShop()
 			entry.Button.BackgroundColor3 = Color3.fromRGB(60, 140, 255)
 		else
 			local skin = entry.SkinId and Config.GetWallSkin(entry.SkinId)
-			local needed = skin and Config.SkinRequirement(skin)
-			if needed and not (data.Skins and table.find(data.Skins, needed.Id)) then
+			local needed = skin and Config.MissingSkinRequirement(skin, data.Skins)
+			if needed then
 				entry.Button.Text = "LOCKED"
 				entry.Button.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
 			else

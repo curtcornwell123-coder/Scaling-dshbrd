@@ -143,6 +143,10 @@ export type WallStyle = {
 	Trim: Color3?, -- glowing strips along the window sills and tops
 	Moon: boolean?, -- Ace's own skin: a crescent moon over the base
 	TopSign: string?, -- role skins: a glowing sign floating over the base
+	Clover: boolean?, -- Ace's own skin: four-leaf clovers on the pillars
+	Pattern: string?, -- "Checker", "Stripes", "Dots", "Diamonds" or "Smileys" on floors and wall bands
+	PatternColor: Color3?,
+	PatternRainbow: boolean?, -- every stripe/tile its own color
 }
 
 local CORN_YELLOW = Color3.fromRGB(255, 205, 40)
@@ -239,6 +243,114 @@ local function cornLogo(window: BasePart, face: Enum.NormalId)
 	shape("LeafMiddle", UDim2.fromScale(0.5, 0.76), UDim2.fromScale(0.16, 0.3), CORN_LEAF, UDim.new(1, 0), 0, 4)
 end
 
+-- A four-leaf clover with its back against a wall at `cf` (cf's -Z points
+-- out of the wall), for Ace's skin.
+local CLOVER_GREEN = Color3.fromRGB(70, 200, 110)
+local function clover(folder: Instance, cf: CFrame, size: number)
+	local leaf = size * 0.5
+	local out = cf * CFrame.new(0, 0, -0.15)
+	for i = 0, 3 do
+		local angle = math.rad(45 + i * 90)
+		-- Each leaf is two overlapping discs, so it reads as a heart.
+		for _, turn in { -0.35, 0.35 } do
+			local a = angle + turn
+			local p = out * CFrame.new(math.cos(a) * leaf * 0.55, math.sin(a) * leaf * 0.55, 0)
+			local disc = decoration(folder, "CloverLeaf", Vector3.new(0.2, leaf, leaf), p * CFrame.Angles(0, math.rad(90), 0), CLOVER_GREEN, Enum.Material.SmoothPlastic)
+			disc.Shape = Enum.PartType.Cylinder
+		end
+	end
+	local center = decoration(folder, "CloverCenter", Vector3.one * leaf * 0.4, out * CFrame.new(0, 0, -0.1), Color3.fromRGB(255, 130, 210), Enum.Material.Neon)
+	center.Shape = Enum.PartType.Ball
+	decoration(folder, "CloverStem", Vector3.new(0.18, size * 0.6, 0.18), out * CFrame.new(size * 0.12, -size * 0.55, 0) * CFrame.Angles(0, 0, math.rad(15)), Color3.fromRGB(45, 140, 75), Enum.Material.SmoothPlastic)
+end
+
+-- A pattern painted on one face of a part (floors and wall bands), as a
+-- light SurfaceGui instead of many parts. `cell` is the tile size in studs.
+local function addPattern(part: BasePart, face: Enum.NormalId, pattern: string, color: Color3, rainbow: boolean?, cell: number)
+	local w, h = part.Size.X, part.Size.Y
+	if face == Enum.NormalId.Top or face == Enum.NormalId.Bottom then
+		w, h = part.Size.X, part.Size.Z
+	elseif face == Enum.NormalId.Left or face == Enum.NormalId.Right then
+		w, h = part.Size.Z, part.Size.Y
+	end
+	local cols = math.clamp(math.floor(w / cell + 0.5), 1, 30)
+	local rows = math.clamp(math.floor(h / cell + 0.5), 1, 30)
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Pattern"
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 8
+	gui.LightInfluence = 1
+	gui.Parent = part
+	local function tint(i: number): Color3
+		return if rainbow then Color3.fromHSV((i % 7) / 7, 0.65, 1) else color
+	end
+	local function tile(x: number, y: number, sw: number, sh: number, c: Color3, round: boolean?, rotation: number?)
+		local f = Instance.new("Frame")
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(x, y)
+		f.Size = UDim2.fromScale(sw, sh)
+		f.Rotation = rotation or 0
+		f.BackgroundColor3 = c
+		f.BackgroundTransparency = 0.1
+		f.BorderSizePixel = 0
+		f.Parent = gui
+		if round then
+			local corner = Instance.new("UICorner")
+			corner.CornerRadius = UDim.new(1, 0)
+			corner.Parent = f
+		end
+	end
+	-- A yellow smiley: face, two eyes and the bottom half of a ring for a grin.
+	local function smiley(x: number, y: number, sw: number, sh: number)
+		tile(x, y, sw, sh, Color3.fromRGB(255, 215, 50), true)
+		local ink = Color3.fromRGB(60, 40, 20)
+		for _, side in { -1, 1 } do
+			tile(x + side * sw * 0.18, y - sh * 0.14, sw * 0.12, sh * 0.18, ink, true)
+		end
+		local clip = Instance.new("Frame")
+		clip.AnchorPoint = Vector2.new(0.5, 0)
+		clip.Position = UDim2.fromScale(x, y + sh * 0.05)
+		clip.Size = UDim2.fromScale(sw * 0.6, sh * 0.3)
+		clip.BackgroundTransparency = 1
+		clip.ClipsDescendants = true
+		clip.Parent = gui
+		local ring = Instance.new("Frame")
+		ring.AnchorPoint = Vector2.new(0.5, 1)
+		ring.Position = UDim2.fromScale(0.5, 1)
+		ring.Size = UDim2.fromScale(1, 2)
+		ring.BackgroundTransparency = 1
+		ring.Parent = clip
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = ring
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = ink
+		stroke.Thickness = 3
+		stroke.Parent = ring
+	end
+	if pattern == "Stripes" then
+		for c = 0, cols - 1, 2 do
+			tile((c + 0.5) / cols, 0.5, 1 / cols, 1, tint(c // 2))
+		end
+		return
+	end
+	for r = 0, rows - 1 do
+		for c = 0, cols - 1 do
+			local x, y = (c + 0.5) / cols, (r + 0.5) / rows
+			if pattern == "Checker" and (r + c) % 2 == 0 then
+				tile(x, y, 1 / cols, 1 / rows, tint(r + c))
+			elseif pattern == "Dots" then
+				tile(x, y, 0.5 / cols, 0.5 / rows, tint(r * 3 + c), true)
+			elseif pattern == "Diamonds" and (r + c) % 2 == 0 then
+				tile(x, y, 0.6 / cols, 0.6 / rows, tint(r + c), false, 45)
+			elseif pattern == "Smileys" and (r + c) % 2 == 0 then
+				smiley(x, y, 0.7 / cols, 0.7 / rows)
+			end
+		end
+	end
+end
+
 -- A glowing crescent moon facing the front of the base (`cf` is its center).
 -- `aura`: a halo, sparkles and light around it (for a fully upgraded base).
 local MOON_COLOR = Color3.fromRGB(255, 228, 246)
@@ -304,7 +416,13 @@ local function wallSegment(folder: Instance, cf: CFrame, length: number, height:
 	-- sill, a thin band at the top, and only slim pillars between panes.
 	local sill = math.clamp(height * 0.12, 1, 2.5)
 	local head = height - math.clamp(height * 0.08, 1, 2)
-	piece("WallBottom", 0, 0, length, sill)
+	local band = piece("WallBottom", 0, 0, length, sill)
+	local pattern = style.Pattern
+	if pattern then
+		for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+			addPattern(band, face, pattern, style.PatternColor or Color3.new(1, 1, 1), style.PatternRainbow, math.max(1, sill))
+		end
+	end
 	piece("WallTop", 0, head, length, height - head)
 	local trim = style.Trim
 	if trim then
@@ -314,13 +432,21 @@ local function wallSegment(folder: Instance, cf: CFrame, length: number, height:
 		end
 	end
 	-- Corn cobs on the pillars between windows, on both sides of the wall.
+	-- Pillar decorations, on both sides of the wall: corn (Corny), clovers (Ace).
 	local function cobs(x: number)
-		if not style.Corn then
+		if not style.Corn and not style.Clover then
 			return
 		end
 		local cobHeight = math.min(4, (head - sill) * 0.3)
 		for _, side in { -1, 1 } do
-			cornCob(folder, cf * CFrame.new(x, sill + (head - sill) / 2, side * WALL_THICKNESS / 2) * CFrame.Angles(0, if side < 0 then 0 else math.pi, 0), cobHeight)
+			local facing = CFrame.Angles(0, if side < 0 then 0 else math.pi, 0)
+			if style.Corn then
+				cornCob(folder, cf * CFrame.new(x, sill + (head - sill) / 2, side * WALL_THICKNESS / 2) * facing, cobHeight)
+			else
+				for _, t in { 0.3, 0.72 } do
+					clover(folder, cf * CFrame.new(x, sill + (head - sill) * t, side * WALL_THICKNESS / 2) * facing, math.min(2.2, cobHeight * 0.6))
+				end
+			end
 		end
 	end
 
@@ -609,11 +735,24 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 		Trim = if skin then skin.Trim else nil,
 		Moon = if skin then skin.Moon else nil,
 		TopSign = if skin then skin.TopSign else nil,
+		Clover = if skin then skin.Clover else nil,
+		Pattern = if skin then skin.Pattern else nil,
+		PatternColor = if skin then skin.PatternColor else nil,
+		PatternRainbow = if skin then skin.PatternRainbow else nil,
 	}
 	-- Floors match the skin; Classic floors are grey in the walls' material.
 	for _, floor in parts.Floors do
 		floor.Color = if skin and skin.FloorColor then skin.FloorColor else style.Color
 		floor.Material = if skin and skin.FloorMaterial then skin.FloorMaterial else style.Material
+		for _, old in floor:GetChildren() do
+			if old.Name == "Pattern" then
+				old:Destroy()
+			end
+		end
+		local pattern = style.Pattern
+		if pattern then
+			addPattern(floor, Enum.NormalId.Top, pattern, style.PatternColor or Color3.new(1, 1, 1), style.PatternRainbow, 6)
+		end
 	end
 
 	local half = PLOT_SIZE / 2

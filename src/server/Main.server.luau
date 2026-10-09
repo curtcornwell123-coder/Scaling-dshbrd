@@ -1858,8 +1858,8 @@ SkinAction.OnServerEvent:Connect(function(player: Player, action: unknown, skinI
 		table.insert(data.Skins, skin.Id)
 		notify(player, "Claimed " .. skin.Name .. "!")
 	elseif action == "Buy" and not table.find(data.Skins, skin.Id) then
-		local needed = Config.SkinRequirement(skin)
-		if needed and not table.find(data.Skins, needed.Id) then
+		local needed = Config.MissingSkinRequirement(skin, data.Skins)
+		if needed then
 			notify(player, string.format("Unlock %s first!", needed.Name))
 			return
 		end
@@ -2104,10 +2104,19 @@ end
 
 -- Keeps the conveyor going forever: if one spawn ever fails, it's logged
 -- (server console) and the next one still comes.
+-- Every Config.FreeConveyorEvery-th brainrot is a free one, so new players
+-- can always grab something to start making money.
+local spawnCount = 0
 task.spawn(function()
 	while true do
+		spawnCount += 1
 		local ok, err = pcall(function()
-			spawnOnConveyor()
+			local free = if spawnCount % Config.FreeConveyorEvery == 0 then Config.RollFree(rng) else nil
+			if free then
+				spawnOnConveyor(free, Config.RollMutation(rng, 1, nightBoost()))
+			else
+				spawnOnConveyor()
+			end
 		end)
 		if not ok then
 			warn("[BrainrotHeist] Conveyor spawn failed:", err)
