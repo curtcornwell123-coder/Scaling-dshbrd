@@ -268,9 +268,9 @@ local function meridians(b: Builder, center: Vector3, size: Vector3, count: numb
 end
 
 -- A smooth tube through a list of points. Thick tubes are overlapping balls
--- (soft and lumpy, like dough); thin ones are rods with a ball at each bend.
+-- (soft and lumpy, like dough); thinner ones are rods with a ball at each bend.
 local function tube(b: Builder, name: string, points: { Vector3 }, d: number, color: Color3, material: Enum.Material?)
-	if d < 0.3 then
+	if d < 0.5 then
 		for i = 1, #points - 1 do
 			local from, to = points[i], points[i + 1]
 			local up = if math.abs((to - from).Unit.Y) > 0.99 then V(0, 0, 1) else V(0, 1, 0)
@@ -1653,6 +1653,423 @@ designs.FragolinaNinja = function(b, c, a)
 	capsule(b, "SwordHandle", V(0.85, 3.65, 0.95), V(1.15, 4.05, 0.95), 0.18, a, nil, true)
 	arms(b, 2.1, 1.0, a, 0.65)
 	return 4.3
+end
+
+-- A chocolate gelato volcano erupting strawberry lava.
+designs.GelatoVulcano = function(b, c, a)
+	local lava = Color3.fromRGB(255, 90, 140)
+	legs(b, darker(c, 0.3), 0.45, 0.7)
+	cone(b, "Mountain", V(0, 0.35, 0), 3.2, 3.4, 1.25, c, nil, nil, darker(c, 0.1))
+	egg(b, "Crater", V(1.35, 0.4, 1.35), CF(0, 3.55, 0), lava, Enum.Material.Neon, true)
+	for k = 0, 5 do
+		local angle = rad(k * 60 + 15)
+		local length = 0.8 + (k % 3) * 0.35
+		local r = 0.68 + length * 0.33
+		egg(b, "LavaDrip", V(0.42, length, 0.42), CF(math.cos(angle) * r, 3.35 - length / 2, math.sin(angle) * r) * ANG(math.sin(angle) * 0.35, 0, -math.cos(angle) * 0.35), lava)
+	end
+	for _, blob in { V(0, 4.3, 0), V(-0.4, 4.85, 0.2), V(0.35, 5.25, -0.1), V(0.05, 5.7, 0.15) } do
+		ball(b, "Eruption", 0.55 - (blob.Y - 4.3) * 0.15, blob, lava, Enum.Material.Neon, true)
+	end
+	for _, sprinkle in { V(-0.9, 2.2, -1.0), V(0.95, 1.6, -1.15), V(-0.35, 2.85, -0.75), V(0.6, 2.55, -0.85), V(-1.2, 1.2, -1.2) } do
+		egg(b, "Sprinkle", V(0.24, 0.09, 0.09), CF(sprinkle) * ANG(0, 0, sprinkle.X * 2), Color3.fromRGB(255, 230, 90), nil, true)
+	end
+	eyes(b, 0, 1.7, -1.22, 0.45, 0.55)
+	mouth(b, 0, 1.15, -1.38, 0.55, 0.32)
+	arms(b, 1.6, 1.45, c, 0.6)
+	return 6.0
+end
+
+-- A panda munching bamboo.
+designs.PandaBambucco = function(b, c, a)
+	local bamboo = Color3.fromRGB(110, 180, 70)
+	legs(b, a, 0.8, 0.6)
+	egg(b, "Body", V(2.6, 2.6, 2.3), CF(0, 1.95, 0), c)
+	egg(b, "Belly", V(1.7, 1.8, 0.5), CF(0, 1.85, -0.95), lighter(c, 0.4))
+	ball(b, "Head", 2.15, V(0, 3.65, -0.05), c)
+	for _, side in { -1, 1 } do
+		ball(b, "Ear", 0.72, V(side * 0.78, 4.55, 0.1), a)
+		egg(b, "EyePatch", V(0.62, 0.78, 0.22), CF(side * 0.4, 3.68, -0.92) * ANG(0, 0, side * rad(-25)), a, nil, true)
+	end
+	eyes(b, 0, 3.7, -1.02, 0.4, 0.38)
+	egg(b, "Nose", V(0.32, 0.22, 0.2), CF(0, 3.32, -1.05), a, nil, true)
+	smile(b, 0, 3.05, -1.0, 0.32)
+	capsule(b, "Bamboo", V(0.95, 0.9, -1.05), V(1.25, 4.4, -1.05), 0.32, bamboo)
+	for _, y in { 1.8, 2.8, 3.8 } do
+		egg(b, "BambooNode", V(0.42, 0.14, 0.42), CF(0.95 + (y - 0.9) * 0.086, y, -1.05), darker(bamboo, 0.25))
+	end
+	for _, leaf in { -1, 1 } do
+		egg(b, "BambooLeaf", V(0.18, 0.8, 0.3), CF(1.3 + leaf * 0.25, 4.6, -1.05) * ANG(0, 0, leaf * rad(-40)), bamboo)
+	end
+	for _, side in { -1, 1 } do
+		local hand = V(if side > 0 then 1.05 else 0.95, if side > 0 then 2.9 else 2.3, -1.1)
+		capsule(b, "Arm", V(side * 1.1, 2.6, -0.2), hand, 0.5, a)
+		ball(b, "Paw", 0.55, hand, a)
+	end
+	return 4.8
+end
+
+-- A moka-pot robot with a glowing visor, steaming away.
+designs.RoboMoka = function(b, c, a)
+	local metal = Enum.Material.Metal
+	legs(b, darker(c, 0.25), 0.8, 0.5)
+	vcyl(b, "Boiler", 1.4, 1.8, V(0, 1.5, 0), c, metal)
+	vcyl(b, "Waist", 0.32, 1.2, V(0, 2.32, 0), darker(c, 0.2), metal)
+	cone(b, "Jug", V(0, 2.45, 0), 1.3, 1.3, 1.8, c, metal)
+	egg(b, "Lid", V(1.85, 0.45, 1.85), CF(0, 3.8, 0), c, metal)
+	ball(b, "Knob", 0.4, V(0, 4.05, 0), a)
+	tube(b, "Handle", { V(0.85, 3.5, 0.3), V(1.45, 3.3, 0.4), V(1.35, 2.65, 0.4), V(0.85, 2.55, 0.3) }, 0.26, a)
+	cone(b, "Spout", V(0, 3.15, -0.8), 0.55, 0.32, 0.12, c, metal)
+	egg(b, "Visor", V(1.25, 0.55, 0.25), CF(0, 3.15, -0.85), Color3.fromRGB(20, 25, 35), Enum.Material.Glass, true)
+	for _, side in { -1, 1 } do
+		ball(b, "EyeLight", 0.28, V(side * 0.28, 3.17, -0.98), Color3.fromRGB(80, 230, 255), Enum.Material.Neon, true)
+	end
+	for _, puff in { V(0.1, 4.6, 0), V(-0.3, 5.05, 0.1), V(0.25, 5.45, 0.05) } do
+		local p = ball(b, "Steam", 0.5 + (puff.Y - 4.6) * 0.35, puff, WHITE, nil, true)
+		p.Transparency = 0.4
+	end
+	for _, side in { -1, 1 } do
+		local hand = V(side * 1.55, 1.75, -0.2)
+		capsule(b, "Arm", V(side * 0.95, 2.0, 0), hand, 0.26, darker(c, 0.15), metal)
+		for _, finger in { -1, 1 } do
+			capsule(b, "Claw", hand, hand + V(side * 0.15, -0.3, finger * 0.18), 0.12, a)
+		end
+	end
+	return 5.6
+end
+
+-- A cool coconut with shades, a straw and a hibiscus.
+designs.CoccoBello = function(b, c, a)
+	legs(b, darker(c, 0.25), 0.7, 0.55)
+	ball(b, "Coconut", 2.6, V(0, 2.1, 0), c)
+	for k = 0, 11 do
+		local angle = rad(k * 30)
+		egg(b, "Fiber", V(0.08, 1.8, 0.08), CF(math.cos(angle) * 1.28, 2.0, math.sin(angle) * 1.28) * ANG(0, -angle, rad(8)), darker(c, 0.25))
+	end
+	egg(b, "Flesh", V(2.1, 0.35, 2.1), CF(0, 3.25, 0), a)
+	egg(b, "Milk", V(1.6, 0.36, 1.6), CF(0, 3.3, 0), lighter(a, 0.3))
+	tube(b, "Straw", { V(0.25, 3.2, 0.1), V(0.6, 4.2, 0.25), V(0.95, 4.45, 0.3) }, 0.14, Color3.fromRGB(240, 60, 80))
+	cone(b, "Umbrella", V(-0.5, 4.0, 0.2), 0.45, 1.1, 0.06, Color3.fromRGB(80, 200, 255))
+	capsule(b, "UmbrellaStick", V(-0.5, 3.25, 0.2), V(-0.5, 4.0, 0.2), 0.06, Color3.fromRGB(240, 220, 160))
+	for _, side in { -1, 1 } do
+		egg(b, "Shades", V(0.6, 0.4, 0.16), CF(side * 0.34, 2.45, -1.2), BLACK, Enum.Material.Glass, true)
+	end
+	capsule(b, "Bridge", V(-0.06, 2.5, -1.25), V(0.06, 2.5, -1.25), 0.07, BLACK, nil, true)
+	smile(b, 0, 1.85, -1.25, 0.55)
+	for k = 0, 4 do
+		egg(b, "Petal", V(0.42, 0.12, 0.26), CF(-1.05, 2.9, -0.55) * ANG(0, 0, rad(70)) * ANG(0, rad(k * 72), 0) * CF(0.22, 0, 0), Color3.fromRGB(255, 80, 120))
+	end
+	ball(b, "PetalCenter", 0.16, V(-1.12, 2.9, -0.6), Color3.fromRGB(255, 220, 80), nil, true)
+	arms(b, 1.9, 1.25, c, 0.7)
+	return 4.8
+end
+
+-- A spaghetti dinosaur with a long noodle neck and meatballs on its back.
+designs.Spaghettosauro = function(b, c, a)
+	local meat = Color3.fromRGB(130, 65, 40)
+	for _, leg in { V(-0.7, 0, -0.6), V(0.7, 0, -0.6), V(-0.7, 0, 1.2), V(0.7, 0, 1.2) } do
+		capsule(b, "Leg", leg + V(0, 1.6, 0), leg + V(0, 0.4, 0), 0.6, c)
+		egg(b, "Foot", V(0.7, 0.4, 0.85), CF(leg.X, 0.2, leg.Z - 0.15), c)
+	end
+	egg(b, "Body", V(2.4, 1.9, 3.3), CF(0, 2.3, 0.3), c)
+	tube(b, "Neck", { V(0, 2.8, -1.0), V(0, 3.6, -1.5), V(0, 4.3, -1.75), V(0, 4.6, -2.0) }, 0.7, c)
+	egg(b, "Head", V(1.05, 0.85, 1.45), CF(0, 4.75, -2.35), c)
+	tube(b, "Tail", { V(0, 2.3, 1.9), V(0.2, 1.9, 2.8), V(0.5, 1.4, 3.5) }, 0.55, c)
+	for _, side in { -1, 1 } do
+		ball(b, "Eye", 0.36, V(side * 0.42, 4.95, -2.55), WHITE, nil, true)
+		ball(b, "Pupil", 0.18, V(side * 0.48, 4.95, -2.68), BLACK, nil, true)
+	end
+	smile(b, 0, 4.55, -3.02, 0.35)
+	egg(b, "Sauce", V(1.9, 0.5, 2.5), CF(0, 3.15, 0.3), a)
+	for _, m in { V(-0.3, 3.45, -0.35), V(0.35, 3.5, 0.45), V(-0.2, 3.4, 1.15) } do
+		ball(b, "Meatball", 0.65, m, meat)
+	end
+	for _, side in { -1, 1 } do
+		for k = 0, 2 do
+			local z = -0.6 + k * 0.85
+			tube(b, "Noodle", { V(side * 1.05, 2.9, z), V(side * 1.25, 2.3, z + 0.15), V(side * 1.15, 1.75, z - 0.05) }, 0.12, lighter(c, 0.1))
+		end
+	end
+	return 5.4
+end
+
+-- A flamingo flamenco dancer in a ruffled red dress.
+designs.FenicotteroFlamenco = function(b, c, a)
+	capsule(b, "Leg", V(0.2, 2.5, 0.2), V(0.2, 0.35, 0.2), 0.16, darker(c, 0.15))
+	egg(b, "Foot", V(0.35, 0.18, 0.6), CF(0.2, 0.1, 0.05), darker(c, 0.15))
+	tube(b, "BentLeg", { V(-0.2, 2.5, 0.2), V(-0.35, 1.7, -0.25), V(-0.15, 2.0, 0.35) }, 0.16, darker(c, 0.15))
+	for layer = 0, 2 do
+		local y = 2.55 + layer * 0.22
+		local r = 1.05 - layer * 0.2
+		for k = 0, 11 do
+			local angle = rad(k * 30 + layer * 15)
+			egg(b, "Ruffle", V(0.55, 0.3, 0.55), CF(math.cos(angle) * r, y, 0.2 + math.sin(angle) * r), if layer % 2 == 0 then a else darker(a, 0.2))
+		end
+	end
+	egg(b, "Body", V(1.6, 1.7, 2.1), CF(0, 3.25, 0.2), c)
+	for _, side in { -1, 1 } do
+		egg(b, "Wing", V(0.4, 1.2, 1.5), CF(side * 0.85, 3.4, 0.35) * ANG(0, 0, side * rad(-15)), darker(c, 0.1))
+	end
+	tube(b, "Neck", { V(0, 3.8, -0.6), V(0, 4.3, -0.35), V(0, 4.8, -0.65), V(0, 5.25, -0.9) }, 0.35, c)
+	ball(b, "Head", 0.85, V(0, 5.4, -0.95), c)
+	tube(b, "Beak", { V(0, 5.35, -1.3), V(0, 5.2, -1.55), V(0, 4.95, -1.65) }, 0.22, WHITE)
+	ball(b, "BeakTip", 0.22, V(0, 4.92, -1.66), BLACK)
+	for _, side in { -1, 1 } do
+		ball(b, "Eye", 0.24, V(side * 0.36, 5.5, -1.05), WHITE, nil, true)
+		ball(b, "Pupil", 0.12, V(side * 0.41, 5.5, -1.14), BLACK, nil, true)
+	end
+	for k = 0, 4 do
+		egg(b, "RosePetal", V(0.2, 0.2, 0.12), CF(-0.25, 5.75, -0.85) * ANG(0, rad(k * 72), 0) * CF(0.1, 0, 0), a)
+	end
+	return 6.0
+end
+
+-- A wise owl professor in a graduation cap, book in wing.
+designs.GufoProfessore = function(b, c, a)
+	local orange = Color3.fromRGB(255, 170, 50)
+	for _, side in { -1, 1 } do
+		egg(b, "Foot", V(0.5, 0.25, 0.65), CF(side * 0.45, 0.13, -0.3), orange)
+	end
+	egg(b, "Body", V(2.4, 3.0, 2.2), CF(0, 2.0, 0), c)
+	egg(b, "Belly", V(1.6, 2.0, 0.5), CF(0, 1.75, -0.85), a)
+	for row = 0, 2 do
+		for k = -1, 1 do
+			egg(b, "Chevron", V(0.3, 0.12, 0.1), CF(k * 0.38, 1.2 + row * 0.42, -1.08), darker(a, 0.25), nil, true)
+		end
+	end
+	for _, side in { -1, 1 } do
+		egg(b, "Wing", V(0.45, 1.8, 1.5), CF(side * 1.15, 2.1, 0.1) * ANG(0, 0, side * rad(-8)), darker(c, 0.15))
+		cone(b, "EarTuft", V(side * 0.75, 3.25, 0), 0.75, 0.45, 0.08, darker(c, 0.15))
+		zcyl(b, "EyeRing", 0.1, 1.0, V(side * 0.42, 2.75, -0.92), orange, nil, true)
+		zcyl(b, "Glasses", 0.06, 1.1, V(side * 0.42, 2.75, -1.03), Color3.fromRGB(60, 40, 30), nil, true)
+	end
+	eyes(b, 0, 2.75, -0.98, 0.42, 0.72)
+	egg(b, "Beak", V(0.3, 0.45, 0.3), CF(0, 2.3, -1.08), orange)
+	-- Graduation cap
+	vcyl(b, "CapBase", 0.45, 1.4, V(0, 3.6, 0), BLACK)
+	box(b, "CapBoard", V(2.0, 0.12, 2.0), CF(0, 3.88, 0) * ANG(0, rad(45), 0), BLACK)
+	tube(b, "Tassel", { V(0, 3.98, 0), V(0.75, 3.95, -0.75), V(0.78, 3.4, -0.78) }, 0.07, Color3.fromRGB(255, 210, 60))
+	ball(b, "TasselEnd", 0.2, V(0.78, 3.35, -0.78), Color3.fromRGB(255, 210, 60))
+	box(b, "Book", V(0.25, 1.1, 0.85), CF(-1.35, 1.6, -0.5) * ANG(0, rad(-20), 0), Color3.fromRGB(180, 40, 50))
+	return 5.2
+end
+
+-- A lion whose mane is ruffled lasagna noodles.
+designs.LeoneLasagnone = function(b, c, a)
+	local fur = Color3.fromRGB(235, 170, 80)
+	for _, leg in { V(-0.65, 0, -0.5), V(0.65, 0, -0.5), V(-0.65, 0, 0.9), V(0.65, 0, 0.9) } do
+		capsule(b, "Leg", leg + V(0, 1.4, 0), leg + V(0, 0.4, 0), 0.55, fur)
+		egg(b, "Paw", V(0.65, 0.4, 0.75), CF(leg.X, 0.2, leg.Z - 0.1), fur)
+	end
+	-- The body: lasagna layers
+	for i, color in { c, a, Color3.fromRGB(255, 240, 200), c } do
+		box(b, "Layer", V(2.2, 0.38, 2.4), CF(0, 1.55 + (i - 1) * 0.36, 0.25), color)
+	end
+	tube(b, "Tail", { V(0, 2.3, 1.45), V(0.3, 2.9, 2.0), V(0.2, 3.3, 2.3) }, 0.22, fur)
+	ball(b, "TailTuft", 0.55, V(0.2, 3.45, 2.35), a)
+	-- Mane: wavy noodle ruffles around the face
+	local headCenter = V(0, 3.55, -0.95)
+	for k = 0, 13 do
+		local angle = rad(k * 360 / 14)
+		egg(b, "Mane", V(0.75, 0.75, 0.4), CF(headCenter + V(math.cos(angle) * 1.15, math.sin(angle) * 1.15, 0.2)) * ANG(0, 0, angle), if k % 2 == 0 then c else lighter(c, 0.15))
+	end
+	ball(b, "Head", 1.9, headCenter, fur)
+	for _, side in { -1, 1 } do
+		ball(b, "Ear", 0.55, headCenter + V(side * 0.75, 0.8, 0.1), fur)
+	end
+	egg(b, "Muzzle", V(1.0, 0.65, 0.45), CF(headCenter + V(0, -0.35, -0.8)), lighter(fur, 0.45))
+	egg(b, "Nose", V(0.38, 0.25, 0.2), CF(headCenter + V(0, -0.15, -1.0)), Color3.fromRGB(90, 50, 40), nil, true)
+	eyes(b, 0, headCenter.Y + 0.25, headCenter.Z - 0.85, 0.38, 0.45, true)
+	smile(b, 0, headCenter.Y - 0.5, headCenter.Z - 0.98, 0.4)
+	for _, sauce in { V(-0.6, 3.05, -0.4), V(0.7, 3.0, 0.6), V(0, 3.05, 1.1) } do
+		egg(b, "Sauce", V(0.6, 0.18, 0.5), CF(sauce), a)
+	end
+	return 4.8
+end
+
+-- A shark strutting on three legs in fresh sneakers.
+designs.SqualoScarpone = function(b, c, a)
+	local shoe = WHITE
+	local swoosh = Color3.fromRGB(40, 120, 255)
+	for _, leg in { V(-0.55, 0, -0.6), V(0.55, 0, -0.6), V(0, 0, 0.9) } do
+		capsule(b, "Leg", leg + V(0, 2.0, 0), leg + V(0, 0.45, 0), 0.36, c)
+		egg(b, "Sneaker", V(0.55, 0.42, 1.0), CF(leg.X, 0.21, leg.Z - 0.2), shoe)
+		egg(b, "Sole", V(0.58, 0.14, 1.04), CF(leg.X, 0.06, leg.Z - 0.2), Color3.fromRGB(40, 40, 45))
+		egg(b, "Swoosh", V(0.6, 0.12, 0.45), CF(leg.X, 0.25, leg.Z - 0.1) * ANG(rad(-20), 0, 0), swoosh, nil, true)
+	end
+	egg(b, "Body", V(1.85, 1.9, 4.3), CF(0, 2.75, 0), c)
+	egg(b, "Belly", V(1.5, 1.3, 3.6), CF(0, 2.45, -0.15), a)
+	egg(b, "DorsalFin", V(0.25, 1.5, 1.1), CF(0, 3.85, 0.35) * ANG(rad(-25), 0, 0), c)
+	for _, side in { -1, 1 } do
+		egg(b, "TailFin", V(0.2, 1.1, 0.6), CF(0, 2.85 + side * 0.4, 2.55) * ANG(rad(side * 62), 0, 0), c)
+		egg(b, "SideFin", V(1.1, 0.18, 0.7), CF(side * 1.0, 2.4, -0.4) * ANG(0, side * rad(-20), side * rad(-30)), c)
+		ball(b, "Eye", 0.42, V(side * 0.72, 3.05, -1.45), WHITE, nil, true)
+		ball(b, "Pupil", 0.22, V(side * 0.86, 3.05, -1.52), BLACK, nil, true)
+	end
+	egg(b, "Mouth", V(1.0, 0.4, 0.3), CF(0, 2.5, -1.95), Color3.fromRGB(70, 20, 25), nil, true)
+	for k = -2, 2 do
+		cone(b, "Tooth", V(k * 0.18, 2.55, -2.05), 0.22, 0.14, 0.03, WHITE, nil, true)
+	end
+	return 4.0
+end
+
+-- A crab knight: armored shell, plume and huge claws.
+designs.GranchioCorazzato = function(b, c, a)
+	local metal = Enum.Material.Metal
+	for _, side in { -1, 1 } do
+		for k = 0, 2 do
+			local z = -0.5 + k * 0.6
+			tube(b, "Leg", { V(side * 1.2, 1.6, z), V(side * 2.0, 1.3, z), V(side * 2.3, 0.15, z + 0.1) }, 0.22, c)
+		end
+	end
+	egg(b, "Body", V(3.2, 1.5, 2.4), CF(0, 1.9, 0), c)
+	egg(b, "Armor", V(2.9, 0.85, 2.1), CF(0, 2.45, 0.05), a, metal)
+	egg(b, "ArmorRidge", V(0.3, 0.35, 2.0), CF(0, 2.85, 0.05), lighter(a, 0.2), metal)
+	for k = 0, 4 do
+		capsule(b, "Plume", V(0, 2.95, 0.3), V((k - 2) * 0.22, 3.75 + math.abs(k - 2) * -0.15, 0.6 + k * 0.05), 0.18, Color3.fromRGB(230, 40, 60))
+	end
+	for _, side in { -1, 1 } do
+		capsule(b, "Stalk", V(side * 0.4, 2.3, -0.9), V(side * 0.5, 2.95, -1.0), 0.14, c)
+		ball(b, "Eye", 0.42, V(side * 0.5, 3.05, -1.02), WHITE, nil, true)
+		ball(b, "Pupil", 0.2, V(side * 0.5, 3.05, -1.22), BLACK, nil, true)
+		local wrist = V(side * 2.05, 2.3, -1.2)
+		tube(b, "Arm", { V(side * 1.4, 1.95, -0.6), V(side * 1.9, 2.1, -0.95), wrist }, 0.36, c)
+		egg(b, "ClawTop", V(0.7, 0.45, 1.25), CF(wrist + V(side * 0.1, 0.25, -0.6)) * ANG(rad(-15), 0, 0), c)
+		egg(b, "ClawBottom", V(0.55, 0.35, 1.0), CF(wrist + V(side * 0.1, -0.2, -0.5)) * ANG(rad(15), 0, 0), c)
+	end
+	smile(b, 0, 1.75, -1.15, 0.45)
+	return 3.9
+end
+
+-- A rainbow unicorn with a golden horn.
+designs.UnicorninoArcobaleno = function(b, c, a)
+	local gold = Color3.fromRGB(255, 205, 70)
+	local rainbow = { Color3.fromRGB(255, 90, 110), Color3.fromRGB(255, 170, 70), Color3.fromRGB(255, 230, 90), Color3.fromRGB(110, 220, 120), Color3.fromRGB(90, 170, 255), Color3.fromRGB(180, 120, 255) }
+	for _, leg in { V(-0.5, 0, -0.75), V(0.5, 0, -0.75), V(-0.5, 0, 1.0), V(0.5, 0, 1.0) } do
+		capsule(b, "Leg", leg + V(0, 1.7, 0), leg + V(0, 0.4, 0), 0.42, c)
+		egg(b, "Hoof", V(0.45, 0.3, 0.5), CF(leg.X, 0.15, leg.Z), gold, Enum.Material.Foil)
+	end
+	egg(b, "Body", V(1.8, 1.7, 3.0), CF(0, 2.45, 0.15), c)
+	tube(b, "Neck", { V(0, 2.9, -1.0), V(0, 3.5, -1.3) }, 0.85, c)
+	egg(b, "Head", V(1.05, 1.15, 1.55), CF(0, 3.95, -1.45) * ANG(rad(-15), 0, 0), c)
+	egg(b, "Snout", V(0.85, 0.7, 0.7), CF(0, 3.6, -2.05), lighter(a, 0.6))
+	cone(b, "Horn", V(0, 4.4, -1.6), 1.0, 0.32, 0.04, gold, Enum.Material.Foil, nil, lighter(gold, 0.35))
+	for _, side in { -1, 1 } do
+		cone(b, "Ear", V(side * 0.32, 4.35, -1.25), 0.4, 0.28, 0.05, c)
+		ball(b, "Eye", 0.32, V(side * 0.42, 4.05, -1.95), BLACK, nil, true)
+		ball(b, "Shine", 0.1, V(side * 0.42 - 0.05, 4.12, -2.08), WHITE, Enum.Material.Neon, true)
+	end
+	blush(b, 0, 3.75, -2.02, 0.42, 0.26)
+	for i = 0, 7 do
+		local t = i / 7
+		ball(b, "Mane", 0.5, V(0, 4.45 - t * 1.6, -1.15 + t * 1.0), rainbow[i % #rainbow + 1])
+	end
+	for i = 0, 6 do
+		local t = i / 6
+		ball(b, "Tail", 0.55 - t * 0.15, V(math.sin(t * 3) * 0.2, 2.6 - t * 1.0, 1.75 + t * 0.6), rainbow[i % #rainbow + 1])
+	end
+	return 5.0
+end
+
+-- A penguin pilot: leather cap, goggles, scarf and little plane wings.
+designs.PinguinoPilota = function(b, c, a)
+	local orange = Color3.fromRGB(255, 150, 40)
+	local leather = Color3.fromRGB(130, 80, 45)
+	for _, side in { -1, 1 } do
+		egg(b, "Foot", V(0.75, 0.28, 1.1), CF(side * 0.5, 0.14, -0.3), orange)
+	end
+	egg(b, "Body", V(2.4, 3.2, 2.2), CF(0, 1.85, 0), c)
+	egg(b, "Belly", V(1.8, 2.4, 0.6), CF(0, 1.75, -0.85), a)
+	egg(b, "Head", V(1.8, 1.6, 1.7), CF(0, 3.75, 0), c)
+	egg(b, "Face", V(1.3, 1.0, 0.3), CF(0, 3.65, -0.75), a)
+	egg(b, "Cap", V(1.9, 0.95, 1.8), CF(0, 4.1, 0.05), leather)
+	for _, side in { -1, 1 } do
+		egg(b, "EarFlap", V(0.3, 0.7, 0.5), CF(side * 0.88, 3.7, 0.05), leather)
+		zcyl(b, "GoggleRim", 0.18, 0.6, V(side * 0.32, 4.25, -0.7), Color3.fromRGB(180, 150, 90), Enum.Material.Metal, true)
+		zcyl(b, "GoggleGlass", 0.2, 0.45, V(side * 0.32, 4.25, -0.72), Color3.fromRGB(120, 200, 255), Enum.Material.Glass, true)
+	end
+	eyes(b, 0, 3.75, -0.82, 0.3, 0.38)
+	egg(b, "Beak", V(0.55, 0.3, 0.6), CF(0, 3.42, -0.98) * ANG(rad(-10), 0, 0), orange)
+	egg(b, "Scarf", V(1.85, 0.4, 1.75), CF(0, 3.1, 0), Color3.fromRGB(230, 40, 50))
+	tube(b, "ScarfTail", { V(0.3, 3.1, 0.8), V(0.7, 3.0, 1.4), V(1.2, 3.2, 1.8) }, 0.35, Color3.fromRGB(230, 40, 50))
+	for _, side in { -1, 1 } do
+		box(b, "Wing", V(1.9, 0.16, 0.9), CF(side * 1.95, 2.3, 0.1) * ANG(0, 0, side * rad(8)), Color3.fromRGB(200, 205, 215), Enum.Material.Metal)
+		egg(b, "WingTip", V(0.5, 0.2, 0.92), CF(side * 2.85, 2.42, 0.1), Color3.fromRGB(230, 40, 50))
+	end
+	for k = 0, 1 do
+		egg(b, "Propeller", V(1.3, 0.08, 0.2), CF(0, 4.62, 0.05) * ANG(0, rad(k * 90 + 20), 0), Color3.fromRGB(120, 120, 130), Enum.Material.Metal)
+	end
+	ball(b, "PropHub", 0.25, V(0, 4.64, 0.05), Color3.fromRGB(230, 40, 50))
+	return 4.9
+end
+
+-- An octopus in a top hat playing a little grand piano.
+designs.PolipoPianista = function(b, c, a)
+	-- Piano in front (black with white and black keys)
+	box(b, "Piano", V(3.0, 0.9, 1.3), CF(0, 1.75, -1.35), a)
+	for _, x in { -1.2, 1.2 } do
+		capsule(b, "PianoLeg", V(x, 1.3, -1.6), V(x, 0.15, -1.6), 0.18, a)
+	end
+	box(b, "Keys", V(2.6, 0.14, 0.5), CF(0, 2.24, -1.82), WHITE, nil, true)
+	for k = -5, 5 do
+		if k % 3 ~= 0 then
+			egg(b, "BlackKey", V(0.12, 0.12, 0.28), CF(k * 0.22, 2.33, -1.72), BLACK, nil, true)
+		end
+	end
+	egg(b, "Head", V(2.4, 2.4, 2.2), CF(0, 3.55, 0.45), c)
+	for k = 0, 7 do
+		local angle = rad(k * 45)
+		local base = V(math.cos(angle) * 0.8, 2.5, 0.45 + math.sin(angle) * 0.8)
+		if k == 5 or k == 6 then
+			-- These two play the keys
+			tube(b, "Tentacle", { base, V(base.X * 1.4, 2.6, -0.6), V(base.X * 0.9, 2.42, -1.7) }, 0.38, c)
+		else
+			tube(b, "Tentacle", { base, base + V(math.cos(angle) * 0.6, -1.2, math.sin(angle) * 0.6), base + V(math.cos(angle) * 1.1, -2.2, math.sin(angle) * 1.1) }, 0.36, c)
+		end
+	end
+	eyes(b, 0, 3.75, -0.6, 0.45, 0.55)
+	smile(b, 0, 3.1, -0.62, 0.45)
+	egg(b, "HatBrim", V(1.7, 0.16, 1.6), CF(0, 4.7, 0.45) * ANG(0, 0, rad(-8)), BLACK)
+	vcyl(b, "TopHat", 1.0, 1.1, V(-0.07, 5.25, 0.45), BLACK)
+	vcyl(b, "HatBand", 0.2, 1.13, V(-0.05, 4.88, 0.45), Color3.fromRGB(200, 40, 60))
+	return 5.8
+end
+
+-- A tiger made of tiramisu: cream and ladyfinger layers, cocoa stripes.
+designs.TigreTiramisu = function(b, c, a)
+	local sponge = Color3.fromRGB(215, 160, 90)
+	for _, leg in { V(-0.6, 0, -0.55), V(0.6, 0, -0.55), V(-0.6, 0, 0.95), V(0.6, 0, 0.95) } do
+		capsule(b, "Leg", leg + V(0, 1.4, 0), leg + V(0, 0.4, 0), 0.55, c)
+		egg(b, "Paw", V(0.62, 0.38, 0.72), CF(leg.X, 0.19, leg.Z - 0.1), c)
+		egg(b, "LegStripe", V(0.6, 0.12, 0.6), CF(leg.X, 0.95, leg.Z), a)
+	end
+	for i, color in { sponge, c, sponge, c } do
+		box(b, "Layer", V(2.1, 0.4, 2.5), CF(0, 1.55 + (i - 1) * 0.38, 0.2), color)
+	end
+	egg(b, "Cocoa", V(2.0, 0.2, 2.4), CF(0, 3.0, 0.2), a)
+	tube(b, "Tail", { V(0, 2.4, 1.45), V(0.4, 2.9, 1.9), V(0.3, 3.5, 2.1) }, 0.3, c)
+	for k = 0, 2 do
+		egg(b, "TailStripe", V(0.36, 0.12, 0.36), CF(0.1 + k * 0.12, 2.55 + k * 0.35, 1.6 + k * 0.17), a)
+	end
+	local head = V(0, 3.6, -1.0)
+	ball(b, "Head", 1.9, head, c)
+	for _, side in { -1, 1 } do
+		ball(b, "Ear", 0.55, head + V(side * 0.72, 0.8, 0.15), c)
+		ball(b, "EarInner", 0.3, head + V(side * 0.72, 0.8, -0.05), Color3.fromRGB(255, 170, 170))
+		for k = 0, 1 do
+			egg(b, "FaceStripe", V(0.45, 0.1, 0.12), CF(head + V(side * 0.75, 0.25 - k * 0.3, -0.62)) * ANG(0, side * rad(40), side * rad(-15)), a, nil, true)
+		end
+		for k = -1, 1 do
+			capsule(b, "Whisker", head + V(side * 0.35, -0.35 + k * 0.1, -0.88), head + V(side * 1.05, -0.3 + k * 0.18, -0.82), 0.04, BLACK, nil, true)
+		end
+	end
+	for k = -1, 1 do
+		egg(b, "HeadStripe", V(0.12, 0.45, 0.1), CF(head + V(k * 0.28, 0.7, -0.6)), a, nil, true)
+	end
+	egg(b, "Muzzle", V(0.95, 0.6, 0.4), CF(head + V(0, -0.35, -0.82)), lighter(c, 0.5))
+	egg(b, "Nose", V(0.32, 0.22, 0.18), CF(head + V(0, -0.15, -1.0)), Color3.fromRGB(255, 120, 150), nil, true)
+	eyes(b, 0, head.Y + 0.25, head.Z - 0.85, 0.36, 0.42)
+	smile(b, 0, head.Y - 0.48, head.Z - 0.96, 0.36)
+	return 4.8
 end
 
 local MIRRORED = { SixSeven = true, BallerinaCapuchina = true }
