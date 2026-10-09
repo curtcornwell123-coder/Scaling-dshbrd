@@ -579,7 +579,7 @@ Config.FounderEvents = {
 		-- hands together). To use an animation instead, paste its id here
 		-- ("rbxassetid://123...").
 		PoseAnimationId = "",
-		DropEvery = 1.6,
+		DropEvery = 4, -- seconds between throws from each UFO (two UFOs)
 		BrainrotChance = 0.3,
 		BrainrotLuck = 4,
 		-- Sprinkles like his hat, rainbow like his pants.
@@ -613,7 +613,7 @@ Config.FounderEvents = {
 		Spots = { Vector3.new(0, 0, 240), Vector3.new(0, 0, -240) },
 		Luck = 2,
 		-- Ace and his dancers throw cash bags and brainrots all event long.
-		DropEvery = 1.6,
+		DropEvery = 3,
 		BrainrotChance = 0.3,
 		BrainrotLuck = 4,
 		Guaranteed = "BallerinaCapuchina",

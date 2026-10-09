@@ -2637,10 +2637,18 @@ local function throwArc(part: BasePart, from: Vector3, to: Vector3, rotation: CF
 end
 
 -- A random landing spot anywhere on the open map.
+-- Where thrown drops (giants, UFOs) land: most of the time near a random
+-- player, otherwise anywhere along the middle of the map between the bases,
+-- so they spread out where people are instead of piling up on the far grass.
 local function randomOpenPosition(): Vector3
-	local angle = rng:NextNumber(0, math.pi * 2)
-	local distance = math.sqrt(rng:NextNumber()) * 330
-	return dropPositionNear(Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance))
+	local everyone = Players:GetPlayers()
+	if #everyone > 0 and rng:NextNumber() < 0.6 then
+		local hrp = getRoot(everyone[rng:NextInteger(1, #everyone)])
+		if hrp then
+			return dropPositionNear(hrp.Position)
+		end
+	end
+	return dropPositionNear(Vector3.new(rng:NextNumber(-230, 230), 0, rng:NextNumber(-55, 55)))
 end
 
 local function fallBeam(position: Vector3, color: Color3): BasePart
