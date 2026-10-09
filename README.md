@@ -130,7 +130,7 @@ Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tabl
 
 ### New brainrots
 
-- **Patatino Piccolino** (free starter): every new player starts with one in their base, and gets one back after every rebirth. Never on the conveyor.
+- **Patatino Piccolino** (free starter): drops out of the sky onto a pedestal in your base a few seconds after you join, **once per player, ever** (existing players get theirs on their next visit), so everyone can start earning right away. Never on the conveyor.
 - **Bubblegummo Blobbo** (Common, $150, $5/s), **Gelatino Gigante** (Rare, $2K, $32/s), **Donutto Dynamo** (Epic, $25K, $220/s), **Sushito Samurai** (Legendary, $500K, $2.8K/s), **Tacoraptor Supremo** (Mythic, $8M, $28K/s), **Astronauto Panino** (Secret, $120M, $550K/s): each the new top of its rarity, priced like the rest of the economy.
 
 ## Admin panel
