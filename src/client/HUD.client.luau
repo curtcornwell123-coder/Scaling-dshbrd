@@ -158,26 +158,6 @@ local currencyLabel = text(cashPanel, {
 	Text = "🔷 0   💎 0",
 })
 
-local luckLabel = text(gui, {
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 126),
-	Size = UDim2.fromOffset(320, 28),
-	TextColor3 = Color3.fromRGB(120, 255, 160),
-	Text = "",
-	Visible = false,
-})
-
--- Weekly admin abuse: countdown in the last hour, then a LIVE banner.
-local abuseLabel = text(gui, {
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 156),
-	Size = UDim2.fromOffset(420, 32),
-	TextColor3 = GOLD,
-	TextStrokeTransparency = 0,
-	Text = "",
-	Visible = false,
-})
-
 local carryLabel = text(gui, {
 	AnchorPoint = Vector2.new(0.5, 1),
 	Position = UDim2.new(0.5, 0, 1, -150),
@@ -2473,35 +2453,124 @@ task.spawn(function()
 	end
 end)
 
--- Admin abuse timer ----------------------------------------------------------
+-- Event labels -----------------------------------------------------------------
+-- Small pills under the cash panel for what's on in the server right now:
+-- admin abuse (and its countdown in the last hour), a founder event and its
+-- night, and Server Luck, each with its time left. Kept small on purpose.
+do
+	local strip = Instance.new("Frame")
+	strip.Name = "EventLabels"
+	strip.BackgroundTransparency = 1
+	strip.AnchorPoint = Vector2.new(0.5, 0)
+	strip.Position = UDim2.new(0.5, 0, 0, 126)
+	strip.Size = UDim2.fromOffset(760, 26)
+	strip.Parent = gui
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Padding = UDim.new(0, 6)
+	layout.Parent = strip
 
-local function clock(seconds: number): string
-	seconds = math.max(0, math.floor(seconds))
-	return string.format("%d:%02d", seconds // 60, seconds % 60)
-end
-
-task.spawn(function()
-	while true do
-		local now = workspace:GetServerTimeNow()
-		local manualEnd = ReplicatedStorage:GetAttribute("AdminAbuseEndsAt") :: number?
-		local status, seconds = Config.AdminAbuseStatus(now)
-		if manualEnd and manualEnd > now then
-			status, seconds = "live", manualEnd - now
+	type Pill = { Frame: Frame, Label: TextLabel, Stroke: UIStroke }
+	local pills: { [string]: Pill } = {}
+	local function pill(id: string): Pill
+		local existing = pills[id]
+		if existing then
+			return existing
 		end
-		if status == "live" then
-			abuseLabel.Visible = true
-			abuseLabel.TextColor3 = RED
-			abuseLabel.Text = "ADMIN ABUSE LIVE!  " .. clock(seconds) .. " left"
-		elseif status == "soon" then
-			abuseLabel.Visible = true
-			abuseLabel.TextColor3 = GOLD
-			abuseLabel.Text = "ADMIN ABUSE IN " .. clock(seconds)
-		else
-			abuseLabel.Visible = false
-		end
-		task.wait(0.5)
+		local frame = Instance.new("Frame")
+		frame.Name = id
+		frame.AutomaticSize = Enum.AutomaticSize.X
+		frame.Size = UDim2.fromOffset(0, 24)
+		frame.BackgroundColor3 = DARK
+		frame.BackgroundTransparency = 0.2
+		corner(frame, 12)
+		local border = Instance.new("UIStroke")
+		border.Thickness = 1.5
+		border.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		border.Parent = frame
+		local padding = Instance.new("UIPadding")
+		padding.PaddingLeft = UDim.new(0, 10)
+		padding.PaddingRight = UDim.new(0, 10)
+		padding.Parent = frame
+		local label = text(frame, {
+			AutomaticSize = Enum.AutomaticSize.X,
+			Size = UDim2.fromScale(0, 1),
+			TextScaled = false,
+			TextSize = 15,
+			Text = "",
+		})
+		frame.Parent = strip
+		local made = { Frame = frame, Label = label, Stroke = border }
+		pills[id] = made
+		return made
 	end
-end)
+
+	local function clock(seconds: number): string
+		seconds = math.max(0, math.floor(seconds))
+		if seconds >= 3600 then
+			return string.format("%d:%02d:%02d", seconds // 3600, (seconds % 3600) // 60, seconds % 60)
+		end
+		return string.format("%d:%02d", seconds // 60, seconds % 60)
+	end
+	local FOUNDER_ICONS: { [string]: string } = { Corny = "🛸", Ace = "🌙" }
+
+	task.spawn(function()
+		while true do
+			local now = workspace:GetServerTimeNow()
+			type Event = { Id: string, Text: string, Color: Color3 }
+			local events: { Event } = {}
+
+			local manualEnd = ReplicatedStorage:GetAttribute("AdminAbuseEndsAt") :: number?
+			local status, seconds = Config.AdminAbuseStatus(now)
+			if manualEnd and manualEnd > now then
+				status, seconds = "live", manualEnd - now
+			end
+			if status == "live" then
+				table.insert(events, { Id = "Abuse", Text = "⚡ ADMIN ABUSE  " .. clock(seconds), Color = RED })
+			elseif status == "soon" then
+				table.insert(events, { Id = "Abuse", Text = "⚡ ADMIN ABUSE IN " .. clock(seconds), Color = GOLD })
+			end
+
+			local founderEvent = Config.FounderEvents[ReplicatedStorage:GetAttribute("FounderEvent") :: string? or ""]
+			local founderEnds = ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number?
+			if founderEvent and founderEnds and founderEnds > now then
+				local name = string.upper(founderEvent.Founder) .. "'S EVENT"
+				-- Very long runs last until the founder leaves the server.
+				local left = if founderEnds - now > 6 * 3600 then "UNTIL " .. string.upper(founderEvent.Founder) .. " LEAVES" else clock(founderEnds - now)
+				table.insert(events, { Id = "Founder", Text = (FOUNDER_ICONS[founderEvent.Founder] or "⭐") .. " " .. name .. "  " .. left, Color = Color3.fromRGB(255, 150, 210) })
+				local nightMutation = Config.GetMutation(ReplicatedStorage:GetAttribute("NightMutation") :: string?)
+				local nightBoost = ReplicatedStorage:GetAttribute("NightBoost") :: number?
+				if nightMutation and nightBoost and nightBoost > 0 then
+					table.insert(events, { Id = "Night", Text = string.format("🌌 NIGHT: x%d %s", nightBoost, string.upper(nightMutation.DisplayName)), Color = nightMutation.Color })
+				end
+			end
+
+			local luckEnds = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number?
+			if luckEnds and luckEnds > now then
+				table.insert(events, { Id = "Luck", Text = "🍀 SERVER LUCK  " .. clock(luckEnds - now), Color = Color3.fromRGB(120, 255, 160) })
+			end
+
+			local shown: { [string]: boolean } = {}
+			for i, event in events do
+				local p = pill(event.Id)
+				p.Frame.LayoutOrder = i
+				p.Label.Text = event.Text
+				p.Label.TextColor3 = event.Color
+				p.Stroke.Color = event.Color
+				shown[event.Id] = true
+			end
+			for id, p in pills do
+				if not shown[id] then
+					p.Frame:Destroy()
+					pills[id] = nil
+				end
+			end
+			task.wait(0.5)
+		end
+	end)
+end
 
 -- Boost badges --------------------------------------------------------------
 -- Bottom right: every boost that's on right now and how long it has left.
@@ -2645,16 +2714,3 @@ task.spawn(function()
 	end
 end)
 
--- Server luck timer --------------------------------------------------------
-
-task.spawn(function()
-	while true do
-		local endsAt = ReplicatedStorage:GetAttribute("LuckEndsAt") :: number?
-		local left = if endsAt then endsAt - workspace:GetServerTimeNow() else 0
-		luckLabel.Visible = left > 0
-		if left > 0 then
-			luckLabel.Text = string.format("SERVER LUCK  %d:%02d", left // 60, math.floor(left % 60))
-		end
-		task.wait(0.5)
-	end
-end)
