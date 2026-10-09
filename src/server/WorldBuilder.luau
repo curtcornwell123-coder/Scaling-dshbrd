@@ -1032,13 +1032,13 @@ local function buildLighting()
 		grade.Name = "BrainrotGrade"
 		grade.Saturation = 0.12
 		grade.Contrast = 0.06
-		grade.Brightness = -0.03 -- a touch darker than default (it was a bit bright)
+		grade.Brightness = -0.06 -- darker than default: the map was too bright
 		grade.Parent = Lighting
 		local bloom = Instance.new("BloomEffect")
 		bloom.Name = "BrainrotBloom"
-		bloom.Intensity = 0.22
-		bloom.Size = 18
-		bloom.Threshold = 2
+		bloom.Intensity = 0.15
+		bloom.Size = 16
+		bloom.Threshold = 2.2
 		bloom.Parent = Lighting
 		local rays = Instance.new("SunRaysEffect")
 		rays.Name = "BrainrotSunRays"
@@ -1259,8 +1259,8 @@ function WorldBuilder.Build(): World
 	end
 
 	Lighting.ClockTime = 14
-	Lighting.Brightness = 1.6
-	Lighting.ExposureCompensation = -0.15
+	Lighting.Brightness = 1.3
+	Lighting.ExposureCompensation = -0.35
 	-- Light haze so the far edge of the grass fades into the sky.
 	if not Lighting:FindFirstChildOfClass("Atmosphere") then
 		local atmosphere = Instance.new("Atmosphere")
@@ -1287,7 +1287,7 @@ function WorldBuilder.Build(): World
 
 	block(conveyorFolder, "Belt", Vector3.new(length, 1, 12), CFrame.new(0, 0.5, 0), Color3.fromRGB(40, 40, 45), Enum.Material.DiamondPlate)
 	for _, z in { -6.5, 6.5 } do
-		block(conveyorFolder, "Rail", Vector3.new(length, 1.5, 1), CFrame.new(0, 1.25, z), Color3.fromRGB(255, 200, 40), Enum.Material.Neon)
+		block(conveyorFolder, "Rail", Vector3.new(length, 1.5, 1), CFrame.new(0, 1.25, z), Color3.fromRGB(240, 185, 40), Enum.Material.SmoothPlastic) -- (Neon glared)
 	end
 
 	-- Brainrots spawn inside one cave, ride out of its mouth, and disappear
