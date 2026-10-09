@@ -1794,10 +1794,18 @@ do
 		end
 		renderIndex()
 	end
+	-- Share the row's width: long names (Celestial, Event Special) get more.
+	local function pageWeight(page: string): number
+		return if page == "EventSpecial" then 1.6 elseif page == "Celestial" or page == "Legendary" then 1.25 else 1
+	end
+	local totalWeight = 0
+	for _, page in pageOrder do
+		totalWeight += pageWeight(page)
+	end
 	for _, page in pageOrder do
 		local color = if page == "Skins" then INDEX_ORANGE else Config.Rarities[page :: any].Color
 		local label = if page == "Skins" then "SKINS" else string.upper(Config.Rarities[page :: any].DisplayName)
-		local b = button(pageRow, label, color, UDim2.fromOffset(if page == "EventSpecial" then 104 else 66, 34))
+		local b = button(pageRow, label, color, UDim2.new(pageWeight(page) / totalWeight, -4, 0, 34))
 		b.TextScaled = true
 		b.MouseButton1Click:Connect(function()
 			selectPage(page)
@@ -2111,6 +2119,36 @@ do
 	local playersPage
 	playersPage, playersTab = adminTab("PLAYERS", BLUE)
 
+	do
+		-- Reset a player (Corny only): type their name, then tap twice
+		-- within 3 seconds so it can't happen by accident.
+		local reset = section(playersPage, -1, "RESET PLAYER (only you)", "Wipes a player in this server back to the start: money, base, vault, rebirths and stats. Their Robux purchases stay. Type me to reset yourself.", Color3.fromRGB(200, 50, 50))
+		reset.Visible = false
+		table.insert(headFounderOnly, reset)
+		local resetRow = controls(reset, 1)
+		local resetName = inputBox(resetRow, "", "Player name", 220)
+		local armedUntil = 0
+		local resetButton: TextButton
+		resetButton = smallButton(resetRow, "RESET", Color3.fromRGB(150, 40, 40), 220, function()
+			if resetName.Text == "" then
+				toast("Type the player's name first.")
+			elseif os.clock() < armedUntil then
+				armedUntil = 0
+				resetButton.Text = "RESET"
+				AdminAction:FireServer("ResetPlayer", resetName.Text, nil)
+				resetName.Text = ""
+			else
+				armedUntil = os.clock() + 3
+				resetButton.Text = "TAP AGAIN TO RESET"
+				task.delay(3, function()
+					if os.clock() >= armedUntil then
+						resetButton.Text = "RESET"
+					end
+				end)
+			end
+		end)
+	end
+
 	local money = section(playersPage, 1, "MONEY & CURRENCY", "Type an amount (5000, 25k, 2m), then pick what to give the player.", GREEN)
 	local amountRow = controls(money, 1)
 	label(amountRow, "Amount", 90)
@@ -2264,49 +2302,21 @@ do
 	-- BRAINROTS tab ----------------------------------------------------------------
 	local brainrotsPage = adminTab("BRAINROTS", PURPLE)
 
-	-- Mutation picker for Give / Spawn / Drop below.
-	local mutationChoices = { "None" }
-	for _, mutation in Config.Mutations do
-		if not mutation.Exclusive then
-			table.insert(mutationChoices, mutation.Id)
-		end
-	end
-	local mutationIndex = 1
-	local mutationCard = section(brainrotsPage, 1, "MUTATION", "Tap to cycle the mutation used by Spawn and Drop below (Corny only).", PURPLE)
+	-- Corny's event-only mutation button.
+	local mutationCard = section(brainrotsPage, 1, "EVENT MUTATION", "Turns the player's Cigna Glamourina MAGIC (Corny only). To stack other mutations, use 🧬 on any brainrot below.", PURPLE)
 	mutationCard.Visible = false
 	table.insert(headFounderOnly, mutationCard)
 	local mutationRow = controls(mutationCard, 1)
-	local mutationButton = smallButton(mutationRow, "None", GREY, 180, function() end)
 	smallButton(mutationRow, "Give MAGIC (event)", Color3.fromRGB(170, 110, 255), 230, function()
 		send("GiveMagic", nil)
 	end)
-	mutationButton.MouseButton1Click:Connect(function()
-		mutationIndex = mutationIndex % #mutationChoices + 1
-		local choice = mutationChoices[mutationIndex]
-		local mutation = Config.GetMutation(choice)
-		mutationButton.Text = choice
-		mutationButton.BackgroundColor3 = if mutation then mutation.Color else GREY
-	end)
 
-	local function brainrotValue(id: string): string
-		local choice = mutationChoices[mutationIndex]
-		return if choice == "None" then id else Config.Encode(id, choice)
-	end
-
-	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base (Corny can stack up to 3 mutations first).  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
-	-- The mutations Give can add (plus None), shown under a row when you press Give.
-	local giveChoices: { { Id: string?, Name: string, Color: Color3 } } = {}
-	for _, mutation in Config.Mutations do
-		if not mutation.Exclusive then
-			table.insert(giveChoices, { Id = mutation.Id, Name = mutation.DisplayName, Color = mutation.Color })
-		end
-	end
+	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base.  Spawn = on the conveyor.  Drop = falls near them.  Corny: tap 🧬 to stack up to 3 mutations first; they go with Give, Spawn and Drop. Event brainrots: ADD stacks the mutations onto the copy they already own.", GOLD)
 	local openChooser: Frame? = nil
+	local function isHead(): boolean
+		return data ~= nil and data.FounderId == Config.HeadFounder
+	end
 	for i, brainrot in Config.Brainrots do
-		-- Limited ones are gifted from the box in Corny's FOUNDER tab.
-		if brainrot.Limited then
-			continue
-		end
 		-- Each brainrot: its row, and a mutation chooser under it (hidden).
 		local entry = Instance.new("Frame")
 		entry.BackgroundTransparency = 1
@@ -2314,6 +2324,12 @@ do
 		entry.AutomaticSize = Enum.AutomaticSize.Y
 		entry.LayoutOrder = 100 + i
 		entry.Parent = listCard
+		-- Limited ones only show for Corny (new copies are gifted from the
+		-- box in his FOUNDER tab; here he stacks mutations onto theirs).
+		if brainrot.Limited then
+			entry.Visible = false
+			table.insert(headFounderOnly, entry)
+		end
 		local entryLayout = Instance.new("UIListLayout")
 		entryLayout.Padding = UDim.new(0, 4)
 		entryLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -2324,12 +2340,11 @@ do
 		row.LayoutOrder = 1
 		corner(row, 8)
 		row.Parent = entry
-		local color = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
 		text(row, {
 			Position = UDim2.fromOffset(10, 4),
-			Size = UDim2.new(1, -270, 1, -8),
+			Size = UDim2.new(1, -324, 1, -8),
 			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = color,
+			TextColor3 = rarityColor(brainrot),
 			Text = brainrot.DisplayName,
 		})
 
@@ -2352,51 +2367,13 @@ do
 		chooserLayout.Padding = UDim.new(0, 5)
 		chooserLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		chooserLayout.Parent = chooser
-		-- Tap mutations to stack them (up to Config.MaxMutations), then GIVE.
+
+		-- 🧬: opens this brainrot's mutation choices (and closes any other).
+		-- Tap mutations to stack them (up to Config.MaxMutations); the button
+		-- shows how many are picked.
 		local picked: { string } = {}
 		local pickButtons: { [string]: TextButton } = {}
-		local giveNow: TextButton
-		local function refreshPicks()
-			for id, b in pickButtons do
-				b.Text = (if table.find(picked, id) then "✓ " else "") .. (Config.GetMutation(id) :: Config.Mutation).DisplayName
-			end
-			giveNow.Text = if #picked == 0 then "GIVE PLAIN" else "GIVE (" .. #picked .. ")"
-		end
-		for k, choice in giveChoices do
-			local id = choice.Id
-			if id then
-				local b = smallButton(chooser, choice.Name, choice.Color, 108, function()
-					local at = table.find(picked, id)
-					if at then
-						table.remove(picked, at)
-					elseif #picked < Config.MaxMutations then
-						table.insert(picked, id)
-					end
-					refreshPicks()
-				end)
-				b.Size = UDim2.fromOffset(108, 30)
-				b.LayoutOrder = k
-				pickButtons[id] = b
-			end
-		end
-		giveNow = smallButton(chooser, "GIVE PLAIN", GREEN, 120, function()
-			local stack = Config.JoinMutations(picked)
-			send("Brainrot", if stack then Config.Encode(brainrot.Id, stack) else brainrot.Id)
-			table.clear(picked)
-			refreshPicks()
-			chooser.Visible = false
-			openChooser = nil
-		end)
-		giveNow.Size = UDim2.fromOffset(120, 30)
-		giveNow.LayoutOrder = 999
-
-		local giveButton = smallButton(row, "Give", GREEN, 80, function()
-			-- Other admins give it plain; Corny picks a mutation first.
-			if not (data and data.FounderId == Config.HeadFounder) then
-				send("Brainrot", brainrot.Id)
-				return
-			end
-			-- Opens this brainrot's mutation choices (and closes any other).
+		local dnaButton = smallButton(row, "🧬", GREY, 44, function()
 			local other = openChooser
 			if other and other ~= chooser then
 				other.Visible = false
@@ -2404,14 +2381,71 @@ do
 			chooser.Visible = not chooser.Visible
 			openChooser = if chooser.Visible then chooser else nil
 		end)
-		giveButton.Size = UDim2.fromOffset(80, 30)
-		giveButton.Position = UDim2.new(1, -258, 0, 3)
-		for j, info in { { Label = "Spawn", Color = ORANGE, Action = "Spawn" }, { Label = "Drop", Color = PURPLE, Action = "DropBrainrot" } } do
+		dnaButton.Size = UDim2.fromOffset(52, 30)
+		dnaButton.Position = UDim2.new(1, -316, 0, 3)
+		if not brainrot.Limited then
+			dnaButton.Visible = false
+			table.insert(headFounderOnly, dnaButton)
+		end
+		local function refreshPicks()
+			for id, b in pickButtons do
+				b.Text = (if table.find(picked, id) then "✓ " else "") .. (Config.GetMutation(id) :: Config.Mutation).DisplayName
+			end
+			local stack = Config.JoinMutations(picked)
+			local lead = Config.GetMutation(stack)
+			dnaButton.Text = if #picked == 0 then "🧬" else "🧬" .. #picked
+			dnaButton.BackgroundColor3 = if lead then lead.Color else GREY
+		end
+		for k, mutation in Config.Mutations do
+			-- Event-only mutations (Magic) only for the brainrot they're made for.
+			if mutation.Exclusive and not table.find(mutation.Exclusive, brainrot.Id) then
+				continue
+			end
+			local id = mutation.Id
+			local b = smallButton(chooser, mutation.DisplayName, mutation.Color, 108, function()
+				local at = table.find(picked, id)
+				if at then
+					table.remove(picked, at)
+				elseif #picked < Config.MaxMutations then
+					table.insert(picked, id)
+				end
+				refreshPicks()
+			end)
+			b.Size = UDim2.fromOffset(108, 30)
+			b.LayoutOrder = k
+			pickButtons[id] = b
+		end
+		local clear = smallButton(chooser, "CLEAR", GREY, 90, function()
+			table.clear(picked)
+			refreshPicks()
+		end)
+		clear.Size = UDim2.fromOffset(90, 30)
+		clear.LayoutOrder = 999
+
+		-- What Give / Spawn / Drop send: the picked stack for Corny, plain
+		-- for everyone else (the server strips mutations from them anyway).
+		local function value(): string
+			local stack = if isHead() then Config.JoinMutations(picked) else nil
+			return if stack then Config.Encode(brainrot.Id, stack) else brainrot.Id
+		end
+		local actions: { { Label: string, Color: Color3, Action: string } } = if brainrot.Limited
+			then { { Label = "ADD", Color = PURPLE, Action = "MutateLimited" } }
+			else {
+				{ Label = "Give", Color = GREEN, Action = "Brainrot" },
+				{ Label = "Spawn", Color = ORANGE, Action = "Spawn" },
+				{ Label = "Drop", Color = PURPLE, Action = "DropBrainrot" },
+			}
+		for j, info in actions do
 			local b = smallButton(row, info.Label, info.Color, 80, function()
-				send(info.Action, brainrotValue(brainrot.Id))
+				if info.Action == "MutateLimited" and #picked == 0 then
+					chooser.Visible = true
+					openChooser = chooser
+					return
+				end
+				send(info.Action, value())
 			end)
 			b.Size = UDim2.fromOffset(80, 30)
-			b.Position = UDim2.new(1, -258 + j * 86, 0, 3)
+			b.Position = UDim2.new(1, -258 + (j - 1) * 86, 0, 3)
 		end
 	end
 
@@ -2480,32 +2514,14 @@ do
 	end
 
 	do
-		-- Security (Corny only): lock everyone else's admin panel, and reset a
-		-- player. Reset needs a second tap within 3 seconds.
-		local security = section(founderPage, -1, "SECURITY (only you)", "LOCK takes the admin panel away from everyone but you (Ace and mods too), in every server, until you unlock it. RESET wipes the player typed in the Player box at the top: money, base, vault and stats (their Robux purchases stay).", RED)
+		-- Security (Corny only): lock everyone else's admin panel. (Resetting
+		-- a player is at the top of the PLAYERS tab.)
+		local security = section(founderPage, -1, "SECURITY (only you)", "LOCK takes the admin panel away from everyone but you (Ace and mods too), in every server, until you unlock it.", RED)
 		security.Visible = false
 		table.insert(headFounderOnly, security)
 		local switchRow = controls(security, 1)
 		adminLockButton = smallButton(switchRow, "LOCK ALL ADMIN PANELS", RED, 300, function()
 			send("AdminLock", not (data and data.AdminsLocked == true))
-		end)
-		local resetRow = controls(security, 2)
-		local armedUntil = 0
-		local resetButton: TextButton
-		resetButton = smallButton(resetRow, "RESET PLAYER", Color3.fromRGB(150, 40, 40), 300, function()
-			if os.clock() < armedUntil then
-				armedUntil = 0
-				resetButton.Text = "RESET PLAYER"
-				send("ResetPlayer", nil)
-			else
-				armedUntil = os.clock() + 3
-				resetButton.Text = "TAP AGAIN TO RESET"
-				task.delay(3, function()
-					if os.clock() >= armedUntil then
-						resetButton.Text = "RESET PLAYER"
-					end
-				end)
-			end
 		end)
 	end
 

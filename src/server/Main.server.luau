@@ -4420,7 +4420,7 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		if action == "Brainrot" or action == "Spawn" or action == "DropBrainrot" then
 			local brainrot = Config.Decode(tostring(value))
 			value = if brainrot then brainrot.Id else value
-		elseif action == "GiveMagic" then
+		elseif action == "GiveMagic" or action == "MutateLimited" then
 			notify(admin, "Only " .. Config.HeadFounder .. " can add mutations.")
 			return
 		end
@@ -4804,6 +4804,53 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 					updateFollowers(player)
 				else
 					notify(admin, player.DisplayName .. " doesn't own the event brainrot (or it's already Magic).")
+				end
+			elseif action == "MutateLimited" then
+				-- Stacks mutations onto the event brainrot they already own (no
+				-- new copy, same serial). The new ones come first, so they stay
+				-- when the stack is already full.
+				local brainrot, added = Config.Decode(tostring(value))
+				local result: string? = nil
+				local function stacked(old: string?): string?
+					local ids = {}
+					for _, m in Config.SplitMutations(added) do
+						table.insert(ids, m.Id)
+					end
+					-- Old ones rarest first, so a full stack drops the commonest.
+					local oldList = Config.SplitMutations(old)
+					for k = #oldList, 1, -1 do
+						table.insert(ids, oldList[k].Id)
+					end
+					return Config.JoinMutations(ids)
+				end
+				if brainrot and brainrot.Limited and added then
+					if plot then
+						for index, slot in plot.Slots do
+							if slot.Id == brainrot.Id and not slot.StolenBy then
+								result = stacked(slot.Mutation)
+								local following = table.find(session.FollowerModels, slot.Model)
+								slot.Model:Destroy()
+								placeBrainrot(plot, index, slot.Id, result, nil, false, slot.Serial)
+								if following then
+									session.FollowerModels[following] = plot.Slots[index].Model
+								end
+							end
+						end
+					end
+					for i, entry in data.Unclaimed do
+						local owned, oldMutation, serial = Config.Decode(entry)
+						if owned and owned.Id == brainrot.Id then
+							result = stacked(oldMutation)
+							data.Unclaimed[i] = Config.Encode(owned.Id, result, serial)
+						end
+					end
+				end
+				if brainrot and result then
+					notify(player, "An admin upgraded your " .. fullName(brainrot, result) .. "!")
+					notify(admin, player.DisplayName .. "'s " .. fullName(brainrot, result))
+					updateFollowers(player)
+				else
+					notify(admin, player.DisplayName .. " doesn't own " .. (if brainrot then brainrot.DisplayName else "that") .. " (or no mutation was picked).")
 				end
 			elseif action == "Shards" then
 				local amount = math.floor(parseAmount(value) or 0)

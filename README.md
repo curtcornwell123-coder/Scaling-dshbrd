@@ -40,7 +40,8 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 | 🟪 Epic | 10% | 14.4% | $5K – $40K | $60–340/s |
 | 🟨 Legendary | 4% | 5.7% | $75K – $700K | $500–3.8K/s |
 | 🟥 Mythic | 0.9% | 1.3% | $1.2M – $15M | $4.8K–50K/s |
-| ⬛ Secret | 0.1% | 0.14% | $25M – $1B | $120K–4M/s |
+| ⬛ Secret | 0.1% | 0.14% | $25M – $200M | $120K–900K/s |
+| 🌟 Celestial | 0.025% (1 in 4,000) | 0.036% | $300M – $1B | $1.3M–4M/s |
 | 💖 Event Special | not on the conveyor | | Robux | see below |
 
 ### Launch event: Cigna Glamourina (limited)
@@ -66,7 +67,7 @@ To put her on sale: create a Developer Product named "Cigna Glamourina" priced a
 
 ### Mutations
 
-Any brainrot on the conveyor can roll a mutation, and **mutations stack**: after one rolls there's a 12% chance another lands on top (up to 3, e.g. "Gold Galaxy"). Each mutation adds a percentage of the brainrot's base income and price, and a stack adds them all up (Gold +100% and Galaxy +600% make +700%, so 8x the base). The rarest one in the stack leads the look; the others add their particles. Server Luck doubles these chances. Corny's admin panel can stack up to 3 mutations when giving a brainrot.
+Any brainrot on the conveyor can roll a mutation, and **mutations stack**: after one rolls there's a 12% chance another lands on top (up to 3, e.g. "Gold Galaxy"). Each mutation adds a percentage of the brainrot's base income and price, and a stack adds them all up (Gold +100% and Galaxy +600% make +700%, so 8x the base). The rarest one in the stack leads the look; the others add their particles. Server Luck doubles these chances. Corny's admin panel can stack up to 3 mutations on any brainrot it gives, spawns or drops, and add them onto an event brainrot someone already owns (see Admin panel).
 
 | Mutation | Chance | Bonus (income & price) | Look |
 |---|---|---|---|
@@ -169,14 +170,14 @@ Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tabl
   - Epic: Gelato Vulcano, Panda Bambucco, Robo Moka, Cocco Bello, Spaghettosauro, Fenicottero Flamenco, Gufo Professore.
   - Legendary: Leone Lasagnone, Squalo Scarpone, Granchio Corazzato, Unicornino Arcobaleno, Pinguino Pilota, Polipo Pianista, Tigre Tiramisù.
   - Mythic: Fenice Focaccia, Kraken Carbonara, Golem Gorgonzola, Cerbero Calzone, Leviatano Linguine.
-  - Secret: Re Ravioli Supremo, Fantasma Fettuccine, Galassia Gnocchi, Imperatore Pizzone, Omega Brainrotto ($600M, $2.5M/s).
+  - Secret: Re Ravioli Supremo, Fantasma Fettuccine, Galassia Gnocchi; Imperatore Pizzone and Omega Brainrotto ($600M, $2.5M/s) are now Celestial.
 - **32 meme classics** (the famous Italian brainrot characters, built in the game's own smooth style):
   - Common: Lirilì Larilà, Tim Cheese, Pipi Kiwi, Talpa di Ferro, Svinino Bombondino.
   - Rare: Trippi Troppi, Bandito Bobritto, Cacto Hipopotamo, Ta Ta Ta Sahur, Perochello Lemonchello, Brr Brr Patapim.
   - Epic: Cappuccino Assassino, Brri Brri Bicus Dicus Bombicus, Trulimero Trulicina, Chimpanzini Bananini, Salamino Penguino, Zibra Zubra Zibralini.
   - Legendary: Burbaloni Loliloli, Chef Crabracadabra, Glorbo Fruttodrillo, Blueberrinni Octopusini, Orangutini Ananassini, Lionel Cactuseli.
   - Mythic: Bombardiro Crocodilo, Bombombini Gusini, Frigo Camelo, Rhino Toasterino, Cocofanto Elefanto.
-  - Secret: La Vacca Saturno Saturnita, Trenostruzzo Turbo 3000, Graipuss Medussi, and **La Grande Combinasion** ($1B, $4M/s, the new top).
+  - Secret: La Vacca Saturno Saturnita, Trenostruzzo Turbo 3000, Graipuss Medussi, and **La Grande Combinasion** ($1B, $4M/s, now the top Celestial).
 - **Tung Tung Tung Sahur** (Legendary, $350K, $2K/s): the wooden log with a big grin and a baseball bat.
 - **Bubblegummo Blobbo** (Common, $150, $5/s), **Gelatino Gigante** (Rare, $2K, $32/s), **Donutto Dynamo** (Epic, $25K, $220/s), **Sushito Samurai** (Legendary, $500K, $2.8K/s), **Tacoraptor Supremo** (Mythic, $8M, $28K/s), **Astronauto Panino** (Secret, $120M, $550K/s): each the new top of its rarity, priced like the rest of the economy.
 
@@ -184,10 +185,10 @@ Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tabl
 
 Admins get a red **ADMIN** button on the left. The **Player** box at the top picks who the buttons act on: type `me`, `all`, or the start of someone's name. Below it, the panel is split into tabs, and each job has its own labelled box:
 
-- **PLAYERS:** **Moderation** (Kick with an optional reason; Ban, tapped twice, kicks them and keeps them out of the game for good in every server, even if they're offline; Unban lets them back. Nobody can kick or ban Corny or themselves; only Corny can act on a founder, and only founders on another admin. Roblox's own chat commands don't work in this game, so use these), Money & Currency (give/set cash, set rebirths, give Shards; amounts accept `5000`, `25k`, `2m` or `-500`), Base (base level, lock level, Infinite Door ON/OFF, Clear Base), and Shop Items (Free): give any gamepass (lasts until they leave) or any Robux shop item.
+- **PLAYERS:** **Reset Player** at the top (Corny only): type a name (or `me`) in its own box and tap RESET twice; it wipes that player in this server back to a new save (money, base, vault, rebirths, stats; their Robux purchases stay). **Moderation** (Kick with an optional reason; Ban, tapped twice, kicks them and keeps them out of the game for good in every server, even if they're offline; Unban lets them back. Nobody can kick or ban Corny or themselves; only Corny can act on a founder, and only founders on another admin. Roblox's own chat commands don't work in this game, so use these), Money & Currency (give/set cash, set rebirths, give Shards; amounts accept `5000`, `25k`, `2m` or `-500`), Base (base level, lock level, Infinite Door ON/OFF, Clear Base), and Shop Items (Free): give any gamepass (lasts until they leave) or any Robux shop item.
 - **EVENTS:** Admin Abuse (minutes + START/END), Drops (Brainrot Rain, Cash Rain with its own cash-per-bag box), Server Luck, and Announce to All Servers.
-- **BRAINROTS:** the mutation picker and every brainrot with Give / Spawn / Drop.
-- **FOUNDER** (only Corny and Ace see this tab): **SECURITY** (Corny only): **LOCK ALL ADMIN PANELS** takes the admin panel away from everyone but Corny (Ace and mods too), in every server, until he unlocks it; **RESET PLAYER** (tap twice) wipes the player in the Player box back to a new save (their Robux purchases stay). **CODES** (Corny only) makes codes in-game: a name, Cash / Shards (Shards up to 5,000) and how many hours it lasts (0 = forever). They save in a DataStore and work in every server, once per player; the list shows each code with a DELETE button. Also: start or end your founder event (with its own minutes box), and pick your event giant's look.
+- **BRAINROTS:** every brainrot with Give / Spawn / Drop. Corny also gets a **🧬** button on each row: tap it, pick up to 3 mutations (the button shows how many and takes the rarest one's color), and they go with that row's Give, Spawn and Drop (CLEAR resets them). The event brainrots (Cigna, 67 Nights Deer) are listed for Corny too, with **ADD** instead: it stacks the picked mutations onto the copy the player already owns, same serial, no new copy (Cigna can pick MAGIC here). New picks go first, so on a full stack of 3 they replace the commonest old ones. **Give MAGIC (event)** is still at the top.
+- **FOUNDER** (only Corny and Ace see this tab): **SECURITY** (Corny only): **LOCK ALL ADMIN PANELS** takes the admin panel away from everyone but Corny (Ace and mods too), in every server, until he unlocks it; **CODES** (Corny only) makes codes in-game: a name, Cash / Shards (Shards up to 5,000) and how many hours it lasts (0 = forever). They save in a DataStore and work in every server, once per player; the list shows each code with a DELETE button. Also: start or end your founder event (with its own minutes box), and pick your event giant's look.
 
 The panel shrinks to fit smaller screens.
 

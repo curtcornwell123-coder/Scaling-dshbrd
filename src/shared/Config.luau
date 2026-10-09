@@ -4,7 +4,7 @@
 
 local Config = {}
 
-export type RarityId = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret" | "EventSpecial"
+export type RarityId = "Common" | "Rare" | "Epic" | "Legendary" | "Mythic" | "Secret" | "Celestial" | "EventSpecial"
 
 export type Rarity = {
 	Id: RarityId,
@@ -59,7 +59,7 @@ Config.GameName = "Brainrot Heist"
 -- UPDATING!" screen before being sent off (progress saves meanwhile).
 Config.UpdateNoticeSeconds = 7
 
-local rarityOrder: { RarityId } = { "Common", "Rare", "Epic", "Legendary", "Mythic", "Secret", "EventSpecial" }
+local rarityOrder: { RarityId } = { "Common", "Rare", "Epic", "Legendary", "Mythic", "Secret", "Celestial", "EventSpecial" }
 Config.RarityOrder = rarityOrder
 
 Config.Rarities = {
@@ -69,9 +69,12 @@ Config.Rarities = {
 	Legendary = { Id = "Legendary", DisplayName = "Legendary", Color = Color3.fromRGB(255, 195, 40), Order = 4, Scale = 1.5, SpawnWeight = 4, Announce = true },
 	Mythic = { Id = "Mythic", DisplayName = "Mythic", Color = Color3.fromRGB(255, 45, 60), Order = 5, Scale = 1.75, SpawnWeight = 0.9, Announce = true },
 	Secret = { Id = "Secret", DisplayName = "Secret", Color = Color3.fromRGB(20, 20, 20), Order = 6, Scale = 2, SpawnWeight = 0.1, Announce = true },
+	-- Celestial: above Secret, the rarest thing the conveyor can bring (about
+	-- 1 in 4,000 spawns). They wear a ring of golden stars over their heads.
+	Celestial = { Id = "Celestial", DisplayName = "Celestial", Color = Color3.fromRGB(120, 225, 255), Order = 7, Scale = 2, SpawnWeight = 0.025, Announce = true },
 	-- Event Special: never on the conveyor. Set SpawnWeight above 0 to let
 	-- non-limited Event Specials roll on the conveyor during admin abuse.
-	EventSpecial = { Id = "EventSpecial", DisplayName = "Event Special", Color = Color3.fromRGB(255, 70, 190), Order = 7, Scale = 1.5, SpawnWeight = 0, Announce = true, EventOnly = true },
+	EventSpecial = { Id = "EventSpecial", DisplayName = "Event Special", Color = Color3.fromRGB(255, 70, 190), Order = 8, Scale = 1.5, SpawnWeight = 0, Announce = true, EventOnly = true },
 } :: { [RarityId]: Rarity }
 
 -- Original characters. Add new ones here every update to keep players coming back.
@@ -187,12 +190,13 @@ Config.Brainrots = {
 	{ Id = "ReRavioliSupremo", DisplayName = "Re Ravioli Supremo", Rarity = "Secret", Price = 30000000, Income = 140000, Color = Color3.fromRGB(245, 220, 150), Accent = Color3.fromRGB(120, 40, 170) },
 	{ Id = "FantasmaFettuccine", DisplayName = "Fantasma Fettuccine", Rarity = "Secret", Price = 65000000, Income = 300000, Color = Color3.fromRGB(235, 245, 255), Accent = Color3.fromRGB(250, 230, 170) },
 	{ Id = "GalassiaGnocchi", DisplayName = "Galassia Gnocchi", Rarity = "Secret", Price = 200000000, Income = 900000, Color = Color3.fromRGB(60, 30, 120), Accent = Color3.fromRGB(80, 220, 255) },
-	{ Id = "ImperatorePizzone", DisplayName = "Imperatore Pizzone", Rarity = "Secret", Price = 300000000, Income = 1300000, Color = Color3.fromRGB(230, 180, 100), Accent = Color3.fromRGB(210, 45, 35) },
-	{ Id = "OmegaBrainrotto", DisplayName = "Omega Brainrotto", Rarity = "Secret", Price = 600000000, Income = 2500000, Color = Color3.fromRGB(255, 150, 180), Accent = Color3.fromRGB(90, 240, 255) },
 	{ Id = "LaVaccaSaturnita", DisplayName = "La Vacca Saturno Saturnita", Rarity = "Secret", Price = 40000000, Income = 190000, Color = Color3.fromRGB(250, 250, 250), Accent = Color3.fromRGB(230, 190, 140) },
 	{ Id = "TrenostruzzoTurbo", DisplayName = "Trenostruzzo Turbo 3000", Rarity = "Secret", Price = 90000000, Income = 410000, Color = Color3.fromRGB(200, 40, 40), Accent = Color3.fromRGB(40, 40, 48) },
 	{ Id = "GraipussMedussi", DisplayName = "Graipuss Medussi", Rarity = "Secret", Price = 150000000, Income = 680000, Color = Color3.fromRGB(130, 60, 170), Accent = Color3.fromRGB(220, 160, 255) },
-	{ Id = "LaGrandeCombinasion", DisplayName = "La Grande Combinasion", Rarity = "Secret", Price = 1000000000, Income = 4000000, Color = Color3.fromRGB(176, 120, 72), Accent = Color3.fromRGB(255, 200, 50) },
+	-- Celestial
+	{ Id = "ImperatorePizzone", DisplayName = "Imperatore Pizzone", Rarity = "Celestial", Price = 300000000, Income = 1300000, Color = Color3.fromRGB(230, 180, 100), Accent = Color3.fromRGB(210, 45, 35) },
+	{ Id = "OmegaBrainrotto", DisplayName = "Omega Brainrotto", Rarity = "Celestial", Price = 600000000, Income = 2500000, Color = Color3.fromRGB(255, 150, 180), Accent = Color3.fromRGB(90, 240, 255) },
+	{ Id = "LaGrandeCombinasion", DisplayName = "La Grande Combinasion", Rarity = "Celestial", Price = 1000000000, Income = 4000000, Color = Color3.fromRGB(176, 120, 72), Accent = Color3.fromRGB(255, 200, 50) },
 } :: { Brainrot }
 
 -- Mutations ----------------------------------------------------------------

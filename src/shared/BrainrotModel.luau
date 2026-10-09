@@ -3948,6 +3948,27 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 		sparkles.Size = NumberSequence.new(0.4)
 		sparkles.Parent = root
 	end
+	-- Celestial: a ring of golden stars over the head, and drifting starlight.
+	if brainrot.Rarity == "Celestial" then
+		local halo = newBuilder(model, root, 1)
+		local radius = 0.45 * s
+		for k = 0, 11 do
+			local angle = k * math.pi / 6
+			local d = if k % 2 == 0 then 0.28 * s else 0.16 * s
+			ball(halo, "Halo", d, V(math.cos(angle) * radius, topY + 0.35 * s, math.sin(angle) * radius), Color3.fromRGB(255, 220, 110), Enum.Material.Neon, true)
+		end
+		local starlight = Instance.new("ParticleEmitter")
+		starlight.Name = "Starlight"
+		starlight.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		starlight.Color = ColorSequence.new(Color3.fromRGB(255, 225, 130), rarity.Color)
+		starlight.LightEmission = 1
+		starlight.Rate = 8
+		starlight.Lifetime = NumberRange.new(1.5, 2.5)
+		starlight.Speed = NumberRange.new(0.5, 1.5)
+		starlight.SpreadAngle = Vector2.new(180, 180)
+		starlight.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.3, 0.6), NumberSequenceKeypoint.new(1, 0) })
+		starlight.Parent = root
+	end
 	-- Commoner mutations of a stack first, so the rarest one leads the look.
 	for _, m in Config.SplitMutations(mutationId) do
 		applyMutation(model, root, m, s, false, m ~= mutation)
