@@ -100,6 +100,7 @@ type Plot = {
 	Pending: number, -- cash waiting on the collect pad
 	LockedUntil: number,
 	CooldownUntil: number,
+	DoorOpen: boolean, -- Infinite Laser Door owner opened it with the door button
 }
 
 type Session = {
@@ -145,6 +146,7 @@ for i, parts in world.Plots do
 		Pending = 0,
 		LockedUntil = 0,
 		CooldownUntil = 0,
+		DoorOpen = false,
 	}
 end
 
@@ -843,7 +845,7 @@ local function hasInfiniteLock(session: Session): boolean
 end
 
 local function applyInfiniteLock(plot: Plot, session: Session)
-	if hasInfiniteLock(session) and plot.LockedUntil ~= math.huge then
+	if hasInfiniteLock(session) and plot.LockedUntil ~= math.huge and not plot.DoorOpen then
 		plot.LockedUntil = math.huge
 		plot.CooldownUntil = math.huge
 		setLaser(plot, true)
@@ -1324,6 +1326,7 @@ local function assignPlot(player: Player, session: Session)
 			plot.Pending = 0
 			plot.LockedUntil = 0
 			plot.CooldownUntil = 0
+			plot.DoorOpen = false
 			plot.Parts.Model:SetAttribute("OwnerUserId", player.UserId)
 			plot.Parts.OwnerLabel.Text = player.DisplayName .. "'s Base"
 			session.Plot = plot
@@ -1374,11 +1377,13 @@ local function releasePlot(plot: Plot)
 	plot.Pending = 0
 	plot.LockedUntil = 0
 	plot.CooldownUntil = 0
+	plot.DoorOpen = false
 	setLaser(plot, false)
 	plot.Parts.Model:SetAttribute("OwnerUserId", 0)
 	plot.Parts.OwnerLabel.Text = "EMPTY BASE"
 	plot.Parts.PendingLabel.Text = "COLLECT\n$0"
 	plot.Parts.LockLabel.Text = "STEP TO LOCK"
+	plot.Parts.LockButtonLabel.Text = "LOCK DOOR"
 	updateVipPedestals(plot)
 	WorldBuilder.SetWallLevel(plot.Parts, 1, 1)
 	WorldBuilder.SetStories(plot.Parts, 1)
@@ -1497,6 +1502,38 @@ for _, plot in plots do
 		lockBase(plot)
 		addQuestProgress(player, "Lock", 1)
 	end)
+
+	-- The door button: lock now (same as the lock pad) or open the door early.
+	-- Opening early starts the usual recharge, so it can't stretch a lock out.
+	-- With the Infinite Laser Door it simply opens and closes.
+	local lockPrompt = plot.Parts.LockButton:FindFirstChildOfClass("ProximityPrompt")
+	if lockPrompt then
+		lockPrompt.Triggered:Connect(function(player)
+			local session = sessions[player]
+			if not session or not session.Loaded or plot.Owner ~= player then
+				return
+			end
+			local now = os.clock()
+			local infinite = hasInfiniteLock(session)
+			if now < plot.LockedUntil then
+				plot.LockedUntil = now
+				plot.CooldownUntil = if infinite then now else now + Config.LockCooldown
+				plot.DoorOpen = infinite
+				setLaser(plot, false)
+				notify(player, "Door open! Press again to lock it.")
+			elseif infinite then
+				plot.DoorOpen = false
+				applyInfiniteLock(plot, session)
+				notify(player, "Locked forever again!")
+			elseif now < plot.CooldownUntil then
+				notify(player, string.format("Lock recharging: %ds", math.ceil(plot.CooldownUntil - now)))
+			else
+				lockBase(plot)
+				addQuestProgress(player, "Lock", 1)
+				notify(player, "Base locked!")
+			end
+		end)
+	end
 
 	local function onLaserTouched(beam: BasePart, hit: BasePart)
 		if os.clock() >= plot.LockedUntil or not beam:GetAttribute("Active") then
@@ -3936,6 +3973,11 @@ task.spawn(function()
 					plot.Pending += plotIncome(plot, session)
 					plot.Parts.PendingLabel.Text = "COLLECT\n" .. Config.FormatCash(plot.Pending)
 
+					local button = plot.Parts.LockButtonLabel
+					local open = now >= plot.LockedUntil
+					button.Text = if open then "LOCK DOOR" else "UNLOCK DOOR"
+					button.TextColor3 = if open then Color3.fromRGB(255, 140, 140) else Color3.fromRGB(140, 255, 160)
+					plot.Parts.LockButton.Color = if open then Color3.fromRGB(235, 60, 60) else Color3.fromRGB(60, 220, 100)
 					if plot.LockedUntil == math.huge then
 						plot.Parts.LockLabel.Text = "LOCKED FOREVER"
 					elseif now < plot.LockedUntil then

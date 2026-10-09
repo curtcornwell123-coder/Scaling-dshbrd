@@ -2346,8 +2346,8 @@ updateCarry()
 
 local function updatePrompt(prompt: ProximityPrompt)
 	local action = prompt:GetAttribute("Action")
-	if action == "OpenUpgrades" then
-		-- Prompt lives on the upgrade post, directly inside the plot model.
+	if action == "OpenUpgrades" or action == "LockToggle" then
+		-- Prompt lives on the upgrade post / door button, directly inside the plot model.
 		local post = prompt.Parent
 		local plot = post and post.Parent
 		prompt.Enabled = plot ~= nil and plot:GetAttribute("OwnerUserId") == player.UserId

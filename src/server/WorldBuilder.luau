@@ -26,6 +26,8 @@ export type PlotParts = {
 	Roof: Folder, -- parented only when every floor is built
 	SignPost: BasePart,
 	UpgradePost: BasePart,
+	LockButton: BasePart, -- the owner's lock / unlock button by the door
+	LockButtonLabel: TextLabel,
 	UpgradeLabel: TextLabel,
 	OwnerLabel: TextLabel,
 	PendingLabel: TextLabel,
@@ -530,6 +532,23 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 	local lockLabel = billboard(lockPad, Vector2.new(220, 70), Vector3.new(0, 5, 0), "STEP TO LOCK", Color3.fromRGB(255, 140, 140))
 
 	-- The upgrade post opens the upgrades panel (see HUD.client).
+	-- Lock / unlock button just inside the door, on the right
+	local lockPost = block(model, "LockButtonPost", Vector3.new(1.4, 3.4, 1.4), at(ENTRANCE_WIDTH / 2 + 3, FLOOR_TOP + 1.7, -half + 3.5), Color3.fromRGB(45, 45, 52), Enum.Material.Metal)
+	lockPost.CanCollide = false
+	local lockButton = block(model, "LockButton", Vector3.new(0.5, 1.6, 1.6), at(ENTRANCE_WIDTH / 2 + 3, FLOOR_TOP + 3.65, -half + 3.5) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(235, 60, 60), Enum.Material.Neon)
+	lockButton.Shape = Enum.PartType.Cylinder
+	lockButton.CanCollide = false
+	local lockButtonLabel = billboard(lockButton, Vector2.new(200, 60), Vector3.new(0, 2.6, 0), "LOCK DOOR", Color3.fromRGB(255, 140, 140))
+	local lockPrompt = Instance.new("ProximityPrompt")
+	lockPrompt.Name = "LockPrompt"
+	lockPrompt.ActionText = "Lock / Unlock"
+	lockPrompt.ObjectText = "Base Door"
+	lockPrompt.HoldDuration = 0
+	lockPrompt.MaxActivationDistance = 10
+	lockPrompt.RequiresLineOfSight = false
+	lockPrompt:SetAttribute("Action", "LockToggle")
+	lockPrompt.Parent = lockButton
+
 	local upgradePost = block(model, "UpgradePost", Vector3.new(2, 4, 2), at(-14, FLOOR_TOP + 2, -24), Color3.fromRGB(255, 170, 40), Enum.Material.Neon)
 	local upgradeLabel = billboard(upgradePost, Vector2.new(260, 80), Vector3.new(0, 5, 0), "UPGRADES", Color3.fromRGB(255, 210, 120))
 	local upgradePrompt = Instance.new("ProximityPrompt")
@@ -565,6 +584,8 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		Roof = roof,
 		SignPost = signPost,
 		UpgradePost = upgradePost,
+		LockButton = lockButton,
+		LockButtonLabel = lockButtonLabel,
 		UpgradeLabel = upgradeLabel,
 		OwnerLabel = ownerLabel,
 		PendingLabel = pendingLabel,

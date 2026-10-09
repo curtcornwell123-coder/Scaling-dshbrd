@@ -124,6 +124,10 @@ To build a place file without Studio sync: `rojo build -o BrainrotHeist.rbxl`.
 3. **Game Settings → Places → Max Players = 8**. There are 8 bases.
 4. Set up the Robux items below.
 
+## Door lock button
+
+Just inside every base's door, on the right, there's a big round button (owner only). Press it to **lock** the base right away (same as the lock pad, with the same recharge), or press it while locked to **open the door early** (for friends); opening early starts the recharge, so it can't stretch a lock out. With the Infinite Laser Door it simply opens and closes. The button glows red when you can lock and green while locked.
+
 ## Sprint
 
 Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tablet (just left of the jump button; tap again to stop), or **click the left stick** on a controller (click again to stop). Sprinting is 1.45x faster (`Config.SprintMultiplier`), on top of admin abuse's speed boost, but you can't sprint while carrying a stolen brainrot. On phones and tablets the music button and boost badges sit at the top right, out of the way.
