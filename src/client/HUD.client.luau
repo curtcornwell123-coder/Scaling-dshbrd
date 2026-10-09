@@ -1905,6 +1905,39 @@ do
 	end)
 
 	do
+		-- Kick / Ban / Unban the player typed in the Player box at the top.
+		-- Ban needs a second tap within 3 seconds.
+		local moderation = section(playersPage, 0, "MODERATION", "Kick removes them from this server. Ban kicks them and keeps them out of the game for good (every server), even if they're offline; Unban lets them back. Reason is optional.", RED)
+		local reasonRow = controls(moderation, 1)
+		label(reasonRow, "Reason", 90)
+		local reasonBox = inputBox(reasonRow, "", "e.g. exploiting", 320)
+		local modRow = controls(moderation, 2)
+		smallButton(modRow, "KICK", ORANGE, 120, function()
+			send("Kick", reasonBox.Text)
+		end)
+		local banArmedUntil = 0
+		local banButton: TextButton
+		banButton = smallButton(modRow, "BAN", RED, 160, function()
+			if os.clock() < banArmedUntil then
+				banArmedUntil = 0
+				banButton.Text = "BAN"
+				send("Ban", reasonBox.Text)
+			else
+				banArmedUntil = os.clock() + 3
+				banButton.Text = "TAP TO CONFIRM"
+				task.delay(3, function()
+					if os.clock() >= banArmedUntil then
+						banButton.Text = "BAN"
+					end
+				end)
+			end
+		end)
+		smallButton(modRow, "UNBAN", GREEN, 120, function()
+			send("Unban", nil)
+		end)
+	end
+
+	do
 		-- Everything in the Robux shop, free: gamepasses last until they leave.
 		local shopItems = section(playersPage, 3, "SHOP ITEMS (FREE)", "Give the player anything from the shop. Gamepasses last until they leave the game.", Color3.fromRGB(255, 150, 40))
 		local passRow = controls(shopItems, 1)

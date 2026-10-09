@@ -2891,11 +2891,66 @@ local function load(player: Player)
 	task.spawn(deliverOwnedLimited, player)
 end
 
+-- Bans -------------------------------------------------------------------------
+-- Admin panel Kick / Ban / Unban (Roblox's own chat commands don't work in
+-- this game). Bans are saved in our own DataStore, checked when anyone
+-- joins, and pushed to every server; Roblox's ban list is used too when the
+-- game is published (it can't run in Studio).
+local BAN_TOPIC = "BrainrotHeistBans"
+local banStore: DataStore? = nil
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore("BrainrotHeistBans")
+	end)
+	if ok then
+		banStore = result
+	end
+end
+local bannedHere: { [number]: boolean } = {} -- this server's copy, in case saving fails
+
+local function banReason(raw: any): string
+	return if type(raw) == "table" and type(raw.Reason) == "string" and raw.Reason ~= "" then raw.Reason else "You are banned from this game."
+end
+
+-- Kicks the player if they're banned. Runs when they join.
+local function enforceBan(player: Player)
+	if bannedHere[player.UserId] then
+		player:Kick("You are banned from this game.")
+		return
+	end
+	local store = banStore
+	if not store then
+		return
+	end
+	local ok, raw = pcall(function()
+		return store:GetAsync("u_" .. player.UserId)
+	end)
+	if ok and raw ~= nil and player.Parent then
+		player:Kick(banReason(raw))
+	end
+end
+
 Players.PlayerAdded:Connect(function(player)
+	task.spawn(enforceBan, player)
 	player.CharacterAdded:Connect(function(character)
 		onCharacter(player, character)
 	end)
 	load(player)
+end)
+
+task.spawn(function()
+	pcall(function()
+		MessagingService:SubscribeAsync(BAN_TOPIC, function(packet)
+			local userId = tonumber(packet.Data)
+			local player = userId and Players:GetPlayerByUserId(userId)
+			if userId then
+				bannedHere[userId] = true
+			end
+			if player then
+				player:Kick("You are banned from this game.")
+			end
+		end)
+	end)
 end)
 for _, player in Players:GetPlayers() do
 	player.CharacterAdded:Connect(function(character)
@@ -3933,6 +3988,105 @@ local function parseAmount(value: unknown): number?
 	return n * multipliers[suffix :: string]
 end
 
+-- Who an admin may kick or ban: never Corny, never yourself; founders only
+-- by Corny; other admins only by a founder.
+local function canModerate(admin: Player, userId: number): (boolean, string?)
+	if userId == admin.UserId then
+		return false, "You can't do that to yourself."
+	end
+	local headFounder: Config.Founder? = nil
+	local targetFounder: Config.Founder? = nil
+	for _, founder in Config.Founders do
+		if founder.Id == Config.HeadFounder then
+			headFounder = founder
+		end
+		if founder.UserId == userId then
+			targetFounder = founder
+		end
+	end
+	if headFounder and headFounder.UserId == userId then
+		return false, "Nobody can kick or ban " .. Config.HeadFounder .. "."
+	end
+	local adminFounder = founderOf(admin)
+	if targetFounder and not (adminFounder and adminFounder.Id == Config.HeadFounder) then
+		return false, "Only " .. Config.HeadFounder .. " can kick or ban a founder."
+	end
+	if table.find(Config.AdminUserIds, userId) and not adminFounder then
+		return false, "Only a founder can kick or ban another admin."
+	end
+	return true, nil
+end
+
+-- A player in this server by name (any part), else a Roblox username's id.
+local function findUser(name: string): (Player?, number?)
+	local q = string.lower(name)
+	if q == "" or q == "all" or q == "me" then
+		return nil, nil
+	end
+	for _, other in Players:GetPlayers() do
+		if string.sub(string.lower(other.Name), 1, #q) == q or string.sub(string.lower(other.DisplayName), 1, #q) == q then
+			return other, other.UserId
+		end
+	end
+	local ok, userId = pcall(function()
+		return Players:GetUserIdFromNameAsync(name)
+	end)
+	return nil, if ok then userId else nil
+end
+
+local function moderate(admin: Player, action: string, target: unknown, value: unknown)
+	local name = string.match(tostring(target or ""), "^%s*(.-)%s*$") or ""
+	local reasonText = string.sub(string.match(tostring(value or ""), "^%s*(.-)%s*$") or "", 1, 120)
+	local player, userId = findUser(name)
+	if not userId then
+		notify(admin, "Type a player's name in the Player box (not 'me' or 'all').")
+		return
+	end
+	local who = if player then player.DisplayName else name
+	if action ~= "Unban" then
+		local allowed, why = canModerate(admin, userId)
+		if not allowed then
+			notify(admin, why or "You can't do that.")
+			return
+		end
+	end
+	if action == "Kick" then
+		if not player then
+			notify(admin, who .. " isn't in this server.")
+			return
+		end
+		player:Kick(if reasonText ~= "" then "Kicked: " .. reasonText else "You were kicked by an admin.")
+		notify(admin, "Kicked " .. who .. ".")
+	elseif action == "Ban" then
+		local reason = if reasonText ~= "" then "Banned: " .. reasonText else "You are banned from this game."
+		bannedHere[userId] = true
+		local store = banStore
+		local saved = store ~= nil and pcall(function()
+			(store :: DataStore):SetAsync("u_" .. userId, { Reason = reason, By = admin.UserId, At = os.time() })
+		end)
+		pcall(function()
+			(Players :: any):BanAsync({ UserIds = { userId }, ApplyToUniverse = true, Duration = -1, DisplayReason = reason, PrivateReason = "Banned by " .. admin.Name })
+		end)
+		pcall(function()
+			MessagingService:PublishAsync(BAN_TOPIC, userId)
+		end)
+		if player then
+			player:Kick(reason)
+		end
+		notify(admin, "Banned " .. who .. (if saved then " for good (every server)." else " (this server only: the ban couldn't be saved)."))
+	elseif action == "Unban" then
+		bannedHere[userId] = nil
+		local store = banStore
+		local saved = store ~= nil and pcall(function()
+			(store :: DataStore):RemoveAsync("u_" .. userId)
+		end)
+		pcall(function()
+			(Players :: any):UnbanAsync({ UserIds = { userId }, ApplyToUniverse = true })
+		end)
+		notify(admin, "Unbanned " .. who .. (if saved then "." else " (this server only: it couldn't be saved)."))
+	end
+end
+
 -- Wipes a player back to a brand-new save: cash, rebirths, base levels,
 -- brainrots (base and vault), quests, skins and currencies. Only their Robux
 -- purchases stay (limited brainrots and the purchase receipts).
@@ -4119,6 +4273,12 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 			notify(admin, "Only " .. Config.HeadFounder .. " can add mutations.")
 			return
 		end
+	end
+
+	-- Kick / Ban / Unban (by name; Ban and Unban work on players who are offline too)
+	if action == "Kick" or action == "Ban" or action == "Unban" then
+		task.spawn(moderate, admin, action, target, value)
+		return
 	end
 
 	-- Corny's security switches
