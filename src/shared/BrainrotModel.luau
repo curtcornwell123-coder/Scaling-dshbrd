@@ -1614,7 +1614,8 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 	label(tag, "Name", brainrot.DisplayName, WHITE, 26, 2)
 	label(tag, "Income", Config.FormatCash(Config.IncomeOf(brainrot, mutationId)) .. "/s", Color3.fromRGB(120, 255, 120), 20, 3)
 	if priceTag then
-		label(tag, "Price", Config.FormatCash(Config.PriceOf(brainrot, mutationId)), Color3.fromRGB(255, 220, 80), 22, 4)
+		local price = Config.PriceOf(brainrot, mutationId)
+		label(tag, "Price", if price <= 0 then "FREE" else Config.FormatCash(price), Color3.fromRGB(255, 220, 80), 22, 4)
 	end
 	local limited = Config.LimitedItems[brainrot.Id]
 	if serial and limited then

@@ -28,7 +28,6 @@ export type Brainrot = {
 	IncomeGrowth: number?, -- income multiplies by this for every rebirth the owner has
 	Scale: number?, -- model size override (otherwise the rarity's size)
 	Limited: boolean?, -- sold for Robux in limited numbers: can't be stolen or sold, kept on rebirth
-	Starter: boolean?, -- the free one every new player starts with (never on the conveyor)
 }
 
 -- Limited Robux brainrots. Stock is shared by every server (saved in a
@@ -74,8 +73,9 @@ Config.Rarities = {
 
 -- Original characters. Add new ones here every update to keep players coming back.
 Config.Brainrots = {
-	-- Free: every new player starts with one (and gets one back after a rebirth)
-	{ Id = "PatatinoPiccolino", DisplayName = "Patatino Piccolino", Rarity = "Common", Price = 10, Income = 1, Starter = true, Color = Color3.fromRGB(205, 155, 95), Accent = Color3.fromRGB(90, 190, 70) },
+	-- Free: rides the conveyor like any Common, and anyone can take one for $0
+	-- to start earning.
+	{ Id = "PatatinoPiccolino", DisplayName = "Patatino Piccolino", Rarity = "Common", Price = 0, Income = 1, Color = Color3.fromRGB(205, 155, 95), Accent = Color3.fromRGB(90, 190, 70) },
 	-- Common
 	{ Id = "NoodloDoodlo", DisplayName = "Noodlo Doodlo", Rarity = "Common", Price = 25, Income = 1, Color = Color3.fromRGB(245, 215, 120), Accent = Color3.fromRGB(200, 60, 40) },
 	{ Id = "PizzarinoPizzaroni", DisplayName = "Pizzarino Pizzaroni", Rarity = "Common", Price = 50, Income = 2, Color = Color3.fromRGB(240, 170, 60), Accent = Color3.fromRGB(190, 30, 30) },
@@ -770,8 +770,6 @@ local byRarity: { [RarityId]: { Brainrot } } = {}
 -- The conveyor's pools leave out limited (Robux) brainrots: those only come
 -- from the shop or a gift, with a serial number.
 local conveyorByRarity: { [RarityId]: { Brainrot } } = {}
--- The free starter (Patatino Piccolino).
-Config.StarterBrainrot = "PatatinoPiccolino"
 for _, brainrot in Config.Brainrots do
 	byId[brainrot.Id] = brainrot
 	local list = byRarity[brainrot.Rarity]
@@ -780,7 +778,7 @@ for _, brainrot in Config.Brainrots do
 		byRarity[brainrot.Rarity] = list
 	end
 	table.insert(list, brainrot)
-	if not brainrot.Limited and not brainrot.Starter then
+	if not brainrot.Limited then
 		conveyorByRarity[brainrot.Rarity] = conveyorByRarity[brainrot.Rarity] or {}
 		table.insert(conveyorByRarity[brainrot.Rarity], brainrot)
 	end

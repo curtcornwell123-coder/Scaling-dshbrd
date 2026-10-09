@@ -138,7 +138,7 @@ Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tabl
 
 ### New brainrots
 
-- **Patatino Piccolino** (free starter): drops out of the sky onto a pedestal in your base a few seconds after you join, **once per player, ever** (existing players get theirs on their next visit), so everyone can start earning right away. Never on the conveyor.
+- **Patatino Piccolino** (free): rides the conveyor like any Common, and anyone can take one for **$0** (the prompt says *Take (FREE)*), so new players can start earning right away. It earns $1/s, sells for $0, and free ones don't count toward buying quests.
 - **Tung Tung Tung Sahur** (Legendary, $350K, $2K/s): the wooden log with a big grin and a baseball bat.
 - **Bubblegummo Blobbo** (Common, $150, $5/s), **Gelatino Gigante** (Rare, $2K, $32/s), **Donutto Dynamo** (Epic, $25K, $220/s), **Sushito Samurai** (Legendary, $500K, $2.8K/s), **Tacoraptor Supremo** (Mythic, $8M, $28K/s), **Astronauto Panino** (Secret, $120M, $550K/s): each the new top of its rarity, priced like the rest of the economy.
 

@@ -73,7 +73,6 @@ type SaveData = {
 	AbuseGiftWeek: number, -- the week this player last got the admin abuse gift
 	InfiniteLock: boolean, -- bought the Infinite Laser Door with Diamonds
 	Codes: { string }, -- codes already redeemed (upper case)
-	StarterGiven: boolean, -- got the free starter brainrot (once, ever)
 }
 
 type QuestState = {
@@ -337,7 +336,6 @@ local function defaultData(): SaveData
 		AbuseGiftWeek = -1,
 		InfiniteLock = false,
 		Codes = {},
-		StarterGiven = false,
 		Quests = { Day = -1, Week = -1, Daily = {}, Weekly = {}, DailyDone = {}, WeeklyDone = {} },
 	}
 end
@@ -403,7 +401,6 @@ local function sanitize(raw: any): SaveData
 		data.AbuseGiftWeek = raw.AbuseGiftWeek
 	end
 	data.InfiniteLock = raw.InfiniteLock == true
-	data.StarterGiven = raw.StarterGiven == true
 	if type(raw.Codes) == "table" then
 		for _, code in raw.Codes do
 			if type(code) == "string" and not table.find(data.Codes, code) then
@@ -1989,9 +1986,12 @@ local function onBuy(player: Player, model: Model, brainrot: Config.Brainrot, mu
 	end
 	session.Data.Cash -= price
 	placeBrainrot(plot, index, brainrot.Id, mutation, model, true)
-	notify(player, "Bought " .. fullName(brainrot, mutation) .. "! It's walking to your base.")
+	notify(player, (if price <= 0 then "Got a free " else "Bought ") .. fullName(brainrot, mutation) .. "! It's walking to your base.")
 	local order = Config.Rarities[brainrot.Rarity].Order
-	addQuestProgress(player, "Buy", 1)
+	-- Free ones don't count toward buying quests (no farming them).
+	if price > 0 then
+		addQuestProgress(player, "Buy", 1)
+	end
 	if order >= 3 then
 		addQuestProgress(player, "BuyEpic", 1)
 	end
@@ -2017,7 +2017,8 @@ local function spawnOnConveyor(forced: Config.Brainrot?, forcedMutation: string?
 
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "BuyPrompt"
-	prompt.ActionText = "Buy " .. Config.FormatCash(Config.PriceOf(brainrot, mutation))
+	local price = Config.PriceOf(brainrot, mutation)
+	prompt.ActionText = if price <= 0 then "Take (FREE)" else "Buy " .. Config.FormatCash(price)
 	prompt.ObjectText = fullName(brainrot, mutation)
 	prompt.HoldDuration = 0.25
 	prompt.MaxActivationDistance = 12
@@ -2308,52 +2309,6 @@ local function checkAdmin(player: Player): boolean
 	return ok and rank >= Config.AdminGroupRank
 end
 
--- The free starter brainrot (Patatino Piccolino): once per player, ever. It
--- drops out of the sky onto a pedestal in their base a moment after they
--- arrive, so everyone has something earning cash right away.
-local function giveStarter(player: Player)
-	task.wait(3)
-	local session = sessions[player]
-	local plot = session and session.Plot
-	local brainrot = Config.GetBrainrot(Config.StarterBrainrot)
-	if not session or not session.Loaded or not plot or not brainrot or session.Data.StarterGiven then
-		return
-	end
-	session.Data.StarterGiven = true
-	local index = freeSlot(plot, session)
-	if not index then
-		-- Base already full: it shows up as soon as a pedestal frees up.
-		table.insert(session.Data.Unclaimed, Config.Encode(brainrot.Id, nil, nil))
-		notify(player, "A free " .. brainrot.DisplayName .. " is waiting for a free pedestal!")
-		push(player)
-		return
-	end
-	local target = pedestalCFrame(plot, index)
-	local model = BrainrotModel.Create(brainrot, nil, target * CFrame.new(0, 70, 0), false)
-	placeBrainrot(plot, index, brainrot.Id, nil, model, true)
-	-- Bounce down onto the pedestal (replaces the short slide placeBrainrot starts).
-	local root = model.PrimaryPart :: BasePart
-	TweenService:Create(root, TweenInfo.new(2.2, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), { CFrame = target }):Play()
-	local sparkle = Instance.new("ParticleEmitter")
-	sparkle.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparkle.Color = ColorSequence.new(Color3.fromRGB(255, 230, 120), Color3.fromRGB(120, 255, 160))
-	sparkle.LightEmission = 1
-	sparkle.Rate = 30
-	sparkle.Lifetime = NumberRange.new(0.6, 1.2)
-	sparkle.Speed = NumberRange.new(1, 3)
-	sparkle.SpreadAngle = Vector2.new(180, 180)
-	sparkle.Size = NumberSequence.new(0.5, 0)
-	sparkle.Parent = root
-	task.delay(4, function()
-		sparkle.Enabled = false
-		task.wait(1.5)
-		sparkle:Destroy()
-	end)
-	notify(player, "Here's a free " .. brainrot.DisplayName .. " to start earning cash!")
-	push(player)
-	task.spawn(save, player)
-end
-
 local function load(player: Player)
 	local session: Session = {
 		Data = defaultData(),
@@ -2450,7 +2405,6 @@ local function load(player: Player)
 	end
 	push(player)
 	task.spawn(deliverOwnedLimited, player)
-	task.spawn(giveStarter, player)
 end
 
 Players.PlayerAdded:Connect(function(player)
