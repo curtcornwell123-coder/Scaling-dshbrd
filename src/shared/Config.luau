@@ -588,13 +588,20 @@ Config.RebirthCostGrowth = 5
 Config.RebirthBonus = 0.5 -- +50% income per rebirth
 
 -- Admins -------------------------------------------------------------------
--- The game's owner (or a group owner, for group games) is always an admin,
--- and everyone is an admin when testing in Studio. Add other people's
--- Roblox user IDs here (the number in their profile URL).
-
-Config.AdminUserIds = {} :: { number }
+-- The founders and the game's owner (or a group owner, for group games) get
+-- the full admin panel, and so does everyone when testing in Studio.
+-- Mods: Roblox user IDs (the number in their profile URL) listed here get the
+-- small MOD PANEL instead (kick, ban, unban and announcements) and the
+-- Moderator wall skin.
+Config.AdminUserIds = {
+	3272219254,
+} :: { number }
 -- Testers: get the Beta Tester wall skin (admins count as testers too).
-Config.TesterUserIds = {} :: { number }
+Config.TesterUserIds = {
+	3272219254,
+} :: { number }
+-- What mods can do from the MOD PANEL (the server refuses anything else).
+Config.ModActions = { "Kick", "Ban", "Unban", "GlobalAnnounce" }
 Config.AdminGroupRank = 255 -- for group games: this rank and above are admins
 
 -- Admin abuse --------------------------------------------------------------

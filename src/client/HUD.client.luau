@@ -173,7 +173,7 @@ local side = Instance.new("Frame")
 side.BackgroundTransparency = 1
 side.AnchorPoint = Vector2.new(0, 0.5)
 side.Position = UDim2.new(0, 10, 0.5, 0)
-side.Size = UDim2.fromOffset(130, 340)
+side.Size = UDim2.fromOffset(130, 400)
 side.Parent = gui
 local sideLayout = Instance.new("UIListLayout")
 sideLayout.Padding = UDim.new(0, 10)
@@ -1603,7 +1603,237 @@ do
 end
 
 -- Only one menu open at a time.
-local menus = { shopFrame, rebirthFrame, upgradeFrame, questsFrame, followFrame, shardFrame, sellFrame }
+-- Index --------------------------------------------------------------------------
+-- A collection book: every brainrot (3D previews of the ones you've had,
+-- dark silhouettes for the rest), one rarity page at a time so phones stay
+-- smooth, and every wall skin with whether you own it.
+local indexFrame: Frame
+local renderIndex: () -> ()
+local indexButton = sideButton("INDEX", "📖", Color3.fromRGB(240, 120, 60))
+do
+	local INDEX_ORANGE = Color3.fromRGB(240, 120, 60)
+	local SILHOUETTE = Color3.fromRGB(20, 20, 26)
+	local frame, body = modal("INDEX", INDEX_ORANGE, 620)
+	indexFrame = frame
+	local countLabel = text(frame, {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -64, 0, 16),
+		Size = UDim2.fromOffset(240, 30),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = GOLD,
+		Text = "",
+	})
+
+	-- Page buttons: one per rarity, then SKINS
+	local pageRow = Instance.new("Frame")
+	pageRow.BackgroundTransparency = 1
+	pageRow.Size = UDim2.new(1, 0, 0, 34)
+	pageRow.Parent = body
+	local pageLayout = Instance.new("UIListLayout")
+	pageLayout.FillDirection = Enum.FillDirection.Horizontal
+	pageLayout.Padding = UDim.new(0, 4)
+	pageLayout.Parent = pageRow
+	local scroll = Instance.new("ScrollingFrame")
+	scroll.BackgroundTransparency = 1
+	scroll.Position = UDim2.fromOffset(0, 42)
+	scroll.Size = UDim2.new(1, 0, 1, -42)
+	scroll.CanvasSize = UDim2.new()
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	scroll.ScrollBarThickness = 6
+	scroll.Parent = body
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.fromOffset(120, 150)
+	grid.CellPadding = UDim2.fromOffset(8, 8)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = scroll
+
+	type Card = { Frame: Frame, Brainrot: Config.Brainrot?, Skin: Config.WallSkin?, Viewport: ViewportFrame?, Model: Model?, Shown: boolean?, Name: TextLabel, Info: TextLabel }
+	local pages: { [string]: { Card } } = {}
+	local currentPage = "Common"
+	local pageOrder: { string } = {}
+
+	local function card(page: string, order: number, accent: Color3): Card
+		local f = Instance.new("Frame")
+		f.BackgroundColor3 = TILE
+		f.LayoutOrder = order
+		f.Visible = false
+		corner(f, 10)
+		stroke(f, 2, accent)
+		f.Parent = scroll
+		local name = text(f, {
+			Position = UDim2.fromOffset(4, 104),
+			Size = UDim2.new(1, -8, 0, 22),
+			Text = "",
+		})
+		local info = text(f, {
+			Position = UDim2.fromOffset(4, 126),
+			Size = UDim2.new(1, -8, 0, 18),
+			TextColor3 = accent,
+			Text = "",
+		})
+		local made = { Frame = f, Name = name, Info = info }
+		pages[page] = pages[page] or {}
+		table.insert(pages[page], made)
+		return made
+	end
+
+	-- Brainrot cards, by rarity
+	for _, rarityId in Config.RarityOrder do
+		local rarity = Config.Rarities[rarityId :: any]
+		local any = false
+		for i, brainrot in Config.Brainrots do
+			if brainrot.Rarity == rarityId then
+				any = true
+				local c = card(rarityId, i, rarity.Color)
+				c.Brainrot = brainrot
+				local viewport = Instance.new("ViewportFrame")
+				viewport.Position = UDim2.fromOffset(6, 6)
+				viewport.Size = UDim2.new(1, -12, 0, 96)
+				viewport.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
+				viewport.Ambient = Color3.fromRGB(190, 190, 200)
+				viewport.LightColor = WHITE
+				corner(viewport, 8)
+				viewport.Parent = c.Frame
+				c.Viewport = viewport
+			end
+		end
+		if any then
+			table.insert(pageOrder, rarityId)
+		end
+	end
+	-- Skin cards
+	for i, skin in Config.WallSkins do
+		local c = card("Skins", i, skin.Trim or skin.Glass or Color3.fromRGB(140, 140, 150))
+		c.Skin = skin
+		local swatch = Instance.new("Frame")
+		swatch.Position = UDim2.fromOffset(10, 10)
+		swatch.Size = UDim2.new(1, -20, 0, 86)
+		swatch.BackgroundColor3 = skin.Color or Color3.fromRGB(140, 140, 145)
+		corner(swatch, 8)
+		stroke(swatch, 3, skin.Glass or Color3.fromRGB(80, 150, 255))
+		swatch.Parent = c.Frame
+		local window = Instance.new("Frame")
+		window.AnchorPoint = Vector2.new(0.5, 0.5)
+		window.Position = UDim2.fromScale(0.5, 0.45)
+		window.Size = UDim2.fromScale(0.5, 0.4)
+		window.BackgroundColor3 = skin.Glass or Color3.fromRGB(80, 150, 255)
+		window.BackgroundTransparency = 0.3
+		corner(window, 4)
+		window.Parent = swatch
+		local floor = Instance.new("Frame")
+		floor.AnchorPoint = Vector2.new(0, 1)
+		floor.Position = UDim2.fromScale(0, 1)
+		floor.Size = UDim2.new(1, 0, 0.18, 0)
+		floor.BackgroundColor3 = skin.FloorColor or skin.Color or Color3.fromRGB(140, 140, 145)
+		floor.BorderSizePixel = 0
+		floor.Parent = swatch
+		c.Name.Text = skin.Name
+	end
+	table.insert(pageOrder, "Skins")
+
+	-- Puts a brainrot's model in its card: full color if discovered,
+	-- otherwise an all-black silhouette.
+	local function showModel(c: Card, discovered: boolean)
+		local brainrot = c.Brainrot
+		local viewport = c.Viewport
+		if not brainrot or not viewport or (c.Model and c.Shown == discovered) then
+			return
+		end
+		if c.Model then
+			c.Model:Destroy()
+		end
+		local model = BrainrotModel.Create(brainrot, nil, CFrame.new(), false, nil, true, 1)
+		for _, d in model:GetDescendants() do
+			if d:IsA("BillboardGui") or d:IsA("ParticleEmitter") or d:IsA("Light") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then
+				d:Destroy()
+			elseif d:IsA("BasePart") and not discovered then
+				d.Color = SILHOUETTE
+				d.Material = Enum.Material.SmoothPlastic
+				d.Reflectance = 0
+			end
+		end
+		local cf, size = model:GetBoundingBox()
+		model:PivotTo(CFrame.new(-cf.Position) * model:GetPivot())
+		model.Parent = viewport
+		local camera = viewport.CurrentCamera or Instance.new("Camera")
+		camera.FieldOfView = 40
+		local distance = math.max(size.X, size.Y, size.Z) * 1.55
+		camera.CFrame = CFrame.lookAt(Vector3.new(distance * 0.35, size.Y * 0.15, -distance), Vector3.zero)
+		camera.Parent = viewport
+		viewport.CurrentCamera = camera
+		c.Model = model
+		c.Shown = discovered
+	end
+
+	local pageButtons: { [string]: TextButton } = {}
+	local function selectPage(page: string)
+		currentPage = page
+		for name, b in pageButtons do
+			b.BackgroundTransparency = if name == page then 0 else 0.55
+		end
+		renderIndex()
+	end
+	for _, page in pageOrder do
+		local color = if page == "Skins" then INDEX_ORANGE else Config.Rarities[page :: any].Color
+		local label = if page == "Skins" then "SKINS" else string.upper(Config.Rarities[page :: any].DisplayName)
+		local b = button(pageRow, label, color, UDim2.fromOffset(if page == "EventSpecial" then 104 else 66, 34))
+		b.TextScaled = true
+		b.MouseButton1Click:Connect(function()
+			selectPage(page)
+		end)
+		pageButtons[page] = b
+	end
+
+	renderIndex = function()
+		if not data or not frame.Visible then
+			return
+		end
+		local discovered = data.Discovered or {}
+		local owned = data.Skins or {}
+		local skinCount, skinTotal = 0, 0
+		for _, skin in Config.WallSkins do
+			if not Config.IsExclusiveSkin(skin) or Config.CanUseSkin(skin, data.FounderId, data.Roles) then
+				skinTotal += 1
+				if table.find(owned, skin.Id) then
+					skinCount += 1
+				end
+			end
+		end
+		countLabel.Text = if currentPage == "Skins"
+			then string.format("SKINS %d/%d", skinCount, skinTotal)
+			else string.format("FOUND %d/%d", #discovered, #Config.Brainrots)
+		for page, cards in pages do
+			for _, c in cards do
+				local visible = page == currentPage
+				local skin = c.Skin
+				if skin and Config.IsExclusiveSkin(skin) and not Config.CanUseSkin(skin, data.FounderId, data.Roles) then
+					visible = false
+				end
+				c.Frame.Visible = visible
+				if visible and c.Brainrot then
+					local found = table.find(discovered, c.Brainrot.Id) ~= nil
+					showModel(c, found)
+					c.Name.Text = if found then c.Brainrot.DisplayName else "???"
+					c.Info.Text = if found then Config.FormatCash(c.Brainrot.Income) .. "/s" else "Not found yet"
+				elseif visible and skin then
+					local has = table.find(owned, skin.Id) ~= nil
+					c.Info.Text = if data.Skin == skin.Id then "EQUIPPED" elseif has then "OWNED" elseif Config.IsExclusiveSkin(skin) then "FREE FOR YOU" else Config.FormatNumber(skin.Cost) .. " Shards"
+				end
+			end
+		end
+	end
+	selectPage("Common")
+end
+indexButton.MouseButton1Click:Connect(function()
+	shopFrame.Visible = false
+	for _, menu in { rebirthFrame, upgradeFrame, questsFrame, followFrame, shardFrame, sellFrame } do
+		menu.Visible = false
+	end
+	indexFrame.Visible = not indexFrame.Visible
+	renderIndex()
+end)
+
+local menus = { shopFrame, rebirthFrame, upgradeFrame, questsFrame, followFrame, shardFrame, sellFrame, indexFrame }
 local function toggleMenu(frame: Frame)
 	local open = not frame.Visible
 	for _, menu in menus do
@@ -2358,6 +2588,95 @@ adminButton.MouseButton1Click:Connect(function()
 	adminFrame.Visible = not adminFrame.Visible
 end)
 
+-- Mod panel -------------------------------------------------------------------
+-- Mods (Config.AdminUserIds) get this small panel instead of the full admin
+-- one: kick, ban (tap twice), unban and announcements to every server.
+local modFrame: Frame
+local modButton = sideButton("MOD", "🛡️", Color3.fromRGB(70, 120, 230))
+modButton.Visible = false
+do
+	local MOD_BLUE = Color3.fromRGB(70, 120, 230)
+	local frame, body = modal("MOD PANEL", MOD_BLUE, 400)
+	modFrame = frame
+	local function field(y: number, labelText: string, hint: string): TextBox
+		text(body, {
+			Position = UDim2.fromOffset(0, y),
+			Size = UDim2.fromOffset(110, 40),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Text = labelText,
+		})
+		local box = Instance.new("TextBox")
+		box.Position = UDim2.fromOffset(115, y)
+		box.Size = UDim2.new(1, -115, 0, 40)
+		box.BackgroundColor3 = TILE
+		box.Font = FONT
+		box.TextScaled = true
+		box.TextColor3 = WHITE
+		box.PlaceholderText = hint
+		box.Text = ""
+		box.ClearTextOnFocus = false
+		corner(box, 8)
+		box.Parent = body
+		return box
+	end
+	local playerBox = field(0, "Player", "their name")
+	local reasonBox = field(48, "Reason", "optional, e.g. exploiting")
+	local function send(action: string, value: any)
+		AdminAction:FireServer(action, playerBox.Text, value)
+	end
+	local kick = button(body, "KICK", Color3.fromRGB(255, 150, 40), UDim2.new(1 / 3, -8, 0, 50))
+	kick.Position = UDim2.fromOffset(0, 100)
+	kick.MouseButton1Click:Connect(function()
+		send("Kick", reasonBox.Text)
+	end)
+	local ban = button(body, "BAN", RED, UDim2.new(1 / 3, -8, 0, 50))
+	ban.Position = UDim2.new(1 / 3, 4, 0, 100)
+	local armedUntil = 0
+	ban.MouseButton1Click:Connect(function()
+		if os.clock() < armedUntil then
+			armedUntil = 0
+			ban.Text = "BAN"
+			send("Ban", reasonBox.Text)
+		else
+			armedUntil = os.clock() + 3
+			ban.Text = "TAP AGAIN"
+			task.delay(3, function()
+				if os.clock() >= armedUntil then
+					ban.Text = "BAN"
+				end
+			end)
+		end
+	end)
+	local unban = button(body, "UNBAN", GREEN, UDim2.new(1 / 3, -8, 0, 50))
+	unban.Position = UDim2.new(2 / 3, 8, 0, 100)
+	unban.MouseButton1Click:Connect(function()
+		send("Unban", nil)
+	end)
+	text(body, {
+		Position = UDim2.fromOffset(0, 162),
+		Size = UDim2.new(1, 0, 0, 40),
+		TextScaled = false,
+		TextSize = 15,
+		TextWrapped = true,
+		TextStrokeTransparency = 1,
+		TextColor3 = Color3.fromRGB(190, 190, 205),
+		Text = "Ban keeps them out for good (every server), even if they're offline. You can't kick or ban founders or other admins.",
+	})
+	local announceBox = field(212, "Announce", "message to every server")
+	local announce = button(body, "SEND ANNOUNCEMENT", MOD_BLUE, UDim2.new(1, 0, 0, 50))
+	announce.Position = UDim2.fromOffset(0, 262)
+	announce.MouseButton1Click:Connect(function()
+		if announceBox.Text ~= "" then
+			send("GlobalAnnounce", announceBox.Text)
+			announceBox.Text = ""
+		end
+	end)
+end
+modButton.MouseButton1Click:Connect(function()
+	shopFrame.Visible = false
+	modFrame.Visible = not modFrame.Visible
+end)
+
 -- Data -> UI ---------------------------------------------------------------
 
 local function render()
@@ -2368,6 +2687,10 @@ local function render()
 	adminButton.Visible = data.IsAdmin == true
 	if not data.IsAdmin and adminFrame.Visible then
 		adminFrame.Visible = false -- locked by Corny while it was open
+	end
+	modButton.Visible = data.IsMod == true
+	if not data.IsMod and modFrame.Visible then
+		modFrame.Visible = false
 	end
 	founderTab.Button.Visible = data.IsFounder == true
 	for _, row in limitedGiveRows do
@@ -2403,6 +2726,7 @@ local function render()
 	renderFollowers()
 	renderShardShop()
 	renderSell()
+	renderIndex()
 	currencyLabel.Text = string.format("🔷 %d Shards", data.Shards or 0)
 	rebirthInfo.Text = string.format(
 		"Rebirth %d\nCost: %s\nIncome x%.1f  ->  x%.1f\nCash, floors and base brainrots reset. Your vault, lock, skins and passes stay.",

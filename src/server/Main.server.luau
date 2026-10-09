@@ -75,6 +75,7 @@ type SaveData = {
 	AbuseGiftWeek: number, -- the week this player last got the admin abuse gift
 	InfiniteLock: boolean, -- bought the Infinite Laser Door with Shards
 	Codes: { string }, -- codes already redeemed (upper case)
+	Discovered: { string }, -- every brainrot id this player has ever had (the Index)
 	Settings: PlayerSettings,
 }
 
@@ -121,7 +122,8 @@ type Session = {
 	LastSlap: number,
 	LastHint: number,
 	LastCollect: number,
-	IsAdmin: boolean,
+	IsAdmin: boolean, -- full admin panel or mod panel
+	FullAdmin: boolean, -- false for mods (Config.AdminUserIds): MOD PANEL only
 	IsFounder: boolean,
 	FounderId: string, -- "Corny", "Ace", or "" for everyone else
 	Roles: { [string]: boolean }, -- Tester / Mod, for the role-only skins
@@ -367,6 +369,7 @@ local function defaultData(): SaveData
 		AbuseGiftWeek = -1,
 		InfiniteLock = false,
 		Codes = {},
+		Discovered = {},
 		Settings = { HideVip = false, MusicVolume = 1 },
 		Quests = { Day = -1, Week = -1, Daily = {}, Weekly = {}, DailyDone = {}, WeeklyDone = {} },
 	}
@@ -448,6 +451,13 @@ local function sanitize(raw: any): SaveData
 		data.AbuseGiftWeek = raw.AbuseGiftWeek
 	end
 	data.InfiniteLock = raw.InfiniteLock == true
+	if type(raw.Discovered) == "table" then
+		for _, id in raw.Discovered do
+			if type(id) == "string" and Config.GetBrainrot(id) and not table.find(data.Discovered, id) then
+				table.insert(data.Discovered, id)
+			end
+		end
+	end
 	if type(raw.Codes) == "table" then
 		for _, code in raw.Codes do
 			if type(code) == "string" and not table.find(data.Codes, code) then
@@ -637,7 +647,8 @@ local function snapshot(session: Session)
 		InfiniteLock = session.Owns.InfiniteLock == true or data.InfiniteLock,
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
-		IsAdmin = hasAdminPowers(session),
+		IsAdmin = hasAdminPowers(session) and session.FullAdmin,
+		IsMod = hasAdminPowers(session) and not session.FullAdmin,
 		AdminsLocked = adminsLockedNow(),
 		IsFounder = session.IsFounder,
 		FounderId = session.FounderId,
@@ -648,6 +659,7 @@ local function snapshot(session: Session)
 		Skins = data.Skins,
 		Skin = data.Skin,
 		Settings = data.Settings,
+		Discovered = data.Discovered,
 		VaultLevel = data.VaultLevel,
 		VaultUsed = if plot then vaultCount(plot) else #data.Vault,
 		Quests = questSnapshot(data),
@@ -938,6 +950,10 @@ local function placeBrainrot(plot: Plot, index: number, id: string, mutation: st
 
 	-- Income that grows with rebirths shows the owner's current amount.
 	local session = owner and sessions[owner]
+	if owner and session and not table.find(session.Data.Discovered, id) then
+		table.insert(session.Data.Discovered, id)
+		notify(owner, string.format("📖 NEW in your Index: %s! (%d/%d)", brainrot.DisplayName, #session.Data.Discovered, #Config.Brainrots))
+	end
 	if session and brainrot.IncomeGrowth then
 		BrainrotModel.SetIncomeText(m, Config.IncomeOf(brainrot, mutation, session.Data.Rebirths))
 	end
@@ -1599,6 +1615,15 @@ local function assignPlot(player: Player, session: Session)
 			WorldBuilder.SetPrestige(plot.Parts, session.Data.Rebirths, session.Data.Stories, throneLook(session))
 			setLaser(plot, false)
 			applyInfiniteLock(plot, session)
+			-- Everything they already own counts as discovered (older saves).
+			for _, list in { session.Data.Brainrots, session.Data.Vault, session.Data.Unclaimed } do
+				for _, entry in list do
+					local owned = Config.Decode(entry)
+					if owned and not table.find(session.Data.Discovered, owned.Id) then
+						table.insert(session.Data.Discovered, owned.Id)
+					end
+				end
+			end
 			for _, entry in session.Data.Brainrots do
 				local brainrot, mutation, serial = Config.Decode(entry)
 				-- Fill unlocked slots first; if there are more brainrots than
@@ -2804,6 +2829,7 @@ local function load(player: Player)
 		LastHint = 0,
 		LastCollect = 0,
 		IsAdmin = false,
+		FullAdmin = false,
 		IsFounder = false,
 		FounderId = "",
 		Roles = {},
@@ -2854,6 +2880,9 @@ local function load(player: Player)
 	end
 
 	session.IsAdmin = checkAdmin(player)
+	-- Mods listed in Config.AdminUserIds get the small mod panel; founders,
+	-- the owner and Studio testing get the full one.
+	session.FullAdmin = session.IsAdmin and (RunService:IsStudio() or founderOf(player) ~= nil or not table.find(Config.AdminUserIds, player.UserId))
 	local founder = founderOf(player)
 	session.IsFounder = founder ~= nil
 	session.FounderId = if founder then founder.Id else ""
@@ -4259,6 +4288,10 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 	end
 	if not hasAdminPowers(adminSession) then
 		notify(admin, "The admin panel is locked by " .. Config.HeadFounder .. ".")
+		return
+	end
+	if not adminSession.FullAdmin and not table.find(Config.ModActions, action) then
+		notify(admin, "Mods can only kick, ban, unban and announce.")
 		return
 	end
 

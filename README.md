@@ -168,7 +168,7 @@ Admins get a red **ADMIN** button on the left. The **Player** box at the top pic
 
 The panel shrinks to fit smaller screens.
 
-Who is an admin: the game's owner (or the group owner, for group games), anyone listed in `Config.AdminUserIds`, and everyone while testing in Studio. The server checks every admin action, so nobody else can use it even with exploits.
+Who is an admin: the founders, the game's owner (or the group owner, for group games), and everyone while testing in Studio. **Mods** (Roblox user IDs in `Config.AdminUserIds`, e.g. `3272219254`) get a small blue **MOD** button instead: the **MOD PANEL** has just Kick, Ban (tap twice), Unban and Announce, and the server refuses anything else from a mod. The server checks every admin action, so nobody else can use it even with exploits.
 
 ### Admin abuse and drops
 
@@ -237,6 +237,10 @@ Every base has a gold **🔒 VAULT** hatch in the ground floor. The owner clicks
 ## Rebirth rewards
 
 The more you rebirth, the cooler your base looks (in your stair carpet's colors): glowing pedestal rims (1 rebirth), torches by the door (3), banners showing your rebirth count (5), guardian pillars with glowing orbs (10), a royal runway with lamps (15), a sky beacon everyone can see (20), and at 25 the **King's balcony** over the door with a **throne**: a gem-crowned throne in your carpet colors, Corny's made of corn cobs and Ace's a giant pink bloom. Stand on the gold pad below to sit on it (owner only).
+
+## Index
+
+The orange **INDEX** button opens a collection book. One rarity page at a time shows every brainrot as a little 3D model: the ones you've ever had in full color with their income, the rest as dark "???" silhouettes, with a FOUND count (e.g. 23/68). You get a "📖 NEW in your Index" message the first time you get each one, and everything you already owned counts. The **SKINS** page shows every wall skin you can get, with OWNED / EQUIPPED or its price.
 
 ## Followers
 
