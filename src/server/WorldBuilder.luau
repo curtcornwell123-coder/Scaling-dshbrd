@@ -861,6 +861,8 @@ end
 -- Rebuilds every floor's walls (with windows) for a wall level, and marks
 -- which entrance laser beams cover the doorway. Floors with another floor
 -- above get walls all the way up to it, so there are no gaps.
+local setVipVault: (parts: PlotParts, on: boolean) -> () -- defined after the throne below
+
 function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: number, skin: Config.WallSkin?)
 	local info = Config.WallLevels[level] or Config.WallLevels[1]
 	local style: WallStyle = {
@@ -914,6 +916,7 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 			end
 		end
 	end
+	setVipVault(parts, skin ~= nil and skin.Vip == true)
 
 	local half = PLOT_SIZE / 2
 	local inner = PLOT_SIZE - WALL_THICKNESS * 2 -- back/front walls fit between the side walls
@@ -991,9 +994,10 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 	end
 end
 
--- Lays carpet on every staircase. Tier 0 = bare wood (see Config.CarpetTiers).
-function WorldBuilder.SetCarpet(parts: PlotParts, tier: number)
-	local info = Config.CarpetTiers[tier]
+-- Lays carpet on every staircase. Tier 0 = bare wood (see Config.CarpetTiers);
+-- `override` lays that carpet instead (the VIP Royale skin's velvet).
+function WorldBuilder.SetCarpet(parts: PlotParts, tier: number, override: Config.CarpetTier?)
+	local info = override or Config.CarpetTiers[tier]
 	local rise = STORY_HEIGHT / STAIR_STEPS
 	local run = STAIR_RUN / STAIR_STEPS
 	for _, stair in parts.Stairs do
@@ -1065,6 +1069,8 @@ local BRONZE = Color3.fromRGB(205, 127, 50)
 local THRONE_GOLD = Color3.fromRGB(255, 200, 60)
 local BLOOM_PINK = Color3.fromRGB(255, 110, 200)
 local BLOOM_LIGHT = Color3.fromRGB(255, 190, 230)
+local VIP_VELVET = Color3.fromRGB(110, 35, 175)
+local VIP_GEM = Color3.fromRGB(190, 110, 255)
 local BALCONY_HEIGHT = 13 -- balcony floor, above the door
 
 local function light(parent: Instance, color: Color3, range: number, brightness: number)
@@ -1089,10 +1095,11 @@ local function rod(parent: Instance, name: string, length: number, d: number, cf
 end
 
 -- The throne, centered on `cf` (feet level, facing cf's -Z). Its look:
--- "Corn" (Corny), "Bloom" (Ace) or the carpet colors for everyone else.
+-- "Corn" (Corny), "Bloom" (Ace), "VIP" (the VIP Royale skin) or the carpet
+-- colors for everyone else.
 local function throne(folder: Instance, cf: CFrame, look: string, main: Color3, trim: Color3, glow: Color3, rainbow: boolean?): Seat
-	local frame = if look == "Corn" then CORN_YELLOW elseif look == "Bloom" then BLOOM_PINK else trim
-	local cushion = if look == "Corn" then CORN_LEAF elseif look == "Bloom" then BLOOM_LIGHT else main
+	local frame = if look == "Corn" then CORN_YELLOW elseif look == "Bloom" then BLOOM_PINK elseif look == "VIP" then THRONE_GOLD else trim
+	local cushion = if look == "Corn" then CORN_LEAF elseif look == "Bloom" then BLOOM_LIGHT elseif look == "VIP" then VIP_VELVET else main
 	-- Base and the seat you can sit on
 	decoration(folder, "ThroneBase", Vector3.new(5.2, 1.6, 4.4), cf * CFrame.new(0, 0.8, 0.2), frame, Enum.Material.Foil)
 	local seat = Instance.new("Seat")
@@ -1132,6 +1139,22 @@ local function throne(folder: Instance, cf: CFrame, look: string, main: Color3, 
 		end
 		rod(folder, "BloomHeart", 0.5, 1.8, center * CFrame.new(0, 0, -0.45) * CFrame.Angles(0, math.rad(90), 0), THRONE_GOLD, Enum.Material.Neon)
 		decoration(folder, "ThroneBack", Vector3.new(4.2, 3.6, 0.5), back * CFrame.new(0, 3.6, 0.4), BLOOM_PINK, Enum.Material.Fabric)
+	elseif look == "VIP" then
+		-- Tall velvet backrest in a gold frame, topped with a jeweled gold crown.
+		decoration(folder, "ThroneBack", Vector3.new(5, 7.2, 0.8), back * CFrame.new(0, 5.6, 0.3), THRONE_GOLD, Enum.Material.Foil)
+		decoration(folder, "ThroneCushion", Vector3.new(4, 6, 0.3), back * CFrame.new(0, 5.4, -0.2), VIP_VELVET, Enum.Material.Fabric)
+		for _, y in { 3.6, 5.4, 7.2 } do
+			ball(folder, "ThroneButton", 0.35, back * CFrame.new(0, y, -0.4), THRONE_GOLD, Enum.Material.Foil)
+		end
+		local crown = back * CFrame.new(0, 9.7, 0.3)
+		rod(folder, "CrownBand", 1.1, 3.2, crown * CFrame.Angles(0, 0, math.rad(90)), THRONE_GOLD, Enum.Material.Foil)
+		for k = 0, 6 do
+			local angle = k / 7 * math.pi * 2
+			local offset = CFrame.new(math.cos(angle) * 1.35, 0.95, math.sin(angle) * 1.35)
+			decoration(folder, "CrownPoint", Vector3.new(0.45, 1.1, 0.45), crown * offset * CFrame.Angles(0, 0, math.rad(45)), THRONE_GOLD, Enum.Material.Foil)
+			ball(folder, "CrownGem", 0.45, crown * offset * CFrame.new(0, 0.8, 0), if k % 2 == 0 then VIP_GEM else Color3.fromRGB(255, 70, 90), Enum.Material.Neon)
+		end
+		ball(folder, "CrownJewel", 0.8, crown * CFrame.new(0, 0, -1.6), VIP_GEM, Enum.Material.Neon)
 	else
 		-- A tall cushioned backrest in a gold frame, crowned with gems.
 		decoration(folder, "ThroneBack", Vector3.new(4.8, 6.6, 0.8), back * CFrame.new(0, 5.3, 0.3), frame, Enum.Material.Foil)
@@ -1146,8 +1169,9 @@ local function throne(folder: Instance, cf: CFrame, look: string, main: Color3, 
 end
 
 -- Rebuilds a base's rebirth decorations. `look` picks the throne style
--- ("Corn", "Bloom" or nil for the carpet colors).
-function WorldBuilder.SetPrestige(parts: PlotParts, rebirths: number, stories: number, look: string?)
+-- ("Corn", "Bloom", "VIP" or nil for the carpet colors); `carpet` overrides
+-- the rebirth carpet's colors (the VIP Royale skin).
+function WorldBuilder.SetPrestige(parts: PlotParts, rebirths: number, stories: number, look: string?, carpet: Config.CarpetTier?)
 	local folder = parts.Prestige
 	folder:ClearAllChildren()
 	for _, pedestal in parts.Pedestals do
@@ -1157,7 +1181,7 @@ function WorldBuilder.SetPrestige(parts: PlotParts, rebirths: number, stories: n
 		end
 	end
 	local tier = Config.CarpetTierFor(rebirths)
-	local info = Config.CarpetTiers[tier]
+	local info = carpet or Config.CarpetTiers[tier]
 	local main = if info then info.Color else BRONZE
 	local trim = if info and info.Trim then info.Trim else THRONE_GOLD
 	local glow = if info and info.Glow then info.Glow elseif info then info.Color:Lerp(Color3.new(1, 1, 1), 0.3) else Color3.fromRGB(255, 170, 90)
@@ -1289,6 +1313,53 @@ function WorldBuilder.SetPrestige(parts: PlotParts, rebirths: number, stories: n
 		sign.Font = Enum.Font.FredokaOne
 		seat:SetAttribute("PlotIndex", parts.Index)
 	end
+end
+
+-- The VIP Royale skin's vault: a velvet runner from the ladder, gold
+-- crowned pillars, a chandelier and a VIP throne by the wall.
+setVipVault = function(parts: PlotParts, on: boolean)
+	local old = parts.Vault:FindFirstChild("VipVault")
+	if old then
+		old:Destroy()
+	end
+	if not on then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "VipVault"
+	folder.Parent = parts.Vault
+	local floorY = VAULT_FLOOR - FLOOR_TOP
+	local half = VAULT_SIZE / 2
+	local function at(x: number, y: number, z: number): CFrame
+		return parts.CFrame * CFrame.new(x, floorY + y, z)
+	end
+	-- Velvet runner with gold edges, from the ladder to the podiums
+	decoration(folder, "VipRunner", Vector3.new(6, 0.12, 19), at(0, 0.06, -11), VIP_VELVET, Enum.Material.Fabric)
+	for _, side in { -1, 1 } do
+		decoration(folder, "VipRunnerTrim", Vector3.new(0.35, 0.16, 19), at(side * 3.15, 0.08, -11), THRONE_GOLD, Enum.Material.Foil)
+	end
+	-- Gold-crowned velvet pillars in the front corners
+	for _, side in { -1, 1 } do
+		local x = side * (half - 2)
+		rod(folder, "VipPillar", VAULT_HEIGHT - 2, 1.8, at(x, (VAULT_HEIGHT - 2) / 2, -half + 2) * CFrame.Angles(0, 0, math.rad(90)), VIP_VELVET, Enum.Material.Marble)
+		rod(folder, "VipPillarCap", 0.6, 2.4, at(x, VAULT_HEIGHT - 2, -half + 2) * CFrame.Angles(0, 0, math.rad(90)), THRONE_GOLD, Enum.Material.Foil)
+		rod(folder, "VipPillarFoot", 0.6, 2.4, at(x, 0.3, -half + 2) * CFrame.Angles(0, 0, math.rad(90)), THRONE_GOLD, Enum.Material.Foil)
+		light(ball(folder, "VipPillarGem", 0.9, at(x, VAULT_HEIGHT - 1.2, -half + 2), VIP_GEM, Enum.Material.Neon), VIP_GEM, 14, 1)
+	end
+	-- Chandelier
+	local center = at(0, VAULT_HEIGHT - 2.5, -4)
+	rod(folder, "ChandelierRing", 0.3, 5, center * CFrame.Angles(0, 0, math.rad(90)), THRONE_GOLD, Enum.Material.Foil)
+	for k = 0, 7 do
+		local angle = k / 8 * math.pi * 2
+		ball(folder, "ChandelierLight", 0.45, center * CFrame.new(math.cos(angle) * 2.4, 0.4, math.sin(angle) * 2.4), Color3.fromRGB(255, 235, 180), Enum.Material.Neon)
+	end
+	light(ball(folder, "ChandelierCore", 1, center * CFrame.new(0, -0.3, 0), VIP_GEM, Enum.Material.Neon), Color3.fromRGB(255, 220, 160), 28, 1.2)
+	-- The VIP throne against the left wall, facing the room
+	local seat = throne(folder, at(-half + 3, 0, -9) * CFrame.Angles(0, math.rad(-90), 0), "VIP", VIP_VELVET, THRONE_GOLD, VIP_GEM)
+	local sign = billboard(seat, Vector2.new(260, 60), Vector3.new(0, 10, 0), "👑 VIP VAULT", THRONE_GOLD)
+	sign.Font = Enum.Font.FredokaOne
+	local gui = sign.Parent :: BillboardGui
+	gui.MaxDistance = 60
 end
 
 -- A rocky cave around one end of the conveyor. `facing` is the direction

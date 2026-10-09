@@ -275,7 +275,9 @@ local function plotIncome(plot: Plot, session: Session): number
 			end
 		end
 	end
-	return total * incomeMultiplier(session)
+	-- Never infinity / NaN, however many rebirths (the pad and cash stay real).
+	local income = total * incomeMultiplier(session)
+	return if income ~= income then 0 else math.min(income, Config.MaxCash)
 end
 
 local function placedCount(plot: Plot): number
@@ -1063,10 +1065,25 @@ local function setLaser(plot: Plot, on: boolean)
 	plot.Parts.Model:SetAttribute("Locked", on)
 end
 
+-- Whether the base wears the VIP Royale skin (velvet stairs, VIP throne).
+local function wearsVipSkin(session: Session): boolean
+	local skin = Config.GetWallSkin(session.Data.Skin)
+	return skin ~= nil and skin.Vip == true
+end
+
 -- The throne style on a max-prestige balcony: Corny's is made of corn, Ace's
--- is a pink bloom, everyone else's is in their carpet colors.
+-- is a pink bloom, VIP Royale's is velvet and gold, everyone else's is in
+-- their carpet colors.
 local function throneLook(session: Session): string?
-	return if session.FounderId == "Corny" then "Corn" elseif session.FounderId == "Ace" then "Bloom" else nil
+	return if session.FounderId == "Corny" then "Corn"
+		elseif session.FounderId == "Ace" then "Bloom"
+		elseif wearsVipSkin(session) then "VIP"
+		else nil
+end
+
+-- The stairs' carpet: the VIP velvet for VIP Royale, else the rebirth one.
+local function carpetOverride(session: Session): Config.CarpetTier?
+	return if wearsVipSkin(session) then Config.VipCarpet else nil
 end
 
 local function lockDuration(session: Session): number
@@ -1620,8 +1637,8 @@ local function assignPlot(player: Player, session: Session)
 			updateVipPedestals(plot)
 			WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories, Config.GetWallSkin(session.Data.Skin))
 			WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
-			WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
-			WorldBuilder.SetPrestige(plot.Parts, session.Data.Rebirths, session.Data.Stories, throneLook(session))
+			WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths), carpetOverride(session))
+			WorldBuilder.SetPrestige(plot.Parts, session.Data.Rebirths, session.Data.Stories, throneLook(session), carpetOverride(session))
 			setLaser(plot, false)
 			applyInfiniteLock(plot, session)
 			-- Everything they already own counts as discovered (older saves).
@@ -1704,8 +1721,8 @@ end
 local function applyBaseLevels(plot: Plot, session: Session)
 	WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories, Config.GetWallSkin(session.Data.Skin))
 	WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
-	WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
-	WorldBuilder.SetPrestige(plot.Parts, session.Data.Rebirths, session.Data.Stories, throneLook(session))
+	WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths), carpetOverride(session))
+	WorldBuilder.SetPrestige(plot.Parts, session.Data.Rebirths, session.Data.Stories, throneLook(session), carpetOverride(session))
 	WorldBuilder.SetVaultPodiums(plot.Parts, Config.VaultLevels[session.Data.VaultLevel].Podiums)
 	applyInfiniteLock(plot, session)
 	setLaser(plot, os.clock() < plot.LockedUntil)
@@ -2985,6 +3002,7 @@ local function load(player: Player)
 	session.Roles = {
 		Mod = session.IsAdmin,
 		Tester = session.IsAdmin or table.find(Config.TesterUserIds, player.UserId) ~= nil,
+		VIP = session.Owns.VIP == true,
 	}
 	-- A founder-only skin is only ever on its founder's base.
 	local equipped = Config.GetWallSkin(session.Data.Skin)
@@ -3956,6 +3974,95 @@ local function runFounderEvent(eventId: string, minutes: number)
 		giant:Destroy()
 	end
 
+	-- 99 Nights: a giant 67 Nights Deer prowls in a wide circle around the
+	-- spot, its eyes glowing red, dropping things from its claws.
+	local function runForest(spot: Vector3)
+		local deerInfo = Config.GetBrainrot("SixtySevenNights")
+		if not deerInfo then
+			return
+		end
+		local deer = BrainrotModel.Create(deerInfo, nil, CFrame.new(spot), false, nil, false, event.Scale)
+		local tag = deer.PrimaryPart and deer.PrimaryPart:FindFirstChild("Tag")
+		if tag then
+			tag:Destroy()
+		end
+		deer.Name = "NightDeer"
+		local root = deer.PrimaryPart :: BasePart
+		local glow = Instance.new("PointLight")
+		glow.Color = event.Colors[2]
+		glow.Range = 60
+		glow.Brightness = 2
+		glow.Parent = root
+		deer.Parent = eventFolder
+		local _, size = deer:GetBoundingBox()
+		giantPoof(spot, size.Y, event.Colors[2])
+
+		local side = if spot.Z < 0 then math.pi else 0
+		local radius = 70
+		local started = os.clock()
+		local nextDrop = os.clock() + 2 + rng:NextNumber(0, dropEvery)
+		local hand = 1
+		while deer.Parent and active() do
+			local t = os.clock() - started
+			-- Slow prowl around the spot, with a creepy bob and sway each step.
+			local angle = t * 0.1 + side
+			local stride = math.abs(math.sin(t * 2))
+			local position = spot + Vector3.new(math.cos(angle) * radius, 0.5 + stride * size.Y * 0.015, math.sin(angle) * radius)
+			local heading = Vector3.new(-math.sin(angle), 0, math.cos(angle))
+			deer:PivotTo(CFrame.lookAt(position, position + heading) * CFrame.Angles(0, 0, math.sin(t * 2) * 0.05))
+			if os.clock() >= nextDrop then
+				nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
+				hand = -hand
+				-- From the tips of its claws.
+				drop((deer:GetPivot() * CFrame.new(hand * size.X * 0.4, size.Y * 0.2, 0)).Position)
+			end
+			RunService.Heartbeat:Wait()
+		end
+		giantPoof(deer:GetPivot().Position, size.Y, event.Colors[1])
+		deer:Destroy()
+	end
+
+	-- 99 Nights: campfires around the lobby, burning until morning.
+	if event.Forest then
+		for _, at in { Vector3.new(-60, 0, 40), Vector3.new(60, 0, -40), Vector3.new(150, 0, 40), Vector3.new(-150, 0, -40) } do
+			local fire = Instance.new("Model")
+			fire.Name = "Campfire"
+			local function piece(name: string, shape: Enum.PartType, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material): Part
+				local p = Instance.new("Part")
+				p.Name = name
+				p.Shape = shape
+				p.Anchored = true
+				p.CanCollide = false
+				p.Size = size
+				p.CFrame = cf
+				p.Color = color
+				p.Material = material
+				p.Parent = fire
+				return p
+			end
+			for k = 0, 7 do
+				local a = k / 8 * math.pi * 2
+				piece("Stone", Enum.PartType.Ball, Vector3.new(1.4, 1.4, 1.4), CFrame.new(at + Vector3.new(math.cos(a) * 3, 0.5, math.sin(a) * 3)), Color3.fromRGB(110, 110, 115), Enum.Material.Slate)
+			end
+			for k = 0, 2 do
+				piece("Log", Enum.PartType.Cylinder, Vector3.new(4.5, 0.9, 0.9), CFrame.new(at + Vector3.new(0, 0.7, 0)) * CFrame.Angles(0, k * math.pi / 3, math.rad(18)), Color3.fromRGB(95, 60, 35), Enum.Material.Wood)
+			end
+			local core = piece("Embers", Enum.PartType.Ball, Vector3.new(1.6, 1, 1.6), CFrame.new(at + Vector3.new(0, 0.8, 0)), Color3.fromRGB(255, 120, 40), Enum.Material.Neon)
+			local flames = Instance.new("Fire")
+			flames.Size = 7
+			flames.Heat = 12
+			flames.Color = Color3.fromRGB(255, 140, 40)
+			flames.SecondaryColor = Color3.fromRGB(255, 60, 20)
+			flames.Parent = core
+			local warm = Instance.new("PointLight")
+			warm.Color = Color3.fromRGB(255, 150, 70)
+			warm.Range = 32
+			warm.Brightness = 2.5
+			warm.Parent = core
+			fire.Parent = eventFolder
+		end
+	end
+
 	-- The guaranteed brainrot, with a rare mutation, a little after it starts.
 	local guaranteed = event.Guaranteed and Config.GetBrainrot(event.Guaranteed)
 	if guaranteed then
@@ -4000,7 +4107,7 @@ local function runFounderEvent(eventId: string, minutes: number)
 		running += 1
 		task.spawn(function()
 			-- Even if something goes wrong, the event still ends properly.
-			local ok, err = pcall(if event.Style == "Ballet" then runBallet else runUfo, spot)
+			local ok, err = pcall(if event.Style == "Ballet" then runBallet elseif event.Style == "Forest" then runForest else runUfo, spot)
 			if not ok then
 				warn("[BrainrotHeist] Founder event part failed:", err)
 			end
@@ -4575,7 +4682,7 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		if not event then
 			return
 		end
-		if event.Founder ~= founder.Id and founder.Id ~= Config.HeadFounder then
+		if event.Founder ~= founder.Id and founder.Id ~= Config.HeadFounder and not event.AnyFounder then
 			notify(admin, "That's " .. event.Founder .. "'s event: only " .. event.Founder .. " can start it.")
 			return
 		end
@@ -4745,6 +4852,7 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				end
 				if pass then
 					session.Owns[pass.Key] = true
+					session.Roles.VIP = session.Owns.VIP == true
 					if plot then
 						applyBaseLevels(plot, session)
 					end
@@ -5013,7 +5121,11 @@ MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passI
 	for _, pass in Config.GamePasses do
 		if pass.Id == passId then
 			session.Owns[pass.Key] = true
+			session.Roles.VIP = session.Owns.VIP == true
 			notify(player, "You got " .. pass.Name .. "!")
+			if pass.Key == "VIP" then
+				notify(player, "Claim your free VIP Royale skin in the skins list!")
+			end
 		end
 	end
 	if session.Plot then
@@ -5048,7 +5160,7 @@ task.spawn(function()
 				local owner = plot.Owner
 				local session = owner and sessions[owner]
 				if session and session.Loaded then
-					plot.Pending += plotIncome(plot, session)
+					plot.Pending = math.min(plot.Pending + plotIncome(plot, session), Config.MaxCash)
 					plot.Parts.PendingLabel.Text = "COLLECT\n" .. Config.FormatCash(plot.Pending)
 
 					local button = plot.Parts.LockButtonLabel

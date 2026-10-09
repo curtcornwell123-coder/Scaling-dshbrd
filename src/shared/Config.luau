@@ -329,7 +329,8 @@ export type WallSkin = {
 	Corn: boolean?, -- corn cobs on the walls and the Corny Games logo on the windows
 	Trim: Color3?, -- glowing strips along the window sills and tops
 	Moon: boolean?, -- a crescent moon over the base, with an aura once it's fully upgraded
-	RoleOnly: string?, -- "Tester" or "Mod": only players with that role can have it (free)
+	RoleOnly: string?, -- "Tester", "Mod" or "VIP": only players with that role can have it (free)
+	Vip: boolean?, -- VIP Royale: velvet stairs (Config.VipCarpet), a VIP throne and a VIP vault
 	TopSign: string?, -- a glowing sign floating over the base (in the Trim color)
 	Clover: boolean?, -- four-leaf clovers on the walls (Ace's skin)
 	Pattern: string?, -- "Checker", "Stripes", "Dots", "Argyle" or "Smileys" on the floors and wall bands
@@ -359,6 +360,10 @@ Config.WallSkins = {
 	{ Id = "Celestial", Name = "Celestial", Cost = 7000, Color = Color3.fromRGB(245, 240, 228), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 210, 90), GlassNeon = true, FloorColor = Color3.fromRGB(250, 246, 236), FloorMaterial = Enum.Material.Marble, Pattern = "Argyle", PatternColor = Color3.fromRGB(255, 210, 90) },
 	{ Id = "RainbowRoyale", Name = "Rainbow Royale", Cost = 9000, Color = Color3.fromRGB(250, 250, 255), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 180, 255), GlassNeon = true, Trim = Color3.fromRGB(255, 120, 255), FloorColor = Color3.fromRGB(255, 255, 255), FloorMaterial = Enum.Material.Marble, Pattern = "Stripes", PatternRainbow = true },
 	{ Id = "VoidEmperor", Name = "Void Emperor", Cost = 12000, Color = Color3.fromRGB(18, 10, 30), Material = Enum.Material.Slate, Glass = Color3.fromRGB(170, 80, 255), GlassNeon = true, Trim = Color3.fromRGB(150, 60, 255), FloorColor = Color3.fromRGB(25, 15, 40), FloorMaterial = Enum.Material.Slate, Pattern = "Argyle", PatternColor = Color3.fromRGB(150, 60, 255) },
+	-- VIP Royale: free with the VIP gamepass. Royal purple and gold, with
+	-- velvet stairs, a VIP throne in the vault (and on the balcony) and a
+	-- decked-out VIP vault.
+	{ Id = "VIP", Name = "VIP Royale (VIP only)", Cost = 0, RoleOnly = "VIP", Vip = true, TopSign = "👑 VIP", Trim = Color3.fromRGB(255, 200, 60), Color = Color3.fromRGB(78, 30, 125), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 205, 80), GlassNeon = true, FloorColor = Color3.fromRGB(52, 20, 85), FloorMaterial = Enum.Material.Marble, Pattern = "Argyle", PatternColor = Color3.fromRGB(255, 200, 60) },
 	-- Role skins: free for testers (Config.TesterUserIds) and for mods (admins).
 	{ Id = "Tester", Name = "Beta Tester (testers only)", Cost = 0, RoleOnly = "Tester", TopSign = "🧪 BETA TESTER", Trim = Color3.fromRGB(0, 230, 255), Color = Color3.fromRGB(235, 245, 250), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(120, 240, 255), GlassNeon = true, FloorColor = Color3.fromRGB(205, 220, 230), FloorMaterial = Enum.Material.DiamondPlate },
 	{ Id = "Mod", Name = "Moderator (mods only)", Cost = 0, RoleOnly = "Mod", TopSign = "🛡️ MODERATOR", Trim = Color3.fromRGB(255, 45, 60), Color = Color3.fromRGB(28, 28, 34), Material = Enum.Material.Metal, Glass = Color3.fromRGB(255, 70, 80), GlassNeon = true, FloorColor = Color3.fromRGB(40, 40, 48), FloorMaterial = Enum.Material.DiamondPlate },
@@ -541,6 +546,9 @@ Config.CarpetTiers = {
 	{ Name = "Rainbow Carpet", Color = Color3.fromRGB(255, 255, 255), Material = Enum.Material.Fabric, Trim = Color3.fromRGB(255, 200, 60), Glow = Color3.fromRGB(255, 120, 255), Sparkle = true, Rainbow = true },
 } :: { CarpetTier }
 
+-- The VIP Royale skin's stairs (whatever the rebirths).
+Config.VipCarpet = { Name = "VIP Velvet", Color = Color3.fromRGB(110, 35, 175), Material = Enum.Material.Fabric, Trim = Color3.fromRGB(255, 200, 60), Glow = Color3.fromRGB(255, 210, 90), Sparkle = true } :: CarpetTier
+
 -- 0 = plain wood stairs, 1 = first carpet at 5 rebirths, and so on.
 function Config.CarpetTierFor(rebirths: number): number
 	return math.min(#Config.CarpetTiers, rebirths // Config.CarpetRebirthStep)
@@ -708,8 +716,8 @@ Config.FounderGiantSpots = {
 } :: { [string]: Vector3 }
 -- Cash bags from founder events: a few seconds of the grabber's own income
 -- (so they matter early on without skipping the game later), at least this.
-Config.FounderCashDrop = 500
-Config.FounderCashDropSeconds = 20
+Config.FounderCashDrop = 200
+Config.FounderCashDropSeconds = 8
 
 -- Founder events: each stars only that founder, wearing their special event
 -- outfit (not their normal avatar). Admins start them from the admin panel.
@@ -747,6 +755,11 @@ export type FounderEvent = {
 	NightMutations: { { Id: string, Chance: number, Boost: number } }?,
 	Alien: boolean?, -- alien-style intro (green, sci-fi, glitchy) instead of rainbow
 	Chaos: boolean?, -- sweeping green searchlights, pulsing lights, mini UFOs and abduction beams
+	AnyFounder: boolean?, -- any founder can start it (not just `Founder`)
+	EventName: string?, -- shown in the event label (otherwise "<FOUNDER>'S EVENT")
+	-- "Forest" (99 Nights): a giant 67 Nights Deer prowls each side of the
+	-- map in the dark while campfires burn and the forest fog rolls in.
+	Forest: boolean?,
 }
 Config.FounderEvents = {
 	Corny = {
@@ -815,6 +828,36 @@ Config.FounderEvents = {
 		-- original ballet track instead, upload assets/music/ballet_action.mp3
 		-- and put its id here.
 		MusicId = "rbxassetid://1836281845",
+	},
+	-- 99 Nights: any founder can start it. Night falls, fog rolls in, campfires
+	-- light up, and a giant 67 Nights Deer stalks each side of the map,
+	-- dropping cash bags and brainrots from its claws.
+	Nights99 = {
+		Founder = "The Deer",
+		AnyFounder = true,
+		EventName = "99 NIGHTS",
+		Style = "Forest",
+		Forest = true,
+		OutfitId = 0,
+		Title = "99 NIGHTS EVENT!",
+		Subtitle = "Night falls on the forest... the 67 Nights Deer is hunting! Grab what it drops!",
+		DurationMinutes = 5,
+		Scale = 11, -- about 105 studs tall
+		Spots = { Vector3.new(0, 0, 240), Vector3.new(0, 0, -240) },
+		DropEvery = 10,
+		BrainrotChance = 0.15,
+		BrainrotLuck = 2,
+		Mutations = { { Id = "Frozen", Chance = 20 }, { Id = "Cursed", Chance = 6 } },
+		Colors = { Color3.fromRGB(150, 190, 255), Color3.fromRGB(220, 45, 55), Color3.fromRGB(70, 170, 100), Color3.fromRGB(255, 150, 50) },
+		Chips = { "NIGHT FALLS", "THE DEER HUNTS", "NIGHT MUTATION", "CAMPFIRES" },
+		Night = true,
+		NightMutations = {
+			{ Id = "Frozen", Chance = 30, Boost = 5 },
+			{ Id = "Cursed", Chance = 30, Boost = 5 },
+			{ Id = "Void", Chance = 20, Boost = 6 },
+			{ Id = "Galaxy", Chance = 15, Boost = 5 },
+			{ Id = "Divine", Chance = 5, Boost = 8 },
+		},
 	},
 } :: { [string]: FounderEvent }
 
@@ -901,7 +944,7 @@ end
 
 Config.LimitedItems = {
 	CignaGlamourina = { ProductId = 0, GamePassId = 2021528297, PriceRobux = 50, Stock = 500, Reserved = 2 },
-	SixtySevenNights = { ProductId = 0, GamePassId = 0, PriceRobux = 50, Stock = 1000, Reserved = 2 },
+	SixtySevenNights = { ProductId = 0, GamePassId = 2023520328, PriceRobux = 50, Stock = 1000, Reserved = 2 },
 } :: { [string]: LimitedItem }
 
 -- Whether a limited item can be bought yet (it has a product or a gamepass).
@@ -912,7 +955,7 @@ end
 -- Admin drops: what the "Brainrot Rain" and "Cash Rain" buttons drop.
 Config.BrainrotRainCount = 5
 Config.BrainrotRainLuck = 3 -- rain is luckier than the conveyor
-Config.CashRainCount = 15
+Config.CashRainCount = 10
 Config.DropLifetime = 90 -- seconds before an unclaimed drop disappears
 
 -- Monetization -------------------------------------------------------------
@@ -923,7 +966,7 @@ Config.DropLifetime = 90 -- seconds before an unclaimed drop disappears
 
 Config.GamePasses = {
 	{ Key = "DoubleCash", Id = 0, Name = "2x Cash", Description = "Your brainrots make double cash forever." },
-	{ Key = "VIP", Id = 0, Name = "VIP", Description = "+2 base slots, 2 extra floors to buy, and a gold crown + VIP tag." },
+	{ Key = "VIP", Id = 2022590341, Name = "VIP", Description = "+2 base slots, 2 extra floors to buy, a gold crown + VIP tag, and the VIP Royale skin (velvet stairs, VIP throne and VIP vault)." },
 	{ Key = "LongerLock", Id = 0, Name = "Longer Lock", Description = "Your base lock lasts twice as long (2x lock time)." },
 	{ Key = "InfiniteLock", Id = 0, Name = "Infinite Laser Door", Description = "Your base lasers stay on forever. Nobody can steal from you." },
 } :: { GamePass }
@@ -1098,9 +1141,14 @@ end
 Config.IncomeScale = 0.6
 
 -- `rebirths` only matters for brainrots with IncomeGrowth.
+-- Capped far past anything the economy reaches, so a huge rebirth count
+-- (event brainrots double every rebirth) can't overflow to infinity.
+Config.MaxIncome = 1e45
+
 function Config.IncomeOf(brainrot: Brainrot, mutationId: string?, rebirths: number?): number
-	local growth = if brainrot.IncomeGrowth then brainrot.IncomeGrowth ^ (rebirths or 0) else 1
-	return brainrot.Income * Config.IncomeScale * mutationMultiplier(mutationId) * growth
+	local growth = if brainrot.IncomeGrowth then brainrot.IncomeGrowth ^ math.min(rebirths or 0, 150) else 1
+	local income = brainrot.Income * Config.IncomeScale * mutationMultiplier(mutationId) * growth
+	return if income ~= income then 0 else math.min(income, Config.MaxIncome)
 end
 
 function Config.SellValue(brainrot: Brainrot, mutationId: string?): number

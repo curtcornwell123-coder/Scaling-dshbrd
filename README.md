@@ -57,13 +57,13 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 
 To put her on sale: create a Developer Product named "Cigna Glamourina" priced at **50 Robux**, and paste its ID into `Config.LimitedItems.CignaGlamourina.ProductId`.
 
-### Next event: 67 Nights Deer (limited, coming soon)
+### Next event: 67 Nights Deer (limited)
 
 - A skinny dark-brown forest deer with a huge round head, staring saucer eyes, a pink muzzle and gaping mouth, branching antlers, and freakishly long arms that end in fanned-out claws.
 - **1,002 copies** (1,000 for **50 Robux** + 2 spares Corny can gift). Otherwise it works like Cigna: serial numbers, can't be stolen or sold, stays through rebirths, rolls a normal mutation when you get it (MAGIC stays Cigna's).
 - **Income: $3K/s, doubling with every rebirth.**
 - **Its own statue** spins right beside Cigna's, with its own live stock sign ("NEXT EVENT … 1000 / 1000 LEFT … Coming soon!"). The Sell Stand moved a little further along to make room. `Config.NextEvent` picks which brainrot stands there.
-- To put it on sale: create a gamepass priced at 50 Robux and paste its ID into `Config.LimitedItems.SixtySevenNights.GamePassId`; the sign then switches to "LIMITED EVENT" and tapping the statue buys it. To also give it the shop's FEATURED spot, set `Config.CurrentEvent = "SixtySevenNights"`. Corny can already give it from the admin panel.
+- **On sale** as gamepass `2023520328` (50 Robux): the sign shows "LIMITED EVENT" and tapping the statue buys it. To also give it the shop's FEATURED spot, set `Config.CurrentEvent = "SixtySevenNights"`. Corny can also give it from the admin panel.
 
 ### Mutations
 
@@ -196,9 +196,9 @@ Who is an admin: the founders, the game's owner (or the group owner, for group g
 
 ### Admin abuse and drops
 
-The admin panel can drop any brainrot (with any mutation) from the sky, start a **Brainrot Rain** of 5 lucky brainrots, or start a **Cash Rain** of 15 cash drops (each worth the amount box). First player to grab a drop keeps it.
+The admin panel can drop any brainrot (with any mutation) from the sky, start a **Brainrot Rain** of 5 lucky brainrots, or start a **Cash Rain** of 10 cash drops (each worth the amount box). First player to grab a drop keeps it.
 
-**Economy pace:** every brainrot earns 60% of its listed income (`Config.IncomeScale`; prices stay the same, so everything takes longer to afford), base levels and rebirths cost more (rebirth starts at $2.5M and grows 6x each time), and drops are smaller: founder-event throws come about half as often, are brainrots only 15% of the time (with less luck), and their cash bags are worth 20 seconds of the grabber's own income (at least $500) instead of a flat amount.
+**Economy pace:** every brainrot earns 60% of its listed income (`Config.IncomeScale`; prices stay the same, so everything takes longer to afford), base levels and rebirths cost more (rebirth starts at $2.5M and grows 6x each time), and drops are smaller: founder-event throws come about half as often, are brainrots only 15% of the time (with less luck), and their cash bags are worth 8 seconds of the grabber's own income (at least $200) instead of a flat amount. Income is capped far past anything reachable (`Config.MaxIncome`), so even a huge admin-set rebirth count can't overflow cash or the collect pad to ∞.
 
 There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. It's set to **Saturday 2:00 PM Central time (Oklahoma)**, and daylight saving is handled automatically. Change it in `Config.AdminAbuse`. Admins can also start or end it any time: type how many minutes in the **Minutes** box in the admin panel, then press **Start Admin Abuse**.
 
@@ -216,6 +216,10 @@ The founders are set in `Config.Founders`: **Corny** (Roblox username `Cornywell
 To find an outfit id for `OutfitId`: open `https://avatar.roblox.com/v1/users/<UserId>/outfits?itemsPerPage=50` in a browser, find the costume's `"name"`, and copy the `"id"` just before it.
 
 Each founder also has their own event, starring only them in a special event outfit (not their normal avatar). **Each founder starts their own event** (the FOUNDER tab shows START MY EVENT), and **Corny, the head founder (`Config.HeadFounder`), can also start Ace's**; Ace can't start Corny's, and only founders can end them; other admins don't even see the tab. Start one from the admin panel's **FOUNDER** tab (**START CORNY EVENT**, and **END FOUNDER EVENT** to stop it early). It runs for the number of minutes in that tab's **Minutes** box.
+
+### 99 Nights (any founder)
+
+A shared founder event any founder can start from the FOUNDER tab (**START 99 NIGHTS**). Night falls, a cold blue fog rolls in, snow drifts down and fireflies glow around you, and **campfires** light up around the lobby. A **giant 67 Nights Deer** (about 105 studs tall, red glow) prowls a slow circle on each side of the map, dropping cash bags and brainrots from its claws (extra Frozen and Cursed chances). One night mutation (Frozen, Cursed, Void, Galaxy or a rare Divine) is boosted until morning. When it ends: "MORNING CAME! YOU SURVIVED!" Set up in `Config.FounderEvents.Nights99`.
 
 ### Loading screen
 
@@ -293,6 +297,7 @@ Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around a
 - Every floor gets lights: ceiling panels under each floor, or lamp posts on an open top floor.
 - A base at level 5 gets walls all the way up and a peaked roof with a gold ridge and a glowing star; VIPs can build two more floors on top and the roof moves up with them.
 - **VIP** players wear a gold crown with red, purple and green gems over their VIP tag (they can hide both in Settings).
+- **VIP Royale skin** (free with VIP, claimed in the skins list; non-VIPs see it with a GET VIP button): royal purple marble walls with gold trim and gold argyle floors, a 👑 VIP sign over the base, **velvet stairs** (purple with gold edges, glowing step lips and sparkles), a **VIP throne** (velvet and gold, crowned with jewels) on the rebirth balcony, and a **VIP vault**: velvet runner, gold-crowned pillars, a chandelier and its own VIP throne to sit on.
 
 ## Make money (Robux)
 
@@ -308,7 +313,7 @@ Suggested prices:
 | Item | Type | Price |
 |---|---|---|
 | 2x Cash | Pass | 199 R$ |
-| VIP (+2 base slots, 2 extra floors to buy, crown + VIP tag) | Pass | 249 R$ |
+| VIP (+2 base slots, 2 extra floors to buy, crown + VIP tag, VIP Royale skin) | Pass | 249 R$ (id `2022590341`) |
 | Longer Lock (2x lock time) | Pass | 149 R$ |
 | Infinite Laser Door (lasers never turn off) | Pass | 450 R$ (or 12,500 Shards in the Shard Shop) |
 | Cash Bag (10 min of income) | Product | 49 R$ |

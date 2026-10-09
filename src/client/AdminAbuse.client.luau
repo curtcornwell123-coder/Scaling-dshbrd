@@ -748,6 +748,103 @@ local function stopChaos()
 	state.Folder:Destroy()
 end
 
+-- 99 Nights: cold blue forest fog, snow drifting down and fireflies around
+-- you, all following the camera. Puts the haze back when it ends.
+type ForestState = { Folder: Folder, Connection: RBXScriptConnection, Atmosphere: Atmosphere, Saved: { [string]: any }, Created: boolean }
+local forest: ForestState? = nil
+
+local function startForest()
+	if forest then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "NightForest"
+	local function emitterPart(size: Vector3): Part
+		local p = Instance.new("Part")
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Transparency = 1
+		p.Size = size
+		p.Parent = folder
+		return p
+	end
+	local sky = emitterPart(Vector3.new(160, 1, 160))
+	local snow = Instance.new("ParticleEmitter")
+	snow.Name = "Snow"
+	snow.Color = ColorSequence.new(Color3.fromRGB(235, 240, 255))
+	snow.LightEmission = 0.4
+	snow.Rate = 140
+	snow.Lifetime = NumberRange.new(6, 9)
+	snow.Speed = NumberRange.new(5, 8)
+	snow.EmissionDirection = Enum.NormalId.Bottom
+	snow.SpreadAngle = Vector2.new(20, 20)
+	snow.Size = NumberSequence.new(0.22)
+	snow.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	snow.Parent = sky
+	local ground = emitterPart(Vector3.new(90, 6, 90))
+	local flies = Instance.new("ParticleEmitter")
+	flies.Name = "Fireflies"
+	flies.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	flies.Color = ColorSequence.new(Color3.fromRGB(220, 255, 120))
+	flies.LightEmission = 1
+	flies.Rate = 14
+	flies.Lifetime = NumberRange.new(3, 5)
+	flies.Speed = NumberRange.new(0.4, 1.2)
+	flies.SpreadAngle = Vector2.new(180, 180)
+	flies.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	flies.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+	flies.Parent = ground
+	folder.Parent = workspace
+
+	-- The fog: thick and cold blue, closing in on the bases.
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	local created = atmosphere == nil
+	if not atmosphere then
+		atmosphere = Instance.new("Atmosphere")
+		atmosphere.Density = 0
+		atmosphere.Parent = Lighting
+	end
+	local fog = atmosphere :: Atmosphere
+	local saved = { Density = fog.Density, Color = fog.Color, Decay = fog.Decay, Haze = fog.Haze, Glare = fog.Glare }
+	tween(fog, 4, { Density = 0.48, Color = Color3.fromRGB(28, 38, 62), Decay = Color3.fromRGB(12, 18, 32), Haze = 1.6, Glare = 0 })
+
+	local connection = RunService.RenderStepped:Connect(function()
+		local camera = workspace.CurrentCamera
+		if camera then
+			local at = camera.CFrame.Position
+			sky.CFrame = CFrame.new(at + Vector3.new(0, 45, 0))
+			ground.CFrame = CFrame.new(at.X, math.max(at.Y - 4, 3), at.Z)
+		end
+	end)
+	forest = { Folder = folder, Connection = connection, Atmosphere = fog, Saved = saved, Created = created }
+end
+
+local function stopForest()
+	local state = forest
+	forest = nil
+	if not state then
+		return
+	end
+	state.Connection:Disconnect()
+	for _, emitter in state.Folder:GetDescendants() do
+		if emitter:IsA("ParticleEmitter") then
+			emitter.Enabled = false
+		end
+	end
+	task.delay(8, function()
+		state.Folder:Destroy()
+	end)
+	tween(state.Atmosphere, 4, state.Saved)
+	if state.Created then
+		task.delay(4, function()
+			state.Atmosphere:Destroy()
+		end)
+	end
+end
+
 -- Event theme songs ---------------------------------------------------------
 -- Any founder event with a MusicId plays it, looping, fading in when the
 -- event starts and out when it ends. Follows the music volume setting.
@@ -1414,6 +1511,11 @@ local function onFounderEvent()
 	else
 		stopChaos()
 	end
+	if event and event.Forest then
+		startForest()
+	else
+		stopForest()
+	end
 	if event then
 		-- Music a founder set in the admin panel wins over the default.
 		local custom = ReplicatedStorage:GetAttribute("EventMusic_" .. eventId) :: string?
@@ -1424,7 +1526,9 @@ local function onFounderEvent()
 	if intro then
 		task.spawn(playIntro, intro)
 	elseif previous then
-		task.spawn(playOutro, if previous.Style == "Ballet" then "THE BALLET IS OVER!" else string.upper(previous.Founder) .. " FLEW AWAY!")
+		task.spawn(playOutro, if previous.Style == "Ballet" then "THE BALLET IS OVER!"
+			elseif previous.Style == "Forest" then "MORNING CAME! YOU SURVIVED!"
+			else string.upper(previous.Founder) .. " FLEW AWAY!")
 	end
 end
 ReplicatedStorage:GetAttributeChangedSignal("FounderEvent"):Connect(onFounderEvent)

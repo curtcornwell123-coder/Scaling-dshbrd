@@ -1248,8 +1248,9 @@ for i, skin in Config.WallSkins do
 	row.Size = UDim2.new(1, -10, 0, 50)
 	row.BackgroundColor3 = if Config.IsExclusiveSkin(skin) then Color3.fromRGB(25, 32, 55) else TILE
 	row.LayoutOrder = 21 + i
-	-- Founder-only skins are hidden until we know you're that founder.
-	row.Visible = not Config.IsExclusiveSkin(skin)
+	-- Founder and role skins are hidden until we know you have them (the
+	-- VIP one always shows, so everyone can see what VIP gets).
+	row.Visible = not Config.IsExclusiveSkin(skin) or skin.RoleOnly == "VIP"
 	corner(row, 10)
 	if Config.IsExclusiveSkin(skin) then
 		stroke(row, 2, GOLD)
@@ -1272,6 +1273,15 @@ for i, skin in Config.WallSkins do
 	local b = button(row, "", GREEN, UDim2.fromOffset(150, 40))
 	b.Position = UDim2.new(1, -160, 0, 5)
 	b.MouseButton1Click:Connect(function()
+		-- Not VIP yet: the button opens the VIP gamepass purchase instead.
+		if data and not Config.CanUseSkin(skin, data.FounderId, data.Roles) then
+			for _, pass in Config.GamePasses do
+				if pass.Key == skin.RoleOnly and pass.Id ~= 0 then
+					MarketplaceService:PromptGamePassPurchase(player, pass.Id)
+				end
+			end
+			return
+		end
 		local owned = data and data.Skins and table.find(data.Skins, skin.Id)
 		SkinAction:FireServer(if owned then "Equip" else "Buy", skin.Id)
 	end)
@@ -1303,10 +1313,14 @@ local function renderQuests()
 	for _, skin in Config.WallSkins do
 		local b = skinButtons[skin.Id]
 		local owned = data.Skins and table.find(data.Skins, skin.Id)
+		local allowed = Config.CanUseSkin(skin, data.FounderId, data.Roles)
 		if Config.IsExclusiveSkin(skin) then
-			skinRows[skin.Id].Visible = Config.CanUseSkin(skin, data.FounderId, data.Roles)
+			skinRows[skin.Id].Visible = allowed or skin.RoleOnly == "VIP"
 		end
-		if Config.IsExclusiveSkin(skin) and not owned then
+		if not allowed then
+			b.Text = "👑 GET VIP"
+			b.BackgroundColor3 = Color3.fromRGB(150, 60, 220)
+		elseif Config.IsExclusiveSkin(skin) and not owned then
 			b.Text = "CLAIM (FREE)"
 			b.BackgroundColor3 = GOLD
 		elseif data.Skin == skin.Id then
@@ -1941,7 +1955,7 @@ local codeMakerCards: { Frame } = {}
 local headFounderOnly: { GuiObject } = {}
 local adminLockButton: TextButton? = nil -- Corny's switch (text follows data.AdminsLocked)
 -- Each founder only sees the button for their own event.
-local founderEventButtons: { { Button: TextButton, Founder: string } } = {}
+local founderEventButtons: { { Button: TextButton, Founder: string, Event: Config.FounderEvent } } = {}
 do
 
 	local ORANGE = Color3.fromRGB(255, 150, 40)
@@ -1956,7 +1970,7 @@ do
 	adminFrame.Size = UDim2.fromOffset(640, 640)
 	local function inputBox(parent: Instance, default: string, hint: string, width: number): TextBox
 		local box = Instance.new("TextBox")
-		box.Size = UDim2.fromOffset(width, 38)
+		box.Size = UDim2.fromOffset(math.floor(width * 0.85), 30)
 		box.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
 		box.TextColor3 = WHITE
 		box.PlaceholderText = hint
@@ -1971,8 +1985,14 @@ do
 		return box
 	end
 
+	-- Compact: 30 high and a bit narrower than asked, so rows fit neatly.
 	local function smallButton(parent: Instance, label: string, color: Color3, width: number, onClick: () -> ()): TextButton
-		local b = button(parent, label, color, UDim2.fromOffset(width, 38))
+		local b = button(parent, label, color, UDim2.fromOffset(math.floor(width * 0.8), 30))
+		local padding = b:FindFirstChildOfClass("UIPadding")
+		if padding then
+			padding.PaddingTop = UDim.new(0, 5)
+			padding.PaddingBottom = UDim.new(0, 5)
+		end
 		b.MouseButton1Click:Connect(onClick)
 		return b
 	end
@@ -2026,12 +2046,12 @@ do
 	end
 
 	local function adminTab(label: string, color: Color3): (ScrollingFrame, AdminTab)
-		local tabButton = button(tabBar, label, color, UDim2.fromOffset(142, 40))
+		local tabButton = button(tabBar, label, color, UDim2.fromOffset(142, 34))
 		tabButton.LayoutOrder = #adminTabs + 1
 		local page = Instance.new("ScrollingFrame")
 		page.BackgroundTransparency = 1
-		page.Position = UDim2.fromOffset(0, 100)
-		page.Size = UDim2.new(1, 0, 1, -100)
+		page.Position = UDim2.fromOffset(0, 94)
+		page.Size = UDim2.new(1, 0, 1, -94)
 		page.CanvasSize = UDim2.new()
 		page.AutomaticCanvasSize = Enum.AutomaticSize.Y
 		page.ScrollBarThickness = 6
@@ -2070,7 +2090,7 @@ do
 		layout.SortOrder = Enum.SortOrder.LayoutOrder
 		layout.Parent = card
 		text(card, {
-			Size = UDim2.new(1, 0, 0, 24),
+			Size = UDim2.new(1, 0, 0, 20),
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextColor3 = color,
 			Text = title,
@@ -2081,7 +2101,7 @@ do
 				Size = UDim2.new(1, 0, 0, 0),
 				AutomaticSize = Enum.AutomaticSize.Y,
 				TextScaled = false,
-				TextSize = 15,
+				TextSize = 13,
 				TextWrapped = true,
 				TextStrokeTransparency = 1,
 				TextXAlignment = Enum.TextXAlignment.Left,
@@ -2112,7 +2132,7 @@ do
 	end
 
 	local function label(row: Frame, value: string, width: number)
-		text(row, { Size = UDim2.fromOffset(width, 30), Text = value, TextXAlignment = Enum.TextXAlignment.Left })
+		text(row, { Size = UDim2.fromOffset(math.floor(width * 0.85), 24), Text = value, TextXAlignment = Enum.TextXAlignment.Left })
 	end
 
 	-- PLAYERS tab ------------------------------------------------------------------
@@ -2454,7 +2474,7 @@ do
 	founderPage, founderTab = adminTab("FOUNDER", PINK)
 	founderTab.Button.Visible = false
 
-	local founderEvents = section(founderPage, 1, "FOUNDER EVENTS", "Start your own event (Corny can start Ace's too). Runs for the minutes you type here.", PINK)
+	local founderEvents = section(founderPage, 1, "FOUNDER EVENTS", "Start your own event (Corny can start Ace's too), or 99 NIGHTS (any founder). Runs for the minutes you type here.", PINK)
 	local founderMinutesRow = controls(founderEvents, 1)
 	label(founderMinutesRow, "Minutes", 100)
 	local founderMinutesBox = inputBox(founderMinutesRow, "5", "how long", 80)
@@ -2469,7 +2489,7 @@ do
 			send("FounderEvent", { Id = eventId, Minutes = founderMinutesBox.Text })
 		end)
 		startButton.Visible = false
-		table.insert(founderEventButtons, { Button = startButton, Founder = Config.FounderEvents[eventId].Founder })
+		table.insert(founderEventButtons, { Button = startButton, Founder = Config.FounderEvents[eventId].Founder, Event = Config.FounderEvents[eventId] })
 	end
 	local founderStopRow = controls(founderEvents, 3)
 	smallButton(founderStopRow, "END FOUNDER EVENT", GREY, 230, function()
@@ -2777,8 +2797,14 @@ local function render()
 	-- Your own event, plus every event for the head founder (Corny).
 	for _, entry in founderEventButtons do
 		local own = data.FounderId == entry.Founder
-		entry.Button.Visible = own or data.FounderId == Config.HeadFounder
-		entry.Button.Text = if own then "START MY EVENT" else "START " .. string.upper(entry.Founder) .. "'S EVENT"
+		if entry.Event.AnyFounder then
+			-- Shared events (99 Nights): every founder can start them.
+			entry.Button.Visible = data.IsFounder == true
+			entry.Button.Text = "START " .. (entry.Event.EventName or string.upper(entry.Founder))
+		else
+			entry.Button.Visible = own or data.FounderId == Config.HeadFounder
+			entry.Button.Text = if own then "START MY EVENT" else "START " .. string.upper(entry.Founder) .. "'S EVENT"
+		end
 	end
 	if founderTab.Page.Visible and not data.IsFounder then
 		selectTab(playersTab)
@@ -2938,7 +2964,7 @@ do
 		end
 		return string.format("%d:%02d", seconds // 60, seconds % 60)
 	end
-	local FOUNDER_ICONS: { [string]: string } = { Corny = "🛸", Ace = "🌙" }
+	local FOUNDER_ICONS: { [string]: string } = { Corny = "🛸", Ace = "🌙", ["The Deer"] = "🦌" }
 
 	task.spawn(function()
 		while true do
@@ -2960,7 +2986,7 @@ do
 			local founderEvent = Config.FounderEvents[ReplicatedStorage:GetAttribute("FounderEvent") :: string? or ""]
 			local founderEnds = ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number?
 			if founderEvent and founderEnds and founderEnds > now then
-				local name = string.upper(founderEvent.Founder) .. "'S EVENT"
+				local name = founderEvent.EventName or (string.upper(founderEvent.Founder) .. "'S EVENT")
 				-- Very long runs last until the founder leaves the server.
 				local left = if founderEnds - now > 6 * 3600 then "UNTIL " .. string.upper(founderEvent.Founder) .. " LEAVES" else clock(founderEnds - now)
 				table.insert(events, { Id = "Founder", Text = (FOUNDER_ICONS[founderEvent.Founder] or "⭐") .. " " .. name .. "  " .. left, Color = Color3.fromRGB(255, 150, 210) })
