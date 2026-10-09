@@ -261,6 +261,10 @@ Admins can type **`/announce your message`** (or **`/a your message`**) in chat,
 - **Event look:** in the admin panel's **FOUNDER** tab, either put on your event outfit in game and press **USE WHAT I'M WEARING NOW**, or paste a costume's outfit ID (or its whole link) into the box and press **USE OUTFIT**. **RESET TO MY NORMAL AVATAR** forgets the saved look. With **USE WHAT I'M WEARING NOW**, the event giant becomes an exact copy of how your character looks right then, and it's saved for good (change it any time by saving again). Until a look is saved, the giant copies your character if you're in the server, then your outfit id (`OutfitId` in `Config.FounderEvents`), then your Roblox avatar, and for Corny last of all a look-alike built from parts.
 - **Ace's event** comes next: it slots into `Config.FounderEvents` the same way.
 
+## Launch code
+
+**RELEASE** gives a random brainrot paired with a random mutation, with completely even odds: every regular brainrot (Common to Celestial; not limited, free or event ones) and every mutation (not Magic) is equally likely. Once per player, until **11:59 PM October 20, 2026, US Central time**. If the base is full, it arrives as soon as a slot frees up. Set in `Config.Codes` (`RandomBrainrot = true`, `Expires`).
+
 ## Quests, Shards and the Shard Shop
 
 Fair progression for free-to-play players. None of this can be bought with Robux. (Diamonds were removed: old saves turned every Diamond into 50 Shards.)

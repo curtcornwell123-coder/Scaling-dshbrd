@@ -2152,6 +2152,9 @@ local function rewardText(code: Config.Code): string
 	if code.Shards then
 		table.insert(got, code.Shards .. " Shards")
 	end
+	if code.RandomBrainrot then
+		table.insert(got, "a random brainrot with a random mutation")
+	end
 	return table.concat(got, " + ")
 end
 
@@ -2201,7 +2204,39 @@ RedeemCode.OnServerInvoke = function(player: Player, typed: unknown): (boolean, 
 	table.insert(data.Codes, wanted)
 	data.Cash += code.Cash or 0
 	data.Shards += code.Shards or 0
+	local prize = ""
+	if code.RandomBrainrot then
+		-- Every brainrot and every mutation has the same chance.
+		local pool: { Config.Brainrot } = {}
+		for _, brainrot in Config.Brainrots do
+			if not brainrot.Limited and brainrot.Price > 0 and not Config.Rarities[brainrot.Rarity].EventOnly then
+				table.insert(pool, brainrot)
+			end
+		end
+		local mutations: { Config.Mutation } = {}
+		for _, mutation in Config.Mutations do
+			if not mutation.Exclusive then
+				table.insert(mutations, mutation)
+			end
+		end
+		local brainrot = pool[rng:NextInteger(1, #pool)]
+		local mutation = mutations[rng:NextInteger(1, #mutations)]
+		local plot = session.Plot
+		local index = plot and freeSlot(plot, session)
+		if plot and index then
+			placeBrainrot(plot, index, brainrot.Id, mutation.Id, nil, true)
+		else
+			table.insert(data.Unclaimed, Config.Encode(brainrot.Id, mutation.Id))
+		end
+		prize = fullName(brainrot, mutation.Id)
+		if not index then
+			notify(player, prize .. " will appear as soon as you have a free slot!")
+		end
+	end
 	push(player)
+	if prize ~= "" then
+		return true, "Code redeemed! You got " .. prize .. "!"
+	end
 	return true, "Code redeemed! You got " .. rewardText(code) .. "!"
 end
 

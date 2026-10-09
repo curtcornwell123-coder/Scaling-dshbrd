@@ -986,7 +986,15 @@ Config.Products = {
 -- Codes typed into the box at the bottom of the shop. Each works once per
 -- player. Add new ones here (letters are matched without caring about caps);
 -- Expires is optional (unix time, e.g. from https://www.epochconverter.com).
-export type Code = { Code: string, Shards: number?, Cash: number?, Expires: number? }
+export type Code = {
+	Code: string,
+	Shards: number?,
+	Cash: number?,
+	Expires: number?,
+	-- A random brainrot paired with a random mutation, every brainrot and
+	-- every mutation equally likely (limited, free and event-only ones left out).
+	RandomBrainrot: boolean?,
+}
 -- Corny can also make codes in-game (admin panel > FOUNDER > CODES); those
 -- are saved for every server. Only this founder can make or delete them.
 Config.CodeMaker = "Corny"
@@ -994,7 +1002,9 @@ Config.CodeMaker = "Corny"
 Config.CodeLimits = { Cash = 1e15, Shards = 5000 }
 
 Config.Codes = {
-	{ Code = "RELEASE", Shards = 150 },
+	-- Launch code: a random brainrot with a random mutation, until 11:59 PM
+	-- October 20, 2026, US Central (04:59 UTC on Oct 21).
+	{ Code = "RELEASE", RandomBrainrot = true, Expires = 1792558799 },
 	{ Code = "CORNY", Cash = 5000 },
 } :: { Code }
 
