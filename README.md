@@ -23,7 +23,7 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
 
      The roof goes on at level 5 and moves up with the VIP floors.
 
-   - **Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). After rebirthing you can go further: 150s ($25M, 1 rebirth), 180s ($250M, 2 rebirths), 210s ($2B, 4 rebirths), 240s ($40B, 6 rebirths). Lock upgrades are kept when you rebirth. The Longer Lock gamepass doubles it. The **Infinite Laser Door** (gamepass, or 12,500 Shards in the Shard Shop) keeps your lasers on forever: your base locks itself as soon as you join and the lock pad shows LOCKED FOREVER. Admins can also switch it on or off for anyone (or themselves) with the **Infinite Door ON / OFF** buttons in the admin panel.
+   - **Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). After rebirthing you can go further: 150s ($25M, 1 rebirth), 180s ($250M, 2 rebirths), 210s ($2B, 4 rebirths), 240s ($40B, 6 rebirths). Lock upgrades are kept when you rebirth. The **Infinite Laser Door** (gamepass, or 12,500 Shards in the Shard Shop) keeps your lasers on forever: your base locks itself as soon as you join and the lock pad shows LOCKED FOREVER. Admins can also switch it on or off for anyone (or themselves) with the **Infinite Door ON / OFF** buttons in the admin panel.
    - **Stair carpets** come from rebirths: plain wood at first, then a new carpet every 5 rebirths: Red (5), Royal (10), Golden (15), Crystal (20) and Rainbow (25).
 6. **Lock.** Step on the red **LOCK** pad. Red laser beams cross your entrance and zap anyone else who walks through. After the lock ends it recharges for 30s, and that's when you're vulnerable.
 7. **Sell** your own brainrots for half price (hold **F**).
@@ -309,7 +309,7 @@ Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around a
 
 On the [Creator Dashboard](https://create.roblox.com/dashboard/creations), open your experience, then **Monetization**:
 
-- **Passes**: create `2x Cash`, `VIP`, `Longer Lock` and `Infinite Laser Door`.
+- **Passes**: create `2x Cash`, `VIP` and `Infinite Laser Door`.
 - **Developer Products**: create `Cash Bag`, `Cash Vault`, `Server Luck`, and `Instant Lock`.
 
 Paste each ID into `Config.GamePasses` / `Config.Products` in `src/shared/Config.luau`. Items left at `Id = 0` show as **SOON** in the shop.
@@ -320,7 +320,6 @@ Suggested prices:
 |---|---|---|
 | 2x Cash | Pass | 199 R$ (id `2023580373`) |
 | VIP (+2 base slots, 2 extra floors to buy, crown + VIP tag, VIP Royale skin) | Pass | 249 R$ (id `2022590341`) |
-| Longer Lock (2x lock time) | Pass | 149 R$ |
 | Infinite Laser Door (lasers never turn off) | Pass | 450 R$ (id `2022050385`; or 12,500 Shards in the Shard Shop) |
 | Cash Bag (10 min of income) | Product | 49 R$ |
 | Cash Vault (1 hr of income) | Product | 199 R$ |

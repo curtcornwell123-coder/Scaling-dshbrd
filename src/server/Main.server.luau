@@ -660,7 +660,7 @@ local function snapshot(session: Session)
 		WallLevel = data.WallLevel,
 		Stories = data.Stories,
 		LockLevel = data.LockLevel,
-		LockDuration = Config.LockLevels[data.LockLevel].Duration * (if session.Owns.LongerLock then 2 else 1),
+		LockDuration = Config.LockLevels[data.LockLevel].Duration,
 		InfiniteLock = session.Owns.InfiniteLock == true or data.InfiniteLock,
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
@@ -1092,8 +1092,7 @@ local function carpetOverride(session: Session): Config.CarpetTier?
 end
 
 local function lockDuration(session: Session): number
-	local duration = Config.LockLevels[session.Data.LockLevel].Duration
-	return if session.Owns.LongerLock then duration * 2 else duration
+	return Config.LockLevels[session.Data.LockLevel].Duration
 end
 
 -- Infinite Laser Door (gamepass or Shards): the lasers never turn off.

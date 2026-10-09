@@ -417,11 +417,10 @@ do
 	local SHOP_PURPLE = Color3.fromRGB(150, 90, 255)
 	local SHOP_GREY = Color3.fromRGB(90, 90, 100)
 
-	local PASS_ICONS: { [string]: string } = { DoubleCash = "💰", VIP = "👑", LongerLock = "⏱️", InfiniteLock = "♾️" }
+	local PASS_ICONS: { [string]: string } = { DoubleCash = "💰", VIP = "👑", InfiniteLock = "♾️" }
 	local PASS_COLORS: { [string]: Color3 } = {
 		DoubleCash = Color3.fromRGB(60, 190, 90),
 		VIP = Color3.fromRGB(240, 180, 40),
-		LongerLock = Color3.fromRGB(60, 150, 255),
 		InfiniteLock = Color3.fromRGB(235, 60, 70),
 	}
 	local PRODUCT_ICONS: { [string]: string } = { SmallCash = "💵", BigCash = "🏦", ServerLuck = "🍀", InstantLock = "🔒" }
@@ -1057,7 +1056,6 @@ local function renderUpgrades()
 	if not data or not data.WallLevel then
 		return
 	end
-	local longer = data.Owns and data.Owns.LongerLock
 	local function set(kind: string, now: string, nextText: string?, cost: number?, needRebirths: number?, needVip: boolean?)
 		local card = upgradeCards[kind]
 		card.Now.Text = now
@@ -1108,7 +1106,7 @@ local function renderUpgrades()
 	if data.InfiniteLock then
 		set("Lock", "Lasers stay on FOREVER (Infinite Laser Door)", nil, nil)
 	else
-		set("Lock", string.format("Lasers stay on %ds", data.LockDuration or 0), nextLock and string.format("%ds", nextLock.Duration * (if longer then 2 else 1)), nextLock and nextLock.Cost, nextLock and nextLock.Rebirths)
+		set("Lock", string.format("Lasers stay on %ds", data.LockDuration or 0), nextLock and string.format("%ds", nextLock.Duration), nextLock and nextLock.Cost, nextLock and nextLock.Rebirths)
 	end
 end
 

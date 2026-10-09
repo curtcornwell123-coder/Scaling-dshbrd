@@ -594,7 +594,7 @@ function Config.HasPrestige(rebirths: number, key: string): boolean
 end
 
 -- Lock upgrades --------------------------------------------------------------
--- How long the entrance lasers stay on. The Longer Lock gamepass doubles it.
+-- How long the entrance lasers stay on.
 
 -- Rebirths: how many times you must have rebirthed before you can buy it.
 export type LockLevel = { Duration: number, Cost: number, Rebirths: number? }
@@ -969,12 +969,11 @@ Config.DropLifetime = 90 -- seconds before an unclaimed drop disappears
 -- Create these on the Creator Dashboard (your experience > Monetization),
 -- then paste the IDs below. Items with Id = 0 show as "coming soon".
 -- Prices are set on the dashboard (the shop reads them from Roblox).
--- Suggested: 2x Cash 199, VIP 249, Longer Lock 149, Infinite Laser Door 450.
+-- Suggested: 2x Cash 199, VIP 249, Infinite Laser Door 450.
 
 Config.GamePasses = {
 	{ Key = "DoubleCash", Id = 2023580373, Name = "2x Cash", Description = "Your brainrots make double cash forever." },
 	{ Key = "VIP", Id = 2022590341, Name = "VIP", Description = "+2 base slots, 2 extra floors to buy, a gold crown + VIP tag, and the VIP Royale skin (velvet stairs, VIP throne and VIP vault)." },
-	{ Key = "LongerLock", Id = 0, Name = "Longer Lock", Description = "Your base lock lasts twice as long (2x lock time)." },
 	{ Key = "InfiniteLock", Id = 2022050385, Name = "Infinite Laser Door", Description = "Your base lasers stay on forever. Nobody can steal from you." },
 } :: { GamePass }
 
