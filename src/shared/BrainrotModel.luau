@@ -1262,7 +1262,8 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 		e.Color = ColorSequence.new(keys)
 		e.Rate = rate
 		e.Lifetime = NumberRange.new(lifetime * 0.7, lifetime)
-		e.Speed = NumberRange.new(speed * 0.5, speed)
+		-- (Roblox errors if min > max, e.g. for the Void mist's inward speed.)
+		e.Speed = NumberRange.new(math.min(speed * 0.5, speed), math.max(speed * 0.5, speed))
 		e.SpreadAngle = Vector2.new(180, 180)
 		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, size), NumberSequenceKeypoint.new(1, 0) })
 		e.Acceleration = accel or Vector3.zero
