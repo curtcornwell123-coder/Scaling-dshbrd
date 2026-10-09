@@ -901,6 +901,12 @@ local function setLaser(plot: Plot, on: boolean)
 	plot.Parts.Model:SetAttribute("Locked", on)
 end
 
+-- The throne style on a max-prestige balcony: Corny's is made of corn, Ace's
+-- is a pink bloom, everyone else's is in their carpet colors.
+local function throneLook(session: Session): string?
+	return if session.FounderId == "Corny" then "Corn" elseif session.FounderId == "Ace" then "Bloom" else nil
+end
+
 local function lockDuration(session: Session): number
 	local duration = Config.LockLevels[session.Data.LockLevel].Duration
 	return if session.Owns.LongerLock then duration * 2 else duration
@@ -1400,6 +1406,7 @@ local function assignPlot(player: Player, session: Session)
 			WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories, Config.GetWallSkin(session.Data.Skin))
 			WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
 			WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
+			WorldBuilder.SetPrestige(plot.Parts, session.Data.Rebirths, session.Data.Stories, throneLook(session))
 			setLaser(plot, false)
 			applyInfiniteLock(plot, session)
 			for _, entry in session.Data.Brainrots do
@@ -1454,6 +1461,7 @@ local function releasePlot(plot: Plot)
 	WorldBuilder.SetWallLevel(plot.Parts, 1, 1)
 	WorldBuilder.SetStories(plot.Parts, 1)
 	WorldBuilder.SetCarpet(plot.Parts, 0)
+	WorldBuilder.SetPrestige(plot.Parts, 0, 1)
 	plot.Parts.UpgradeLabel.Text = "UPGRADES"
 end
 
@@ -1462,6 +1470,7 @@ local function applyBaseLevels(plot: Plot, session: Session)
 	WorldBuilder.SetWallLevel(plot.Parts, session.Data.WallLevel, session.Data.Stories, Config.GetWallSkin(session.Data.Skin))
 	WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
 	WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
+	WorldBuilder.SetPrestige(plot.Parts, session.Data.Rebirths, session.Data.Stories, throneLook(session))
 	applyInfiniteLock(plot, session)
 	setLaser(plot, os.clock() < plot.LockedUntil)
 	updateVipPedestals(plot)
@@ -2668,6 +2677,34 @@ game:BindToClose(function()
 	end
 end)
 
+-- King's throne: the gold pad under a max-prestige balcony seats the base's
+-- owner on the throne.
+game:GetService("ProximityPromptService").PromptTriggered:Connect(function(prompt: ProximityPrompt, player: Player)
+	if prompt:GetAttribute("Action") ~= "Throne" then
+		return
+	end
+	for _, plot in plots do
+		if prompt:IsDescendantOf(plot.Parts.Prestige) then
+			if plot.Owner ~= player then
+				notify(player, "Only the owner of this base can sit on its throne!")
+				return
+			end
+			local seat = plot.Parts.Prestige:FindFirstChild("ThroneSeat")
+			local character = player.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			if seat and seat:IsA("Seat") and humanoid and humanoid.Health > 0 and not seat.Occupant then
+				if carries[player] then
+					notify(player, "Drop what you're carrying first!")
+					return
+				end
+				(character :: Model):PivotTo(seat.CFrame + Vector3.new(0, 3, 0))
+				seat:Sit(humanoid)
+			end
+			return
+		end
+	end
+end)
+
 -- Rebirth ------------------------------------------------------------------
 
 RequestRebirth.OnServerEvent:Connect(function(player)
@@ -2696,6 +2733,11 @@ RequestRebirth.OnServerEvent:Connect(function(player)
 	local newCarpet = Config.CarpetTierFor(session.Data.Rebirths)
 	if newCarpet > oldCarpet then
 		notify(player, "Your stairs got a new carpet: " .. Config.CarpetTiers[newCarpet].Name .. "!")
+	end
+	for _, step in Config.PrestigeLadder do
+		if step.Rebirths == session.Data.Rebirths then
+			notify(player, "Your base got cooler: " .. step.Name .. "!")
+		end
 	end
 	Announce:FireAllClients("rebirth", player.DisplayName, "", tostring(session.Data.Rebirths))
 	push(player)

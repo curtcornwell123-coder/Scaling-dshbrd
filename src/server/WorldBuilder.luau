@@ -23,6 +23,7 @@ export type PlotParts = {
 	Stairs: { { Carpet: Folder, Base: CFrame } }, -- Base: bottom-front-center of each staircase
 	Floors: { BasePart }, -- ground floor + every upper slab
 	LightSets: { [number]: { Ceiling: Folder, Posts: Folder } },
+	Prestige: Folder, -- rebirth decorations (SetPrestige)
 	Roof: Model, -- parented once the base reaches Config.StandardWallLevels
 	RoofPivot: CFrame, -- where the roof sits on top of the ground floor
 	SignPost: BasePart,
@@ -690,6 +691,10 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 	upgradePrompt:SetAttribute("Action", "OpenUpgrades")
 	upgradePrompt.Parent = upgradePost
 
+	local prestige = Instance.new("Folder")
+	prestige.Name = "Prestige"
+	prestige.Parent = model
+
 	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + SIGN_HEIGHT, half - 1), WALL_COLOR)
 	signPost.Transparency = 1
 	signPost.CanCollide = false
@@ -710,6 +715,7 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		Stairs = stairs,
 		Floors = floors,
 		LightSets = lightSets,
+		Prestige = prestige,
 		Roof = roof,
 		RoofPivot = roof:GetPivot(),
 		SignPost = signPost,
@@ -902,6 +908,239 @@ function WorldBuilder.SetStories(parts: PlotParts, count: number)
 	local sign = parts.SignPost
 	local signY = if roofed then storyBase(count) + STORY_HEIGHT + 17 else storyBase(count) + SIGN_HEIGHT
 	sign.CFrame = sign.CFrame.Rotation + Vector3.new(sign.Position.X, signY, sign.Position.Z)
+end
+
+-- Prestige ---------------------------------------------------------------------
+-- Rebirth decorations (Config.PrestigeLadder), in the stair carpet's colors.
+
+local BRONZE = Color3.fromRGB(205, 127, 50)
+local THRONE_GOLD = Color3.fromRGB(255, 200, 60)
+local BLOOM_PINK = Color3.fromRGB(255, 110, 200)
+local BLOOM_LIGHT = Color3.fromRGB(255, 190, 230)
+local BALCONY_HEIGHT = 13 -- balcony floor, above the door
+
+local function light(parent: Instance, color: Color3, range: number, brightness: number)
+	local l = Instance.new("PointLight")
+	l.Color = color
+	l.Range = range
+	l.Brightness = brightness
+	l.Parent = parent
+end
+
+local function ball(parent: Instance, name: string, d: number, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+	local p = decoration(parent, name, Vector3.one * d, cframe, color, material)
+	p.Shape = Enum.PartType.Ball
+	return p
+end
+
+local function rod(parent: Instance, name: string, length: number, d: number, cframe: CFrame, color: Color3, material: Enum.Material?): Part
+	-- Cylinders run along X; `cframe` is the center, X along the rod.
+	local p = decoration(parent, name, Vector3.new(length, d, d), cframe, color, material)
+	p.Shape = Enum.PartType.Cylinder
+	return p
+end
+
+-- The throne, centered on `cf` (feet level, facing cf's -Z). Its look:
+-- "Corn" (Corny), "Bloom" (Ace) or the carpet colors for everyone else.
+local function throne(folder: Instance, cf: CFrame, look: string, main: Color3, trim: Color3, glow: Color3, rainbow: boolean?): Seat
+	local frame = if look == "Corn" then CORN_YELLOW elseif look == "Bloom" then BLOOM_PINK else trim
+	local cushion = if look == "Corn" then CORN_LEAF elseif look == "Bloom" then BLOOM_LIGHT else main
+	-- Base and the seat you can sit on
+	decoration(folder, "ThroneBase", Vector3.new(5.2, 1.6, 4.4), cf * CFrame.new(0, 0.8, 0.2), frame, Enum.Material.Foil)
+	local seat = Instance.new("Seat")
+	seat.Name = "ThroneSeat"
+	seat.Anchored = true
+	seat.Size = Vector3.new(4, 0.8, 3.4)
+	seat.CFrame = cf * CFrame.new(0, 2, 0)
+	seat.Color = cushion
+	seat.Material = Enum.Material.Fabric
+	seat.TopSurface = Enum.SurfaceType.Smooth
+	seat.Parent = folder
+	-- Armrests
+	for _, side in { -1, 1 } do
+		decoration(folder, "ThroneArm", Vector3.new(0.7, 1.2, 3.6), cf * CFrame.new(side * 2.45, 2.6, 0.2), frame, Enum.Material.Foil)
+		ball(folder, "ThroneArmKnob", 0.9, cf * CFrame.new(side * 2.45, 3.25, -1.6), glow, Enum.Material.Neon)
+	end
+	local back = cf * CFrame.new(0, 0, 1.9)
+	if look == "Corn" then
+		-- A fan of big corn cobs for the backrest, husk leaves at the sides.
+		for i = -2, 2 do
+			local height = 5.6 - math.abs(i) * 0.7
+			cornCob(folder, back * CFrame.new(i * 0.95, 2.4 + height * 0.4, 0) * CFrame.Angles(0, 0, math.rad(-i * 11)), height)
+		end
+		decoration(folder, "ThroneBack", Vector3.new(4.6, 4.5, 0.5), back * CFrame.new(0, 4.4, 0.2), CORN_LEAF_DARK, Enum.Material.SmoothPlastic)
+		ball(folder, "ThroneJewel", 1.1, back * CFrame.new(0, 8.6, -0.2), CORN_GOLD, Enum.Material.Neon)
+	elseif look == "Bloom" then
+		-- A giant pink flower behind the seat: two rings of petals and a gold heart.
+		local center = back * CFrame.new(0, 5.6, 0.3)
+		for ring, info in { { Count = 10, Radius = 2.9, Size = 2.6, Color = BLOOM_PINK }, { Count = 8, Radius = 1.7, Size = 2.1, Color = BLOOM_LIGHT } } do
+			for k = 0, info.Count - 1 do
+				local angle = (k + ring * 0.5) / info.Count * math.pi * 2
+				local petal = decoration(folder, "BloomPetal", Vector3.new(info.Size * 1.3, info.Size * 0.75, 0.35), center * CFrame.Angles(0, 0, angle) * CFrame.new(info.Radius, 0, -ring * 0.15), info.Color, Enum.Material.SmoothPlastic)
+				local mesh = Instance.new("SpecialMesh")
+				mesh.MeshType = Enum.MeshType.Sphere
+				mesh.Parent = petal
+			end
+		end
+		rod(folder, "BloomHeart", 0.5, 1.8, center * CFrame.new(0, 0, -0.45) * CFrame.Angles(0, math.rad(90), 0), THRONE_GOLD, Enum.Material.Neon)
+		decoration(folder, "ThroneBack", Vector3.new(4.2, 3.6, 0.5), back * CFrame.new(0, 3.6, 0.4), BLOOM_PINK, Enum.Material.Fabric)
+	else
+		-- A tall cushioned backrest in a gold frame, crowned with gems.
+		decoration(folder, "ThroneBack", Vector3.new(4.8, 6.6, 0.8), back * CFrame.new(0, 5.3, 0.3), frame, Enum.Material.Foil)
+		decoration(folder, "ThroneCushion", Vector3.new(3.8, 5.4, 0.3), back * CFrame.new(0, 5.1, -0.2), cushion, Enum.Material.Fabric)
+		for k = -2, 2 do
+			local gem = if rainbow then Color3.fromHSV((k + 2) / 5, 0.7, 1) else glow
+			ball(folder, "ThroneGem", 0.8 - math.abs(k) * 0.1, back * CFrame.new(k * 1.05, 8.9 - math.abs(k) * 0.45, 0.2), gem, Enum.Material.Neon)
+		end
+	end
+	light(seat, glow, 18, 1.2)
+	return seat
+end
+
+-- Rebuilds a base's rebirth decorations. `look` picks the throne style
+-- ("Corn", "Bloom" or nil for the carpet colors).
+function WorldBuilder.SetPrestige(parts: PlotParts, rebirths: number, stories: number, look: string?)
+	local folder = parts.Prestige
+	folder:ClearAllChildren()
+	for _, pedestal in parts.Pedestals do
+		local rim = pedestal:FindFirstChild("PrestigeRim")
+		if rim then
+			rim:Destroy()
+		end
+	end
+	local tier = Config.CarpetTierFor(rebirths)
+	local info = Config.CarpetTiers[tier]
+	local main = if info then info.Color else BRONZE
+	local trim = if info and info.Trim then info.Trim else THRONE_GOLD
+	local glow = if info and info.Glow then info.Glow elseif info then info.Color:Lerp(Color3.new(1, 1, 1), 0.3) else Color3.fromRGB(255, 170, 90)
+	local rainbow = info ~= nil and info.Rainbow == true
+	local cf = parts.CFrame -- floor level, -Z toward the conveyor
+	local half = PLOT_SIZE / 2
+	local function at(x: number, y: number, z: number): CFrame
+		return cf * CFrame.new(x, y, z)
+	end
+	local function has(key: string): boolean
+		return Config.HasPrestige(rebirths, key)
+	end
+
+	-- Glowing rims around every pedestal
+	if has("Rims") then
+		for i, pedestal in parts.Pedestals do
+			local rim = decoration(pedestal, "PrestigeRim", Vector3.new(6.4, 0.25, 6.4), pedestal.CFrame * CFrame.new(0, 0.42, 0), if rainbow then Color3.fromHSV((i % 7) / 7, 0.6, 1) else glow, Enum.Material.Neon)
+			rim.Transparency = 0.35
+		end
+	end
+	-- Torches on both sides of the door, outside
+	if has("Torches") then
+		for _, side in { -1, 1 } do
+			local x = side * (ENTRANCE_WIDTH / 2 + 4.5)
+			rod(folder, "TorchPole", 7, 0.6, at(x, 3.5, -half - 2.5) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(60, 45, 35), Enum.Material.Wood)
+			local bowl = rod(folder, "TorchBowl", 0.8, 1.8, at(x, 7.2, -half - 2.5) * CFrame.Angles(0, 0, math.rad(90)), trim, Enum.Material.Foil)
+			local flame = ball(folder, "TorchFlame", 1.2, at(x, 8, -half - 2.5), Color3.fromRGB(255, 160, 60), Enum.Material.Neon)
+			local fire = Instance.new("Fire")
+			fire.Size = 3
+			fire.Heat = 6
+			fire.Color = if info then glow else Color3.fromRGB(255, 120, 30)
+			fire.SecondaryColor = Color3.fromRGB(255, 220, 120)
+			fire.Parent = flame
+			light(bowl, Color3.fromRGB(255, 180, 100), 22, 1.1)
+		end
+	end
+	-- Banners with the rebirth count on tall poles in front of the wall
+	if has("Banners") then
+		for _, side in { -1, 1 } do
+			local x = side * (ENTRANCE_WIDTH / 2 + 10)
+			rod(folder, "BannerPole", 13, 0.4, at(x + side * 2.8, 6.5, -half - 2.2) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(60, 45, 35), Enum.Material.Wood)
+			ball(folder, "BannerFinial", 0.8, at(x + side * 2.8, 13.2, -half - 2.2), trim, Enum.Material.Foil)
+			rod(folder, "BannerRod", 6.2, 0.3, at(x + side * 0.1, 12.2, -half - 2.2), trim, Enum.Material.Foil)
+			local cloth = decoration(folder, "Banner", Vector3.new(5, 7, 0.2), at(x, 8.5, -half - 2.4), main, Enum.Material.Fabric)
+			decoration(folder, "BannerTip", Vector3.new(3.5, 3.5, 0.2), at(x, 5, -half - 2.4) * CFrame.Angles(0, 0, math.rad(45)), main, Enum.Material.Fabric)
+			local gui = Instance.new("SurfaceGui")
+			gui.Face = Enum.NormalId.Front
+			gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+			gui.PixelsPerStud = 25
+			gui.LightInfluence = 0.3
+			gui.Parent = cloth
+			local label = Instance.new("TextLabel")
+			label.BackgroundTransparency = 1
+			label.Size = UDim2.fromScale(1, 1)
+			label.Font = Enum.Font.FredokaOne
+			label.TextScaled = true
+			label.TextColor3 = trim
+			label.TextStrokeTransparency = 0.2
+			label.Text = string.format("★\nREBIRTH\n%d\n★", rebirths)
+			label.Parent = gui
+		end
+	end
+	-- Guardian pillars with glowing orbs at the two front corners
+	if has("Pillars") then
+		for _, side in { -1, 1 } do
+			local x = side * (half + 2.5)
+			decoration(folder, "PillarBase", Vector3.new(3.6, 1.2, 3.6), at(x, 0.6, -half - 2.5), trim, Enum.Material.Marble)
+			rod(folder, "Pillar", 12, 2.2, at(x, 7.2, -half - 2.5) * CFrame.Angles(0, 0, math.rad(90)), main:Lerp(Color3.new(1, 1, 1), 0.5), Enum.Material.Marble)
+			decoration(folder, "PillarCap", Vector3.new(3.2, 1, 3.2), at(x, 13.6, -half - 2.5), trim, Enum.Material.Foil)
+			local orb = ball(folder, "PillarOrb", 2.4, at(x, 15.4, -half - 2.5), glow, Enum.Material.Neon)
+			light(orb, glow, 30, 1.4)
+		end
+	end
+	-- A carpet runway from the door out toward the conveyor, with little lamps
+	if has("Runway") then
+		local length = 26
+		decoration(folder, "Runway", Vector3.new(ENTRANCE_WIDTH - 4, 0.15, length), at(0, 0.08, -half - length / 2 - 1), main, Enum.Material.Fabric)
+		for _, side in { -1, 1 } do
+			decoration(folder, "RunwayTrim", Vector3.new(0.5, 0.2, length), at(side * (ENTRANCE_WIDTH / 2 - 1.75), 0.1, -half - length / 2 - 1), trim, Enum.Material.Foil)
+			for k = 0, 2 do
+				local z = -half - 6 - k * 9
+				rod(folder, "RunwayLampPost", 3, 0.3, at(side * (ENTRANCE_WIDTH / 2 + 0.5), 1.5, z) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(40, 40, 45), Enum.Material.Metal)
+				ball(folder, "RunwayLamp", 0.9, at(side * (ENTRANCE_WIDTH / 2 + 0.5), 3.2, z), if rainbow then Color3.fromHSV(k / 3, 0.6, 1) else glow, Enum.Material.Neon)
+			end
+		end
+	end
+	-- A beam of light straight up from the top of the base
+	if has("Beacon") then
+		local roofed = stories >= Config.StandardWallLevels
+		-- From above the roof (or above the top floor's walls)
+		local top = storyBase(stories) - FLOOR_TOP + STORY_HEIGHT + (if roofed then 14 else 2)
+		local beam = rod(folder, "SkyBeacon", 400, 3, at(0, top + 200, 0) * CFrame.Angles(0, 0, math.rad(90)), glow, Enum.Material.Neon)
+		beam.Transparency = 0.55
+		local base = ball(folder, "BeaconCore", 3.5, at(0, top + 1, 0), glow, Enum.Material.Neon)
+		light(base, glow, 40, 2)
+	end
+	-- The King's balcony over the door, held up by two columns, with the throne
+	if has("Balcony") then
+		local depth, width = 9, ENTRANCE_WIDTH + 8
+		local z = -half - 1 - depth / 2
+		decoration(folder, "BalconyFloor", Vector3.new(width, 1, depth), at(0, BALCONY_HEIGHT - 0.5, z), trim, Enum.Material.Marble).CanCollide = true
+		decoration(folder, "BalconyCarpet", Vector3.new(width - 3, 0.12, depth - 2), at(0, BALCONY_HEIGHT + 0.06, z + 0.3), main, Enum.Material.Fabric)
+		for _, side in { -1, 1 } do
+			rod(folder, "BalconyColumn", BALCONY_HEIGHT - 1, 1.6, at(side * (width / 2 - 1.5), (BALCONY_HEIGHT - 1) / 2, z - depth / 2 + 1.2) * CFrame.Angles(0, 0, math.rad(90)), main:Lerp(Color3.new(1, 1, 1), 0.6), Enum.Material.Marble)
+		end
+		-- Railing: posts and a gold rail along the front and both sides
+		local railY = BALCONY_HEIGHT + 2.6
+		decoration(folder, "Rail", Vector3.new(width, 0.4, 0.5), at(0, railY, z - depth / 2 + 0.3), trim, Enum.Material.Foil)
+		for _, side in { -1, 1 } do
+			decoration(folder, "Rail", Vector3.new(0.5, 0.4, depth), at(side * (width / 2 - 0.3), railY, z), trim, Enum.Material.Foil)
+		end
+		for k = 0, 10 do
+			local x = -width / 2 + 0.5 + k * (width - 1) / 10
+			rod(folder, "Baluster", 2.4, 0.4, at(x, BALCONY_HEIGHT + 1.3, z - depth / 2 + 0.3) * CFrame.Angles(0, 0, math.rad(90)), main:Lerp(Color3.new(1, 1, 1), 0.6), Enum.Material.Marble)
+		end
+		local seat = throne(folder, at(0, BALCONY_HEIGHT, z + 1.6), look or "Carpet", main, trim, glow, rainbow)
+		-- Gold pad at the bottom: the owner taps it to take the throne.
+		local pad = decoration(folder, "ThronePad", Vector3.new(4, 0.3, 4), at(-(width / 2 + 3.5), 0.15, -half - 8), THRONE_GOLD, Enum.Material.Neon)
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "ThronePrompt"
+		prompt.ActionText = "Sit on the throne"
+		prompt.ObjectText = "King's Balcony"
+		prompt.HoldDuration = 0.3
+		prompt.MaxActivationDistance = 10
+		prompt.RequiresLineOfSight = false
+		prompt:SetAttribute("Action", "Throne")
+		prompt.Parent = pad
+		local sign = billboard(pad, Vector2.new(260, 60), Vector3.new(0, 4, 0), "👑 THRONE", THRONE_GOLD)
+		sign.Font = Enum.Font.FredokaOne
+		seat:SetAttribute("PlotIndex", parts.Index)
+	end
 end
 
 -- A rocky cave around one end of the conveyor. `facing` is the direction

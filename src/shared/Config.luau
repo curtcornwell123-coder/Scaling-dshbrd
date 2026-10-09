@@ -462,6 +462,29 @@ function Config.CarpetTierFor(rebirths: number): number
 	return math.min(#Config.CarpetTiers, rebirths // Config.CarpetRebirthStep)
 end
 
+-- Prestige: the more you rebirth, the cooler your base looks. Each step
+-- keeps the ones before it. Colors follow your stair carpet.
+Config.PrestigeLadder = {
+	{ Rebirths = 1, Key = "Rims", Name = "Glowing pedestal rims" },
+	{ Rebirths = 3, Key = "Torches", Name = "Torches by the door" },
+	{ Rebirths = 5, Key = "Banners", Name = "Rebirth banners on the front wall" },
+	{ Rebirths = 10, Key = "Pillars", Name = "Guardian pillars at the front corners" },
+	{ Rebirths = 15, Key = "Runway", Name = "A royal runway to the door" },
+	{ Rebirths = 20, Key = "Beacon", Name = "A sky beacon everyone can see" },
+	-- The last carpet tier: a balcony over the door with a king's throne in
+	-- the carpet's colors (Corny's is made of corn, Ace's is a pink bloom).
+	{ Rebirths = Config.CarpetRebirthStep * #Config.CarpetTiers, Key = "Balcony", Name = "The King's balcony and throne" },
+}
+
+function Config.HasPrestige(rebirths: number, key: string): boolean
+	for _, step in Config.PrestigeLadder do
+		if step.Key == key then
+			return rebirths >= step.Rebirths
+		end
+	end
+	return false
+end
+
 -- Lock upgrades --------------------------------------------------------------
 -- How long the entrance lasers stay on. The Longer Lock gamepass doubles it.
 
