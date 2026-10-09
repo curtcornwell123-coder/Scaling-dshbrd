@@ -56,7 +56,7 @@ export type World = {
 local PLOT_SIZE = 60
 local PLOT_DISTANCE = 100 -- from the conveyor to each plot's center
 local PLOT_SPACING = 100
-local SIGN_HEIGHT = 24
+local SIGN_HEIGHT = 26 -- the name sign's height above the ground floor
 local ENTRANCE_WIDTH = 16
 local FLOOR_TOP = 1
 local WALL_COLOR = Color3.fromRGB(140, 140, 145) -- every base's fence is the same grey
@@ -817,7 +817,9 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 	hatchPrompt.Parent = hatch
 	local vault, vaultPodiums = buildVault(model, at)
 
-	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + SIGN_HEIGHT, half - 1), WALL_COLOR)
+	-- The owner's name floats just in front of the base, above the door (and
+	-- above the King's balcony throne), so it reads from the conveyor side.
+	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + SIGN_HEIGHT, -half - 3), WALL_COLOR)
 	signPost.Transparency = 1
 	signPost.CanCollide = false
 	local ownerLabel = billboard(signPost, Vector2.new(400, 80), Vector3.zero, "EMPTY BASE", Color3.new(1, 1, 1))
@@ -1054,9 +1056,6 @@ function WorldBuilder.SetStories(parts: PlotParts, count: number)
 		parts.Roof:PivotTo(parts.RoofPivot + Vector3.new(0, storyBase(count) - storyBase(1), 0))
 	end
 	parts.Roof.Parent = if roofed then parts.Model else nil
-	local sign = parts.SignPost
-	local signY = if roofed then storyBase(count) + STORY_HEIGHT + 17 else storyBase(count) + SIGN_HEIGHT
-	sign.CFrame = sign.CFrame.Rotation + Vector3.new(sign.Position.X, signY, sign.Position.Z)
 end
 
 -- Prestige ---------------------------------------------------------------------
