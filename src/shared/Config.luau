@@ -174,6 +174,10 @@ Config.Brainrots = {
 	-- Launch event: 500 for sale at 50 Robux + 2 reserved. Earns $2.5K/s and
 	-- doubles with every rebirth, so she stays useful without breaking the economy.
 	{ Id = "CignaGlamourina", DisplayName = "Cigna Glamourina", Rarity = "EventSpecial", Price = 0, Income = 2500, IncomeGrowth = 2, Limited = true, Color = Color3.fromRGB(240, 110, 200), Accent = Color3.fromRGB(255, 30, 170) },
+	-- Next event: the lanky forest deer with long claws. It has its own statue
+	-- beside Cigna's (Config.NextEvent) and goes on sale as soon as its
+	-- gamepass is set below (LimitedItems).
+	{ Id = "SixtySevenNights", DisplayName = "67 Nights Deer", Rarity = "EventSpecial", Price = 0, Income = 3000, IncomeGrowth = 2, Limited = true, Color = Color3.fromRGB(82, 64, 64), Accent = Color3.fromRGB(245, 150, 175) },
 	-- Secret
 	-- A little sneaker creature: kept short on purpose (Scale), but very rare.
 	-- (The Id keeps its old name so saved copies still load.)
@@ -226,6 +230,7 @@ Config.Mutations = {
 
 Config.MagicChance = 1 -- percent, rolled when a limited event brainrot is granted
 Config.CurrentEvent = "CignaGlamourina" -- the brainrot shown on the event statue
+Config.NextEvent = "SixtySevenNights" -- its own statue right beside it (same as CurrentEvent = no second statue)
 
 -- Economy ------------------------------------------------------------------
 
@@ -892,6 +897,7 @@ end
 
 Config.LimitedItems = {
 	CignaGlamourina = { ProductId = 0, GamePassId = 2021528297, PriceRobux = 50, Stock = 500, Reserved = 2 },
+	SixtySevenNights = { ProductId = 0, GamePassId = 0, PriceRobux = 50, Stock = 1000, Reserved = 2 },
 } :: { [string]: LimitedItem }
 
 -- Whether a limited item can be bought yet (it has a product or a gamepass).

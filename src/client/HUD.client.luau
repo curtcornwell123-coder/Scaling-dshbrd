@@ -1902,17 +1902,19 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt)
 	end
 end)
 
--- Tapping / clicking the event statue buys it too.
-task.spawn(function()
-	local statue = workspace:WaitForChild("BrainrotHeist"):WaitForChild("EventStatue", 30)
-	local hitbox = statue and statue:WaitForChild("BuyHitbox", 10)
-	local click = hitbox and hitbox:FindFirstChildOfClass("ClickDetector")
-	if hitbox and click then
-		click.MouseClick:Connect(function()
-			buyLimitedItem(hitbox:GetAttribute("ItemId") :: string)
-		end)
-	end
-end)
+-- Tapping / clicking an event statue buys it too.
+for _, statueName in { "EventStatue", "NextEventStatue" } do
+	task.spawn(function()
+		local statue = workspace:WaitForChild("BrainrotHeist"):WaitForChild(statueName, 30)
+		local hitbox = statue and statue:WaitForChild("BuyHitbox", 10)
+		local click = hitbox and hitbox:FindFirstChildOfClass("ClickDetector")
+		if hitbox and click then
+			click.MouseClick:Connect(function()
+				buyLimitedItem(hitbox:GetAttribute("ItemId") :: string)
+			end)
+		end
+	end)
+end
 
 -- Admin panel (only shown to admins; the server checks every action too) ---
 -- One tab per job (Players, Events, Brainrots, and Founder for Corny and

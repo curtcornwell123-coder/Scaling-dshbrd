@@ -2220,18 +2220,18 @@ RequestUpgrade.OnServerEvent:Connect(function(player: Player, kind: unknown)
 	onUpgrade(player, plot, kind)
 end)
 
--- Event statue ---------------------------------------------------------------
--- A big spinning statue of the current event brainrot next to the Shard
--- Shop. Tapping it buys it (same safe reserve-then-prompt flow as the shop).
+-- Event statues -------------------------------------------------------------
+-- Big spinning statues of the current event brainrot and the next one, side
+-- by side next to the Shard Shop. Tapping one buys it (same safe
+-- reserve-then-prompt flow as the shop).
 
-do
-	local brainrot = Config.GetBrainrot(Config.CurrentEvent)
-	local item = Config.LimitedItems[Config.CurrentEvent]
+local function buildEventStatue(itemId: string, folderName: string, base: Vector3)
+	local brainrot = Config.GetBrainrot(itemId)
+	local item = Config.LimitedItems[itemId]
 	if brainrot and item then
 		local folder = Instance.new("Model")
-		folder.Name = "EventStatue"
+		folder.Name = folderName
 		folder.Parent = workspace:FindFirstChild("BrainrotHeist")
-		local base = world.StatuePosition
 		local gold = Color3.fromRGB(255, 200, 60)
 		local rarityColor = Config.Rarities[brainrot.Rarity].Color
 
@@ -2309,11 +2309,14 @@ do
 			-- The stock always shows, even before she's on sale.
 			local nextAt = ReplicatedStorage:GetAttribute("LimitedNextUpdate") :: number?
 			sign.Text = string.format(
-				"LIMITED EVENT\n%s\n%s\nStock updates in %s\n%s",
+				"%s\n%s\n%s\nStock updates in %s\n%s",
+				if Config.LimitedOnSale(item) then "LIMITED EVENT" else "NEXT EVENT",
 				brainrot.DisplayName,
 				if stock <= 0 then "SOLD OUT" else string.format("%d / %d LEFT", stock, item.Stock),
 				Config.StockCountdown(nextAt, os.time()),
-				if not Config.LimitedOnSale(item) then "Coming soon!" else string.format("R$ %d  -  1%% MAGIC!", item.PriceRobux)
+				if not Config.LimitedOnSale(item) then "Coming soon!"
+					elseif Config.MutationAllowed(brainrot, "Magic") then string.format("R$ %d  -  1%% MAGIC!", item.PriceRobux)
+					else string.format("R$ %d", item.PriceRobux)
 			)
 		end
 		-- Ticks every second for the countdown.
@@ -2324,6 +2327,11 @@ do
 			end
 		end)
 	end
+end
+
+buildEventStatue(Config.CurrentEvent, "EventStatue", world.StatuePosition)
+if Config.NextEvent ~= Config.CurrentEvent then
+	buildEventStatue(Config.NextEvent, "NextEventStatue", world.NextStatuePosition)
 end
 
 -- Conveyor -----------------------------------------------------------------
@@ -3264,7 +3272,9 @@ local function randomDropPosition(): Vector3
 		local side = if rng:NextNumber() < 0.5 then -1 else 1
 		local position = Vector3.new(x, 0.1, side * rng:NextNumber(12, 38))
 		local flat = Vector3.new(1, 0, 1)
-		if ((position - world.ShopPosition) * flat).Magnitude > 18 and ((position - world.StatuePosition) * flat).Magnitude > 12 and ((position - world.SellPosition) * flat).Magnitude > 12 then
+		if ((position - world.ShopPosition) * flat).Magnitude > 18 and ((position - world.StatuePosition) * flat).Magnitude > 12
+			and ((position - world.NextStatuePosition) * flat).Magnitude > 12 and ((position - world.SellPosition) * flat).Magnitude > 12
+		then
 			return position
 		end
 	end
@@ -3285,6 +3295,7 @@ local function dropPositionNear(point: Vector3): Vector3
 		if not inBase and not inCave and not onBelt and (position * flat).Magnitude < 380
 			and ((position - world.ShopPosition) * flat).Magnitude > 18
 			and ((position - world.StatuePosition) * flat).Magnitude > 12
+			and ((position - world.NextStatuePosition) * flat).Magnitude > 12
 			and ((position - world.SellPosition) * flat).Magnitude > 12
 		then
 			return position

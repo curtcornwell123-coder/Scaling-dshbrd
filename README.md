@@ -51,10 +51,18 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 - She **can't be stolen or sold** and **stays through rebirths**. If your base is full when you buy her, she appears as soon as a slot opens.
 - **Income: $2.5K/s, doubling with every rebirth** ($5K at rebirth 1, $10K at 2, … $640K at 8), on top of the rebirth multiplier. In economy simulations she makes about a third of a typical owner's income: progression is roughly 2x faster early on and about 1.4x later, without letting buyers skip the game.
 
-- **Event statue:** a compact spinning statue of her stands right beside the shop tent, with a stock sign above her head that counts down to the next stock update (every server re-checks the shared stock every 5 minutes, `Config.LimitedRefreshSeconds`; sales and gifts in your own server show right away) ("487 / 500 LEFT"), shown even before she goes on sale. Tap or click it to buy her right there.
+- **Event statue:** a compact spinning statue of her stands right beside the shop tent (the next event's statue stands next to hers), with a stock sign above her head that counts down to the next stock update (every server re-checks the shared stock every 5 minutes, `Config.LimitedRefreshSeconds`; sales and gifts in your own server show right away) ("487 / 500 LEFT"), shown even before she goes on sale. Tap or click it to buy her right there.
 - **Mutation roll:** every copy rolls a mutation when you get it (normal odds), plus a **1% chance of MAGIC**, an event-only mutation (x8 income, purple-to-teal shimmer, swirling stars, floating orbs). Admins can also turn a player's Cigna Magic with **Give MAGIC (event)** in the admin panel (it needs the player to own her). Change the featured event with `Config.CurrentEvent`.
 
 To put her on sale: create a Developer Product named "Cigna Glamourina" priced at **50 Robux**, and paste its ID into `Config.LimitedItems.CignaGlamourina.ProductId`.
+
+### Next event: 67 Nights Deer (limited, coming soon)
+
+- A skinny dark-brown forest deer with a huge round head, staring saucer eyes, a pink muzzle and gaping mouth, branching antlers, and freakishly long arms that end in fanned-out claws.
+- **1,002 copies** (1,000 for **50 Robux** + 2 spares Corny can gift). Otherwise it works like Cigna: serial numbers, can't be stolen or sold, stays through rebirths, rolls a normal mutation when you get it (MAGIC stays Cigna's).
+- **Income: $3K/s, doubling with every rebirth.**
+- **Its own statue** spins right beside Cigna's, with its own live stock sign ("NEXT EVENT … 1000 / 1000 LEFT … Coming soon!"). The Sell Stand moved a little further along to make room. `Config.NextEvent` picks which brainrot stands there.
+- To put it on sale: create a gamepass priced at 50 Robux and paste its ID into `Config.LimitedItems.SixtySevenNights.GamePassId`; the sign then switches to "LIMITED EVENT" and tapping the statue buys it. To also give it the shop's FEATURED spot, set `Config.CurrentEvent = "SixtySevenNights"`. Corny can already give it from the admin panel.
 
 ### Mutations
 
@@ -329,7 +337,7 @@ The server decides every purchase, steal and cash change, so exploiters can't sp
 
 ## Next ideas
 
-- **More brainrots**: 100 so far; keep adding (add one in `Config.Brainrots` and a design in `BrainrotModel.luau`).
+- **More brainrots**: 101 so far; keep adding (add one in `Config.Brainrots` and a design in `BrainrotModel.luau`).
 - **Thumbnail + icon**: the biggest driver of clicks.
 - **Sounds**: purchase, steal, slap, laser zap.
 - **Limited-time event brainrots**, an **Index** of everything you've owned, **daily rewards**, **group rewards**.

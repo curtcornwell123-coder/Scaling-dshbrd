@@ -995,6 +995,91 @@ designs.CignaGlamourina = function(b, c, a)
 	return 8.2
 end
 
+-- The 67 Nights Deer: a skinny forest deer with a huge round head, staring
+-- saucer eyes, a gaping mouth and freakishly long arms ending in claws.
+designs.SixtySevenNights = function(b, c, a)
+	local fur = c
+	local belly = lighter(c, 0.12)
+	local muzzle = Color3.fromRGB(225, 150, 140)
+	local antler = Color3.fromRGB(48, 38, 38)
+	local claw = Color3.fromRGB(125, 96, 70)
+
+	-- Thin backward-bending legs with little hooves --------------------------
+	for _, side in { -1, 1 } do
+		local hip = V(side * 0.32, 2.15, 0.05)
+		local knee = V(side * 0.38, 1.2, -0.22)
+		local ankle = V(side * 0.36, 0.45, 0.12)
+		capsule(b, "Thigh", hip, knee, 0.34, fur)
+		capsule(b, "Shin", knee, ankle, 0.24, fur)
+		egg(b, "Hoof", V(0.36, 0.34, 0.48), CF(side * 0.36, 0.17, 0.02), antler)
+	end
+
+	-- Skinny body with a lighter chest ---------------------------------------
+	egg(b, "Body", V(1.05, 1.6, 0.85), CF(0, 2.75, 0.02), fur)
+	egg(b, "Chest", V(0.7, 1.0, 0.3), CF(0, 2.95, -0.32), belly)
+	egg(b, "Tail", V(0.3, 0.38, 0.3), CF(0, 2.35, 0.45), belly)
+	capsule(b, "Neck", V(0, 3.35, 0), V(0, 3.8, -0.05), 0.5, fur)
+
+	-- Long spindly arms, held out wide, with drooping claw fingers -----------
+	for _, side in { -1, 1 } do
+		local shoulder = V(side * 0.45, 3.3, 0)
+		local elbow = V(side * 1.45, 3.65, -0.15)
+		local wrist = V(side * 2.35, 3.35, -0.35)
+		capsule(b, "UpperArm", shoulder, elbow, 0.26, fur)
+		capsule(b, "Forearm", elbow, wrist, 0.22, fur)
+		ball(b, "Palm", 0.32, wrist, fur)
+		-- Four fingers fanned out front to back and inward to outward.
+		for k = -1.5, 1.5 do
+			local fan = (k + 1.5) / 3
+			local knuckle = wrist + V(side * 0.2, -0.06, k * 0.15)
+			local bend = knuckle + V(side * (0.12 + fan * 0.3), -0.6, k * 0.2 - 0.05)
+			local tip = bend + V(side * (fan * 0.22 - 0.06), -0.8 + math.abs(k) * 0.1, k * 0.14 - 0.12)
+			tube(b, "Finger", { knuckle, bend }, 0.14, claw)
+			capsule(b, "Claw", bend, tip, 0.1, darker(claw, 0.3))
+		end
+	end
+
+	-- Big round head ---------------------------------------------------------
+	local headY = 4.7
+	egg(b, "Head", V(1.9, 1.85, 1.65), CF(0, headY, 0), fur)
+	egg(b, "Cheeks", V(1.45, 0.95, 1.2), CF(0, headY - 0.55, -0.22), fur)
+
+	-- Saucer eyes: big white ovals with small black pupils --------------------
+	for _, side in { -1, 1 } do
+		local eye = V(side * 0.42, headY + 0.22, -0.7)
+		egg(b, "Eye", V(0.66, 0.74, 0.34), CF(eye) * ANG(0, side * rad(-12), 0), WHITE, nil, true)
+		egg(b, "EyeRim", V(0.74, 0.82, 0.26), CF(eye + V(0, 0, 0.05)) * ANG(0, side * rad(-12), 0), darker(fur, 0.45), nil, true)
+		ball(b, "Pupil", 0.36, eye + V(-side * 0.02, -0.02, -0.12), BLACK, nil, true)
+		ball(b, "Shine", 0.1, eye + V(side * 0.06, 0.1, -0.27), WHITE, Enum.Material.Neon, true)
+	end
+
+	-- Pink muzzle, shiny black nose and a gaping mouth ----------------------
+	egg(b, "Muzzle", V(0.82, 0.62, 0.62), CF(0, headY - 0.38, -0.82), muzzle)
+	local nose = egg(b, "Nose", V(0.34, 0.26, 0.24), CF(0, headY - 0.24, -1.12), Color3.fromRGB(30, 22, 24), nil, true)
+	nose.Reflectance = 0.15
+	egg(b, "MouthRim", V(0.6, 0.72, 0.3), CF(0, headY - 0.86, -0.82), muzzle, nil, true)
+	egg(b, "Mouth", V(0.46, 0.6, 0.2), CF(0, headY - 0.86, -0.92), Color3.fromRGB(45, 14, 20), nil, true)
+	egg(b, "Tongue", V(0.28, 0.16, 0.12), CF(0, headY - 1.06, -0.96), Color3.fromRGB(235, 110, 130), nil, true)
+
+	-- Big ears with pink insides ----------------------------------------------
+	for _, side in { -1, 1 } do
+		local ear = CF(side * 1.0, headY + 0.55, 0.05) * ANG(0, side * rad(-15), side * rad(-58))
+		egg(b, "Ear", V(0.5, 1.0, 0.24), ear, fur)
+		egg(b, "EarInside", V(0.34, 0.78, 0.12), ear * CF(0, 0.02, -0.08), a, nil, true)
+	end
+
+	-- Dark branching antlers -------------------------------------------------
+	for _, side in { -1, 1 } do
+		local function at(x: number, y: number, z: number): Vector3
+			return V(side * x, y, z)
+		end
+		tube(b, "Antler", { at(0.32, headY + 0.75, 0.05), at(0.42, headY + 1.3, 0.02), at(0.62, headY + 1.85, 0.08), at(0.58, headY + 2.35, 0.15) }, 0.16, antler)
+		tube(b, "Tine", { at(0.42, headY + 1.3, 0.02), at(0.18, headY + 1.75, -0.06), at(0.14, headY + 2.0, -0.04) }, 0.12, antler)
+		tube(b, "Tine", { at(0.62, headY + 1.85, 0.08), at(0.92, headY + 2.2, 0.06), at(1.0, headY + 2.45, 0.08) }, 0.12, antler)
+	end
+	return headY + 2.6
+end
+
 -- Flat 5-pointed star lying on a surface (`frame` faces outward along -Z).
 local function star(b: Builder, name: string, frame: CFrame, size: number, color: Color3)
 	for k = 0, 4 do

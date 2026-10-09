@@ -49,6 +49,7 @@ export type World = {
 	ConveyorFolder: Folder,
 	ShopPosition: Vector3, -- center of the shop tent
 	StatuePosition: Vector3, -- where the event statue stands
+	NextStatuePosition: Vector3, -- the next event's statue, right beside it
 	SellPosition: Vector3, -- the Sell Stand's counter
 }
 
@@ -1869,9 +1870,10 @@ function WorldBuilder.Build(): World
 	-- statue right beside it, keeping the middle clear.
 	local shopPosition = Vector3.new(startX + 50, 0, 45)
 	local statuePosition = shopPosition + Vector3.new(20, 0, -5)
+	local nextStatuePosition = statuePosition + Vector3.new(17, 0, 0)
 	buildShop(root, shopPosition)
-	-- The Sell Stand: just past the event statue, still by the shop.
-	local sellPosition = shopPosition + Vector3.new(38, 0, 2)
+	-- The Sell Stand: just past the two event statues, still by the shop.
+	local sellPosition = shopPosition + Vector3.new(56, 0, 2)
 	buildSellStand(root, sellPosition)
 
 	-- Stone paths: a walkway along each side of the conveyor, with a branch
@@ -1884,7 +1886,9 @@ function WorldBuilder.Build(): World
 		path(pathsFolder, Vector3.new(mouthX + 4, 0, side * 15), Vector3.new(walkEnd, 0, side * 15), 10)
 	end
 	path(pathsFolder, Vector3.new(shopPosition.X, 0, 20), Vector3.new(shopPosition.X, 0, 33), 8)
-	path(pathsFolder, Vector3.new(statuePosition.X, 0, 20), Vector3.new(statuePosition.X, 0, statuePosition.Z - 5), 6)
+	for _, position in { statuePosition, nextStatuePosition } do
+		path(pathsFolder, Vector3.new(position.X, 0, 20), Vector3.new(position.X, 0, position.Z - 5), 6)
+	end
 	for _, center in plotCenters do
 		local side = math.sign(center.Z)
 		path(pathsFolder, Vector3.new(center.X, 0, side * 20), Vector3.new(center.X, 0, center.Z - side * (PLOT_SIZE / 2 + 1)), 12)
@@ -1916,6 +1920,7 @@ function WorldBuilder.Build(): World
 		ConveyorFolder = conveyorFolder,
 		ShopPosition = shopPosition,
 		StatuePosition = statuePosition,
+		NextStatuePosition = nextStatuePosition,
 		SellPosition = sellPosition,
 	}
 end
