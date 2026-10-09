@@ -674,6 +674,21 @@ do
 	local featuredId = Config.CurrentEvent
 	local featured = Config.GetBrainrot(featuredId)
 	local featuredItem = Config.LimitedItems[featuredId]
+	-- Config's price until Roblox tells us the live one.
+	local featuredPrice = if featuredItem then featuredItem.PriceRobux else 0
+	if featuredItem then
+		local liveId = if featuredItem.ProductId ~= 0 then featuredItem.ProductId else featuredItem.GamePassId
+		if liveId and liveId ~= 0 then
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(liveId :: number, if featuredItem.ProductId ~= 0 then Enum.InfoType.Product else Enum.InfoType.GamePass)
+				end)
+				if ok and type(info) == "table" and type(info.PriceInRobux) == "number" then
+					featuredPrice = info.PriceInRobux
+				end
+			end)
+		end
+	end
 	local featuredColumn = box(home, UDim2.fromOffset(0, 0), UDim2.new(0, 190, 1, 0), SHOP_PANEL, 8)
 	text(featuredColumn, {
 		Position = UDim2.fromOffset(0, 4),
@@ -961,7 +976,7 @@ do
 				getNow.Text = "SOLD OUT"
 				getNow.BackgroundColor3 = SHOP_GREY
 			else
-				getNow.Text = "GET NOW  R$ " .. featuredItem.PriceRobux
+				getNow.Text = "GET NOW  R$ " .. featuredPrice
 				getNow.BackgroundColor3 = Color3.fromRGB(190, 70, 230)
 			end
 		else

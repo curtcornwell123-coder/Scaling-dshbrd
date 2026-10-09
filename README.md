@@ -46,7 +46,7 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 
 ### Launch event: Cigna Glamourina (limited)
 
-- **502 copies total.** 500 are in the shop for **50 Robux** (one per player), sold as gamepass `2021528297` (`GamePassId` in `Config.LimitedItems`; a developer product `ProductId` works too). Anyone who owns the pass but doesn't have her yet (e.g. bought it on the website) gets her when they join, plus 2 spare. **Only Corny** can gift her: in the admin panel's **FOUNDER** tab, the **GIFT CIGNA GLAMOURINA** box shows how many are left; type anyone's Roblox username and press **GIFT**. It works even if they aren't in the server: they get her as soon as they join (right away if they're in another server). Each gift comes out of the shop's 500, so the count goes down just like a sale; once those are gone, the 2 spares are used. Ace and other admins don't see the row, and the server refuses them (`Config.LimitedGiver`).
+- **502 copies total.** 500 are in the shop for **49 Robux** (one per player), sold as gamepass `2021528297` (`GamePassId` in `Config.LimitedItems`; a developer product `ProductId` works too). Anyone who owns the pass but doesn't have her yet (e.g. bought it on the website) gets her when they join, plus 2 spare. **Only Corny** can gift her: in the admin panel's **FOUNDER** tab, the **GIFT CIGNA GLAMOURINA** box shows how many are left; type anyone's Roblox username and press **GIFT**. It works even if they aren't in the server: they get her as soon as they join (right away if they're in another server). Each gift comes out of the shop's 500, so the count goes down just like a sale; once those are gone, the 2 spares are used. Ace and other admins don't see the row, and the server refuses them (`Config.LimitedGiver`).
 - Every copy has a **serial number** (#1–#500 from the shop stock, #501–#502 the spares), shown on her name tag.
 - Stock is shared by **every server** through a DataStore. When someone clicks Buy, a copy is reserved for 5 minutes before the Robux prompt opens, so the game can never sell more than 500. Cancelling releases it.
 - She **can't be stolen or sold** and **stays through rebirths**. If your base is full when you buy her, she appears as soon as a slot opens.
@@ -55,15 +55,15 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 - **Event statue:** a compact spinning statue of her stands right beside the shop tent (the next event's statue stands next to hers), with a stock sign above her head that counts down to the next stock update (every server re-checks the shared stock every 5 minutes, `Config.LimitedRefreshSeconds`; sales and gifts in your own server show right away) ("487 / 500 LEFT"), shown even before she goes on sale. Tap or click it to buy her right there.
 - **Mutation roll:** every copy rolls a mutation when you get it (normal odds), plus a **1% chance of MAGIC**, an event-only mutation (x8 income, purple-to-teal shimmer, swirling stars, floating orbs). Admins can also turn a player's Cigna Magic with **Give MAGIC (event)** in the admin panel (it needs the player to own her). Change the featured event with `Config.CurrentEvent`.
 
-To put her on sale: create a Developer Product named "Cigna Glamourina" priced at **50 Robux**, and paste its ID into `Config.LimitedItems.CignaGlamourina.ProductId`.
+To put her on sale: create a Developer Product named "Cigna Glamourina" priced at **49 Robux**, and paste its ID into `Config.LimitedItems.CignaGlamourina.ProductId`.
 
 ### Next event: 67 Nights Deer (limited)
 
 - A skinny dark-brown forest deer with a huge round head, staring saucer eyes, a pink muzzle and gaping mouth, branching antlers, and freakishly long arms that end in fanned-out claws.
-- **1,002 copies** (1,000 for **50 Robux** + 2 spares Corny can gift). Otherwise it works like Cigna: serial numbers, can't be stolen or sold, stays through rebirths, rolls a normal mutation when you get it (MAGIC stays Cigna's).
+- **1,002 copies** (1,000 for **49 Robux** + 2 spares Corny can gift). Otherwise it works like Cigna: serial numbers, can't be stolen or sold, stays through rebirths, rolls a normal mutation when you get it (MAGIC stays Cigna's).
 - **Income: $3K/s, doubling with every rebirth.**
 - **Its own statue** spins right beside Cigna's, with its own live stock sign ("NEXT EVENT … 1000 / 1000 LEFT … Coming soon!"). The Sell Stand moved a little further along to make room. `Config.NextEvent` picks which brainrot stands there.
-- **On sale** as gamepass `2023520328` (50 Robux): the sign shows "LIMITED EVENT" and tapping the statue buys it. To also give it the shop's FEATURED spot, set `Config.CurrentEvent = "SixtySevenNights"`. Corny can also give it from the admin panel.
+- **On sale** as gamepass `2023520328` (49 Robux): the sign shows "LIMITED EVENT" and tapping the statue buys it. To also give it the shop's FEATURED spot, set `Config.CurrentEvent = "SixtySevenNights"`. Corny can also give it from the admin panel.
 
 ### Mutations
 
@@ -316,17 +316,19 @@ Paste each ID into `Config.GamePasses` / `Config.Products` in `src/shared/Config
 
 Pictures for the one-time purchases (512x512, upload them as each Developer Product's image) are in `assets/icons/`: `cash_bag.png`, `cash_vault.png`, `server_luck.png` and `instant_lock.png` (`make_icons.py` draws them).
 
-Suggested prices:
+Prices (set on the dashboard; the shop shows Roblox's live price, so changing it there updates the game):
 
-| Item | Type | Price |
-|---|---|---|
-| 2x Cash | Pass | 199 R$ (id `2023580373`) |
-| VIP (+2 base slots, 2 extra floors to buy, crown + VIP tag, VIP Royale skin) | Pass | 249 R$ (id `2022590341`) |
-| Infinite Laser Door (lasers never turn off) | Pass | 450 R$ (id `2022050385`; or 12,500 Shards in the Shard Shop) |
-| Cash Bag (10 min of income) | Product | 49 R$ |
-| Cash Vault (1 hr of income) | Product | 199 R$ |
-| Server Luck (15 min, whole server) | Product | 149 R$ |
-| Instant Lock | Product | 25 R$ |
+| Item | Type | ID | Price |
+|---|---|---|---|
+| VIP (+2 base slots, 2 extra floors to buy, crown + VIP tag, VIP Royale skin) | Pass | `2022590341` | 249 R$ |
+| 2x Cash | Pass | `2023580373` | 179 R$ |
+| Infinite Laser Door (lasers never turn off; or 12,500 Shards in the Shard Shop) | Pass | `2022050385` | 349 R$ |
+| Cigna Glamourina (limited event) | Pass | `2021528297` | 49 R$ |
+| 67 Nights Deer (limited event) | Pass | `2023520328` | 49 R$ |
+| Cash Bag (10 min of income, at least $1K) | Product | `3717405260` | 10 R$ |
+| Cash Vault (1 hr of income, at least $25K) | Product | `3717405370` | 39 R$ |
+| Server Luck (15 min, whole server) | Product | `3717405184` | 15 R$ |
+| Instant Lock | Product | not set up yet (shows SOON) | 25 R$ suggested |
 
 Purchases are only confirmed after they're saved, and each one is recorded, so players are never charged without getting the item or granted it twice.
 

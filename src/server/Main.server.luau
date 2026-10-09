@@ -2299,7 +2299,22 @@ local function buildEventStatue(itemId: string, folderName: string, base: Vector
 		click.Parent = hitbox
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "BuyEventPrompt"
-		prompt.ActionText = "Buy (R$ " .. item.PriceRobux .. ")"
+		-- The price shown: Config's until Roblox tells us the live one (managed
+		-- pricing can change it on the dashboard).
+		local price = item.PriceRobux
+		prompt.ActionText = "Buy (R$ " .. price .. ")"
+		local liveId = if item.ProductId ~= 0 then item.ProductId else item.GamePassId
+		if liveId and liveId ~= 0 then
+			task.spawn(function()
+				local ok, info = pcall(function()
+					return MarketplaceService:GetProductInfo(liveId :: number, if item.ProductId ~= 0 then Enum.InfoType.Product else Enum.InfoType.GamePass)
+				end)
+				if ok and type(info) == "table" and type(info.PriceInRobux) == "number" then
+					price = info.PriceInRobux
+					prompt.ActionText = "Buy (R$ " .. price .. ")"
+				end
+			end)
+		end
 		prompt.ObjectText = brainrot.DisplayName
 		prompt.HoldDuration = 0
 		prompt.MaxActivationDistance = 16
@@ -2336,8 +2351,8 @@ local function buildEventStatue(itemId: string, folderName: string, base: Vector
 				if stock <= 0 then "SOLD OUT" else string.format("%d / %d LEFT", stock, item.Stock),
 				Config.StockCountdown(nextAt, os.time()),
 				if not Config.LimitedOnSale(item) then "Coming soon!"
-					elseif Config.MutationAllowed(brainrot, "Magic") then string.format("R$ %d  -  1%% MAGIC!", item.PriceRobux)
-					else string.format("R$ %d", item.PriceRobux)
+					elseif Config.MutationAllowed(brainrot, "Magic") then string.format("R$ %d  -  1%% MAGIC!", price)
+					else string.format("R$ %d", price)
 			)
 		end
 		-- Ticks every second for the countdown.

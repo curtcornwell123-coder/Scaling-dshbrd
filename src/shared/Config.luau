@@ -950,8 +950,8 @@ function Config.StockCountdown(nextAt: number?, now: number): string
 end
 
 Config.LimitedItems = {
-	CignaGlamourina = { ProductId = 0, GamePassId = 2021528297, PriceRobux = 50, Stock = 500, Reserved = 2 },
-	SixtySevenNights = { ProductId = 0, GamePassId = 2023520328, PriceRobux = 50, Stock = 1000, Reserved = 2 },
+	CignaGlamourina = { ProductId = 0, GamePassId = 2021528297, PriceRobux = 49, Stock = 500, Reserved = 2 },
+	SixtySevenNights = { ProductId = 0, GamePassId = 2023520328, PriceRobux = 49, Stock = 1000, Reserved = 2 },
 } :: { [string]: LimitedItem }
 
 -- Whether a limited item can be bought yet (it has a product or a gamepass).
@@ -969,7 +969,7 @@ Config.DropLifetime = 90 -- seconds before an unclaimed drop disappears
 -- Create these on the Creator Dashboard (your experience > Monetization),
 -- then paste the IDs below. Items with Id = 0 show as "coming soon".
 -- Prices are set on the dashboard (the shop reads them from Roblox).
--- Suggested: 2x Cash 199, VIP 249, Infinite Laser Door 450.
+-- Prices on the dashboard: 2x Cash 179, VIP 249, Infinite Laser Door 349.
 
 Config.GamePasses = {
 	{ Key = "DoubleCash", Id = 2023580373, Name = "2x Cash", Description = "Your brainrots make double cash forever." },
@@ -978,9 +978,9 @@ Config.GamePasses = {
 } :: { GamePass }
 
 Config.Products = {
-	{ Key = "SmallCash", Id = 0, Name = "Cash Bag", Description = "10 minutes of your income (at least $1K)." },
-	{ Key = "BigCash", Id = 0, Name = "Cash Vault", Description = "1 hour of your income (at least $25K)." },
-	{ Key = "ServerLuck", Id = 0, Name = "Server Luck", Description = "More Rare+ spawns for EVERYONE for 15 minutes." },
+	{ Key = "SmallCash", Id = 3717405260, Name = "Cash Bag", Description = "10 minutes of your income (at least $1K)." },
+	{ Key = "BigCash", Id = 3717405370, Name = "Cash Vault", Description = "1 hour of your income (at least $25K)." },
+	{ Key = "ServerLuck", Id = 3717405184, Name = "Server Luck", Description = "More Rare+ spawns for EVERYONE for 15 minutes." },
 	{ Key = "InstantLock", Id = 0, Name = "Instant Lock", Description = "Skip the lock cooldown and lock your base now." },
 } :: { Product }
 
