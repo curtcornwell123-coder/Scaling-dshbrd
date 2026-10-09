@@ -479,6 +479,207 @@ designs.IlCosmicoCannolo = function(b, c, a)
 	return 4.0
 end
 
+-- The free starter: a happy little potato with a sprout.
+designs.PatatinoPiccolino = function(b, c, a)
+	legs(b, darker(c, 0.35), 0.6, 0.45)
+	egg(b, "Potato", V(2.2, 2.4, 1.9), CF(0, 1.85, 0) * ANG(0, 0, rad(8)), c)
+	for _, spot in { { -0.65, 2.55, -0.8 }, { 0.72, 1.35, -0.75 }, { -0.35, 1.15, -0.85 }, { 0.85, 2.65, -0.55 } } do
+		ball(b, "Spot", 0.22, V(spot[1], spot[2], spot[3]), darker(c, 0.3), nil, true)
+	end
+	eyes(b, 0, 2.2, -0.82, 0.42, 0.5)
+	smile(b, 0, 1.62, -0.92, 0.5)
+	for _, side in { -1, 1 } do
+		zcyl(b, "Blush", 0.05, 0.38, V(side * 0.72, 1.82, -0.88), Color3.fromRGB(255, 150, 150), nil, true)
+	end
+	vcyl(b, "Stem", 0.6, 0.14, V(0.05, 3.3, 0), a)
+	for _, side in { -1, 1 } do
+		egg(b, "Leaf", V(0.75, 0.18, 0.42), CF(side * 0.36, 3.58, 0) * ANG(0, 0, side * rad(25)), a)
+	end
+	arms(b, 1.9, 0.95, c, 0.6)
+	return 3.9
+end
+
+-- A stretchy bubblegum blob blowing a big bubble.
+designs.BubblegummoBlobbo = function(b, c, a)
+	legs(b, darker(c, 0.25), 0.6, 0.55)
+	egg(b, "Blob", V(2.4, 2.0, 2.2), CF(0, 1.6, 0), c)
+	egg(b, "BlobTop", V(1.6, 1.2, 1.5), CF(0.2, 2.6, 0.1), c)
+	for _, drip in { { -1.0, 0.95 }, { 0.95, 1.05 }, { 0.25, 0.8 } } do
+		egg(b, "Drip", V(0.4, 0.8, 0.4), CF(drip[1], drip[2], -0.72), c)
+	end
+	eyes(b, 0, 2.15, -0.98, 0.45, 0.5)
+	local bubble = ball(b, "Bubble", 1.6, V(0, 1.45, -1.85), a, Enum.Material.Glass, true)
+	bubble.Transparency = 0.25
+	ball(b, "BubbleShine", 0.3, V(-0.35, 1.8, -2.55), WHITE, Enum.Material.Neon, true)
+	arms(b, 1.7, 1.1, c, 0.7)
+	return 3.4
+end
+
+-- A tall ice-cream cone with two scoops, sprinkles and a cherry.
+designs.GelatinoGigante = function(b, c, a)
+	local cone = Color3.fromRGB(215, 160, 80)
+	legs(b, darker(cone, 0.3), 0.7, 0.4)
+	for i = 0, 5 do
+		local t = i / 5
+		vcyl(b, "Cone", 0.42, 0.5 + t * 1.5, V(0, 0.9 + i * 0.4, 0), if i % 2 == 0 then cone else darker(cone, 0.12))
+	end
+	ball(b, "Scoop", 2.3, V(0, 3.45, 0), c)
+	ball(b, "Scoop2", 1.9, V(0, 4.75, 0), a)
+	egg(b, "Drizzle", V(1.9, 0.45, 1.9), CF(0, 5.35, 0), Color3.fromRGB(80, 40, 25))
+	ball(b, "Cherry", 0.55, V(0, 5.8, 0), Color3.fromRGB(220, 30, 40))
+	box(b, "CherryStem", V(0.06, 0.5, 0.06), CF(0.1, 6.15, 0) * ANG(0, 0, rad(-20)), Color3.fromRGB(60, 120, 40))
+	local sprinkle = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(255, 220, 60), Color3.fromRGB(80, 160, 255), WHITE }
+	for i = 1, 10 do
+		local angle = rad(i * 36)
+		local p = V(math.cos(angle) * 0.9, 4.75 + math.sin(i * 1.7) * 0.5, math.sin(angle) * 0.9)
+		box(b, "Sprinkle", V(0.22, 0.07, 0.07), CF(p) * ANG(0, angle, rad(i * 40)), sprinkle[i % 4 + 1], nil, true)
+	end
+	eyes(b, 0, 3.55, -1.05, 0.45, 0.5)
+	smile(b, 0, 3.0, -1.12, 0.5)
+	arms(b, 3.0, 1.05, c, 0.8)
+	return 6.3
+end
+
+-- A frosted donut on its edge, crackling with electricity.
+designs.DonuttoDynamo = function(b, c, a)
+	local dough = Color3.fromRGB(215, 160, 90)
+	legs(b, darker(dough, 0.3), 0.9, 0.6)
+	local center = V(0, 2.95, 0)
+	for i = 0, 15 do
+		local angle = rad(i * 22.5)
+		local p = center + V(math.cos(angle) * 1.35, math.sin(angle) * 1.35, 0)
+		ball(b, "Dough", 1.25, p, dough)
+		ball(b, "Frosting", 1.05, p + V(0, 0, -0.3), c)
+	end
+	local sprinkle = { WHITE, Color3.fromRGB(255, 220, 60), Color3.fromRGB(80, 160, 255), Color3.fromRGB(120, 230, 120) }
+	for i = 0, 13 do
+		local angle = rad(i * 25.7 + 10)
+		local p = center + V(math.cos(angle) * 1.35, math.sin(angle) * 1.35, -0.85)
+		box(b, "Sprinkle", V(0.24, 0.08, 0.08), CF(p) * ANG(0, 0, rad(i * 47)), sprinkle[i % 4 + 1], nil, true)
+	end
+	eyes(b, 0, 4.2, -0.85, 0.48, 0.48)
+	smile(b, 0, 1.75, -0.85, 0.6)
+	for _, side in { -1, 1 } do
+		local x = side * 2.35
+		box(b, "Bolt", V(0.22, 0.7, 0.2), CF(x, 3.6, 0) * ANG(0, 0, rad(-25 * side)), a, Enum.Material.Neon, true)
+		box(b, "Bolt", V(0.5, 0.18, 0.2), CF(x + side * 0.12, 3.25, 0), a, Enum.Material.Neon, true)
+		box(b, "Bolt", V(0.22, 0.7, 0.2), CF(x + side * 0.25, 2.9, 0) * ANG(0, 0, rad(-25 * side)), a, Enum.Material.Neon, true)
+	end
+	arms(b, 2.9, 1.95, dough, 0.6)
+	return 4.8
+end
+
+-- A salmon sushi roll in a samurai helmet, katana ready.
+designs.SushitoSamurai = function(b, c, a)
+	local rice = Color3.fromRGB(245, 245, 240)
+	local nori = Color3.fromRGB(25, 45, 30)
+	local gold = Color3.fromRGB(255, 200, 60)
+	legs(b, nori, 0.8, 0.6)
+	vcyl(b, "Nori", 2.4, 2.5, V(0, 2.05, 0), nori)
+	vcyl(b, "RiceTop", 0.12, 2.25, V(0, 3.28, 0), rice)
+	for i = 1, 8 do
+		local angle = rad(i * 45)
+		ball(b, "Grain", 0.3, V(math.cos(angle) * 0.75, 3.36, math.sin(angle) * 0.75), rice)
+	end
+	egg(b, "Salmon", V(2.3, 0.7, 1.6), CF(0, 3.6, 0) * ANG(0, rad(15), 0), c)
+	for i = -1, 1 do
+		box(b, "SalmonStripe", V(0.12, 0.08, 1.4), CF(i * 0.55, 3.92, 0) * ANG(0, rad(15), 0), WHITE, nil, true)
+	end
+	-- Kabuto helmet with golden horns
+	egg(b, "Helmet", V(2.2, 0.85, 1.9), CF(0, 4.25, 0), a, Enum.Material.Metal)
+	box(b, "HelmetBrim", V(2.6, 0.15, 0.5), CF(0, 4.0, -0.85), darker(a, 0.3), Enum.Material.Metal)
+	for _, side in { -1, 1 } do
+		box(b, "Horn", V(0.18, 1.1, 0.12), CF(side * 0.35, 4.9, -0.9) * ANG(0, 0, side * rad(-30)), gold, Enum.Material.Foil, true)
+	end
+	eyes(b, 0, 2.45, -1.22, 0.5, 0.55, true)
+	box(b, "Mouth", V(0.6, 0.1, 0.1), CF(0, 1.85, -1.25), WHITE, nil, true)
+	-- Katana
+	box(b, "Blade", V(0.12, 2.6, 0.3), CF(1.75, 2.9, -0.4) * ANG(0, 0, rad(-20)), Color3.fromRGB(220, 225, 235), Enum.Material.Metal, true)
+	box(b, "Guard", V(0.5, 0.12, 0.5), CF(1.35, 1.75, -0.4), gold, Enum.Material.Foil, true)
+	box(b, "Handle", V(0.16, 0.7, 0.16), CF(1.25, 1.4, -0.4) * ANG(0, 0, rad(-20)), Color3.fromRGB(40, 20, 20), nil, true)
+	arms(b, 2.3, 1.25, nori, 0.8)
+	return 5.3
+end
+
+-- A taco with a dinosaur poking out of it, crowned and roaring.
+designs.TacoraptorSupremo = function(b, c, a)
+	local dino = darker(a, 0.1)
+	local meat = Color3.fromRGB(120, 60, 35)
+	legs(b, dino, 2.1, 0.7)
+	-- The shell: a thin U, open at the top
+	for i = 0, 12 do
+		local angle = rad(180 + 15 * i)
+		local p = V(math.cos(angle) * 1.5, 3.4 + math.sin(angle) * 1.4, 0)
+		egg(b, "Shell", V(0.5, 0.55, 1.9), CF(p) * ANG(0, 0, angle + rad(90)), c)
+	end
+	egg(b, "Meat", V(2.8, 0.7, 1.7), CF(0, 3.2, 0), meat)
+	for i = -3, 3 do
+		ball(b, "Lettuce", 0.62, V(i * 0.48, 3.7, if i % 2 == 0 then -0.35 else 0.3), a)
+	end
+	for _, x in { -1.0, 0.1, 0.9 } do
+		ball(b, "Tomato", 0.42, V(x, 3.85, 0.05), Color3.fromRGB(220, 40, 40))
+	end
+	for i = 1, 6 do
+		box(b, "Cheese", V(0.5, 0.08, 0.1), CF(-1.2 + i * 0.38, 3.95, -0.2) * ANG(0, rad(i * 30), 0), Color3.fromRGB(255, 210, 60))
+	end
+	-- Dinosaur head out the front, tail out the back
+	egg(b, "Neck", V(0.9, 1.3, 0.9), CF(0, 4.15, -1.25) * ANG(rad(-30), 0, 0), dino)
+	egg(b, "Head", V(1.4, 1.1, 1.7), CF(0, 4.75, -1.85), dino)
+	egg(b, "Jaw", V(1.1, 0.4, 1.2), CF(0, 4.3, -2.2), dino)
+	for i = -2, 2 do
+		box(b, "Tooth", V(0.12, 0.18, 0.12), CF(i * 0.18, 4.5, -2.72), WHITE, nil, true)
+	end
+	eyes(b, 0, 5.05, -2.35, 0.38, 0.42, true)
+	for i = 0, 5 do
+		local t = i / 5
+		ball(b, "Tail", 0.75 - t * 0.4, V(0.3 * math.sin(t * 3), 3.4 + t * 0.3, 1.2 + t * 1.5), dino)
+	end
+	local gold = Color3.fromRGB(255, 200, 50)
+	vcyl(b, "Crown", 0.35, 0.9, V(0, 5.4, -1.75), gold, Enum.Material.Foil, true)
+	for i = 1, 5 do
+		local angle = rad(i * 72)
+		box(b, "CrownSpike", V(0.18, 0.35, 0.18), CF(math.cos(angle) * 0.35, 5.7, -1.75 + math.sin(angle) * 0.35), gold, Enum.Material.Foil, true)
+	end
+	arms(b, 3.3, 1.65, dino, 0.5)
+	return 6.0
+end
+
+-- A sandwich astronaut in a glass helmet, with a jetpack and orbiting stars.
+designs.AstronautoPanino = function(b, c, a)
+	local metal = Color3.fromRGB(180, 180, 195)
+	local bread = Color3.fromRGB(230, 180, 100)
+	legs(b, c, 1.0, 0.6)
+	egg(b, "Suit", V(2.4, 2.2, 2.0), CF(0, 2.0, 0), c)
+	box(b, "Panel", V(1.0, 0.6, 0.15), CF(0, 2.2, -1.0), a, Enum.Material.Neon, true)
+	for i = -1, 1 do
+		ball(b, "Button", 0.18, V(i * 0.3, 1.75, -0.98), if i == 0 then Color3.fromRGB(255, 80, 80) else Color3.fromRGB(255, 220, 60), Enum.Material.Neon, true)
+	end
+	vcyl(b, "Collar", 0.3, 2.0, V(0, 2.95, 0), metal, Enum.Material.Metal)
+	-- The sandwich head
+	box(b, "BreadBottom", V(1.6, 0.35, 1.4), CF(0, 3.4, 0), bread)
+	box(b, "Lettuce", V(1.75, 0.15, 1.55), CF(0, 3.62, 0), Color3.fromRGB(90, 200, 70))
+	box(b, "Ham", V(1.65, 0.18, 1.45), CF(0, 3.77, 0), Color3.fromRGB(240, 140, 150))
+	box(b, "Cheese", V(1.7, 0.12, 1.5), CF(0, 3.91, 0) * ANG(0, rad(10), 0), Color3.fromRGB(255, 210, 60))
+	egg(b, "BreadTop", V(1.65, 0.65, 1.45), CF(0, 4.2, 0), bread)
+	eyes(b, 0, 4.2, -0.68, 0.35, 0.4)
+	local helmet = ball(b, "Helmet", 2.9, V(0, 3.85, 0), a, Enum.Material.Glass, true)
+	helmet.Transparency = 0.72
+	-- Jetpack
+	for _, side in { -1, 1 } do
+		vcyl(b, "Tank", 1.4, 0.6, V(side * 0.45, 2.2, 1.15), metal, Enum.Material.Metal)
+		ball(b, "Flame", 0.5, V(side * 0.45, 1.3, 1.15), Color3.fromRGB(255, 140, 30), Enum.Material.Neon, true)
+	end
+	box(b, "Antenna", V(0.08, 0.8, 0.08), CF(0.5, 5.6, 0), metal, Enum.Material.Metal, true)
+	ball(b, "AntennaTip", 0.3, V(0.5, 6.05, 0), a, Enum.Material.Neon, true)
+	for i = 1, 8 do
+		local angle = rad(i * 45)
+		local p = CF(0, 3.6, 0) * ANG(rad(15), 0, rad(-10)) * CF(math.cos(angle) * 2.3, 0, math.sin(angle) * 2.3)
+		ball(b, "Star", 0.22, p.Position, Color3.fromRGB(255, 240, 150), Enum.Material.Neon, true)
+	end
+	arms(b, 2.4, 1.2, c, 0.9)
+	return 6.2
+end
+
 designs.CignaGlamourina = function(b, c, a)
 	local cream = Color3.fromRGB(252, 245, 232)
 	local hotPink = a

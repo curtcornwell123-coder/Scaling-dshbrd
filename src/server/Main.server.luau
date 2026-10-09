@@ -316,7 +316,8 @@ local function defaultData(): SaveData
 	return {
 		Cash = Config.StartingCash,
 		Rebirths = 0,
-		Brainrots = {},
+		-- New players start with the free starter brainrot in their base.
+		Brainrots = { Config.StarterBrainrot },
 		Steals = 0,
 		WallLevel = 1,
 		Stories = 1,
@@ -341,6 +342,8 @@ local function sanitize(raw: any): SaveData
 	if type(raw) ~= "table" then
 		return data
 	end
+	-- An existing save: only what they really have (no extra starter).
+	data.Brainrots = {}
 	if type(raw.Cash) == "number" then
 		data.Cash = raw.Cash
 	end
@@ -2259,6 +2262,11 @@ RequestRebirth.OnServerEvent:Connect(function(player)
 		clearPlotBrainrots(session.Plot, true)
 		session.Plot.Pending = 0
 		applyBaseLevels(session.Plot, session)
+		-- A fresh start comes with the free starter again.
+		local index = freeSlot(session.Plot, session)
+		if index then
+			placeBrainrot(session.Plot, index, Config.StarterBrainrot, nil, nil, false)
+		end
 	end
 	notify(player, string.format("REBIRTH! Your income is now x%.1f", incomeMultiplier(session)))
 	local newCarpet = Config.CarpetTierFor(session.Data.Rebirths)
@@ -2924,8 +2932,18 @@ local function runFounderEvent(eventId: string, minutes: number)
 		local pivotToRoot = home:ToObjectSpace(root.CFrame)
 		local started = os.clock()
 		local nextColor = 0
+		-- Cash and brainrots keep coming the whole event: Ace and his dancers
+		-- take turns throwing them.
+		local nextDrop = os.clock() + 2 + rng:NextNumber(0, dropEvery)
+		local thrower = 0
 		while giant.Parent and active() do
 			local t = os.clock() - started
+			if os.clock() >= nextDrop then
+				nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
+				thrower = thrower % (#dancers + 1) + 1
+				local dancer = dancers[thrower]
+				drop(if dancer then dancer:GetPivot().Position else giantHand(giant))
+			end
 			-- Turn around the root's vertical line, so he spins in place.
 			local rootNow = (home * pivotToRoot) * CFrame.Angles(0, t * 1.2, 0)
 			giant:PivotTo(rootNow * pivotToRoot:Inverse())

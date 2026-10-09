@@ -28,6 +28,7 @@ export type Brainrot = {
 	IncomeGrowth: number?, -- income multiplies by this for every rebirth the owner has
 	Scale: number?, -- model size override (otherwise the rarity's size)
 	Limited: boolean?, -- sold for Robux in limited numbers: can't be stolen or sold, kept on rebirth
+	Starter: boolean?, -- the free one every new player starts with (never on the conveyor)
 }
 
 -- Limited Robux brainrots. Stock is shared by every server (saved in a
@@ -73,28 +74,35 @@ Config.Rarities = {
 
 -- Original characters. Add new ones here every update to keep players coming back.
 Config.Brainrots = {
+	-- Free: every new player starts with one (and gets one back after a rebirth)
+	{ Id = "PatatinoPiccolino", DisplayName = "Patatino Piccolino", Rarity = "Common", Price = 10, Income = 1, Starter = true, Color = Color3.fromRGB(205, 155, 95), Accent = Color3.fromRGB(90, 190, 70) },
 	-- Common
 	{ Id = "NoodloDoodlo", DisplayName = "Noodlo Doodlo", Rarity = "Common", Price = 25, Income = 1, Color = Color3.fromRGB(245, 215, 120), Accent = Color3.fromRGB(200, 60, 40) },
 	{ Id = "PizzarinoPizzaroni", DisplayName = "Pizzarino Pizzaroni", Rarity = "Common", Price = 50, Income = 2, Color = Color3.fromRGB(240, 170, 60), Accent = Color3.fromRGB(190, 30, 30) },
 	{ Id = "SockGobblino", DisplayName = "Sock Gobblino", Rarity = "Common", Price = 80, Income = 3, Color = Color3.fromRGB(230, 230, 230), Accent = Color3.fromRGB(60, 160, 220) },
 	{ Id = "FrigoBurrito", DisplayName = "Frigo Burrito", Rarity = "Common", Price = 120, Income = 4, Color = Color3.fromRGB(200, 160, 110), Accent = Color3.fromRGB(120, 200, 255) },
+	{ Id = "BubblegummoBlobbo", DisplayName = "Bubblegummo Blobbo", Rarity = "Common", Price = 150, Income = 5, Color = Color3.fromRGB(255, 140, 200), Accent = Color3.fromRGB(255, 205, 235) },
 	-- Rare
 	{ Id = "BananitoBandito", DisplayName = "Bananito Bandito", Rarity = "Rare", Price = 500, Income = 10, Color = Color3.fromRGB(255, 225, 50), Accent = Color3.fromRGB(30, 30, 30) },
 	{ Id = "CroissantoFurioso", DisplayName = "Croissanto Furioso", Rarity = "Rare", Price = 900, Income = 16, Color = Color3.fromRGB(215, 150, 70), Accent = Color3.fromRGB(255, 80, 40) },
 	{ Id = "TireinaFrogiva", DisplayName = "Tireina Frogiva", Rarity = "Rare", Price = 1200, Income = 20, Color = Color3.fromRGB(80, 170, 60), Accent = Color3.fromRGB(235, 200, 60) },
 	{ Id = "TostinoTurbino", DisplayName = "Tostino Turbino", Rarity = "Rare", Price = 1500, Income = 25, Color = Color3.fromRGB(190, 120, 60), Accent = Color3.fromRGB(80, 80, 90) },
+	{ Id = "GelatinoGigante", DisplayName = "Gelatino Gigante", Rarity = "Rare", Price = 2000, Income = 32, Color = Color3.fromRGB(150, 230, 190), Accent = Color3.fromRGB(110, 60, 40) },
 	-- Epic
 	{ Id = "CactussoBossino", DisplayName = "Cactusso Bossino", Rarity = "Epic", Price = 5000, Income = 60, Color = Color3.fromRGB(60, 170, 70), Accent = Color3.fromRGB(255, 120, 200) },
 	{ Id = "WaffelinoWizardo", DisplayName = "Waffelino Wizardo", Rarity = "Epic", Price = 9000, Income = 100, Color = Color3.fromRGB(230, 180, 90), Accent = Color3.fromRGB(90, 50, 200) },
 	{ Id = "SixSeven", DisplayName = "67", Rarity = "Epic", Price = 6700, Income = 67, Color = Color3.fromRGB(40, 110, 230), Accent = Color3.fromRGB(245, 245, 250) },
 	{ Id = "GnocchiNinjaro", DisplayName = "Gnocchi Ninjaro", Rarity = "Epic", Price = 15000, Income = 150, Color = Color3.fromRGB(250, 240, 200), Accent = Color3.fromRGB(20, 20, 30) },
+	{ Id = "DonuttoDynamo", DisplayName = "Donutto Dynamo", Rarity = "Epic", Price = 25000, Income = 220, Color = Color3.fromRGB(255, 120, 180), Accent = Color3.fromRGB(90, 220, 255) },
 	-- Legendary
 	{ Id = "PinguinoHackerino", DisplayName = "Pinguino Hackerino", Rarity = "Legendary", Price = 75000, Income = 500, Color = Color3.fromRGB(40, 40, 50), Accent = Color3.fromRGB(0, 255, 120) },
 	{ Id = "LasagnaLightningo", DisplayName = "Lasagna Lightningo", Rarity = "Legendary", Price = 200000, Income = 1200, Color = Color3.fromRGB(220, 90, 40), Accent = Color3.fromRGB(255, 240, 80) },
+	{ Id = "SushitoSamurai", DisplayName = "Sushito Samurai", Rarity = "Legendary", Price = 500000, Income = 2800, Color = Color3.fromRGB(250, 130, 90), Accent = Color3.fromRGB(200, 30, 40) },
 	-- Mythic
 	{ Id = "DragoniSpaghettoni", DisplayName = "Dragoni Spaghettoni", Rarity = "Mythic", Price = 1500000, Income = 6000, Color = Color3.fromRGB(200, 30, 30), Accent = Color3.fromRGB(255, 210, 120) },
 	{ Id = "BallerinaCapuchina", DisplayName = "Ballerina Capuchina", Rarity = "Mythic", Price = 2500000, Income = 10000, Color = Color3.fromRGB(245, 190, 170), Accent = Color3.fromRGB(180, 110, 60) },
 	{ Id = "MeatballoSupremo", DisplayName = "Meatballo Supremo", Rarity = "Mythic", Price = 4000000, Income = 15000, Color = Color3.fromRGB(120, 60, 40), Accent = Color3.fromRGB(255, 255, 255) },
+	{ Id = "TacoraptorSupremo", DisplayName = "Tacoraptor Supremo", Rarity = "Mythic", Price = 8000000, Income = 28000, Color = Color3.fromRGB(240, 190, 80), Accent = Color3.fromRGB(90, 200, 70) },
 	-- Event Special
 	-- Launch event: 500 for sale at 50 Robux + 2 reserved. Earns $2.5K/s and
 	-- doubles with every rebirth, so she stays useful without breaking the economy.
@@ -104,6 +112,7 @@ Config.Brainrots = {
 	-- (The Id keeps its old name so saved copies still load.)
 	{ Id = "ScarpinoStellino", DisplayName = "Sneakerino Shoelacini", Rarity = "Secret", Price = 25000000, Income = 120000, Scale = 1.15, Color = Color3.fromRGB(110, 130, 205), Accent = Color3.fromRGB(240, 235, 222) },
 	{ Id = "IlCosmicoCannolo", DisplayName = "Il Cosmico Cannolo", Rarity = "Secret", Price = 50000000, Income = 250000, Color = Color3.fromRGB(30, 10, 60), Accent = Color3.fromRGB(255, 120, 255) },
+	{ Id = "AstronautoPanino", DisplayName = "Astronauto Panino", Rarity = "Secret", Price = 120000000, Income = 550000, Color = Color3.fromRGB(235, 235, 245), Accent = Color3.fromRGB(80, 180, 255) },
 } :: { Brainrot }
 
 -- Mutations ----------------------------------------------------------------
@@ -570,6 +579,10 @@ Config.FounderEvents = {
 		Scale = 19, -- about 120 studs tall
 		Spots = { Vector3.new(0, 0, 240), Vector3.new(0, 0, -240) },
 		Luck = 2,
+		-- Ace and his dancers throw cash bags and brainrots all event long.
+		DropEvery = 1.6,
+		BrainrotChance = 0.3,
+		BrainrotLuck = 4,
 		Guaranteed = "BallerinaCapuchina",
 		Dancer = "CignaGlamourina",
 		Colors = { Color3.fromRGB(255, 130, 200), Color3.fromRGB(255, 190, 230), Color3.fromRGB(230, 120, 255), Color3.fromRGB(255, 220, 240) },
@@ -727,6 +740,8 @@ local byRarity: { [RarityId]: { Brainrot } } = {}
 -- The conveyor's pools leave out limited (Robux) brainrots: those only come
 -- from the shop or a gift, with a serial number.
 local conveyorByRarity: { [RarityId]: { Brainrot } } = {}
+-- The free starter (Patatino Piccolino).
+Config.StarterBrainrot = "PatatinoPiccolino"
 for _, brainrot in Config.Brainrots do
 	byId[brainrot.Id] = brainrot
 	local list = byRarity[brainrot.Rarity]
@@ -735,7 +750,7 @@ for _, brainrot in Config.Brainrots do
 		byRarity[brainrot.Rarity] = list
 	end
 	table.insert(list, brainrot)
-	if not brainrot.Limited then
+	if not brainrot.Limited and not brainrot.Starter then
 		conveyorByRarity[brainrot.Rarity] = conveyorByRarity[brainrot.Rarity] or {}
 		table.insert(conveyorByRarity[brainrot.Rarity], brainrot)
 	end

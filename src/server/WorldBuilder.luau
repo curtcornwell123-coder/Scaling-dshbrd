@@ -473,7 +473,7 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		end
 		local ceilingLight = Instance.new("PointLight")
 		ceilingLight.Range = 40
-		ceilingLight.Brightness = 1.3
+		ceilingLight.Brightness = 0.9
 		ceilingLight.Color = Color3.fromRGB(255, 235, 200)
 		ceilingLight.Parent = ceiling:FindFirstChild("LightPanel")
 
@@ -488,7 +488,7 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 			if i == 1 then
 				local light = Instance.new("PointLight")
 				light.Range = 45
-				light.Brightness = 1.2
+				light.Brightness = 0.85
 				light.Color = Color3.fromRGB(255, 230, 180)
 				light.Parent = lamp
 			end
@@ -985,17 +985,17 @@ local function buildLighting()
 		grade.Name = "BrainrotGrade"
 		grade.Saturation = 0.12
 		grade.Contrast = 0.06
-		grade.Brightness = 0.02
+		grade.Brightness = -0.03 -- a touch darker than default (it was a bit bright)
 		grade.Parent = Lighting
 		local bloom = Instance.new("BloomEffect")
 		bloom.Name = "BrainrotBloom"
-		bloom.Intensity = 0.35
-		bloom.Size = 20
-		bloom.Threshold = 1.6
+		bloom.Intensity = 0.22
+		bloom.Size = 18
+		bloom.Threshold = 2
 		bloom.Parent = Lighting
 		local rays = Instance.new("SunRaysEffect")
 		rays.Name = "BrainrotSunRays"
-		rays.Intensity = 0.04
+		rays.Intensity = 0.02
 		rays.Spread = 0.6
 		rays.Parent = Lighting
 	end
@@ -1170,7 +1170,8 @@ function WorldBuilder.Build(): World
 	end
 
 	Lighting.ClockTime = 14
-	Lighting.Brightness = 2
+	Lighting.Brightness = 1.6
+	Lighting.ExposureCompensation = -0.15
 	-- Light haze so the far edge of the grass fades into the sky.
 	if not Lighting:FindFirstChildOfClass("Atmosphere") then
 		local atmosphere = Instance.new("Atmosphere")
