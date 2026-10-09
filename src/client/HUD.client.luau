@@ -2135,7 +2135,7 @@ do
 	founderPage, founderTab = adminTab("FOUNDER", PINK)
 	founderTab.Button.Visible = false
 
-	local founderEvents = section(founderPage, 1, "MY FOUNDER EVENT", "Your own event: only you can start it. Runs for the minutes you type here.", PINK)
+	local founderEvents = section(founderPage, 1, "FOUNDER EVENTS", "Start your own event (Corny can start Ace's too). Runs for the minutes you type here.", PINK)
 	local founderMinutesRow = controls(founderEvents, 1)
 	label(founderMinutesRow, "Minutes", 100)
 	local founderMinutesBox = inputBox(founderMinutesRow, "5", "how long", 80)
@@ -2341,8 +2341,11 @@ local function render()
 	for _, card in codeMakerCards do
 		card.Visible = data.FounderId == Config.CodeMaker
 	end
+	-- Your own event, plus every event for the head founder (Corny).
 	for _, entry in founderEventButtons do
-		entry.Button.Visible = data.FounderId == entry.Founder
+		local own = data.FounderId == entry.Founder
+		entry.Button.Visible = own or data.FounderId == Config.HeadFounder
+		entry.Button.Text = if own then "START MY EVENT" else "START " .. string.upper(entry.Founder) .. "'S EVENT"
 	end
 	if founderTab.Page.Visible and not data.IsFounder then
 		selectTab(playersTab)

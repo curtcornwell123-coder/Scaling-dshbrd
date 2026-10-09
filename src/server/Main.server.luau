@@ -3620,7 +3620,7 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		if not event then
 			return
 		end
-		if event.Founder ~= founder.Id then
+		if event.Founder ~= founder.Id and founder.Id ~= Config.HeadFounder then
 			notify(admin, "That's " .. event.Founder .. "'s event: only " .. event.Founder .. " can start it.")
 			return
 		end

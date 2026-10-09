@@ -512,6 +512,9 @@ Config.Founders = {
 } :: { Founder }
 -- During admin abuse they tower just outside the fence (like the devs in
 -- Grow a Garden), doing one Roblox emote after another.
+-- The head founder can do everything the other founders can (start Ace's
+-- event too); the others only get their own.
+Config.HeadFounder = "Corny"
 Config.FounderGiantScale = 24 -- about 125 studs tall
 Config.FounderGiantSpots = {
 	Corny = Vector3.new(-170, 0, 470),
