@@ -41,6 +41,7 @@ export type World = {
 	ConveyorFolder: Folder,
 	ShopPosition: Vector3, -- center of the shop tent
 	StatuePosition: Vector3, -- where the event statue stands
+	SellPosition: Vector3, -- the Sell Stand's counter
 }
 
 local PLOT_SIZE = 60
@@ -1044,6 +1045,48 @@ end
 -- The shop tent: a round, striped circus-style tent (like Bee Swarm's) by
 -- the cave the brainrots come out of. Inside: a Diamond counter (left) and
 -- a Robux counter (right). The entrance faces the conveyor (-Z).
+-- A little market stall where players sell brainrots from a menu.
+local function buildSellStand(parent: Instance, center: Vector3)
+	local stand = Instance.new("Model")
+	stand.Name = "SellStand"
+	stand.Parent = parent
+	local function at(x: number, y: number, z: number): CFrame
+		return CFrame.new(center + Vector3.new(x, y, z))
+	end
+	local wood = Color3.fromRGB(150, 105, 70)
+	local green = Color3.fromRGB(60, 200, 100)
+	local counter = block(stand, "Counter", Vector3.new(9, 3.5, 3), at(0, 1.75, 0), wood, Enum.Material.WoodPlanks)
+	block(stand, "CounterTop", Vector3.new(9.4, 0.4, 3.4), at(0, 3.7, 0), green, Enum.Material.Neon)
+	for _, x in { -4.2, 4.2 } do
+		block(stand, "Post", Vector3.new(0.6, 9, 0.6), at(x, 4.5, 1.2), wood, Enum.Material.WoodPlanks)
+	end
+	-- Striped awning, sloping toward the front
+	for i = 0, 5 do
+		local stripe = block(stand, "Awning", Vector3.new(1.6, 0.3, 5), at(-4 + i * 1.6, 9, -0.6) * CFrame.Angles(math.rad(-18), 0, 0), if i % 2 == 0 then green else Color3.fromRGB(245, 245, 240), Enum.Material.SmoothPlastic)
+		stripe.CanCollide = false
+	end
+	-- Coin pile and a cash bag on the counter
+	for i = 1, 6 do
+		local coin = block(stand, "Coin", Vector3.new(0.2, 1, 1), at(-2.5 + (i % 3) * 0.5, 4.05 + (i // 3) * 0.2, -0.3) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(255, 205, 60), Enum.Material.Foil)
+		coin.Shape = Enum.PartType.Cylinder
+		coin.CanCollide = false
+	end
+	local bag = block(stand, "CashBag", Vector3.new(1.6, 1.8, 1.6), at(2.6, 4.8, -0.2), Color3.fromRGB(70, 160, 80), Enum.Material.Fabric)
+	bag.Shape = Enum.PartType.Ball
+	bag.CanCollide = false
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "SellStandPrompt"
+	prompt.ActionText = "Open"
+	prompt.ObjectText = "Sell Brainrots"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 14
+	prompt.RequiresLineOfSight = false
+	prompt:SetAttribute("Action", "SellStand")
+	prompt.Parent = counter
+	local label = billboard(counter, Vector2.new(260, 55), Vector3.new(0, 9.5, 0), "SELL STAND", green)
+	;(label.Parent :: BillboardGui).MaxDistance = 250
+end
+
 local function buildShop(parent: Instance, center: Vector3)
 	local shop = Instance.new("Model")
 	shop.Name = "ShopTent"
@@ -1249,6 +1292,9 @@ function WorldBuilder.Build(): World
 	local shopPosition = Vector3.new(startX + 50, 0, 45)
 	local statuePosition = shopPosition + Vector3.new(20, 0, -5)
 	buildShop(root, shopPosition)
+	-- The Sell Stand: just past the event statue, still by the shop.
+	local sellPosition = shopPosition + Vector3.new(38, 0, 2)
+	buildSellStand(root, sellPosition)
 
 	-- Stone paths: a walkway along each side of the conveyor, with a branch
 	-- to every base's door, the shop tent and the event statue.
@@ -1292,6 +1338,7 @@ function WorldBuilder.Build(): World
 		ConveyorFolder = conveyorFolder,
 		ShopPosition = shopPosition,
 		StatuePosition = statuePosition,
+		SellPosition = sellPosition,
 	}
 end
 

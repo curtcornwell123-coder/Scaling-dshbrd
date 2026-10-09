@@ -23,6 +23,7 @@ local RequestUpgrade = Remotes:WaitForChild("RequestUpgrade") :: RemoteEvent
 local SetFollowers = Remotes:WaitForChild("SetFollowers") :: RemoteEvent
 local SkinAction = Remotes:WaitForChild("SkinAction") :: RemoteEvent
 local DiamondPurchase = Remotes:WaitForChild("DiamondPurchase") :: RemoteEvent
+local SellBrainrot = Remotes:WaitForChild("SellBrainrot") :: RemoteEvent
 local RedeemCode = Remotes:WaitForChild("RedeemCode") :: RemoteFunction
 local CodeList = Remotes:WaitForChild("CodeList") :: RemoteEvent
 
@@ -481,7 +482,7 @@ do
 		Text = "SHOP",
 	})
 	local function currencyBar(x: number, color: Color3, symbol: string): TextLabel
-		local bar = box(shopFrame, UDim2.fromOffset(x, 14), UDim2.fromOffset(200, 34), color, 8)
+		local bar = box(shopFrame, UDim2.fromOffset(x, 14), UDim2.fromOffset(150, 34), color, 8)
 		local gradient = Instance.new("UIGradient")
 		gradient.Color = ColorSequence.new(color:Lerp(WHITE, 0.25), color)
 		gradient.Rotation = 90
@@ -491,15 +492,17 @@ do
 		icon(badge, symbol, UDim2.fromScale(0.5, 0.5), UDim2.fromScale(0.8, 0.8))
 		return text(bar, {
 			Position = UDim2.fromOffset(40, 3),
-			Size = UDim2.new(1, -78, 1, -6),
+			Size = UDim2.new(1, -50, 1, -6),
 			TextXAlignment = Enum.TextXAlignment.Right,
 			Text = "0",
 		})
 	end
-	local cashAmount = currencyBar(170, Color3.fromRGB(240, 170, 40), "💵")
-	local diamondAmount = currencyBar(400, SHOP_PURPLE, "💎")
+	-- Your Cash, Shards and Diamonds
+	local cashAmount = currencyBar(160, Color3.fromRGB(240, 170, 40), "💵")
+	local shardAmount = currencyBar(325, Color3.fromRGB(70, 165, 225), "🔷")
+	local diamondAmount = currencyBar(490, SHOP_PURPLE, "💎")
 	local moreDiamonds = button(shopFrame, "+", SHOP_PURPLE:Lerp(WHITE, 0.2), UDim2.fromOffset(34, 34))
-	moreDiamonds.Position = UDim2.fromOffset(570, 14)
+	moreDiamonds.Position = UDim2.fromOffset(646, 14)
 	moreDiamonds.MouseButton1Click:Connect(function()
 		openMenu("Diamonds")
 	end)
@@ -935,6 +938,7 @@ do
 		end
 		cashAmount.Text = Config.FormatCash(data.Cash)
 		diamondAmount.Text = tostring(data.Diamonds or 0)
+		shardAmount.Text = tostring(data.Shards or 0)
 		for key, b in passButtons do
 			if data.Owns[key] then
 				b.Text = "OWNED"
@@ -1513,8 +1517,129 @@ local function renderDiamondShop()
 	end
 end
 
+-- Sell Stand ---------------------------------------------------------------------
+-- Opened at the Sell Stand by the shop: every brainrot in your base with what
+-- it sells for, plus SELL ALL (tap twice to confirm).
+
+local sellFrame: Frame
+local renderSell: () -> ()
+do
+	local SELL_GREEN = Color3.fromRGB(60, 200, 100)
+	local frame, body = modal("SELL STAND", SELL_GREEN, 560)
+	sellFrame = frame
+	local top = Instance.new("Frame")
+	top.BackgroundTransparency = 1
+	top.Size = UDim2.new(1, 0, 0, 50)
+	top.Parent = body
+	local totalLabel = text(top, {
+		Size = UDim2.new(1, -200, 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = SELL_GREEN,
+		Text = "",
+	})
+	local sellAll = button(top, "SELL ALL", RED, UDim2.fromOffset(180, 46))
+	sellAll.Position = UDim2.new(1, -180, 0, 2)
+	local confirmUntil = 0
+	sellAll.MouseButton1Click:Connect(function()
+		if os.clock() < confirmUntil then
+			confirmUntil = 0
+			SellBrainrot:FireServer("all")
+			sellAll.Text = "SELL ALL"
+		else
+			confirmUntil = os.clock() + 3
+			sellAll.Text = "SURE? TAP AGAIN"
+			task.delay(3, function()
+				if os.clock() >= confirmUntil then
+					sellAll.Text = "SELL ALL"
+				end
+			end)
+		end
+	end)
+	text(body, {
+		Position = UDim2.fromOffset(0, 54),
+		Size = UDim2.new(1, 0, 0, 20),
+		TextScaled = false,
+		TextSize = 15,
+		TextStrokeTransparency = 1,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = Color3.fromRGB(170, 170, 185),
+		Text = "Limited brainrots can't be sold. You can also sell one at its pedestal.",
+	})
+	local list = Instance.new("ScrollingFrame")
+	list.BackgroundTransparency = 1
+	list.Position = UDim2.fromOffset(0, 80)
+	list.Size = UDim2.new(1, 0, 1, -80)
+	list.CanvasSize = UDim2.new()
+	list.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	list.ScrollBarThickness = 6
+	list.Parent = body
+	local layout = Instance.new("UIListLayout")
+	layout.Padding = UDim.new(0, 6)
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
+	layout.Parent = list
+
+	renderSell = function()
+		if not frame.Visible or not data or not data.Base then
+			return
+		end
+		for _, child in list:GetChildren() do
+			if child:IsA("Frame") or child:IsA("TextLabel") then
+				child:Destroy()
+			end
+		end
+		type Entry = { Slot: number, Id: string, Mutation: string?, Following: boolean }
+		local entries: { Entry } = table.clone(data.Base)
+		table.sort(entries, function(x: Entry, y: Entry)
+			return x.Slot < y.Slot
+		end)
+		local total = 0
+		for i, entry in entries do
+			local brainrot = Config.GetBrainrot(entry.Id)
+			if not brainrot then
+				continue
+			end
+			local mutation = Config.GetMutation(entry.Mutation)
+			local value = Config.SellValue(brainrot, entry.Mutation)
+			local sellable = not brainrot.Limited
+			if sellable then
+				total += value
+			end
+			local row = Instance.new("Frame")
+			row.Size = UDim2.new(1, -10, 0, 44)
+			row.BackgroundColor3 = TILE
+			row.LayoutOrder = i
+			corner(row, 8)
+			row.Parent = list
+			local color = if mutation then mutation.Color elseif brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
+			text(row, {
+				Position = UDim2.fromOffset(10, 6),
+				Size = UDim2.new(1, -200, 1, -12),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextColor3 = color,
+				Text = (if mutation then mutation.DisplayName .. " " else "") .. brainrot.DisplayName,
+			})
+			local b = button(row, if sellable then "SELL " .. Config.FormatCash(value) else "LIMITED", if sellable then SELL_GREEN else UI_GREY, UDim2.fromOffset(180, 36))
+			b.Position = UDim2.new(1, -184, 0, 4)
+			if sellable then
+				b.MouseButton1Click:Connect(function()
+					SellBrainrot:FireServer(entry.Slot)
+				end)
+			end
+		end
+		if #entries == 0 then
+			text(list, {
+				Size = UDim2.new(1, -10, 0, 30),
+				TextColor3 = Color3.fromRGB(170, 170, 185),
+				Text = "Your base is empty.",
+			})
+		end
+		totalLabel.Text = "All together: " .. Config.FormatCash(total)
+	end
+	frame:GetPropertyChangedSignal("Visible"):Connect(renderSell)
+end
+
 -- Only one menu open at a time.
-local menus = { shopFrame, rebirthFrame, upgradeFrame, questsFrame, followFrame, diamondFrame }
+local menus = { shopFrame, rebirthFrame, upgradeFrame, questsFrame, followFrame, diamondFrame, sellFrame }
 local function toggleMenu(frame: Frame)
 	local open = not frame.Visible
 	for _, menu in menus do
@@ -1555,6 +1680,8 @@ ProximityPromptService.PromptTriggered:Connect(function(prompt)
 		renderDiamondShop()
 	elseif action == "RobuxShop" then
 		toggleMenu(shopFrame)
+	elseif action == "SellStand" then
+		toggleMenu(sellFrame)
 	elseif action == "BuyEvent" then
 		buyLimitedItem(prompt:GetAttribute("ItemId") :: string)
 	end
@@ -2177,6 +2304,7 @@ local function render()
 	renderQuests()
 	renderFollowers()
 	renderDiamondShop()
+	renderSell()
 	currencyLabel.Text = string.format("🔷 %d Shards     💎 %d Diamonds", data.Shards or 0, data.Diamonds or 0)
 	rebirthInfo.Text = string.format(
 		"Rebirth %d\nCost: %s\nIncome x%.1f  ->  x%.1f\nYou keep gamepasses. Cash and brainrots reset.",

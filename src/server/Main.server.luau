@@ -45,6 +45,7 @@ local RequestUpgrade: RemoteEvent = makeRemote("RemoteEvent", "RequestUpgrade")
 local SetFollowers: RemoteEvent = makeRemote("RemoteEvent", "SetFollowers")
 local SkinAction: RemoteEvent = makeRemote("RemoteEvent", "SkinAction")
 local DiamondPurchase: RemoteEvent = makeRemote("RemoteEvent", "DiamondPurchase")
+local SellBrainrot: RemoteEvent = makeRemote("RemoteEvent", "SellBrainrot")
 local RedeemCode: RemoteFunction = makeRemote("RemoteFunction", "RedeemCode")
 
 remotes.Parent = ReplicatedStorage
@@ -1010,6 +1011,24 @@ onSteal = function(thief: Player, model: Model)
 	push(owner)
 end
 
+-- Sells the brainrot on one of your pedestals. Returns what it sold for (nil
+-- if it can't be sold: empty, being stolen, or limited).
+local function sellSlot(session: Session, plot: Plot, index: number): number?
+	local slot = plot.Slots[index]
+	if not slot or slot.StolenBy then
+		return nil
+	end
+	local brainrot = Config.GetBrainrot(slot.Id)
+	if not brainrot or brainrot.Limited then
+		return nil
+	end
+	plot.Slots[index] = nil
+	slot.Model:Destroy()
+	local value = Config.SellValue(brainrot, slot.Mutation)
+	session.Data.Cash += value
+	return value
+end
+
 onSell = function(player: Player, model: Model)
 	local session = sessions[player]
 	local plot = session and session.Plot
@@ -1018,21 +1037,62 @@ onSell = function(player: Player, model: Model)
 	end
 	local index = model:GetAttribute("Slot") :: number
 	local slot = plot.Slots[index]
-	if not slot or slot.Model ~= model or slot.StolenBy then
+	if not slot or slot.Model ~= model then
 		return
 	end
-	local brainrot = Config.GetBrainrot(slot.Id)
-	if not brainrot or brainrot.Limited then
+	local name = fullName(Config.GetBrainrot(slot.Id) :: Config.Brainrot, slot.Mutation)
+	local value = sellSlot(session, plot, index)
+	if value then
+		notify(player, "Sold " .. name .. " for " .. Config.FormatCash(value))
+		deliverUnclaimed(player, session)
+		push(player)
+	end
+end
+
+-- The Sell Stand by the shop: sell one brainrot (by pedestal) or all of them.
+SellBrainrot.OnServerEvent:Connect(function(player: Player, which: unknown)
+	local session = sessions[player]
+	local plot = session and session.Plot
+	local hrp = getRoot(player)
+	if not session or not session.Loaded or not plot or not hrp then
 		return
 	end
-	plot.Slots[index] = nil
-	model:Destroy()
-	local value = Config.SellValue(brainrot, slot.Mutation)
-	session.Data.Cash += value
-	notify(player, "Sold " .. fullName(brainrot, slot.Mutation) .. " for " .. Config.FormatCash(value))
+	if ((hrp.Position - world.SellPosition) * Vector3.new(1, 0, 1)).Magnitude > 25 then
+		notify(player, "Go to the Sell Stand by the shop to sell!")
+		return
+	end
+	if which == "all" then
+		local total, count = 0, 0
+		for index in table.clone(plot.Slots) do
+			local value = sellSlot(session, plot, index)
+			if value then
+				total += value
+				count += 1
+			end
+		end
+		if count == 0 then
+			notify(player, "Nothing to sell!")
+			return
+		end
+		notify(player, string.format("Sold %d brainrot%s for %s!", count, if count == 1 then "" else "s", Config.FormatCash(total)))
+	elseif type(which) == "number" then
+		local slot = plot.Slots[which]
+		if not slot then
+			return
+		end
+		local name = fullName(Config.GetBrainrot(slot.Id) :: Config.Brainrot, slot.Mutation)
+		local value = sellSlot(session, plot, which)
+		if not value then
+			notify(player, "That one can't be sold right now.")
+			return
+		end
+		notify(player, "Sold " .. name .. " for " .. Config.FormatCash(value))
+	else
+		return
+	end
 	deliverUnclaimed(player, session)
 	push(player)
-end
+end)
 
 task.spawn(function()
 	while true do
@@ -2308,7 +2368,7 @@ local function randomDropPosition(): Vector3
 		local side = if rng:NextNumber() < 0.5 then -1 else 1
 		local position = Vector3.new(x, 0.1, side * rng:NextNumber(12, 38))
 		local flat = Vector3.new(1, 0, 1)
-		if ((position - world.ShopPosition) * flat).Magnitude > 18 and ((position - world.StatuePosition) * flat).Magnitude > 12 then
+		if ((position - world.ShopPosition) * flat).Magnitude > 18 and ((position - world.StatuePosition) * flat).Magnitude > 12 and ((position - world.SellPosition) * flat).Magnitude > 12 then
 			return position
 		end
 	end
@@ -2329,6 +2389,7 @@ local function dropPositionNear(point: Vector3): Vector3
 		if not inBase and not inCave and not onBelt and (position * flat).Magnitude < 380
 			and ((position - world.ShopPosition) * flat).Magnitude > 18
 			and ((position - world.StatuePosition) * flat).Magnitude > 12
+			and ((position - world.SellPosition) * flat).Magnitude > 12
 		then
 			return position
 		end
