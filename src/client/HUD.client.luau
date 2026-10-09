@@ -2041,19 +2041,37 @@ do
 		return if choice == "None" then id else Config.Encode(id, choice)
 	end
 
-	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base.  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
-	-- Limited brainrots: only Corny sees these rows (the server checks too).
+	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = pick a mutation, then it goes into their base.  Spawn = on the conveyor.  Drop = falls near them (Spawn and Drop use the mutation above).", GOLD)
+	-- The mutations Give can add (plus None), shown under a row when you press Give.
+	local giveChoices: { { Id: string?, Name: string, Color: Color3 } } = { { Id = nil, Name = "None", Color = UI_GREY } }
+	for _, mutation in Config.Mutations do
+		if not mutation.Exclusive then
+			table.insert(giveChoices, { Id = mutation.Id, Name = mutation.DisplayName, Color = mutation.Color })
+		end
+	end
+	local openChooser: Frame? = nil
 	for i, brainrot in Config.Brainrots do
 		-- Limited ones are gifted from the box in Corny's FOUNDER tab.
 		if brainrot.Limited then
 			continue
 		end
+		-- Each brainrot: its row, and a mutation chooser under it (hidden).
+		local entry = Instance.new("Frame")
+		entry.BackgroundTransparency = 1
+		entry.Size = UDim2.new(1, 0, 0, 0)
+		entry.AutomaticSize = Enum.AutomaticSize.Y
+		entry.LayoutOrder = 100 + i
+		entry.Parent = listCard
+		local entryLayout = Instance.new("UIListLayout")
+		entryLayout.Padding = UDim.new(0, 4)
+		entryLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		entryLayout.Parent = entry
 		local row = Instance.new("Frame")
 		row.Size = UDim2.new(1, 0, 0, 36)
 		row.BackgroundColor3 = TILE
-		row.LayoutOrder = 100 + i
+		row.LayoutOrder = 1
 		corner(row, 8)
-		row.Parent = listCard
+		row.Parent = entry
 		local color = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else Config.Rarities[brainrot.Rarity].Color
 		text(row, {
 			Position = UDim2.fromOffset(10, 4),
@@ -2062,17 +2080,53 @@ do
 			TextColor3 = color,
 			Text = brainrot.DisplayName,
 		})
-		local buttons: { { Label: string, Color: Color3, Action: string } } = {
-			{ Label = "Give", Color = GREEN, Action = "Brainrot" },
-			{ Label = "Spawn", Color = ORANGE, Action = "Spawn" },
-			{ Label = "Drop", Color = PURPLE, Action = "DropBrainrot" },
-		}
-		for j, info in buttons do
+
+		local chooser = Instance.new("Frame")
+		chooser.BackgroundColor3 = PANEL_DARK
+		chooser.Size = UDim2.new(1, 0, 0, 0)
+		chooser.AutomaticSize = Enum.AutomaticSize.Y
+		chooser.LayoutOrder = 2
+		chooser.Visible = false
+		corner(chooser, 8)
+		chooser.Parent = entry
+		local chooserPadding = Instance.new("UIPadding")
+		chooserPadding.PaddingTop = UDim.new(0, 6)
+		chooserPadding.PaddingBottom = UDim.new(0, 6)
+		chooserPadding.PaddingLeft = UDim.new(0, 6)
+		chooserPadding.Parent = chooser
+		local chooserLayout = Instance.new("UIListLayout")
+		chooserLayout.FillDirection = Enum.FillDirection.Horizontal
+		chooserLayout.Wraps = true
+		chooserLayout.Padding = UDim.new(0, 5)
+		chooserLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		chooserLayout.Parent = chooser
+		for k, choice in giveChoices do
+			local b = smallButton(chooser, choice.Name, choice.Color, 108, function()
+				send("Brainrot", if choice.Id then Config.Encode(brainrot.Id, choice.Id) else brainrot.Id)
+				chooser.Visible = false
+				openChooser = nil
+			end)
+			b.Size = UDim2.fromOffset(108, 30)
+			b.LayoutOrder = k
+		end
+
+		local giveButton = smallButton(row, "Give", GREEN, 80, function()
+			-- Opens this brainrot's mutation choices (and closes any other).
+			local other = openChooser
+			if other and other ~= chooser then
+				other.Visible = false
+			end
+			chooser.Visible = not chooser.Visible
+			openChooser = if chooser.Visible then chooser else nil
+		end)
+		giveButton.Size = UDim2.fromOffset(80, 30)
+		giveButton.Position = UDim2.new(1, -258, 0, 3)
+		for j, info in { { Label = "Spawn", Color = ORANGE, Action = "Spawn" }, { Label = "Drop", Color = PURPLE, Action = "DropBrainrot" } } do
 			local b = smallButton(row, info.Label, info.Color, 80, function()
 				send(info.Action, brainrotValue(brainrot.Id))
 			end)
 			b.Size = UDim2.fromOffset(80, 30)
-			b.Position = UDim2.new(1, -258 + (j - 1) * 86, 0, 3)
+			b.Position = UDim2.new(1, -258 + j * 86, 0, 3)
 		end
 	end
 
