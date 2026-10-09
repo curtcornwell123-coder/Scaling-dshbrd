@@ -2510,324 +2510,329 @@ end)
 
 -- Slap tool ----------------------------------------------------------------
 
-local function onSlap(player: Player, tool: Tool)
-	local session = sessions[player]
-	local hrp = getRoot(player)
-	if not session or not hrp then
-		return
-	end
-	local now = os.clock()
-	if now - session.LastSlap < Config.SlapCooldown then
-		return
-	end
-	session.LastSlap = now
+local giveHammer: (player: Player) -> ()
+local giveSlap: (player: Player) -> ()
+-- (Kept in a block: a script can only have 200 locals at the top level.)
+do
+	local function onSlap(player: Player, tool: Tool)
+		local session = sessions[player]
+		local hrp = getRoot(player)
+		if not session or not hrp then
+			return
+		end
+		local now = os.clock()
+		if now - session.LastSlap < Config.SlapCooldown then
+			return
+		end
+		session.LastSlap = now
 
-	local anim = Instance.new("StringValue")
-	anim.Name = "toolanim"
-	anim.Value = "Slash"
-	anim.Parent = tool
+		local anim = Instance.new("StringValue")
+		anim.Name = "toolanim"
+		anim.Value = "Slash"
+		anim.Parent = tool
 
-	for _, other in Players:GetPlayers() do
-		if other ~= player then
-			local otherRoot = getRoot(other)
-			if otherRoot then
-				local offset = otherRoot.Position - hrp.Position
-				local flat = Vector3.new(offset.X, 0, offset.Z)
-				if offset.Magnitude <= Config.SlapRange and flat.Magnitude > 0.01 and hrp.CFrame.LookVector:Dot(flat.Unit) > 0.2 then
-					local knockback = Instance.new("BodyVelocity")
-					knockback.MaxForce = Vector3.new(1, 1, 1) * 1e5
-					knockback.Velocity = flat.Unit * Config.SlapForce + Vector3.new(0, 35, 0)
-					knockback.Parent = otherRoot
-					Debris:AddItem(knockback, 0.2)
+		for _, other in Players:GetPlayers() do
+			if other ~= player then
+				local otherRoot = getRoot(other)
+				if otherRoot then
+					local offset = otherRoot.Position - hrp.Position
+					local flat = Vector3.new(offset.X, 0, offset.Z)
+					if offset.Magnitude <= Config.SlapRange and flat.Magnitude > 0.01 and hrp.CFrame.LookVector:Dot(flat.Unit) > 0.2 then
+						local knockback = Instance.new("BodyVelocity")
+						knockback.MaxForce = Vector3.new(1, 1, 1) * 1e5
+						knockback.Velocity = flat.Unit * Config.SlapForce + Vector3.new(0, 35, 0)
+						knockback.Parent = otherRoot
+						Debris:AddItem(knockback, 0.2)
 
-					local carry = carries[other]
-					if carry then
-						returnCarry(carry, player.DisplayName .. " slapped you! The brainrot ran home.")
-						notify(player, "You saved the brainrot!")
-						addQuestProgress(player, "Slap", 1)
+						local carry = carries[other]
+						if carry then
+							returnCarry(carry, player.DisplayName .. " slapped you! The brainrot ran home.")
+							notify(player, "You saved the brainrot!")
+							addQuestProgress(player, "Slap", 1)
+						end
 					end
 				end
 			end
 		end
 	end
-end
 
--- Corny's hammer --------------------------------------------------------------
--- Only Config.HammerOwner (Corny) gets it. A swing flings everyone in front
--- of him, spinning, with a shockwave. It doesn't ban or hurt anyone.
+	-- Corny's hammer --------------------------------------------------------------
+	-- Only Config.HammerOwner (Corny) gets it. A swing flings everyone in front
+	-- of him, spinning, with a shockwave. It doesn't ban or hurt anyone.
 
-local lastHammer: { [Player]: number } = {}
-Players.PlayerRemoving:Connect(function(player)
-	lastHammer[player] = nil
-end)
+	local lastHammer: { [Player]: number } = {}
+	Players.PlayerRemoving:Connect(function(player)
+		lastHammer[player] = nil
+	end)
 
-local function hammerShockwave(position: Vector3)
-	local ring = Instance.new("Part")
-	ring.Name = "HammerShockwave"
-	ring.Anchored = true
-	ring.CanCollide = false
-	ring.CanQuery = false
-	ring.CanTouch = false
-	ring.Shape = Enum.PartType.Cylinder
-	ring.Material = Enum.Material.Neon
-	ring.Color = Color3.fromRGB(255, 60, 60)
-	ring.Size = Vector3.new(0.3, 2, 2)
-	ring.CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90))
-	ring.Transparency = 0.2
-	ring.Parent = workspace
-	TweenService:Create(ring, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.3, 26, 26), Transparency = 1 }):Play()
-	Debris:AddItem(ring, 0.6)
-end
-
--- Sends someone flying (and spinning) away along `direction`.
-local function hammerFling(other: Player, otherRoot: BasePart, direction: Vector3, by: Player)
-	-- Drop what they're carrying first (it runs home).
-	local carry = carries[other]
-	if carry then
-		returnCarry(carry, by.DisplayName .. "'s hammer sent you flying!")
-	end
-	-- They tumble (sit) so they cartwheel through the air, then land.
-	local humanoid = otherRoot.Parent and otherRoot.Parent:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		humanoid.Sit = true
-	end
-	local fling = Instance.new("BodyVelocity")
-	fling.MaxForce = Vector3.one * 1e6
-	fling.Velocity = direction * Config.HammerForce + Vector3.new(0, Config.HammerLift, 0)
-	fling.Parent = otherRoot
-	Debris:AddItem(fling, 0.35)
-	local spin = Instance.new("BodyAngularVelocity")
-	spin.MaxTorque = Vector3.one * 1e6
-	spin.AngularVelocity = Vector3.new(rng:NextNumber(-45, 45), rng:NextNumber(-45, 45), rng:NextNumber(-45, 45))
-	spin.Parent = otherRoot
-	Debris:AddItem(spin, 1.0)
-	-- A burst of sparks where they got hit.
-	local burst = Instance.new("Attachment")
-	burst.Parent = otherRoot
-	local sparks = Instance.new("ParticleEmitter")
-	sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparks.Color = ColorSequence.new(Color3.fromRGB(255, 80, 60), Color3.fromRGB(255, 220, 90))
-	sparks.LightEmission = 1
-	sparks.Speed = NumberRange.new(15, 30)
-	sparks.SpreadAngle = Vector2.new(180, 180)
-	sparks.Lifetime = NumberRange.new(0.3, 0.6)
-	sparks.Size = NumberSequence.new(0.6, 0)
-	sparks.Rate = 0
-	sparks.Parent = burst
-	sparks:Emit(40)
-	Debris:AddItem(burst, 1)
-end
-
--- SLAM: the hammer's super move. A red shockwave races across the whole
--- map from Corny and flings every other player sky-high.
-local lastSlam: { [Player]: number } = {}
-Players.PlayerRemoving:Connect(function(player)
-	lastSlam[player] = nil
-end)
-local function hammerSlam(player: Player, hrp: BasePart)
-	local center = hrp.Position - Vector3.new(0, 2.8, 0)
-	for k = 0, 2 do
+	local function hammerShockwave(position: Vector3)
 		local ring = Instance.new("Part")
-		ring.Name = "HammerSlamWave"
+		ring.Name = "HammerShockwave"
 		ring.Anchored = true
 		ring.CanCollide = false
 		ring.CanQuery = false
 		ring.CanTouch = false
 		ring.Shape = Enum.PartType.Cylinder
 		ring.Material = Enum.Material.Neon
-		ring.Color = if k == 1 then Color3.fromRGB(255, 200, 60) else Color3.fromRGB(255, 50, 50)
-		ring.Size = Vector3.new(0.4 + k * 0.3, 4, 4)
-		ring.CFrame = CFrame.new(center + Vector3.new(0, 0.4 + k * 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90))
-		ring.Transparency = 0.15
+		ring.Color = Color3.fromRGB(255, 60, 60)
+		ring.Size = Vector3.new(0.3, 2, 2)
+		ring.CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90))
+		ring.Transparency = 0.2
 		ring.Parent = workspace
-		TweenService:Create(ring, TweenInfo.new(1.6 + k * 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.4, 900, 900), Transparency = 1 }):Play()
-		Debris:AddItem(ring, 2.4)
+		TweenService:Create(ring, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.3, 26, 26), Transparency = 1 }):Play()
+		Debris:AddItem(ring, 0.6)
 	end
-	local founder = founderOf(player)
-	Announce:FireAllClients("slam", if founder then founder.Name else player.DisplayName, "")
-	for _, other in Players:GetPlayers() do
-		local otherRoot = if other ~= player then getRoot(other) else nil
-		if otherRoot then
-			local flat = Vector3.new(otherRoot.Position.X - center.X, 0, otherRoot.Position.Z - center.Z)
-			local away = if flat.Magnitude > 0.1 then flat.Unit else Vector3.new(1, 0, 0)
-			-- The wave reaches farther players a little later.
-			task.delay(math.min(1.2, flat.Magnitude / 400), function()
-				if otherRoot.Parent then
-					hammerFling(other, otherRoot, away, player)
-				end
-			end)
+
+	-- Sends someone flying (and spinning) away along `direction`.
+	local function hammerFling(other: Player, otherRoot: BasePart, direction: Vector3, by: Player)
+		-- Drop what they're carrying first (it runs home).
+		local carry = carries[other]
+		if carry then
+			returnCarry(carry, by.DisplayName .. "'s hammer sent you flying!")
 		end
+		-- They tumble (sit) so they cartwheel through the air, then land.
+		local humanoid = otherRoot.Parent and otherRoot.Parent:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.Sit = true
+		end
+		local fling = Instance.new("BodyVelocity")
+		fling.MaxForce = Vector3.one * 1e6
+		fling.Velocity = direction * Config.HammerForce + Vector3.new(0, Config.HammerLift, 0)
+		fling.Parent = otherRoot
+		Debris:AddItem(fling, 0.35)
+		local spin = Instance.new("BodyAngularVelocity")
+		spin.MaxTorque = Vector3.one * 1e6
+		spin.AngularVelocity = Vector3.new(rng:NextNumber(-45, 45), rng:NextNumber(-45, 45), rng:NextNumber(-45, 45))
+		spin.Parent = otherRoot
+		Debris:AddItem(spin, 1.0)
+		-- A burst of sparks where they got hit.
+		local burst = Instance.new("Attachment")
+		burst.Parent = otherRoot
+		local sparks = Instance.new("ParticleEmitter")
+		sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		sparks.Color = ColorSequence.new(Color3.fromRGB(255, 80, 60), Color3.fromRGB(255, 220, 90))
+		sparks.LightEmission = 1
+		sparks.Speed = NumberRange.new(15, 30)
+		sparks.SpreadAngle = Vector2.new(180, 180)
+		sparks.Lifetime = NumberRange.new(0.3, 0.6)
+		sparks.Size = NumberSequence.new(0.6, 0)
+		sparks.Rate = 0
+		sparks.Parent = burst
+		sparks:Emit(40)
+		Debris:AddItem(burst, 1)
 	end
-end
 
-HammerPower.OnServerEvent:Connect(function(player: Player, power: unknown)
-	local founder = founderOf(player)
-	local character = player.Character
-	local hrp = getRoot(player)
-	-- Only Corny, with the hammer in his hand.
-	if power ~= "Slam" or not founder or founder.Id ~= Config.HammerOwner or not hrp or not character or not character:FindFirstChild("Ban Hammer") then
-		return
-	end
-	local now = os.clock()
-	if now - (lastSlam[player] or 0) < Config.HammerSlamCooldown then
-		notify(player, string.format("SLAM recharging: %ds", math.ceil(Config.HammerSlamCooldown - (now - (lastSlam[player] or 0)))))
-		return
-	end
-	lastSlam[player] = now
-	hammerSlam(player, hrp)
-end)
-
--- The crack in the ground: glowing segments race forward from the hammer,
--- and anyone standing where it passes takes damage and is flung aside.
-local function hammerLine(player: Player, origin: Vector3, direction: Vector3, alreadyHit: { [Player]: boolean })
-	local step = 3
-	local floorY = origin.Y
-	for distance = 2, Config.HammerLineLength, step do
-		local center = origin + direction * distance
-		local crack = Instance.new("Part")
-		crack.Name = "HammerCrack"
-		crack.Anchored = true
-		crack.CanCollide = false
-		crack.CanQuery = false
-		crack.CanTouch = false
-		crack.Material = Enum.Material.Neon
-		crack.Color = if distance % (step * 2) < step then Color3.fromRGB(255, 50, 50) else Color3.fromRGB(255, 140, 40)
-		crack.Size = Vector3.new(2.4, 0.3, step + 0.4)
-		crack.CFrame = CFrame.lookAt(center, center + direction) * CFrame.Angles(0, rng:NextNumber(-0.15, 0.15), 0)
-		crack.Parent = workspace
-		TweenService:Create(crack, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Size = Vector3.new(0.6, 0.1, step) }):Play()
-		Debris:AddItem(crack, 1.3)
-
+	-- SLAM: the hammer's super move. A red shockwave races across the whole
+	-- map from Corny and flings every other player sky-high.
+	local lastSlam: { [Player]: number } = {}
+	Players.PlayerRemoving:Connect(function(player)
+		lastSlam[player] = nil
+	end)
+	local function hammerSlam(player: Player, hrp: BasePart)
+		local center = hrp.Position - Vector3.new(0, 2.8, 0)
+		for k = 0, 2 do
+			local ring = Instance.new("Part")
+			ring.Name = "HammerSlamWave"
+			ring.Anchored = true
+			ring.CanCollide = false
+			ring.CanQuery = false
+			ring.CanTouch = false
+			ring.Shape = Enum.PartType.Cylinder
+			ring.Material = Enum.Material.Neon
+			ring.Color = if k == 1 then Color3.fromRGB(255, 200, 60) else Color3.fromRGB(255, 50, 50)
+			ring.Size = Vector3.new(0.4 + k * 0.3, 4, 4)
+			ring.CFrame = CFrame.new(center + Vector3.new(0, 0.4 + k * 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90))
+			ring.Transparency = 0.15
+			ring.Parent = workspace
+			TweenService:Create(ring, TweenInfo.new(1.6 + k * 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.4, 900, 900), Transparency = 1 }):Play()
+			Debris:AddItem(ring, 2.4)
+		end
+		local founder = founderOf(player)
+		Announce:FireAllClients("slam", if founder then founder.Name else player.DisplayName, "")
 		for _, other in Players:GetPlayers() do
-			local otherRoot = if other ~= player and not alreadyHit[other] then getRoot(other) else nil
+			local otherRoot = if other ~= player then getRoot(other) else nil
 			if otherRoot then
-				local offset = otherRoot.Position - origin
-				local along = offset:Dot(direction)
-				local flatOffset = Vector3.new(offset.X, 0, offset.Z)
-				local sideways = (flatOffset - direction * along).Magnitude
-				local high = otherRoot.Position.Y - floorY
-				if along >= distance - step and along <= distance + step / 2 and sideways <= Config.HammerLineWidth and high > -2 and high < 8 then
-					alreadyHit[other] = true
-					local humanoid = otherRoot.Parent and otherRoot.Parent:FindFirstChildOfClass("Humanoid")
-					if humanoid then
-						humanoid:TakeDamage(Config.HammerLineDamage)
+				local flat = Vector3.new(otherRoot.Position.X - center.X, 0, otherRoot.Position.Z - center.Z)
+				local away = if flat.Magnitude > 0.1 then flat.Unit else Vector3.new(1, 0, 0)
+				-- The wave reaches farther players a little later.
+				task.delay(math.min(1.2, flat.Magnitude / 400), function()
+					if otherRoot.Parent then
+						hammerFling(other, otherRoot, away, player)
 					end
-					-- Knocked off the line, to whichever side they were on.
-					local side = flatOffset - direction * along
-					local away = if side.Magnitude > 0.1 then side.Unit else Vector3.new(-direction.Z, 0, direction.X)
-					hammerFling(other, otherRoot, (away + direction).Unit, player)
+				end)
+			end
+		end
+	end
+
+	HammerPower.OnServerEvent:Connect(function(player: Player, power: unknown)
+		local founder = founderOf(player)
+		local character = player.Character
+		local hrp = getRoot(player)
+		-- Only Corny, with the hammer in his hand.
+		if power ~= "Slam" or not founder or founder.Id ~= Config.HammerOwner or not hrp or not character or not character:FindFirstChild("Ban Hammer") then
+			return
+		end
+		local now = os.clock()
+		if now - (lastSlam[player] or 0) < Config.HammerSlamCooldown then
+			notify(player, string.format("SLAM recharging: %ds", math.ceil(Config.HammerSlamCooldown - (now - (lastSlam[player] or 0)))))
+			return
+		end
+		lastSlam[player] = now
+		hammerSlam(player, hrp)
+	end)
+
+	-- The crack in the ground: glowing segments race forward from the hammer,
+	-- and anyone standing where it passes takes damage and is flung aside.
+	local function hammerLine(player: Player, origin: Vector3, direction: Vector3, alreadyHit: { [Player]: boolean })
+		local step = 3
+		local floorY = origin.Y
+		for distance = 2, Config.HammerLineLength, step do
+			local center = origin + direction * distance
+			local crack = Instance.new("Part")
+			crack.Name = "HammerCrack"
+			crack.Anchored = true
+			crack.CanCollide = false
+			crack.CanQuery = false
+			crack.CanTouch = false
+			crack.Material = Enum.Material.Neon
+			crack.Color = if distance % (step * 2) < step then Color3.fromRGB(255, 50, 50) else Color3.fromRGB(255, 140, 40)
+			crack.Size = Vector3.new(2.4, 0.3, step + 0.4)
+			crack.CFrame = CFrame.lookAt(center, center + direction) * CFrame.Angles(0, rng:NextNumber(-0.15, 0.15), 0)
+			crack.Parent = workspace
+			TweenService:Create(crack, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Size = Vector3.new(0.6, 0.1, step) }):Play()
+			Debris:AddItem(crack, 1.3)
+
+			for _, other in Players:GetPlayers() do
+				local otherRoot = if other ~= player and not alreadyHit[other] then getRoot(other) else nil
+				if otherRoot then
+					local offset = otherRoot.Position - origin
+					local along = offset:Dot(direction)
+					local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+					local sideways = (flatOffset - direction * along).Magnitude
+					local high = otherRoot.Position.Y - floorY
+					if along >= distance - step and along <= distance + step / 2 and sideways <= Config.HammerLineWidth and high > -2 and high < 8 then
+						alreadyHit[other] = true
+						local humanoid = otherRoot.Parent and otherRoot.Parent:FindFirstChildOfClass("Humanoid")
+						if humanoid then
+							humanoid:TakeDamage(Config.HammerLineDamage)
+						end
+						-- Knocked off the line, to whichever side they were on.
+						local side = flatOffset - direction * along
+						local away = if side.Magnitude > 0.1 then side.Unit else Vector3.new(-direction.Z, 0, direction.X)
+						hammerFling(other, otherRoot, (away + direction).Unit, player)
+					end
+				end
+			end
+			task.wait(0.025)
+		end
+	end
+
+	local function onHammer(player: Player, tool: Tool)
+		local founder = founderOf(player)
+		local hrp = getRoot(player)
+		if not founder or founder.Id ~= Config.HammerOwner or not hrp then
+			return
+		end
+		local now = os.clock()
+		if now - (lastHammer[player] or 0) < Config.HammerCooldown then
+			return
+		end
+		lastHammer[player] = now
+
+		local anim = Instance.new("StringValue")
+		anim.Name = "toolanim"
+		anim.Value = "Slash"
+		anim.Parent = tool
+		local look = Vector3.new(hrp.CFrame.LookVector.X, 0, hrp.CFrame.LookVector.Z)
+		local direction = if look.Magnitude > 0.01 then look.Unit else Vector3.new(0, 0, -1)
+		local feet = hrp.Position - Vector3.new(0, 2.8, 0)
+		hammerShockwave(feet + direction * 5 + Vector3.new(0, 0.3, 0))
+
+		-- The swing itself flings everyone close in front.
+		local hit: { [Player]: boolean } = {}
+		for _, other in Players:GetPlayers() do
+			local otherRoot = if other ~= player then getRoot(other) else nil
+			if otherRoot then
+				local offset = otherRoot.Position - hrp.Position
+				local flat = Vector3.new(offset.X, 0, offset.Z)
+				if offset.Magnitude <= Config.HammerRange and flat.Magnitude > 0.01 and direction:Dot(flat.Unit) > 0 then
+					hit[other] = true
+					hammerFling(other, otherRoot, flat.Unit, player)
 				end
 			end
 		end
-		task.wait(0.025)
+		task.spawn(hammerLine, player, feet + Vector3.new(0, 0.15, 0), direction, hit)
 	end
-end
 
-local function onHammer(player: Player, tool: Tool)
-	local founder = founderOf(player)
-	local hrp = getRoot(player)
-	if not founder or founder.Id ~= Config.HammerOwner or not hrp then
-		return
-	end
-	local now = os.clock()
-	if now - (lastHammer[player] or 0) < Config.HammerCooldown then
-		return
-	end
-	lastHammer[player] = now
-
-	local anim = Instance.new("StringValue")
-	anim.Name = "toolanim"
-	anim.Value = "Slash"
-	anim.Parent = tool
-	local look = Vector3.new(hrp.CFrame.LookVector.X, 0, hrp.CFrame.LookVector.Z)
-	local direction = if look.Magnitude > 0.01 then look.Unit else Vector3.new(0, 0, -1)
-	local feet = hrp.Position - Vector3.new(0, 2.8, 0)
-	hammerShockwave(feet + direction * 5 + Vector3.new(0, 0.3, 0))
-
-	-- The swing itself flings everyone close in front.
-	local hit: { [Player]: boolean } = {}
-	for _, other in Players:GetPlayers() do
-		local otherRoot = if other ~= player then getRoot(other) else nil
-		if otherRoot then
-			local offset = otherRoot.Position - hrp.Position
-			local flat = Vector3.new(offset.X, 0, offset.Z)
-			if offset.Magnitude <= Config.HammerRange and flat.Magnitude > 0.01 and direction:Dot(flat.Unit) > 0 then
-				hit[other] = true
-				hammerFling(other, otherRoot, flat.Unit, player)
-			end
+	giveHammer = function(player: Player)
+		local founder = founderOf(player)
+		local backpack = player:FindFirstChildOfClass("Backpack")
+		if not founder or founder.Id ~= Config.HammerOwner or not backpack or backpack:FindFirstChild("Ban Hammer") then
+			return
 		end
+		local tool = Instance.new("Tool")
+		tool.Name = "Ban Hammer"
+		tool.ToolTip = "Swing to fling. Also: FLY, SUPER SPRINT and SLAM (whole map)"
+		tool.CanBeDropped = false
+		tool.GripPos = Vector3.new(0, -1.3, 0)
+		-- The stick is the handle; the head is welded on top.
+		local handle = Instance.new("Part")
+		handle.Name = "Handle"
+		handle.Size = Vector3.new(0.45, 4.2, 0.45)
+		handle.Color = Color3.fromRGB(70, 45, 30)
+		handle.Material = Enum.Material.Wood
+		handle.CanCollide = false
+		handle.Massless = true
+		handle.Parent = tool
+		local function piece(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material)
+			local p = Instance.new("Part")
+			p.Name = name
+			p.Size = size
+			p.CFrame = handle.CFrame * offset
+			p.Color = color
+			p.Material = material
+			p.CanCollide = false
+			p.Massless = true
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = handle
+			weld.Part1 = p
+			weld.Parent = p
+			p.Parent = tool
+		end
+		piece("Head", Vector3.new(2.8, 1.5, 1.5), CFrame.new(0, 2.3, 0), Color3.fromRGB(35, 35, 40), Enum.Material.Metal)
+		piece("Band", Vector3.new(0.4, 1.6, 1.6), CFrame.new(0, 2.3, 0), Color3.fromRGB(255, 50, 50), Enum.Material.Neon)
+		for _, side in { -1, 1 } do
+			piece("Face", Vector3.new(0.2, 1.3, 1.3), CFrame.new(side * 1.45, 2.3, 0), Color3.fromRGB(255, 200, 60), Enum.Material.Foil)
+		end
+		piece("Grip", Vector3.new(0.55, 1.2, 0.55), CFrame.new(0, -1.3, 0), Color3.fromRGB(200, 30, 30), Enum.Material.Fabric)
+		tool.Activated:Connect(function()
+			onHammer(player, tool)
+		end)
+		tool.Parent = backpack
 	end
-	task.spawn(hammerLine, player, feet + Vector3.new(0, 0.15, 0), direction, hit)
-end
 
-local function giveHammer(player: Player)
-	local founder = founderOf(player)
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	if not founder or founder.Id ~= Config.HammerOwner or not backpack or backpack:FindFirstChild("Ban Hammer") then
-		return
+	giveSlap = function(player: Player)
+		local backpack = player:FindFirstChildOfClass("Backpack")
+		if not backpack or backpack:FindFirstChild("Slap") then
+			return
+		end
+		local tool = Instance.new("Tool")
+		tool.Name = "Slap"
+		tool.ToolTip = "Slap thieves to make them drop your brainrot"
+		tool.CanBeDropped = false
+		local handle = Instance.new("Part")
+		handle.Name = "Handle"
+		handle.Size = Vector3.new(0.6, 1.6, 2.4)
+		handle.Color = Color3.fromRGB(255, 205, 160)
+		handle.Material = Enum.Material.SmoothPlastic
+		handle.CanCollide = false
+		handle.Massless = true
+		handle.Parent = tool
+		tool.Activated:Connect(function()
+			onSlap(player, tool)
+		end)
+		tool.Parent = backpack
 	end
-	local tool = Instance.new("Tool")
-	tool.Name = "Ban Hammer"
-	tool.ToolTip = "Swing to fling. Also: FLY, SUPER SPRINT and SLAM (whole map)"
-	tool.CanBeDropped = false
-	tool.GripPos = Vector3.new(0, -1.3, 0)
-	-- The stick is the handle; the head is welded on top.
-	local handle = Instance.new("Part")
-	handle.Name = "Handle"
-	handle.Size = Vector3.new(0.45, 4.2, 0.45)
-	handle.Color = Color3.fromRGB(70, 45, 30)
-	handle.Material = Enum.Material.Wood
-	handle.CanCollide = false
-	handle.Massless = true
-	handle.Parent = tool
-	local function piece(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material)
-		local p = Instance.new("Part")
-		p.Name = name
-		p.Size = size
-		p.CFrame = handle.CFrame * offset
-		p.Color = color
-		p.Material = material
-		p.CanCollide = false
-		p.Massless = true
-		local weld = Instance.new("WeldConstraint")
-		weld.Part0 = handle
-		weld.Part1 = p
-		weld.Parent = p
-		p.Parent = tool
-	end
-	piece("Head", Vector3.new(2.8, 1.5, 1.5), CFrame.new(0, 2.3, 0), Color3.fromRGB(35, 35, 40), Enum.Material.Metal)
-	piece("Band", Vector3.new(0.4, 1.6, 1.6), CFrame.new(0, 2.3, 0), Color3.fromRGB(255, 50, 50), Enum.Material.Neon)
-	for _, side in { -1, 1 } do
-		piece("Face", Vector3.new(0.2, 1.3, 1.3), CFrame.new(side * 1.45, 2.3, 0), Color3.fromRGB(255, 200, 60), Enum.Material.Foil)
-	end
-	piece("Grip", Vector3.new(0.55, 1.2, 0.55), CFrame.new(0, -1.3, 0), Color3.fromRGB(200, 30, 30), Enum.Material.Fabric)
-	tool.Activated:Connect(function()
-		onHammer(player, tool)
-	end)
-	tool.Parent = backpack
-end
-
-local function giveSlap(player: Player)
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	if not backpack or backpack:FindFirstChild("Slap") then
-		return
-	end
-	local tool = Instance.new("Tool")
-	tool.Name = "Slap"
-	tool.ToolTip = "Slap thieves to make them drop your brainrot"
-	tool.CanBeDropped = false
-	local handle = Instance.new("Part")
-	handle.Name = "Handle"
-	handle.Size = Vector3.new(0.6, 1.6, 2.4)
-	handle.Color = Color3.fromRGB(255, 205, 160)
-	handle.Material = Enum.Material.SmoothPlastic
-	handle.CanCollide = false
-	handle.Massless = true
-	handle.Parent = tool
-	tool.Activated:Connect(function()
-		onSlap(player, tool)
-	end)
-	tool.Parent = backpack
 end
 
 -- VIP name tag -------------------------------------------------------------
@@ -3640,138 +3645,144 @@ local function giantPoof(position: Vector3, size: number, color: Color3)
 end
 
 -- The lowest point of a giant's body (not its accessories), as it is now.
-local function giantFeetY(giant: Model): number?
-	local lowest: number? = nil
-	for _, part in giant:GetDescendants() do
-		if part:IsA("BasePart") and part ~= giant.PrimaryPart and part.Transparency < 1 and not part:FindFirstAncestorOfClass("Accessory") then
-			local cf, size = part.CFrame, part.Size
-			local extent = math.abs(cf.UpVector.Y) * size.Y / 2 + math.abs(cf.RightVector.Y) * size.X / 2 + math.abs(cf.LookVector.Y) * size.Z / 2
-			local bottom = cf.Position.Y - extent
-			if not lowest or bottom < lowest then
-				lowest = bottom
+local placeGiant: (giant: Model, spot: Vector3, feetY: number) -> Vector3
+local settleGiant: (giant: Model, feetY: number, pose: Founders.Pose?) -> ()
+local glide: (model: Model, from: CFrame, to: CFrame, seconds: number) -> ()
+-- (Kept in a block: a script can only have 200 locals at the top level.)
+do
+	local function giantFeetY(giant: Model): number?
+		local lowest: number? = nil
+		for _, part in giant:GetDescendants() do
+			if part:IsA("BasePart") and part ~= giant.PrimaryPart and part.Transparency < 1 and not part:FindFirstAncestorOfClass("Accessory") then
+				local cf, size = part.CFrame, part.Size
+				local extent = math.abs(cf.UpVector.Y) * size.Y / 2 + math.abs(cf.RightVector.Y) * size.X / 2 + math.abs(cf.LookVector.Y) * size.Z / 2
+				local bottom = cf.Position.Y - extent
+				if not lowest or bottom < lowest then
+					lowest = bottom
+				end
 			end
 		end
+		return lowest
 	end
-	return lowest
-end
 
--- Lifts or lowers the whole giant so its feet are on `groundY`, if they're
--- off by more than `tolerance` studs.
-local function groundGiant(giant: Model, groundY: number, tolerance: number)
-	local feet = giantFeetY(giant)
-	if feet and math.abs(feet - groundY) > tolerance then
-		giant:PivotTo(giant:GetPivot() + Vector3.new(0, groundY - feet, 0))
-	end
-end
-
--- Puts a giant at `spot` facing the map, with its feet at `feetY` (the
--- ground, or in the air for floating). The whole model is moved with PivotTo
--- so its body can't get left behind. Roblox finishes rebuilding a scaled-up
--- body a moment after it's made, so the feet are re-measured once it settles.
--- Returns the giant's size.
-local function placeGiant(giant: Model, spot: Vector3, feetY: number): Vector3
-	local root = giant.PrimaryPart :: BasePart
-	local height = Founders.RootHeight(giant)
-	local home = CFrame.lookAt(Vector3.new(spot.X, feetY + height, spot.Z), Vector3.new(0, feetY + height, 0))
-	giant:PivotTo(home * root.CFrame:ToObjectSpace(giant:GetPivot()))
-	for _ = 1, 5 do
-		task.wait(0.1)
-		groundGiant(giant, feetY, 0.5)
-	end
-	local _, size = giant:GetBoundingBox()
-	return size
-end
-
--- Re-checks a giant a few times while Roblox finishes building it: fixes
--- anything that didn't scale up, re-applies its pose and puts its feet back
--- at `feetY`.
-local function settleGiant(giant: Model, feetY: number, pose: Founders.Pose?)
-	for _ = 1, 3 do
-		task.wait(0.4)
-		if not giant.Parent then
-			return
+	-- Lifts or lowers the whole giant so its feet are on `groundY`, if they're
+	-- off by more than `tolerance` studs.
+	local function groundGiant(giant: Model, groundY: number, tolerance: number)
+		local feet = giantFeetY(giant)
+		if feet and math.abs(feet - groundY) > tolerance then
+			giant:PivotTo(giant:GetPivot() + Vector3.new(0, groundY - feet, 0))
 		end
-		Founders.FixScale(giant)
-		if pose then
-			Founders.ApplyPose(giant, pose)
-		end
-		groundGiant(giant, feetY, 0.5)
 	end
-end
 
--- Normal standing idle underneath, and one in-place emote at a time with a
--- short pause between them, while `active()` is true.
-local function startEmotes(giant: Model, emotes: { string }, active: () -> boolean)
-	Founders.Play(giant, Founders.Idle, true, 1, 1, Enum.AnimationPriority.Idle)
-	task.spawn(function()
-		local index = rng:NextInteger(1, #emotes)
-		task.wait(1)
-		while giant.Parent and active() do
-			local track = Founders.Play(giant, emotes[index], false, 1, 1, Enum.AnimationPriority.Action)
-			index = index % #emotes + 1
-			local length = if track and track.Length > 0 then track.Length else 3
-			task.wait(length + rng:NextNumber(1.5, 3))
+	-- Puts a giant at `spot` facing the map, with its feet at `feetY` (the
+	-- ground, or in the air for floating). The whole model is moved with PivotTo
+	-- so its body can't get left behind. Roblox finishes rebuilding a scaled-up
+	-- body a moment after it's made, so the feet are re-measured once it settles.
+	-- Returns the giant's size.
+	placeGiant = function(giant: Model, spot: Vector3, feetY: number): Vector3
+		local root = giant.PrimaryPart :: BasePart
+		local height = Founders.RootHeight(giant)
+		local home = CFrame.lookAt(Vector3.new(spot.X, feetY + height, spot.Z), Vector3.new(0, feetY + height, 0))
+		giant:PivotTo(home * root.CFrame:ToObjectSpace(giant:GetPivot()))
+		for _ = 1, 5 do
+			task.wait(0.1)
+			groundGiant(giant, feetY, 0.5)
 		end
-	end)
-end
-
--- A giant standing on the ground at `spot`, emoting while `active()` is true
--- (and throwing something every `dropEvery` seconds if there's a `drop`).
--- Then it vanishes in a puff.
-local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
-	local size = placeGiant(giant, spot, spot.Y)
-	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
-	settleGiant(giant, spot.Y, nil)
-	startEmotes(giant, emotes, active)
-	local nextDrop = os.clock() + 1.5
-	while giant.Parent and active() do
-		if drop and os.clock() >= nextDrop then
-			nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
-			drop(giantHand(giant))
-		end
-		task.wait(0.1)
+		local _, size = giant:GetBoundingBox()
+		return size
 	end
-	giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
-	giant:Destroy()
-end
 
--- Glides a model from one CFrame to another over `seconds` (eased), yielding.
-local function glide(model: Model, from: CFrame, to: CFrame, seconds: number)
-	local started = os.clock()
-	while true do
-		local t = math.min((os.clock() - started) / seconds, 1)
-		local eased = t * t * (3 - 2 * t)
-		model:PivotTo(from:Lerp(to, eased))
-		if t >= 1 then
-			break
+	-- Re-checks a giant a few times while Roblox finishes building it: fixes
+	-- anything that didn't scale up, re-applies its pose and puts its feet back
+	-- at `feetY`.
+	settleGiant = function(giant: Model, feetY: number, pose: Founders.Pose?)
+		for _ = 1, 3 do
+			task.wait(0.4)
+			if not giant.Parent then
+				return
+			end
+			Founders.FixScale(giant)
+			if pose then
+				Founders.ApplyPose(giant, pose)
+			end
+			groundGiant(giant, feetY, 0.5)
 		end
-		RunService.Heartbeat:Wait()
 	end
-end
 
--- Admin abuse giants: just standing there, emoting.
-local function spawnAbuseGiants()
-	for founderId, spot in Config.FounderGiantSpots do
+	-- Normal standing idle underneath, and one in-place emote at a time with a
+	-- short pause between them, while `active()` is true.
+	local function startEmotes(giant: Model, emotes: { string }, active: () -> boolean)
+		Founders.Play(giant, Founders.Idle, true, 1, 1, Enum.AnimationPriority.Idle)
 		task.spawn(function()
-			local giant = Founders.CreateGiant(founderId, Config.FounderGiantScale, foundersFolder)
-			if giant then
-				runGiant(giant, spot, GIANT_EMOTES, 0, adminAbuseLive)
+			local index = rng:NextInteger(1, #emotes)
+			task.wait(1)
+			while giant.Parent and active() do
+				local track = Founders.Play(giant, emotes[index], false, 1, 1, Enum.AnimationPriority.Action)
+				index = index % #emotes + 1
+				local length = if track and track.Length > 0 then track.Length else 3
+				task.wait(length + rng:NextNumber(1.5, 3))
 			end
 		end)
 	end
-end
 
-task.spawn(function()
-	local wasLive = false
-	while true do
-		local live = adminAbuseLive()
-		if live and not wasLive then
-			spawnAbuseGiants()
+	-- A giant standing on the ground at `spot`, emoting while `active()` is true
+	-- (and throwing something every `dropEvery` seconds if there's a `drop`).
+	-- Then it vanishes in a puff.
+	local function runGiant(giant: Model, spot: Vector3, emotes: { string }, dropEvery: number, active: () -> boolean, drop: ((Vector3) -> ())?)
+		local size = placeGiant(giant, spot, spot.Y)
+		giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
+		settleGiant(giant, spot.Y, nil)
+		startEmotes(giant, emotes, active)
+		local nextDrop = os.clock() + 1.5
+		while giant.Parent and active() do
+			if drop and os.clock() >= nextDrop then
+				nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
+				drop(giantHand(giant))
+			end
+			task.wait(0.1)
 		end
-		wasLive = live
-		task.wait(1)
+		giantPoof(spot, size.Y, Color3.fromRGB(255, 220, 90))
+		giant:Destroy()
 	end
-end)
+
+	-- Glides a model from one CFrame to another over `seconds` (eased), yielding.
+	glide = function(model: Model, from: CFrame, to: CFrame, seconds: number)
+		local started = os.clock()
+		while true do
+			local t = math.min((os.clock() - started) / seconds, 1)
+			local eased = t * t * (3 - 2 * t)
+			model:PivotTo(from:Lerp(to, eased))
+			if t >= 1 then
+				break
+			end
+			RunService.Heartbeat:Wait()
+		end
+	end
+
+	-- Admin abuse giants: just standing there, emoting.
+	local function spawnAbuseGiants()
+		for founderId, spot in Config.FounderGiantSpots do
+			task.spawn(function()
+				local giant = Founders.CreateGiant(founderId, Config.FounderGiantScale, foundersFolder)
+				if giant then
+					runGiant(giant, spot, GIANT_EMOTES, 0, adminAbuseLive)
+				end
+			end)
+		end
+	end
+
+	task.spawn(function()
+		local wasLive = false
+		while true do
+			local live = adminAbuseLive()
+			if live and not wasLive then
+				spawnAbuseGiants()
+			end
+			wasLive = live
+			task.wait(1)
+		end
+	end)
+end
 
 -- Founder events
 local founderEventRunning: string? = nil
@@ -4321,108 +4332,112 @@ end
 -- admin panel, to show a message on screen in EVERY server. The text is run
 -- through Roblox's filter first, as Roblox requires.
 
-local ANNOUNCE_TOPIC = "BrainrotHeistAnnouncement"
-local lastAnnouncement: { [Player]: { Text: string, At: number } } = {}
+local announceEverywhere: (player: Player, raw: string) -> ()
+-- (Kept in a block: a script can only have 200 locals at the top level.)
+do
+	local ANNOUNCE_TOPIC = "BrainrotHeistAnnouncement"
+	local lastAnnouncement: { [Player]: { Text: string, At: number } } = {}
 
-local function showAnnouncement(from: string, message: string)
-	Announce:FireAllClients("global", from, "", message)
-end
+	local function showAnnouncement(from: string, message: string)
+		Announce:FireAllClients("global", from, "", message)
+	end
 
-task.spawn(function()
-	pcall(function()
-		MessagingService:SubscribeAsync(ANNOUNCE_TOPIC, function(packet)
-			local data = packet.Data
-			-- Our own server already showed it.
-			if type(data) == "table" and data.Server ~= game.JobId and type(data.From) == "string" and type(data.Text) == "string" then
-				showAnnouncement(data.From, data.Text)
-			end
+	task.spawn(function()
+		pcall(function()
+			MessagingService:SubscribeAsync(ANNOUNCE_TOPIC, function(packet)
+				local data = packet.Data
+				-- Our own server already showed it.
+				if type(data) == "table" and data.Server ~= game.JobId and type(data.From) == "string" and type(data.Text) == "string" then
+					showAnnouncement(data.From, data.Text)
+				end
+			end)
 		end)
 	end)
-end)
 
--- The founder's name ("Corny") for a founder, otherwise their display name.
-local function announcerName(player: Player): string
-	local founder = founderOf(player)
-	return if founder then founder.Name else player.DisplayName
-end
+	-- The founder's name ("Corny") for a founder, otherwise their display name.
+	local function announcerName(player: Player): string
+		local founder = founderOf(player)
+		return if founder then founder.Name else player.DisplayName
+	end
 
-local function announceEverywhere(player: Player, raw: string)
-	local session = sessions[player]
-	if not session or not hasAdminPowers(session) then
-		return
-	end
-	local message = string.sub(string.match(raw, "^%s*(.-)%s*$") or "", 1, 200)
-	if message == "" then
-		notify(player, "Type a message after /announce")
-		return
-	end
-	-- The chat command and the chat fallback can both see the same message.
-	local last = lastAnnouncement[player]
-	if last and last.Text == message and os.clock() - last.At < 3 then
-		return
-	end
-	if last and os.clock() - last.At < 5 then
-		notify(player, "Wait a few seconds between announcements.")
-		return
-	end
-	lastAnnouncement[player] = { Text = message, At = os.clock() }
-	local ok, filtered = pcall(function()
-		local result = TextService:FilterStringAsync(message, player.UserId)
-		return result:GetNonChatStringForBroadcastAsync()
-	end)
-	if not ok or type(filtered) ~= "string" then
-		notify(player, "Couldn't send that announcement. Try again.")
-		return
-	end
-	local from = announcerName(player)
-	showAnnouncement(from, filtered)
-	local sent = pcall(function()
-		MessagingService:PublishAsync(ANNOUNCE_TOPIC, { From = from, Text = filtered, Server = game.JobId })
-	end)
-	notify(player, if sent then "Announced to every server!" else "Announced in this server (other servers couldn't be reached).")
-end
-
--- The chat command (new chat). Messages starting with /announce or /a.
-local function stripCommand(text: string): string?
-	local lower = string.lower(text)
-	for _, alias in { "/announce", "/a" } do
-		if string.sub(lower, 1, #alias + 1) == alias .. " " then
-			return string.sub(text, #alias + 2)
+	announceEverywhere = function(player: Player, raw: string)
+		local session = sessions[player]
+		if not session or not hasAdminPowers(session) then
+			return
 		end
+		local message = string.sub(string.match(raw, "^%s*(.-)%s*$") or "", 1, 200)
+		if message == "" then
+			notify(player, "Type a message after /announce")
+			return
+		end
+		-- The chat command and the chat fallback can both see the same message.
+		local last = lastAnnouncement[player]
+		if last and last.Text == message and os.clock() - last.At < 3 then
+			return
+		end
+		if last and os.clock() - last.At < 5 then
+			notify(player, "Wait a few seconds between announcements.")
+			return
+		end
+		lastAnnouncement[player] = { Text = message, At = os.clock() }
+		local ok, filtered = pcall(function()
+			local result = TextService:FilterStringAsync(message, player.UserId)
+			return result:GetNonChatStringForBroadcastAsync()
+		end)
+		if not ok or type(filtered) ~= "string" then
+			notify(player, "Couldn't send that announcement. Try again.")
+			return
+		end
+		local from = announcerName(player)
+		showAnnouncement(from, filtered)
+		local sent = pcall(function()
+			MessagingService:PublishAsync(ANNOUNCE_TOPIC, { From = from, Text = filtered, Server = game.JobId })
+		end)
+		notify(player, if sent then "Announced to every server!" else "Announced in this server (other servers couldn't be reached).")
 	end
-	return nil
-end
 
-if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
-	local command = Instance.new("TextChatCommand")
-	command.Name = "GlobalAnnounce"
-	command.PrimaryAlias = "/announce"
-	command.SecondaryAlias = "/a"
-	command.Triggered:Connect(function(source: TextSource, text: string)
-		local player = Players:GetPlayerByUserId(source.UserId)
-		local message = stripCommand(text)
-		if player and message then
-			announceEverywhere(player, message)
+	-- The chat command (new chat). Messages starting with /announce or /a.
+	local function stripCommand(text: string): string?
+		local lower = string.lower(text)
+		for _, alias in { "/announce", "/a" } do
+			if string.sub(lower, 1, #alias + 1) == alias .. " " then
+				return string.sub(text, #alias + 2)
+			end
 		end
+		return nil
+	end
+
+	if TextChatService.ChatVersion == Enum.ChatVersion.TextChatService then
+		local command = Instance.new("TextChatCommand")
+		command.Name = "GlobalAnnounce"
+		command.PrimaryAlias = "/announce"
+		command.SecondaryAlias = "/a"
+		command.Triggered:Connect(function(source: TextSource, text: string)
+			local player = Players:GetPlayerByUserId(source.UserId)
+			local message = stripCommand(text)
+			if player and message then
+				announceEverywhere(player, message)
+			end
+		end)
+		command.Parent = TextChatService:FindFirstChild("TextChatCommands") or TextChatService
+	end
+	-- Old chat (and a fallback for the new one).
+	local function watchChat(player: Player)
+		player.Chatted:Connect(function(text)
+			local message = stripCommand(text)
+			if message then
+				announceEverywhere(player, message)
+			end
+		end)
+	end
+	Players.PlayerAdded:Connect(watchChat)
+	for _, player in Players:GetPlayers() do
+		watchChat(player)
+	end
+	Players.PlayerRemoving:Connect(function(player)
+		lastAnnouncement[player] = nil
 	end)
-	command.Parent = TextChatService:FindFirstChild("TextChatCommands") or TextChatService
 end
--- Old chat (and a fallback for the new one).
-local function watchChat(player: Player)
-	player.Chatted:Connect(function(text)
-		local message = stripCommand(text)
-		if message then
-			announceEverywhere(player, message)
-		end
-	end)
-end
-Players.PlayerAdded:Connect(watchChat)
-for _, player in Players:GetPlayers() do
-	watchChat(player)
-end
-Players.PlayerRemoving:Connect(function(player)
-	lastAnnouncement[player] = nil
-end)
 
 -- Admin panel --------------------------------------------------------------
 
@@ -5176,154 +5191,157 @@ end)
 
 -- Robux purchases ----------------------------------------------------------
 
-local productsById: { [number]: Config.Product } = {}
-for _, product in Config.Products do
-	if product.Id ~= 0 then
-		productsById[product.Id] = product
+-- (Kept in a block: a script can only have 200 locals at the top level.)
+do
+	local productsById: { [number]: Config.Product } = {}
+	for _, product in Config.Products do
+		if product.Id ~= 0 then
+			productsById[product.Id] = product
+		end
 	end
-end
 
-local limitedByProduct: { [number]: string } = {}
-for itemId, item in Config.LimitedItems do
-	if item.ProductId ~= 0 then
-		limitedByProduct[item.ProductId] = itemId
+	local limitedByProduct: { [number]: string } = {}
+	for itemId, item in Config.LimitedItems do
+		if item.ProductId ~= 0 then
+			limitedByProduct[item.ProductId] = itemId
+		end
 	end
-end
 
--- Shop button for a limited brainrot: reserve a copy, then show the prompt.
-BuyLimited.OnServerInvoke = function(player: Player, itemId: unknown): (boolean, string?)
-	local session = sessions[player]
-	local item = if type(itemId) == "string" then Config.LimitedItems[itemId] else nil
-	local brainrot = if type(itemId) == "string" then Config.GetBrainrot(itemId) else nil
-	if not session or not session.Loaded or not item or not brainrot then
-		return false, "Try again in a moment."
-	end
-	if not Config.LimitedOnSale(item) then
-		return false, "Not on sale yet!"
-	end
-	if ownsLimited(session, brainrot.Id) then
-		return false, "You already own " .. brainrot.DisplayName .. "!"
-	end
-	local now = os.clock()
-	if now - session.LastLimitedTry < 3 then
-		return false, "Hold on..."
-	end
-	session.LastLimitedTry = now
-	local ok, message = LimitedStock.Reserve(player, brainrot.Id)
-	if not ok then
-		return false, message
-	end
-	if item.GamePassId and item.GamePassId ~= 0 then
-		MarketplaceService:PromptGamePassPurchase(player, item.GamePassId)
-	else
-		MarketplaceService:PromptProductPurchase(player, item.ProductId)
-	end
-	return true, nil
-end
-
--- Limited brainrots sold as a gamepass: once Roblox says it's bought, turn
--- the reserved copy into theirs (with a serial) and put her in their base.
-local function claimLimitedPass(player: Player, itemId: string)
-	local brainrot = Config.GetBrainrot(itemId)
-	if not brainrot then
-		return
-	end
-	for attempt = 1, 5 do
-		local serial = LimitedStock.Claim(player, itemId)
+	-- Shop button for a limited brainrot: reserve a copy, then show the prompt.
+	BuyLimited.OnServerInvoke = function(player: Player, itemId: unknown): (boolean, string?)
 		local session = sessions[player]
-		if serial and session and session.Loaded then
-			if not ownsLimited(session, itemId) then
-				local mutation = grantLimited(player, session, brainrot, serial)
-				Announce:FireAllClients("limited", player.DisplayName, itemId, tostring(serial), mutation)
-				save(player)
-			end
+		local item = if type(itemId) == "string" then Config.LimitedItems[itemId] else nil
+		local brainrot = if type(itemId) == "string" then Config.GetBrainrot(itemId) else nil
+		if not session or not session.Loaded or not item or not brainrot then
+			return false, "Try again in a moment."
+		end
+		if not Config.LimitedOnSale(item) then
+			return false, "Not on sale yet!"
+		end
+		if ownsLimited(session, brainrot.Id) then
+			return false, "You already own " .. brainrot.DisplayName .. "!"
+		end
+		local now = os.clock()
+		if now - session.LastLimitedTry < 3 then
+			return false, "Hold on..."
+		end
+		session.LastLimitedTry = now
+		local ok, message = LimitedStock.Reserve(player, brainrot.Id)
+		if not ok then
+			return false, message
+		end
+		if item.GamePassId and item.GamePassId ~= 0 then
+			MarketplaceService:PromptGamePassPurchase(player, item.GamePassId)
+		else
+			MarketplaceService:PromptProductPurchase(player, item.ProductId)
+		end
+		return true, nil
+	end
+
+	-- Limited brainrots sold as a gamepass: once Roblox says it's bought, turn
+	-- the reserved copy into theirs (with a serial) and put her in their base.
+	local function claimLimitedPass(player: Player, itemId: string)
+		local brainrot = Config.GetBrainrot(itemId)
+		if not brainrot then
 			return
 		end
-		if not player.Parent then
-			return -- they get her when they next join (they own the pass)
+		for attempt = 1, 5 do
+			local serial = LimitedStock.Claim(player, itemId)
+			local session = sessions[player]
+			if serial and session and session.Loaded then
+				if not ownsLimited(session, itemId) then
+					local mutation = grantLimited(player, session, brainrot, serial)
+					Announce:FireAllClients("limited", player.DisplayName, itemId, tostring(serial), mutation)
+					save(player)
+				end
+				return
+			end
+			if not player.Parent then
+				return -- they get her when they next join (they own the pass)
+			end
+			task.wait(attempt * 2)
 		end
-		task.wait(attempt * 2)
-	end
-end
-
-MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, isPurchased)
-	local itemId = limitedByProduct[productId]
-	local player = Players:GetPlayerByUserId(userId)
-	if itemId and player and not isPurchased then
-		LimitedStock.Release(player, itemId)
-	end
-end)
-
-MarketplaceService.ProcessReceipt = function(info)
-	local player = Players:GetPlayerByUserId(info.PlayerId)
-	local session = player and sessions[player]
-	local product = productsById[info.ProductId]
-	local limitedId = limitedByProduct[info.ProductId]
-	if not player or not session or not session.Loaded or not (product or limitedId) then
-		return Enum.ProductPurchaseDecision.NotProcessedYet
-	end
-	local receipts = session.Data.Receipts
-	if table.find(receipts, info.PurchaseId) then
-		return Enum.ProductPurchaseDecision.PurchaseGranted
 	end
 
-	if limitedId then
-		local brainrot = Config.GetBrainrot(limitedId) :: Config.Brainrot
-		local serial = LimitedStock.Claim(player, limitedId)
-		if not serial then
+	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, productId, isPurchased)
+		local itemId = limitedByProduct[productId]
+		local player = Players:GetPlayerByUserId(userId)
+		if itemId and player and not isPurchased then
+			LimitedStock.Release(player, itemId)
+		end
+	end)
+
+	MarketplaceService.ProcessReceipt = function(info)
+		local player = Players:GetPlayerByUserId(info.PlayerId)
+		local session = player and sessions[player]
+		local product = productsById[info.ProductId]
+		local limitedId = limitedByProduct[info.ProductId]
+		if not player or not session or not session.Loaded or not (product or limitedId) then
 			return Enum.ProductPurchaseDecision.NotProcessedYet
 		end
-		if not ownsLimited(session, limitedId) then
-			local mutation = grantLimited(player, session, brainrot, serial)
-			Announce:FireAllClients("limited", player.DisplayName, limitedId, tostring(serial), mutation)
+		local receipts = session.Data.Receipts
+		if table.find(receipts, info.PurchaseId) then
+			return Enum.ProductPurchaseDecision.PurchaseGranted
 		end
-	elseif product then
-		grantProduct(player, session, product.Key)
-	end
-	table.insert(receipts, info.PurchaseId)
-	while #receipts > 50 do
-		table.remove(receipts, 1)
-	end
 
-	-- Only confirm once it's saved; Roblox retries otherwise, and the receipt
-	-- list above stops it from being granted twice.
-	if not store or save(player) then
-		return Enum.ProductPurchaseDecision.PurchaseGranted
-	end
-	return Enum.ProductPurchaseDecision.NotProcessedYet
-end
-
-MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
-	local session = sessions[player]
-	for itemId, item in Config.LimitedItems do
-		if item.GamePassId == passId then
-			if purchased then
-				task.spawn(claimLimitedPass, player, itemId)
-			else
-				LimitedStock.Release(player, itemId)
+		if limitedId then
+			local brainrot = Config.GetBrainrot(limitedId) :: Config.Brainrot
+			local serial = LimitedStock.Claim(player, limitedId)
+			if not serial then
+				return Enum.ProductPurchaseDecision.NotProcessedYet
 			end
+			if not ownsLimited(session, limitedId) then
+				local mutation = grantLimited(player, session, brainrot, serial)
+				Announce:FireAllClients("limited", player.DisplayName, limitedId, tostring(serial), mutation)
+			end
+		elseif product then
+			grantProduct(player, session, product.Key)
+		end
+		table.insert(receipts, info.PurchaseId)
+		while #receipts > 50 do
+			table.remove(receipts, 1)
+		end
+
+		-- Only confirm once it's saved; Roblox retries otherwise, and the receipt
+		-- list above stops it from being granted twice.
+		if not store or save(player) then
+			return Enum.ProductPurchaseDecision.PurchaseGranted
+		end
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+		local session = sessions[player]
+		for itemId, item in Config.LimitedItems do
+			if item.GamePassId == passId then
+				if purchased then
+					task.spawn(claimLimitedPass, player, itemId)
+				else
+					LimitedStock.Release(player, itemId)
+				end
+				return
+			end
+		end
+		if not purchased or not session then
 			return
 		end
-	end
-	if not purchased or not session then
-		return
-	end
-	for _, pass in Config.GamePasses do
-		if pass.Id == passId then
-			session.Owns[pass.Key] = true
-			session.Roles.VIP = session.Owns.VIP == true
-			notify(player, "You got " .. pass.Name .. "!")
-			if pass.Key == "VIP" then
-				notify(player, "Claim your free VIP Royale skin in the skins list!")
+		for _, pass in Config.GamePasses do
+			if pass.Id == passId then
+				session.Owns[pass.Key] = true
+				session.Roles.VIP = session.Owns.VIP == true
+				notify(player, "You got " .. pass.Name .. "!")
+				if pass.Key == "VIP" then
+					notify(player, "Claim your free VIP Royale skin in the skins list!")
+				end
 			end
 		end
-	end
-	if session.Plot then
-		applyBaseLevels(session.Plot, session)
-	end
-	updateVipTag(player)
-	push(player)
-end)
+		if session.Plot then
+			applyBaseLevels(session.Plot, session)
+		end
+		updateVipTag(player)
+		push(player)
+	end)
+end
 
 -- Income, labels, locks and autosave --------------------------------------
 
