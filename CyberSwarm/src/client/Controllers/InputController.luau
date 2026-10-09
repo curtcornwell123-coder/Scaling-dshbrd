@@ -3,9 +3,11 @@
 	InputController
 	Keyboard and gamepad shortcuts for the match HUD: 1-5 spawn the matching loadout slot, Q/E (or
 	the shoulder buttons) cycle lanes. Bindings exist only while a match is active and are dropped
-	when it closes. Touch players use the large HUD buttons instead.
+	when it closes. Touch players use the large HUD buttons instead; the default thumbstick and jump
+	button are hidden during a match (the character is frozen anyway) so they never cover the spawn bar.
 ]]
 
+local GuiService = game:GetService("GuiService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
@@ -57,6 +59,10 @@ local function onMatchChanged(_snapshot: Types.MatchSnapshot)
 	end
 	bound = true
 	matchMaid:give(UserInputService.InputBegan:Connect(onInputBegan))
+	GuiService.TouchControlsEnabled = false
+	matchMaid:give(function()
+		GuiService.TouchControlsEnabled = true
+	end)
 end
 
 local function onMatchClosed()

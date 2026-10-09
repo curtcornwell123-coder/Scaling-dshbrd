@@ -218,7 +218,8 @@ function UIKit.screen(name: string, displayOrder: number, maid: Maid.Maid): (Scr
 	local screen = UIKit.create("ScreenGui", {
 		Name = name,
 		DisplayOrder = displayOrder,
-		IgnoreGuiInset = true,
+		-- Keep content below Roblox's top bar so the menu and chat buttons never cover it.
+		IgnoreGuiInset = false,
 		ResetOnSpawn = false,
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	}) :: ScreenGui

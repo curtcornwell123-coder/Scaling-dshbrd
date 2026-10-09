@@ -1,5 +1,7 @@
 # Crate Rush 📦
 
+> This repository also contains **Cyber Swarm**, a reverse tower defense game, in [`CyberSwarm/`](CyberSwarm/README.md).
+
 A Roblox crate-opening pet simulator. Earn coins, open crates, pull pets, and chase the **red Mythics**.
 
 | Color | Rarity |

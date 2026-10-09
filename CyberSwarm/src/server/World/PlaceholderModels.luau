@@ -145,7 +145,8 @@ function PlaceholderModels.robot(def: Types.RobotDef): RobotModel
 	end
 	local robotModel = model :: Model
 	local root = robotModel.PrimaryPart :: BasePart
-	root.CFrame = CFrame.identity
+	-- Move the whole model (not just the root) so custom assets keep their layout.
+	robotModel:PivotTo(CFrame.identity)
 	PartFactory.weldToRoot(robotModel, root)
 
 	-- Measure once at the origin so movement can place the model's feet exactly on the lane.
