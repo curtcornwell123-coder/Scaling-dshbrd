@@ -355,6 +355,11 @@ local function luckMultiplier(): number
 	if founderEvent and founderEvent.Luck and founderEndsAt and workspace:GetServerTimeNow() < founderEndsAt then
 		luck = math.max(luck, founderEvent.Luck)
 	end
+	-- 99 Nights: every night survived makes the whole server luckier.
+	if founderEvent and founderEvent.Forest and founderEndsAt and workspace:GetServerTimeNow() < founderEndsAt then
+		local nights = (ReplicatedStorage:GetAttribute("NightsSurvived") :: number?) or 0
+		luck = math.max(luck, math.min(Config.Nights99.MaxLuck, 1 + Config.Nights99.LuckPerNight * nights))
+	end
 	return luck
 end
 
@@ -3974,8 +3979,15 @@ local function runFounderEvent(eventId: string, minutes: number)
 		giant:Destroy()
 	end
 
-	-- 99 Nights: a giant 67 Nights Deer prowls in a wide circle around the
-	-- spot, its eyes glowing red, dropping things from its claws.
+	-- 99 Nights plays differently from the other events: nothing is thrown.
+	-- The deer prowls the dark; every so often it screams and HUNTS, and
+	-- anyone not at a campfire when it strikes gets thrown. Survivors earn
+	-- Shards, each night survived makes the server luckier, and supply
+	-- chests around the map hold cash or a brainrot for whoever opens them.
+	local rules = Config.Nights99
+	local campfires: { Vector3 } = {}
+	local hunting = false
+
 	local function runForest(spot: Vector3)
 		local deerInfo = Config.GetBrainrot("SixtySevenNights")
 		if not deerInfo then
@@ -3997,34 +4009,136 @@ local function runFounderEvent(eventId: string, minutes: number)
 		local _, size = deer:GetBoundingBox()
 		giantPoof(spot, size.Y, event.Colors[2])
 
-		local side = if spot.Z < 0 then math.pi else 0
+		-- A slow prowl around the spot; when it hunts it races round, glowing.
+		local angle = if spot.Z < 0 then math.pi else 0
 		local radius = 70
-		local started = os.clock()
-		local nextDrop = os.clock() + 2 + rng:NextNumber(0, dropEvery)
-		local hand = 1
+		local last = os.clock()
+		local started = last
 		while deer.Parent and active() do
-			local t = os.clock() - started
-			-- Slow prowl around the spot, with a creepy bob and sway each step.
-			local angle = t * 0.1 + side
-			local stride = math.abs(math.sin(t * 2))
+			local now = os.clock()
+			local dt = now - last
+			last = now
+			angle += dt * (if hunting then 0.45 else 0.1)
+			glow.Brightness = if hunting then 6 else 2
+			local t = now - started
+			local stride = math.abs(math.sin(t * (if hunting then 6 else 2)))
 			local position = spot + Vector3.new(math.cos(angle) * radius, 0.5 + stride * size.Y * 0.015, math.sin(angle) * radius)
 			local heading = Vector3.new(-math.sin(angle), 0, math.cos(angle))
 			deer:PivotTo(CFrame.lookAt(position, position + heading) * CFrame.Angles(0, 0, math.sin(t * 2) * 0.05))
-			if os.clock() >= nextDrop then
-				nextDrop = os.clock() + dropEvery * rng:NextNumber(0.7, 1.3)
-				hand = -hand
-				-- From the tips of its claws.
-				drop((deer:GetPivot() * CFrame.new(hand * size.X * 0.4, size.Y * 0.2, 0)).Position)
-			end
 			RunService.Heartbeat:Wait()
 		end
 		giantPoof(deer:GetPivot().Position, size.Y, event.Colors[1])
 		deer:Destroy()
 	end
 
-	-- 99 Nights: campfires around the lobby, burning until morning.
+	local function nearCampfire(position: Vector3): boolean
+		for _, at in campfires do
+			if ((position - at) * Vector3.new(1, 0, 1)).Magnitude <= rules.SafeRadius then
+				return true
+			end
+		end
+		return false
+	end
+
+	-- Caught out in the dark: dropped loot runs home, and they're thrown.
+	local function deerCatch(player: Player, hrp: BasePart)
+		local carry = carries[player]
+		if carry then
+			returnCarry(carry, "The deer got you!")
+		end
+		local humanoid = hrp.Parent and hrp.Parent:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.Sit = true
+		end
+		local away = Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1))
+		away = if away.Magnitude > 0.01 then away.Unit else Vector3.new(1, 0, 0)
+		local fling = Instance.new("BodyVelocity")
+		fling.MaxForce = Vector3.one * 1e6
+		fling.Velocity = away * 90 + Vector3.new(0, 140, 0)
+		fling.Parent = hrp
+		Debris:AddItem(fling, 0.3)
+		local spin = Instance.new("BodyAngularVelocity")
+		spin.MaxTorque = Vector3.one * 1e6
+		spin.AngularVelocity = Vector3.new(rng:NextNumber(-30, 30), rng:NextNumber(-30, 30), rng:NextNumber(-30, 30))
+		spin.Parent = hrp
+		Debris:AddItem(spin, 0.8)
+		Announce:FireClient(player, "caught", "", "", "")
+	end
+
+	-- A supply chest on open ground. Opening it pays the opener straight
+	-- away: cash (a slice of their own income) or a brainrot into their base.
+	local chestCount = 0
+	local function spawnChest()
+		local at = randomDropPosition()
+		local chest = Instance.new("Model")
+		chest.Name = "SupplyChest"
+		local function piece(name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material): Part
+			local p = Instance.new("Part")
+			p.Name = name
+			p.Anchored = true
+			p.CanCollide = false
+			p.Size = size
+			p.CFrame = cf
+			p.Color = color
+			p.Material = material
+			p.Parent = chest
+			return p
+		end
+		local facing = CFrame.new(at) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+		local box = piece("ChestBox", Vector3.new(4, 2.4, 2.8), facing * CFrame.new(0, 1.2, 0), Color3.fromRGB(120, 78, 42), Enum.Material.WoodPlanks)
+		piece("ChestLid", Vector3.new(4.1, 0.8, 2.9), facing * CFrame.new(0, 2.8, 0), Color3.fromRGB(100, 64, 34), Enum.Material.WoodPlanks)
+		for _, x in { -1.6, 1.6 } do
+			piece("ChestBand", Vector3.new(0.3, 3.3, 2.95), facing * CFrame.new(x, 1.65, 0), Color3.fromRGB(255, 200, 60), Enum.Material.Foil)
+		end
+		piece("ChestLock", Vector3.new(0.7, 0.8, 0.3), facing * CFrame.new(0, 2.3, -1.5), Color3.fromRGB(255, 200, 60), Enum.Material.Neon)
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(255, 200, 90)
+		light.Range = 16
+		light.Brightness = 1.5
+		light.Parent = box
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "ChestPrompt"
+		prompt.ActionText = "Open"
+		prompt.ObjectText = "Supply Chest"
+		prompt.HoldDuration = 1
+		prompt.MaxActivationDistance = 10
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = box
+		chest.Parent = eventFolder
+		chestCount += 1
+		local opened = false
+		prompt.Triggered:Connect(function(player: Player)
+			local session = sessions[player]
+			local plot = session and session.Plot
+			if opened or not session or not session.Loaded or not plot then
+				return
+			end
+			opened = true
+			chestCount -= 1
+			giantPoof(at, 6, Color3.fromRGB(255, 200, 90))
+			chest:Destroy()
+			local index = freeSlot(plot, session)
+			if index and rng:NextNumber() < rules.ChestBrainrotChance then
+				local brainrot = Config.RollConveyor(rng, rules.ChestLuck, false)
+				local mutation = Config.RollMutation(rng, rules.ChestLuck)
+				placeBrainrot(plot, index, brainrot.Id, mutation, nil, false)
+				notify(player, "Supply chest: " .. fullName(brainrot, mutation) .. " is in your base!")
+			else
+				local amount = math.floor(math.max(rules.ChestMinimumCash, plotIncome(plot, session) * rules.ChestIncomeSeconds))
+				session.Data.Cash += amount
+				notify(player, "Supply chest: +" .. Config.FormatCash(amount) .. "!")
+			end
+			push(player)
+		end)
+	end
+
 	if event.Forest then
-		for _, at in { Vector3.new(-60, 0, 40), Vector3.new(60, 0, -40), Vector3.new(150, 0, 40), Vector3.new(-150, 0, -40) } do
+		ReplicatedStorage:SetAttribute("NightsSurvived", 0)
+		ReplicatedStorage:SetAttribute("DeerStrikesAt", 0)
+		-- Campfires around the lobby, each with a glowing ring showing how
+		-- close you need to be to be safe.
+		for _, at in { Vector3.new(-60, 0, 40), Vector3.new(60, 0, -40), Vector3.new(150, 0, 40), Vector3.new(-150, 0, -40), Vector3.new(0, 0, 32) } do
+			table.insert(campfires, at)
 			local fire = Instance.new("Model")
 			fire.Name = "Campfire"
 			local function piece(name: string, shape: Enum.PartType, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material): Part
@@ -4048,6 +4162,10 @@ local function runFounderEvent(eventId: string, minutes: number)
 				piece("Log", Enum.PartType.Cylinder, Vector3.new(4.5, 0.9, 0.9), CFrame.new(at + Vector3.new(0, 0.7, 0)) * CFrame.Angles(0, k * math.pi / 3, math.rad(18)), Color3.fromRGB(95, 60, 35), Enum.Material.Wood)
 			end
 			local core = piece("Embers", Enum.PartType.Ball, Vector3.new(1.6, 1, 1.6), CFrame.new(at + Vector3.new(0, 0.8, 0)), Color3.fromRGB(255, 120, 40), Enum.Material.Neon)
+			local ring = piece("SafeRing", Enum.PartType.Cylinder, Vector3.new(0.15, rules.SafeRadius * 2, rules.SafeRadius * 2), CFrame.new(at + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(255, 160, 60), Enum.Material.Neon)
+			ring.Transparency = 0.8
+			ring.CanQuery = false
+			ring.CanTouch = false
 			local flames = Instance.new("Fire")
 			flames.Size = 7
 			flames.Heat = 12
@@ -4056,11 +4174,56 @@ local function runFounderEvent(eventId: string, minutes: number)
 			flames.Parent = core
 			local warm = Instance.new("PointLight")
 			warm.Color = Color3.fromRGB(255, 150, 70)
-			warm.Range = 32
+			warm.Range = rules.SafeRadius + 10
 			warm.Brightness = 2.5
 			warm.Parent = core
 			fire.Parent = eventFolder
 		end
+
+		-- Supply chests, a few at a time.
+		task.spawn(function()
+			while active() do
+				if chestCount < rules.MaxChests then
+					spawnChest()
+				end
+				task.wait(rules.ChestEvery)
+			end
+		end)
+
+		-- The hunts.
+		task.spawn(function()
+			task.wait(rules.HuntEvery * 0.5)
+			while active() do
+				hunting = true
+				ReplicatedStorage:SetAttribute("DeerStrikesAt", workspace:GetServerTimeNow() + rules.HuntWarning)
+				Announce:FireAllClients("hunt", "", "", tostring(rules.HuntWarning))
+				task.wait(rules.HuntWarning)
+				if not active() then
+					break
+				end
+				local nights = ((ReplicatedStorage:GetAttribute("NightsSurvived") :: number?) or 0) + 1
+				for _, player in Players:GetPlayers() do
+					local session = sessions[player]
+					local hrp = getRoot(player)
+					if session and session.Loaded and hrp then
+						if nearCampfire(hrp.Position) then
+							session.Data.Shards += rules.SafeShards
+							notify(player, string.format("You survived night %d! +%d Shards", nights, rules.SafeShards))
+							push(player)
+						else
+							deerCatch(player, hrp)
+						end
+					end
+				end
+				hunting = false
+				ReplicatedStorage:SetAttribute("DeerStrikesAt", 0)
+				ReplicatedStorage:SetAttribute("NightsSurvived", nights)
+				Announce:FireAllClients("nightdone", "", "", tostring(nights), string.format("%.2f", math.min(rules.MaxLuck, 1 + rules.LuckPerNight * nights)))
+				task.wait(rules.HuntEvery - rules.HuntWarning)
+			end
+			hunting = false
+			ReplicatedStorage:SetAttribute("DeerStrikesAt", 0)
+		end)
 	end
 
 	-- The guaranteed brainrot, with a rare mutation, a little after it starts.

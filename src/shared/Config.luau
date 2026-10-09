@@ -714,6 +714,22 @@ Config.FounderGiantSpots = {
 	Corny = Vector3.new(-170, 0, 470),
 	Ace = Vector3.new(170, 0, -470),
 } :: { [string]: Vector3 }
+-- 99 Nights rules (Config.FounderEvents.Nights99).
+Config.Nights99 = {
+	HuntEvery = 40, -- seconds between hunts
+	HuntWarning = 8, -- seconds to reach a campfire after the scream
+	SafeRadius = 22, -- how close to a campfire counts as safe
+	SafeShards = 5, -- Shards for everyone who survives a hunt
+	LuckPerNight = 0.25, -- server luck gained per night survived...
+	MaxLuck = 3, -- ...up to this
+	ChestEvery = 10, -- seconds between supply chests
+	MaxChests = 6,
+	ChestBrainrotChance = 0.2, -- else cash
+	ChestLuck = 2,
+	ChestIncomeSeconds = 15, -- a cash chest is worth this much of your income...
+	ChestMinimumCash = 300, -- ...and at least this
+}
+
 -- Cash bags from founder events: a few seconds of the grabber's own income
 -- (so they matter early on without skipping the game later), at least this.
 Config.FounderCashDrop = 200
@@ -829,9 +845,11 @@ Config.FounderEvents = {
 		-- and put its id here.
 		MusicId = "rbxassetid://1836281845",
 	},
-	-- 99 Nights: any founder can start it. Night falls, fog rolls in, campfires
-	-- light up, and a giant 67 Nights Deer stalks each side of the map,
-	-- dropping cash bags and brainrots from its claws.
+	-- 99 Nights: any founder can start it, and it plays differently from the
+	-- other events: nothing is thrown. The 67 Nights Deer hunts in the dark;
+	-- when it screams, get to a campfire before it strikes. Survivors earn
+	-- Shards, every night survived makes the whole server luckier, and
+	-- supply chests hidden around the map hold cash or brainrots.
 	Nights99 = {
 		Founder = "The Deer",
 		AnyFounder = true,
@@ -839,25 +857,14 @@ Config.FounderEvents = {
 		Style = "Forest",
 		Forest = true,
 		OutfitId = 0,
-		Title = "99 NIGHTS EVENT!",
-		Subtitle = "Night falls on the forest... the 67 Nights Deer is hunting! Grab what it drops!",
+		Title = "99 NIGHTS",
+		Subtitle = "The deer hunts in the dark. When it screams, RUN TO A CAMPFIRE!",
 		DurationMinutes = 5,
 		Scale = 11, -- about 105 studs tall
 		Spots = { Vector3.new(0, 0, 240), Vector3.new(0, 0, -240) },
-		DropEvery = 10,
-		BrainrotChance = 0.15,
-		BrainrotLuck = 2,
-		Mutations = { { Id = "Frozen", Chance = 20 }, { Id = "Cursed", Chance = 6 } },
 		Colors = { Color3.fromRGB(150, 190, 255), Color3.fromRGB(220, 45, 55), Color3.fromRGB(70, 170, 100), Color3.fromRGB(255, 150, 50) },
-		Chips = { "NIGHT FALLS", "THE DEER HUNTS", "NIGHT MUTATION", "CAMPFIRES" },
+		Chips = { "SURVIVE THE HUNT", "STAY BY THE FIRE", "SUPPLY CHESTS", "LUCK GROWS NIGHTLY" },
 		Night = true,
-		NightMutations = {
-			{ Id = "Frozen", Chance = 30, Boost = 5 },
-			{ Id = "Cursed", Chance = 30, Boost = 5 },
-			{ Id = "Void", Chance = 20, Boost = 6 },
-			{ Id = "Galaxy", Chance = 15, Boost = 5 },
-			{ Id = "Divine", Chance = 5, Boost = 8 },
-		},
 	},
 } :: { [string]: FounderEvent }
 

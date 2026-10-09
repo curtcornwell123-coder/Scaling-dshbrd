@@ -347,6 +347,8 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 		showBanner(string.format("NIGHT FALLS! %s mutations are x%s more likely until %s leaves!", string.upper(mutation.DisplayName), extra or "?", nightFounder), mutation.Color)
 	elseif kind == "rebirth" then
 		showBanner(who .. " reached Rebirth " .. (extra or "") .. "!", Color3.fromRGB(200, 140, 255))
+	elseif kind == "nightdone" then
+		showBanner(string.format("🔥 NIGHT %s SURVIVED! Server luck is now x%s", extra or "?", tostring(tonumber(mutationId) or 1)), Color3.fromRGB(255, 160, 60))
 	end
 end)
 
@@ -2987,6 +2989,9 @@ do
 			local founderEnds = ReplicatedStorage:GetAttribute("FounderEventEndsAt") :: number?
 			if founderEvent and founderEnds and founderEnds > now then
 				local name = founderEvent.EventName or (string.upper(founderEvent.Founder) .. "'S EVENT")
+				if founderEvent.Forest then
+					name ..= string.format(" · NIGHT %d", ((ReplicatedStorage:GetAttribute("NightsSurvived") :: number?) or 0) + 1)
+				end
 				-- Very long runs last until the founder leaves the server.
 				local left = if founderEnds - now > 6 * 3600 then "UNTIL " .. string.upper(founderEvent.Founder) .. " LEAVES" else clock(founderEnds - now)
 				table.insert(events, { Id = "Founder", Text = (FOUNDER_ICONS[founderEvent.Founder] or "⭐") .. " " .. name .. "  " .. left, Color = Color3.fromRGB(255, 150, 210) })

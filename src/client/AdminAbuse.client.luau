@@ -22,6 +22,12 @@ local RED = Color3.fromRGB(255, 60, 60)
 local GOLD = Color3.fromRGB(255, 205, 60)
 local SPARKLE = "rbxasset://textures/particles/sparkles_main.dds"
 
+-- The creepy title font (falls back if this Roblox build doesn't have it).
+local SPOOKY_FONT = Enum.Font.Fantasy
+pcall(function()
+	SPOOKY_FONT = (Enum.Font :: any).Creepster
+end)
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "AdminAbuseShow"
 gui.IgnoreGuiInset = true
@@ -49,8 +55,76 @@ local startedByAdmin = false -- a hired admin (not Corny or Ace) started it
 local introPlaying = false
 local showGift: (string, string?, number) -> ()
 local showAnnouncement: (string, string) -> ()
+-- 99 Nights hunt warning: the screen edges pulse red with a countdown to
+-- when the deer strikes. Hidden as soon as the strike has happened.
+local huntFrame = Instance.new("Frame")
+huntFrame.Name = "DeerHunt"
+huntFrame.Size = UDim2.fromScale(1, 1)
+huntFrame.BackgroundTransparency = 1
+huntFrame.Visible = false
+huntFrame.Parent = gui
+local huntEdge = Instance.new("UIStroke")
+huntEdge.Thickness = 28
+huntEdge.Color = Color3.fromRGB(200, 20, 30)
+huntEdge.Transparency = 0.3
+huntEdge.Parent = huntFrame
+local huntText = Instance.new("TextLabel")
+huntText.AnchorPoint = Vector2.new(0.5, 0)
+huntText.Position = UDim2.fromScale(0.5, 0.16)
+huntText.Size = UDim2.fromScale(0.7, 0.13)
+huntText.BackgroundTransparency = 1
+huntText.Font = Enum.Font.FredokaOne
+huntText.TextScaled = true
+huntText.TextColor3 = Color3.fromRGB(255, 70, 70)
+huntText.TextStrokeTransparency = 0
+huntText.Text = ""
+huntText.Parent = huntFrame
+
+local function showHunt()
+	huntFrame.Visible = true
+	task.spawn(function()
+		while true do
+			local strikesAt = ReplicatedStorage:GetAttribute("DeerStrikesAt") :: number?
+			local left = if strikesAt then strikesAt - workspace:GetServerTimeNow() else 0
+			if not strikesAt or strikesAt == 0 or left <= -0.5 then
+				break
+			end
+			huntText.Text = string.format("🦌 THE DEER IS HUNTING!\nRUN TO A CAMPFIRE!  %d", math.max(0, math.ceil(left)))
+			huntEdge.Transparency = 0.15 + 0.35 * (math.sin(os.clock() * 10) + 1) / 2
+			task.wait(0.05)
+		end
+		huntFrame.Visible = false
+	end)
+end
+
+-- Caught by the deer: a quick jump scare.
+local function showCaught()
+	local scare = Instance.new("TextLabel")
+	scare.Size = UDim2.fromScale(1, 1)
+	scare.BackgroundColor3 = Color3.new(0, 0, 0)
+	scare.BackgroundTransparency = 0.1
+	scare.Font = SPOOKY_FONT
+	scare.TextScaled = true
+	scare.TextColor3 = Color3.fromRGB(230, 30, 40)
+	scare.TextStrokeTransparency = 0.4
+	scare.Text = "THE DEER\nGOT YOU!"
+	scare.Parent = gui
+	local pad = Instance.new("UIPadding")
+	pad.PaddingTop = UDim.new(0.3, 0)
+	pad.PaddingBottom = UDim.new(0.3, 0)
+	pad.Parent = scare
+	task.wait(1.1)
+	tween(scare, 0.6, { BackgroundTransparency = 1, TextTransparency = 1, TextStrokeTransparency = 1 })
+	task.wait(0.7)
+	scare:Destroy()
+end
+
 Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: string, extra: string?, mutationId: string?)
-	if kind == "abuse" then
+	if kind == "hunt" then
+		showHunt()
+	elseif kind == "caught" then
+		task.spawn(showCaught)
+	elseif kind == "abuse" then
 		startedBy = who
 		startedByAdmin = extra == "admin"
 	elseif kind == "global" then
@@ -935,7 +1009,10 @@ type Intro = {
 	-- scanlines, "INCOMING TRANSMISSION" and a UFO flying across, all in the
 	-- event's own colors instead of rainbow.
 	Alien: boolean?,
+	-- Spooky style (99 Nights): no fireworks or confetti, a creepy title.
+	Spooky: boolean?,
 }
+
 
 local function cycle(colors: { Color3 }): (number) -> ColorSequence
 	return function(offset: number): ColorSequence
@@ -1034,7 +1111,7 @@ local function playIntro(intro: Intro)
 	title.AnchorPoint = Vector2.new(0.5, 0.5)
 	title.Position = UDim2.fromScale(0.5, 0.36)
 	title.Size = UDim2.fromScale(0.9, 0.24)
-	title.Font = if intro.Alien then Enum.Font.SciFi else Enum.Font.FredokaOne
+	title.Font = if intro.Alien then Enum.Font.SciFi elseif intro.Spooky then SPOOKY_FONT else Enum.Font.FredokaOne
 	title.Text = intro.Title
 	title.TextScaled = true
 	title.TextColor3 = Color3.new(1, 1, 1)
@@ -1305,9 +1382,10 @@ local function founderIntro(eventId: string): Intro?
 		Gradient = cycle(event.Colors),
 		Tint = event.Colors[1]:Lerp(Color3.new(1, 1, 1), 0.4),
 		Chips = event.Chips,
-		Fireworks = 16,
-		Confetti = if event.Alien then 120 else 180,
+		Fireworks = if event.Forest then 0 else 16,
+		Confetti = if event.Forest then 0 elseif event.Alien then 120 else 180,
 		Alien = event.Alien,
+		Spooky = event.Forest,
 	}
 end
 

@@ -219,7 +219,13 @@ Each founder also has their own event, starring only them in a special event out
 
 ### 99 Nights (any founder)
 
-A shared founder event any founder can start from the FOUNDER tab (**START 99 NIGHTS**). Night falls, a cold blue fog rolls in, snow drifts down and fireflies glow around you, and **campfires** light up around the lobby. A **giant 67 Nights Deer** (about 105 studs tall, red glow) prowls a slow circle on each side of the map, dropping cash bags and brainrots from its claws (extra Frozen and Cursed chances). One night mutation (Frozen, Cursed, Void, Galaxy or a rare Divine) is boosted until morning. When it ends: "MORNING CAME! YOU SURVIVED!" Set up in `Config.FounderEvents.Nights99`.
+A shared founder event any founder can start from the FOUNDER tab (**START 99 NIGHTS**). It plays differently from the other events: **nothing is thrown**, and there's no night mutation.
+
+- **The setting:** night falls, a cold blue fog rolls in, snow drifts down and fireflies glow around you. Five **campfires** burn around the lobby, each with a glowing ring showing the safe zone. A creepy intro (no fireworks or confetti).
+- **The hunt:** a giant 67 Nights Deer (about 105 studs tall) prowls each side of the map. Every 40 seconds it **screams and hunts**: the screen edges pulse red with an 8-second countdown, "RUN TO A CAMPFIRE!", and the deer races around glowing bright red. When it strikes, anyone **inside a campfire ring** survives the night and gets **5 Shards**; anyone caught in the dark gets a jump scare ("THE DEER GOT YOU!") and is thrown, dropping anything they were carrying (nothing is lost from their base).
+- **Luck grows every night:** each night survived gives the whole server **+0.25x luck**, up to **x3**. The event label counts the nights ("99 NIGHTS · NIGHT 3"), and a banner announces each night survived.
+- **Supply chests:** glowing wooden chests appear around the map (up to 6 at once). Hold to open: the first player to open one gets **15 seconds of their own income** (at least $300) or, 1 time in 5, a **lucky brainrot straight into their base**.
+- When it ends: "MORNING CAME! YOU SURVIVED!" Tune it in `Config.Nights99`.
 
 ### Loading screen
 
