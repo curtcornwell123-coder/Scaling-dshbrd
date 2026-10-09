@@ -751,9 +751,19 @@ end
 
 -- Event theme songs ---------------------------------------------------------
 -- Any founder event with a MusicId plays it, looping, fading in when the
--- event starts and out when it ends.
+-- event starts and out when it ends. Follows the music volume setting.
 
 local eventMusic: Sound? = nil
+local EVENT_MUSIC_VOLUME = 0.6
+local function musicVolume(): number
+	return EVENT_MUSIC_VOLUME * ((Players.LocalPlayer:GetAttribute("MusicVolume") :: number?) or 1)
+end
+Players.LocalPlayer:GetAttributeChangedSignal("MusicVolume"):Connect(function()
+	local sound = eventMusic
+	if sound then
+		sound.Volume = musicVolume()
+	end
+end)
 
 local function startEventMusic(musicId: string?)
 	if eventMusic or not musicId or musicId == "" then
@@ -766,7 +776,7 @@ local function startEventMusic(musicId: string?)
 	sound.Volume = 0
 	sound.Parent = game:GetService("SoundService")
 	sound:Play()
-	tween(sound, 3, { Volume = 0.6 })
+	tween(sound, 3, { Volume = musicVolume() })
 	eventMusic = sound
 end
 

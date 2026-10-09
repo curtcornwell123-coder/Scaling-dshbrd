@@ -47,6 +47,7 @@ local SkinAction: RemoteEvent = makeRemote("RemoteEvent", "SkinAction")
 local DiamondPurchase: RemoteEvent = makeRemote("RemoteEvent", "DiamondPurchase")
 local SellBrainrot: RemoteEvent = makeRemote("RemoteEvent", "SellBrainrot")
 local RedeemCode: RemoteFunction = makeRemote("RemoteFunction", "RedeemCode")
+local ChangeSetting: RemoteEvent = makeRemote("RemoteEvent", "ChangeSetting")
 
 remotes.Parent = ReplicatedStorage
 ReplicatedStorage:SetAttribute("LuckEndsAt", 0)
@@ -73,6 +74,13 @@ type SaveData = {
 	AbuseGiftWeek: number, -- the week this player last got the admin abuse gift
 	InfiniteLock: boolean, -- bought the Infinite Laser Door with Diamonds
 	Codes: { string }, -- codes already redeemed (upper case)
+	Settings: PlayerSettings,
+}
+
+-- The settings panel (gear button); saved with the player's data.
+type PlayerSettings = {
+	HideVip: boolean, -- a VIP can hide their crown and VIP tag
+	MusicVolume: number, -- 0..1, share of Config.GameMusicVolume
 }
 
 type QuestState = {
@@ -336,6 +344,7 @@ local function defaultData(): SaveData
 		AbuseGiftWeek = -1,
 		InfiniteLock = false,
 		Codes = {},
+		Settings = { HideVip = false, MusicVolume = 1 },
 		Quests = { Day = -1, Week = -1, Daily = {}, Weekly = {}, DailyDone = {}, WeeklyDone = {} },
 	}
 end
@@ -406,6 +415,12 @@ local function sanitize(raw: any): SaveData
 			if type(code) == "string" and not table.find(data.Codes, code) then
 				table.insert(data.Codes, code)
 			end
+		end
+	end
+	if type(raw.Settings) == "table" then
+		data.Settings.HideVip = raw.Settings.HideVip == true
+		if type(raw.Settings.MusicVolume) == "number" and raw.Settings.MusicVolume == raw.Settings.MusicVolume then
+			data.Settings.MusicVolume = math.clamp(raw.Settings.MusicVolume, 0, 1)
 		end
 	end
 	if type(raw.Skin) == "string" and table.find(data.Skins, raw.Skin) then
@@ -586,6 +601,7 @@ local function snapshot(session: Session)
 		Diamonds = data.Diamonds,
 		Skins = data.Skins,
 		Skin = data.Skin,
+		Settings = data.Settings,
 		Quests = questSnapshot(data),
 		Base = baseList(session),
 	}
@@ -2370,6 +2386,54 @@ end
 
 -- VIP name tag -------------------------------------------------------------
 
+-- A gold crown with red, purple and green gems floating over a VIP's head.
+-- Welded to the head (massless, no collisions), so it follows them around.
+local CROWN_GOLD = Color3.fromRGB(255, 190, 40)
+local CROWN_GEMS = { Color3.fromRGB(235, 40, 60), Color3.fromRGB(150, 50, 230), Color3.fromRGB(40, 170, 70), Color3.fromRGB(150, 50, 230), Color3.fromRGB(235, 40, 60) }
+local function vipCrown(character: Model, head: BasePart)
+	local crown = Instance.new("Model")
+	crown.Name = "VipCrown"
+	local center = head.CFrame * CFrame.new(0, head.Size.Y / 2 + 1.1, 0)
+	local function piece(name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material, shape: Enum.PartType?): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.CFrame = cf
+		p.Color = color
+		p.Material = material
+		p.Shape = shape or Enum.PartType.Block
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Massless = true
+		p.CastShadow = false
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		p.Parent = crown
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = head
+		weld.Part1 = p
+		weld.Parent = p
+		return p
+	end
+	local radius, points = 0.85, 5
+	-- The band: short gold blocks around a ring, with a gem on each.
+	for i = 0, 9 do
+		local angle = i / 10 * math.pi * 2
+		local cf = center * CFrame.Angles(0, angle, 0) * CFrame.new(0, 0, -radius)
+		piece("Band", Vector3.new(0.6, 0.45, 0.14), cf, CROWN_GOLD, Enum.Material.SmoothPlastic)
+	end
+	for i = 0, points - 1 do
+		local angle = i / points * math.pi * 2
+		local around = center * CFrame.Angles(0, angle, 0)
+		-- A point rising from the band, topped with a little gold ball.
+		piece("Point", Vector3.new(0.42, 0.55, 0.14), around * CFrame.new(0, 0.45, -radius) * CFrame.Angles(0, 0, math.rad(45)), CROWN_GOLD, Enum.Material.SmoothPlastic)
+		piece("Tip", Vector3.one * 0.24, around * CFrame.new(0, 0.86, -radius), CROWN_GOLD, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+		piece("Gem", Vector3.one * 0.26, around * CFrame.new(0, 0, -radius - 0.08), CROWN_GEMS[i + 1], Enum.Material.Neon, Enum.PartType.Ball)
+	end
+	crown.Parent = character
+end
+
 local function updateVipTag(player: Player)
 	local session = sessions[player]
 	local character = player.Character
@@ -2378,11 +2442,22 @@ local function updateVipTag(player: Player)
 		return
 	end
 	local existing = head:FindFirstChild("VipTag")
-	if session.Owns.VIP and not existing then
+	local show = session.Owns.VIP == true and not session.Data.Settings.HideVip
+	if not show then
+		-- Hidden from the settings panel (or no VIP): take both off.
+		if existing then
+			existing:Destroy()
+		end
+		local crown = character and character:FindFirstChild("VipCrown")
+		if crown then
+			crown:Destroy()
+		end
+	elseif not existing then
+		vipCrown(character :: Model, head)
 		local gui = Instance.new("BillboardGui")
 		gui.Name = "VipTag"
 		gui.Size = UDim2.fromScale(2.2, 0.7)
-		gui.StudsOffset = Vector3.new(0, 2.5, 0)
+		gui.StudsOffset = Vector3.new(0, 3.6, 0)
 		gui.MaxDistance = 80
 		gui.Parent = head
 		local l = Instance.new("TextLabel")
@@ -2396,6 +2471,24 @@ local function updateVipTag(player: Player)
 		l.Parent = gui
 	end
 end
+
+-- Settings panel: hide the VIP crown/tag, music volume. Both are saved.
+ChangeSetting.OnServerEvent:Connect(function(player: Player, key: unknown, value: unknown)
+	local session = sessions[player]
+	if not session or not session.Loaded then
+		return
+	end
+	local settings = session.Data.Settings
+	if key == "HideVip" and type(value) == "boolean" then
+		settings.HideVip = value
+		updateVipTag(player)
+	elseif key == "MusicVolume" and type(value) == "number" and value == value then
+		settings.MusicVolume = math.clamp(value, 0, 1)
+	else
+		return
+	end
+	push(player)
+end)
 
 -- Player lifecycle ---------------------------------------------------------
 

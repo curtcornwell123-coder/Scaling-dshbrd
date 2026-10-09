@@ -1,8 +1,7 @@
 --!strict
 -- Background music for normal play (Config.GameMusic). Loops the tracks
 -- (shuffled if there are several), fades out while a founder event plays its
--- own theme song and back in after, and has a MUSIC ON/OFF button in the
--- bottom right.
+-- own theme song and back in after. The volume is set in the settings panel.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -23,7 +22,6 @@ sound.Volume = 0
 sound.Looped = #Config.GameMusic == 1
 sound.Parent = SoundService
 
-local enabled = true
 local order: { string } = table.clone(Config.GameMusic)
 local position = 0
 
@@ -60,54 +58,19 @@ local function eventMusicPlaying(): boolean
 	return event ~= nil and ((custom ~= nil and custom ~= "") or (event.MusicId ~= nil and event.MusicId ~= ""))
 end
 
-local function update()
-	local target = if enabled and not eventMusicPlaying() then Config.GameMusicVolume else 0
-	TweenService:Create(sound, TweenInfo.new(2), { Volume = target }):Play()
+-- The volume slider in the settings panel (Settings.client) sets the
+-- player's "MusicVolume" attribute, from 0 to 1.
+local function update(seconds: number?)
+	local setting = (player:GetAttribute("MusicVolume") :: number?) or 1
+	local target = if eventMusicPlaying() then 0 else Config.GameMusicVolume * setting
+	TweenService:Create(sound, TweenInfo.new(seconds or 2), { Volume = target }):Play()
 end
 
--- The MUSIC ON/OFF button
-local gui = Instance.new("ScreenGui")
-gui.Name = "MusicButton"
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
-local button = Instance.new("TextButton")
-button.AnchorPoint = Vector2.new(1, 1)
-button.Position = UDim2.new(1, -12, 1, -12)
--- Phones and tablets: top right, out of the way of the jump and sprint buttons.
-if game:GetService("UserInputService").TouchEnabled then
-	button.AnchorPoint = Vector2.new(1, 0)
-	button.Position = UDim2.new(1, -12, 0, 8)
-end
-button.Size = UDim2.fromOffset(140, 38)
-button.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-button.BackgroundTransparency = 0.15
-button.Font = Enum.Font.FredokaOne
-button.TextScaled = true
-button.TextColor3 = Color3.new(1, 1, 1)
-button.Parent = gui
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = button
-local padding = Instance.new("UIPadding")
-padding.PaddingTop = UDim.new(0, 6)
-padding.PaddingBottom = UDim.new(0, 6)
-padding.Parent = button
-local stroke = Instance.new("UIStroke")
-stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-stroke.Thickness = 2
-stroke.Parent = button
-
-local function refreshButton()
-	button.Text = if enabled then "MUSIC: ON" else "MUSIC: OFF"
-	stroke.Color = if enabled then Color3.fromRGB(120, 255, 160) else Color3.fromRGB(120, 120, 135)
-end
-button.MouseButton1Click:Connect(function()
-	enabled = not enabled
-	refreshButton()
+ReplicatedStorage:GetAttributeChangedSignal("FounderEvent"):Connect(function()
 	update()
 end)
-refreshButton()
-
-ReplicatedStorage:GetAttributeChangedSignal("FounderEvent"):Connect(update)
+player:GetAttributeChangedSignal("MusicVolume"):Connect(function()
+	update(0.15)
+end)
 nextTrack()
 update()
