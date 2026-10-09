@@ -45,12 +45,14 @@ end
 
 -- The admin who started it (sent with the "abuse" announcement).
 local startedBy: string? = nil
+local startedByAdmin = false -- a hired admin (not Corny or Ace) started it
 local introPlaying = false
 local showGift: (string, string?, number, number) -> ()
 local showAnnouncement: (string, string) -> ()
 Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: string, extra: string?, mutationId: string?)
 	if kind == "abuse" then
 		startedBy = who
+		startedByAdmin = extra == "admin"
 	elseif kind == "global" then
 		task.spawn(showAnnouncement, who, extra or "")
 	elseif kind == "abusegift" then
@@ -1163,6 +1165,9 @@ local boosts = Config.AdminAbuseBoosts
 local ABUSE_INTRO: Intro = {
 	Title = "ADMIN ABUSE!",
 	Subtitle = function()
+		if startedBy and startedByAdmin then
+			return startedBy .. " is abusing! The admins are here!"
+		end
 		return if startedBy then startedBy .. " is abusing! The founders are here!" else "The founders are here! Grab everything!"
 	end,
 	Colors = { RED, GOLD, Color3.fromRGB(190, 90, 255) },

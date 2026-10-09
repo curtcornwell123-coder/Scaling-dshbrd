@@ -3345,7 +3345,8 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 	elseif action == "AbuseStart" then
 		local minutes = math.clamp(parseAmount(value) or Config.AdminAbuse.DurationMinutes, 1, 600)
 		ReplicatedStorage:SetAttribute("AdminAbuseEndsAt", workspace:GetServerTimeNow() + minutes * 60)
-		Announce:FireAllClients("abuse", admin.DisplayName, "")
+		-- "founder" or "admin": the intro says who's here.
+		Announce:FireAllClients("abuse", admin.DisplayName, "", if founderOf(admin) then "founder" else "admin")
 		return
 	elseif action == "FounderEvent" then
 		-- Each founder starts only their own event (Corny's, Ace's).
