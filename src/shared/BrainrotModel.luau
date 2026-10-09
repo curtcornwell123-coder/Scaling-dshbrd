@@ -88,23 +88,90 @@ local function egg(b: Builder, name: string, size: Vector3, offset: CFrame, colo
 	return b.add(name, "Egg", size, offset, color, material, keep)
 end
 
+-- Boxes are rounded so nothing looks blocky: chunky ones become a rounded
+-- box (three crossing slabs, edge tubes and corner balls), thinner ones
+-- (layers, signs, screens, wings) a plate with rounded corners. Tiny ones
+-- stay plain blocks.
 local function box(b: Builder, name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?, keep: boolean?): BasePart
+	local x, y, z = size.X, size.Y, size.Z
+	local thin = math.min(x, y, z)
+	local big = math.max(x, y, z)
+	local mid = x + y + z - thin - big
+	local function piece(pieceName: string, kind: string, pieceSize: Vector3, at: CFrame): BasePart
+		return b.add(pieceName, kind, pieceSize, offset * at, color, material, keep)
+	end
+	if thin >= 0.5 then
+		local r = math.min(thin * 0.3, 0.35)
+		local d = r * 2
+		local core = piece(name, "Block", V(x, y - d, z - d), CF())
+		piece(name, "Block", V(x - d, y, z - d), CF())
+		piece(name, "Block", V(x - d, y - d, z), CF())
+		local hx, hy, hz = x / 2 - r, y / 2 - r, z / 2 - r
+		for _, s1 in { -1, 1 } do
+			for _, s2 in { -1, 1 } do
+				piece(name .. "Edge", "Cylinder", V(x - d, d, d), CF(0, s1 * hy, s2 * hz))
+				piece(name .. "Edge", "Cylinder", V(y - d, d, d), CF(s1 * hx, 0, s2 * hz) * ANG(0, 0, rad(90)))
+				piece(name .. "Edge", "Cylinder", V(z - d, d, d), CF(s1 * hx, s2 * hy, 0) * ANG(0, rad(90), 0))
+				for _, s3 in { -1, 1 } do
+					piece(name .. "Corner", "Ball", V(d, d, d), CF(s1 * hx, s2 * hy, s3 * hz))
+				end
+			end
+		end
+		return core
+	elseif mid >= 0.5 then
+		-- A plate: round the corners in its two long directions.
+		local r = math.min(mid * 0.22, 0.3)
+		local d = r * 2
+		local axis = if thin == x then "X" elseif thin == y then "Y" else "Z"
+		local core: BasePart
+		if axis == "X" then
+			core = piece(name, "Block", V(x, y - d, z), CF())
+			piece(name, "Block", V(x, y, z - d), CF())
+		elseif axis == "Y" then
+			core = piece(name, "Block", V(x - d, y, z), CF())
+			piece(name, "Block", V(x, y, z - d), CF())
+		else
+			core = piece(name, "Block", V(x - d, y, z), CF())
+			piece(name, "Block", V(x, y - d, z), CF())
+		end
+		for _, s1 in { -1, 1 } do
+			for _, s2 in { -1, 1 } do
+				if axis == "X" then
+					piece(name .. "Corner", "Cylinder", V(x, d, d), CF(0, s1 * (y / 2 - r), s2 * (z / 2 - r)))
+				elseif axis == "Y" then
+					piece(name .. "Corner", "Cylinder", V(y, d, d), CF(s1 * (x / 2 - r), 0, s2 * (z / 2 - r)) * ANG(0, 0, rad(90)))
+				else
+					piece(name .. "Corner", "Cylinder", V(z, d, d), CF(s1 * (x / 2 - r), s2 * (y / 2 - r), 0) * ANG(0, rad(90), 0))
+				end
+			end
+		end
+		return core
+	end
 	return b.add(name, "Block", size, offset, color, material, keep)
 end
 
--- Cylinder along the X axis (left-right).
+-- Cylinder along the X axis (left-right). Chunky ones get softly domed
+-- ends instead of a sharp rim.
 local function cyl(b: Builder, name: string, length: number, d: number, offset: CFrame, color: Color3, material: Enum.Material?, keep: boolean?): BasePart
+	if d >= 0.7 and length >= d * 0.3 then
+		local bevel = math.min(d * 0.12, length * 0.25)
+		local core = b.add(name, "Cylinder", V(length - bevel * 2, d, d), offset, color, material, keep)
+		for _, side in { -1, 1 } do
+			b.add(name .. "Rim", "Egg", V(bevel * 2, d, d), offset * CF(side * (length / 2 - bevel), 0, 0), color, material, keep)
+		end
+		return core
+	end
 	return b.add(name, "Cylinder", V(length, d, d), offset, color, material, keep)
 end
 
 -- Upright cylinder.
 local function vcyl(b: Builder, name: string, height: number, d: number, pos: Vector3, color: Color3, material: Enum.Material?, keep: boolean?): BasePart
-	return b.add(name, "Cylinder", V(height, d, d), CF(pos) * ANG(0, 0, rad(90)), color, material, keep)
+	return cyl(b, name, height, d, CF(pos) * ANG(0, 0, rad(90)), color, material, keep)
 end
 
 -- Cylinder pointing forward (along Z), like a disc facing the camera.
 local function zcyl(b: Builder, name: string, length: number, d: number, pos: Vector3, color: Color3, material: Enum.Material?, keep: boolean?): BasePart
-	return b.add(name, "Cylinder", V(length, d, d), CF(pos) * ANG(0, rad(90), 0), color, material, keep)
+	return cyl(b, name, length, d, CF(pos) * ANG(0, rad(90), 0), color, material, keep)
 end
 
 -- Rounded tube from `a` to `b` (a cylinder with ball ends): smooth limbs.
@@ -117,6 +184,20 @@ local function capsule(b: Builder, name: string, from: Vector3, to: Vector3, d: 
 	b.add(name, "Cylinder", V(length, d, d), frame, color, material, keep)
 	ball(b, name .. "End", d, from, color, material, keep)
 	ball(b, name .. "End", d, to, color, material, keep)
+end
+
+-- A smooth upright cone (hats, ice-cream cones, horns), stacked from thin
+-- discs. `base` is the center of its bottom. `stripe` alternates a second
+-- color every few discs (waffle cone lines).
+local function cone(b: Builder, name: string, base: Vector3, height: number, bottomD: number, topD: number, color: Color3, material: Enum.Material?, keep: boolean?, stripe: Color3?)
+	local slices = math.max(3, math.ceil(height / 0.14))
+	local step = height / slices
+	for i = 0, slices - 1 do
+		local t = (i + 0.5) / slices
+		local d = bottomD + (topD - bottomD) * t
+		local shade = if stripe and (i // 2) % 2 == 1 then stripe else color
+		b.add(name, "Cylinder", V(step * 1.02, d, d), CF(base + V(0, (i + 0.5) * step, 0)) * ANG(0, 0, rad(90)), shade, material, keep)
+	end
 end
 
 -- Cartoon eyes: white, pupil, a little shine dot, and optional angry brows.
@@ -178,8 +259,8 @@ designs.NoodloDoodlo = function(b, c, a)
 	end
 	eyes(b, 0, 2.75, -1.1, 0.5, 0.6)
 	local chopstick = Color3.fromRGB(150, 100, 60)
-	box(b, "Chopstick", V(0.12, 2.4, 0.12), CF(0.45, 3.3, 0.4) * ANG(rad(15), 0, rad(-20)), chopstick)
-	box(b, "Chopstick", V(0.12, 2.4, 0.12), CF(0.75, 3.3, 0.3) * ANG(rad(10), 0, rad(-25)), chopstick)
+	capsule(b, "Chopstick", V(0.05, 2.2, 0.08), V(0.85, 4.35, 0.68), 0.13, chopstick)
+	capsule(b, "Chopstick", V(0.3, 2.2, 0.05), V(1.24, 4.27, 0.5), 0.13, chopstick)
 	return 4.5
 end
 
@@ -275,7 +356,7 @@ designs.CroissantoFurioso = function(b, c, a)
 	for _, side in { -1, 1 } do
 		zcyl(b, "Blush", 0.05, 0.45, V(side * 0.75, 2.5, -0.9), a, nil, true)
 	end
-	box(b, "Mouth", V(0.6, 0.12, 0.1), CF(0, 2.4, -0.93), BLACK, nil, true)
+	egg(b, "Mouth", V(0.62, 0.16, 0.12), CF(0, 2.4, -0.93), BLACK, nil, true)
 	return 3.8
 end
 
@@ -316,10 +397,11 @@ designs.CactussoBossino = function(b, c, a)
 	end
 	ball(b, "FlowerCenter", 0.35, V(0, 4.95, 0), Color3.fromRGB(255, 220, 60))
 	for _, side in { -1, 1 } do
-		box(b, "Shades", V(0.6, 0.35, 0.15), CF(side * 0.33, 3.45, -0.78), BLACK, nil, true)
+		egg(b, "Shades", V(0.62, 0.42, 0.18), CF(side * 0.33, 3.45, -0.78), BLACK, Enum.Material.Glass, true)
+		egg(b, "ShadesShine", V(0.18, 0.08, 0.05), CF(side * 0.33 - 0.12, 3.55, -0.88) * ANG(0, 0, rad(20)), WHITE, Enum.Material.Neon, true)
 	end
-	box(b, "Bridge", V(0.3, 0.08, 0.1), CF(0, 3.5, -0.8), BLACK, nil, true)
-	box(b, "Smirk", V(0.5, 0.1, 0.1), CF(0.1, 2.95, -0.8) * ANG(0, 0, rad(10)), BLACK, nil, true)
+	capsule(b, "Bridge", V(-0.06, 3.5, -0.82), V(0.06, 3.5, -0.82), 0.07, BLACK, nil, true)
+	capsule(b, "Smirk", V(-0.12, 2.92, -0.8), V(0.32, 3.0, -0.78), 0.1, BLACK, nil, true)
 	return 5.1
 end
 
@@ -336,11 +418,10 @@ designs.WaffelinoWizardo = function(b, c, a)
 	end
 	eyes(b, 0, 3.75, -0.42, 0.55, 0.5)
 	egg(b, "Beard", V(1.4, 1.1, 0.4), CF(0, 2.75, -0.4), WHITE)
-	vcyl(b, "HatBrim", 0.25, 2.1, V(0, 4.7, 0), a)
-	vcyl(b, "Hat1", 0.5, 1.4, V(0, 5.05, 0), a)
-	vcyl(b, "Hat2", 0.5, 1.0, V(0, 5.5, 0), a)
-	vcyl(b, "Hat3", 0.5, 0.6, V(0, 5.95, 0), a)
-	ball(b, "HatStar", 0.45, V(0, 6.3, 0), Color3.fromRGB(255, 230, 80), Enum.Material.Neon, true)
+	egg(b, "HatBrim", V(2.3, 0.28, 2.3), CF(0, 4.68, 0), a)
+	cone(b, "Hat", V(0, 4.7, 0), 1.65, 1.45, 0.25, a)
+	vcyl(b, "HatBand", 0.18, 1.33, V(0, 4.9, 0), Color3.fromRGB(255, 230, 80))
+	ball(b, "HatStar", 0.45, V(0, 6.38, 0), Color3.fromRGB(255, 230, 80), Enum.Material.Neon, true)
 	arms(b, 2.7, 1.0, a, 0.8)
 	vcyl(b, "Staff", 3.6, 0.2, V(1.6, 1.9, -0.2), Color3.fromRGB(120, 80, 40))
 	local orb = ball(b, "Orb", 0.65, V(1.6, 3.85, -0.2), Color3.fromRGB(80, 220, 255), Enum.Material.Neon, true)
@@ -348,7 +429,7 @@ designs.WaffelinoWizardo = function(b, c, a)
 	glow.Color = orb.Color
 	glow.Range = 8
 	glow.Parent = orb
-	return 6.4
+	return 6.5
 end
 
 designs.GnocchiNinjaro = function(b, c, a)
@@ -361,7 +442,7 @@ designs.GnocchiNinjaro = function(b, c, a)
 	local bandK = math.sqrt(1 - (0.75 / 1.2) ^ 2)
 	egg(b, "Headband", V(2.7 * bandK, 0.35, 2.3 * bandK), CF(0, 2.65, 0), a)
 	for _, side in { -1, 1 } do
-		box(b, "BandTail", V(0.2, 0.9, 0.15), CF(side * 0.25, 2.3, 1.0) * ANG(rad(30), 0, side * rad(25)), a)
+		egg(b, "BandTail", V(0.3, 1.0, 0.16), CF(side * 0.25, 2.3, 1.05) * ANG(rad(30), 0, side * rad(25)), a)
 	end
 	eyes(b, 0, 2.2, -1.0, 0.45, 0.5, true)
 	box(b, "Blade", V(0.15, 2.6, 0.3), CF(0.3, 2.3, 1.15) * ANG(0, 0, rad(35)), Color3.fromRGB(200, 200, 210), Enum.Material.Metal)
@@ -372,13 +453,13 @@ end
 designs.PinguinoHackerino = function(b, c, a)
 	local orange = Color3.fromRGB(255, 150, 40)
 	for _, side in { -1, 1 } do
-		box(b, "Foot", V(0.7, 0.25, 1.0), CF(side * 0.5, 0.12, -0.3), orange)
+		egg(b, "Foot", V(0.75, 0.28, 1.1), CF(side * 0.5, 0.14, -0.3), orange)
 	end
 	egg(b, "Body", V(2.4, 3.2, 2.2), CF(0, 1.8, 0), c)
 	egg(b, "Belly", V(1.8, 2.4, 0.6), CF(0, 1.7, -0.85), WHITE)
 	egg(b, "Head", V(1.8, 1.6, 1.7), CF(0, 3.75, 0), c)
 	egg(b, "FaceWhite", V(1.3, 1.0, 0.3), CF(0, 3.7, -0.75), WHITE)
-	box(b, "Beak", V(0.5, 0.25, 0.5), CF(0, 3.45, -0.95), orange)
+	egg(b, "Beak", V(0.55, 0.3, 0.6), CF(0, 3.45, -0.98) * ANG(rad(-10), 0, 0), orange)
 	eyes(b, 0, 3.95, -0.78, 0.33, 0.4)
 	box(b, "Visor", V(1.4, 0.3, 0.08), CF(0, 3.95, -0.95), a, Enum.Material.Neon, true).Transparency = 0.45
 	for _, side in { -1, 1 } do
@@ -406,7 +487,7 @@ designs.LasagnaLightningo = function(b, c, a)
 		box(b, "Bolt", V(0.25, 0.8, 0.2), CF(x + 0.3, 4.55, 0) * ANG(0, 0, rad(-25)), a, Enum.Material.Neon, true)
 	end
 	eyes(b, 0, 2.4, -0.95, 0.6, 0.6)
-	box(b, "Grin", V(0.9, 0.15, 0.1), CF(0, 1.75, -0.92), BLACK, nil, true)
+	smile(b, 0, 1.9, -0.94, 0.9)
 	arms(b, 2.2, 1.4, pasta, 0.9)
 	return 5.0
 end
@@ -421,8 +502,18 @@ designs.DragoniSpaghettoni = function(b, c, a)
 		ball(b, "Nostril", 0.14, V(side * 0.22, 3.35, -2.78), darker(c, 0.5), nil, true)
 	end
 	for _, side in { -1, 1 } do
-		box(b, "Horn", V(0.25, 0.8, 0.25), CF(side * 0.5, 4.3, -1.2) * ANG(rad(-20), 0, side * rad(-20)), a)
-		box(b, "Wing", V(2.2, 0.12, 1.4), CF(side * 2.0, 3.1, 0.4) * ANG(0, 0, side * rad(30)), darker(c, 0.3))
+		capsule(b, "Horn", V(side * 0.42, 4.0, -1.2), V(side * 0.6, 4.55, -1.05), 0.26, a)
+		ball(b, "HornTip", 0.18, V(side * 0.64, 4.7, -1.0), a)
+		-- Wing: a bony arm with three rounded membrane panels fanning out.
+		local shoulder = V(side * 0.9, 3.0, 0.4)
+		local elbow = V(side * 2.1, 3.9, 0.6)
+		capsule(b, "WingArm", shoulder, elbow, 0.22, c)
+		for k = 0, 2 do
+			local tip = elbow + V(side * (0.4 + k * 0.35), -0.6 - k * 0.65, 0.1)
+			capsule(b, "WingFinger", elbow, tip, 0.12, c)
+			local mid = (shoulder + elbow + tip) / 3
+			egg(b, "Wing", V(0.08, 1.3, 1.0), CF(mid) * ANG(0, 0, side * rad(55 + k * 18)) * ANG(0, rad(90), 0), darker(c, 0.3))
+		end
 	end
 	eyes(b, 0, 3.65, -2.25, 0.4, 0.42, true)
 	for i = 0, 6 do
@@ -445,13 +536,14 @@ designs.MeatballoSupremo = function(b, c, a)
 	end
 	egg(b, "Sauce", V(2.6, 0.8, 2.6), CF(0, 3.8, 0), Color3.fromRGB(200, 30, 30))
 	for _, pos in { V(-0.4, 4.15, 0.2), V(0.5, 4.1, -0.3) } do
-		box(b, "Basil", V(0.5, 0.08, 0.3), CF(pos) * ANG(0, rad(30), 0), Color3.fromRGB(60, 160, 60))
+		egg(b, "Basil", V(0.55, 0.1, 0.32), CF(pos) * ANG(0, rad(30), 0), Color3.fromRGB(60, 160, 60))
 	end
 	local gold = Color3.fromRGB(255, 200, 50)
 	vcyl(b, "Crown", 0.5, 1.4, V(0, 4.4, 0), gold, Enum.Material.Foil, true)
 	for i = 1, 5 do
 		local angle = rad(i * 72)
-		box(b, "CrownSpike", V(0.25, 0.5, 0.25), CF(math.cos(angle) * 0.55, 4.85, math.sin(angle) * 0.55), gold, Enum.Material.Foil, true)
+		cone(b, "CrownSpike", V(math.cos(angle) * 0.55, 4.6, math.sin(angle) * 0.55), 0.5, 0.32, 0.08, gold, Enum.Material.Foil, true)
+		ball(b, "CrownGem", 0.18, V(math.cos(angle) * 0.6, 4.62, math.sin(angle) * 0.6) * V(1.18, 1, 1.18), if i % 2 == 0 then Color3.fromRGB(230, 40, 60) else Color3.fromRGB(60, 140, 255), Enum.Material.Neon, true)
 	end
 	egg(b, "Mustache", V(1.5, 0.35, 0.4), CF(0, 2.2, -1.55), a)
 	eyes(b, 0, 2.9, -1.42, 0.55, 0.6)
@@ -517,22 +609,19 @@ end
 
 -- A tall ice-cream cone with two scoops, sprinkles and a cherry.
 designs.GelatinoGigante = function(b, c, a)
-	local cone = Color3.fromRGB(215, 160, 80)
-	legs(b, darker(cone, 0.3), 0.7, 0.4)
-	for i = 0, 5 do
-		local t = i / 5
-		vcyl(b, "Cone", 0.42, 0.5 + t * 1.5, V(0, 0.9 + i * 0.4, 0), if i % 2 == 0 then cone else darker(cone, 0.12))
-	end
+	local waffle = Color3.fromRGB(215, 160, 80)
+	legs(b, darker(waffle, 0.3), 0.7, 0.4)
+	cone(b, "Cone", V(0, 0.7, 0), 2.5, 0.45, 2.05, waffle, nil, nil, darker(waffle, 0.12))
 	ball(b, "Scoop", 2.3, V(0, 3.45, 0), c)
 	ball(b, "Scoop2", 1.9, V(0, 4.75, 0), a)
 	egg(b, "Drizzle", V(1.9, 0.45, 1.9), CF(0, 5.35, 0), Color3.fromRGB(80, 40, 25))
 	ball(b, "Cherry", 0.55, V(0, 5.8, 0), Color3.fromRGB(220, 30, 40))
-	box(b, "CherryStem", V(0.06, 0.5, 0.06), CF(0.1, 6.15, 0) * ANG(0, 0, rad(-20)), Color3.fromRGB(60, 120, 40))
+	capsule(b, "CherryStem", V(0, 5.95, 0), V(0.2, 6.4, 0), 0.07, Color3.fromRGB(60, 120, 40))
 	local sprinkle = { Color3.fromRGB(255, 80, 80), Color3.fromRGB(255, 220, 60), Color3.fromRGB(80, 160, 255), WHITE }
 	for i = 1, 10 do
 		local angle = rad(i * 36)
 		local p = V(math.cos(angle) * 0.9, 4.75 + math.sin(i * 1.7) * 0.5, math.sin(angle) * 0.9)
-		box(b, "Sprinkle", V(0.22, 0.07, 0.07), CF(p) * ANG(0, angle, rad(i * 40)), sprinkle[i % 4 + 1], nil, true)
+		egg(b, "Sprinkle", V(0.24, 0.09, 0.09), CF(p) * ANG(0, angle, rad(i * 40)), sprinkle[i % 4 + 1], nil, true)
 	end
 	eyes(b, 0, 3.55, -1.05, 0.45, 0.5)
 	smile(b, 0, 3.0, -1.12, 0.5)
@@ -555,7 +644,7 @@ designs.DonuttoDynamo = function(b, c, a)
 	for i = 0, 13 do
 		local angle = rad(i * 25.7 + 10)
 		local p = center + V(math.cos(angle) * 1.35, math.sin(angle) * 1.35, -0.85)
-		box(b, "Sprinkle", V(0.24, 0.08, 0.08), CF(p) * ANG(0, 0, rad(i * 47)), sprinkle[i % 4 + 1], nil, true)
+		egg(b, "Sprinkle", V(0.26, 0.1, 0.1), CF(p) * ANG(0, 0, rad(i * 47)), sprinkle[i % 4 + 1], nil, true)
 	end
 	eyes(b, 0, 4.2, -0.85, 0.48, 0.48)
 	smile(b, 0, 1.75, -0.85, 0.6)
@@ -583,10 +672,10 @@ designs.TungTungSahur = function(b, c, a)
 	-- Big round eyes, eyebrows and a wide grin
 	eyes(b, 0, 4.35, -0.85, 0.42, 0.62)
 	for _, side in { -1, 1 } do
-		box(b, "Brow", V(0.6, 0.14, 0.12), CF(side * 0.42, 4.95, -0.92) * ANG(0, 0, side * rad(-12)), darker(a, 0.4), nil, true)
+		egg(b, "Brow", V(0.66, 0.18, 0.16), CF(side * 0.42, 4.95, -0.92) * ANG(0, 0, side * rad(-12)), darker(a, 0.4), nil, true)
 	end
 	egg(b, "Mouth", V(1.1, 0.42, 0.2), CF(0, 3.55, -0.92), Color3.fromRGB(60, 20, 20), nil, true)
-	box(b, "Teeth", V(0.9, 0.12, 0.08), CF(0, 3.66, -1.0), WHITE, nil, true)
+	egg(b, "Teeth", V(0.9, 0.14, 0.1), CF(0, 3.66, -1.0), WHITE, nil, true)
 	-- Thin wooden arms; one holds a baseball bat
 	for _, side in { -1, 1 } do
 		local shoulder = V(side * 0.95, 3.4, 0)
@@ -614,16 +703,16 @@ designs.SushitoSamurai = function(b, c, a)
 	end
 	egg(b, "Salmon", V(2.3, 0.7, 1.6), CF(0, 3.6, 0) * ANG(0, rad(15), 0), c)
 	for i = -1, 1 do
-		box(b, "SalmonStripe", V(0.12, 0.08, 1.4), CF(i * 0.55, 3.92, 0) * ANG(0, rad(15), 0), WHITE, nil, true)
+		egg(b, "SalmonStripe", V(0.16, 0.1, 1.4), CF(i * 0.55, 3.92, 0) * ANG(0, rad(15), 0), WHITE, nil, true)
 	end
 	-- Kabuto helmet with golden horns
 	egg(b, "Helmet", V(2.2, 0.85, 1.9), CF(0, 4.25, 0), a, Enum.Material.Metal)
 	box(b, "HelmetBrim", V(2.6, 0.15, 0.5), CF(0, 4.0, -0.85), darker(a, 0.3), Enum.Material.Metal)
 	for _, side in { -1, 1 } do
-		box(b, "Horn", V(0.18, 1.1, 0.12), CF(side * 0.35, 4.9, -0.9) * ANG(0, 0, side * rad(-30)), gold, Enum.Material.Foil, true)
+		capsule(b, "Horn", V(side * 0.1, 4.45, -0.9), V(side * 0.62, 5.35, -0.95), 0.16, gold, Enum.Material.Foil, true)
 	end
 	eyes(b, 0, 2.45, -1.22, 0.5, 0.55, true)
-	box(b, "Mouth", V(0.6, 0.1, 0.1), CF(0, 1.85, -1.25), WHITE, nil, true)
+	egg(b, "Mouth", V(0.62, 0.14, 0.12), CF(0, 1.85, -1.25), WHITE, nil, true)
 	-- Katana
 	box(b, "Blade", V(0.12, 2.6, 0.3), CF(1.75, 2.9, -0.4) * ANG(0, 0, rad(-20)), Color3.fromRGB(220, 225, 235), Enum.Material.Metal, true)
 	box(b, "Guard", V(0.5, 0.12, 0.5), CF(1.35, 1.75, -0.4), gold, Enum.Material.Foil, true)
@@ -651,14 +740,14 @@ designs.TacoraptorSupremo = function(b, c, a)
 		ball(b, "Tomato", 0.42, V(x, 3.85, 0.05), Color3.fromRGB(220, 40, 40))
 	end
 	for i = 1, 6 do
-		box(b, "Cheese", V(0.5, 0.08, 0.1), CF(-1.2 + i * 0.38, 3.95, -0.2) * ANG(0, rad(i * 30), 0), Color3.fromRGB(255, 210, 60))
+		egg(b, "Cheese", V(0.5, 0.1, 0.12), CF(-1.2 + i * 0.38, 3.95, -0.2) * ANG(0, rad(i * 30), 0), Color3.fromRGB(255, 210, 60))
 	end
 	-- Dinosaur head out the front, tail out the back
 	egg(b, "Neck", V(0.9, 1.3, 0.9), CF(0, 4.15, -1.25) * ANG(rad(-30), 0, 0), dino)
 	egg(b, "Head", V(1.4, 1.1, 1.7), CF(0, 4.75, -1.85), dino)
 	egg(b, "Jaw", V(1.1, 0.4, 1.2), CF(0, 4.3, -2.2), dino)
 	for i = -2, 2 do
-		box(b, "Tooth", V(0.12, 0.18, 0.12), CF(i * 0.18, 4.5, -2.72), WHITE, nil, true)
+		cone(b, "Tooth", V(i * 0.18, 4.42, -2.72), 0.2, 0.13, 0.03, WHITE, nil, true)
 	end
 	eyes(b, 0, 5.05, -2.35, 0.38, 0.42, true)
 	for i = 0, 5 do
@@ -669,7 +758,7 @@ designs.TacoraptorSupremo = function(b, c, a)
 	vcyl(b, "Crown", 0.35, 0.9, V(0, 5.4, -1.75), gold, Enum.Material.Foil, true)
 	for i = 1, 5 do
 		local angle = rad(i * 72)
-		box(b, "CrownSpike", V(0.18, 0.35, 0.18), CF(math.cos(angle) * 0.35, 5.7, -1.75 + math.sin(angle) * 0.35), gold, Enum.Material.Foil, true)
+		cone(b, "CrownSpike", V(math.cos(angle) * 0.35, 5.55, -1.75 + math.sin(angle) * 0.35), 0.38, 0.22, 0.05, gold, Enum.Material.Foil, true)
 	end
 	arms(b, 3.3, 1.65, dino, 0.5)
 	return 6.0
@@ -700,7 +789,7 @@ designs.AstronautoPanino = function(b, c, a)
 		vcyl(b, "Tank", 1.4, 0.6, V(side * 0.45, 2.2, 1.15), metal, Enum.Material.Metal)
 		ball(b, "Flame", 0.5, V(side * 0.45, 1.3, 1.15), Color3.fromRGB(255, 140, 30), Enum.Material.Neon, true)
 	end
-	box(b, "Antenna", V(0.08, 0.8, 0.08), CF(0.5, 5.6, 0), metal, Enum.Material.Metal, true)
+	capsule(b, "Antenna", V(0.5, 5.2, 0), V(0.5, 5.95, 0), 0.09, metal, Enum.Material.Metal, true)
 	ball(b, "AntennaTip", 0.3, V(0.5, 6.05, 0), a, Enum.Material.Neon, true)
 	for i = 1, 8 do
 		local angle = rad(i * 45)
@@ -1136,7 +1225,8 @@ local function blob(b: Builder, c: Color3, a: Color3): number
 	legs(b, a, 1.0, 0.7)
 	ball(b, "Body", 3, V(0, 2.5, 0), c)
 	eyes(b, 0, 2.85, -1.25, 0.45, 0.9)
-	box(b, "Hat", V(1.6, 0.8, 1.6), CF(0, 4.1, 0) * ANG(0, rad(15), rad(-10)), a)
+	egg(b, "HatBrim", V(2.0, 0.22, 2.0), CF(0, 3.95, 0), a)
+	vcyl(b, "Hat", 0.8, 1.3, V(0, 4.35, 0), a)
 	return 4.5
 end
 
@@ -1196,7 +1286,7 @@ end
 
 -- Mutations ----------------------------------------------------------------
 
-local function applyMutation(model: Model, root: BasePart, mutation: Config.Mutation, scale: number)
+local function applyMutation(model: Model, root: BasePart, mutation: Config.Mutation, scale: number, mini: boolean?)
 	local i = 0
 	for _, d in model:GetDescendants() do
 		if d:IsA("BasePart") and d ~= root and not d:GetAttribute("Keep") then
@@ -1449,30 +1539,147 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 		stars.Parent = root
 	end
 
+	-- The rarer the mutation, the bigger the show: 1 = common (Gold..Smiley),
+	-- 2 = rare (Radioactive..Cursed), 3 = ultra rare (Rainbow, Void, Divine),
+	-- 4 = Magic (Cigna Glamourina only). Mini followers keep it simple.
+	local tier = if mini then 1 elseif mutation.Chance <= 0 then 4 elseif mutation.Chance <= 0.3 then 3 elseif mutation.Chance <= 0.9 then 2 else 1
+	local _, bounds = model:GetBoundingBox()
+	local height = bounds.Y
+
 	local sparkles = Instance.new("ParticleEmitter")
 	sparkles.Name = "MutationSparkles"
 	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
 	sparkles.Color = ColorSequence.new(mutation.Color)
-	sparkles.Rate = 8
+	sparkles.Rate = 8 * tier
 	sparkles.Lifetime = NumberRange.new(0.6, 1.2)
 	sparkles.Speed = NumberRange.new(1, 3)
 	sparkles.SpreadAngle = Vector2.new(180, 180)
-	sparkles.Size = NumberSequence.new(0.35)
+	sparkles.Size = NumberSequence.new(0.3 + 0.08 * tier)
 	sparkles.Parent = root
 
 	local light = Instance.new("PointLight")
 	light.Color = mutation.Color
-	light.Range = 8 * scale
-	light.Brightness = 1.5
+	light.Range = 8 * scale * (1 + 0.3 * (tier - 1))
+	light.Brightness = 1.5 + 0.4 * (tier - 1)
 	light.Parent = root
+
+	-- A glowing (non-colliding) decoration welded to the model; mutations
+	-- don't recolor it.
+	local function glow(name: string, shape: Enum.PartType, size: Vector3, offset: CFrame, color: Color3, transparency: number): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Shape = shape
+		p.Size = size
+		p.Color = color
+		p.Material = Enum.Material.Neon
+		p.Transparency = transparency
+		p.Anchored = false
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.Massless = true
+		p.CastShadow = false
+		p.CFrame = root.CFrame * CF(0, -0.5, 0) * offset
+		p:SetAttribute("Keep", true)
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = root
+		weld.Part1 = p
+		weld.Parent = p
+		p.Parent = model
+		return p
+	end
+	-- A flat ring on the ground, built from short neon segments.
+	local function groundRing(name: string, radius: number, color: Color3, transparency: number, y: number?)
+		local segments = 24
+		for k = 0, segments - 1 do
+			local angle = k / segments * math.pi * 2
+			local length = radius * 2 * math.pi / segments * 1.08
+			glow(name, Enum.PartType.Block, V(length, 0.06, 0.16 * scale), CF(0, y or 0.05, 0) * ANG(0, -angle, 0) * CF(0, 0, -radius), color, transparency)
+		end
+	end
+
+	-- Rare and up: a glowing aura ring on the ground and motes drifting up.
+	if tier >= 2 then
+		groundRing("AuraRing", 2.2 * scale, mutation.Color, 0.35)
+		local motes = emitter("AuraMotes", { mutation.Color, Color3.new(1, 1, 1) }, 6 * tier, 1.5, 0.25, 2, Vector3.new(0, 2.5, 0))
+		motes.EmissionDirection = Enum.NormalId.Top
+		motes.SpreadAngle = Vector2.new(25, 25)
+		motes.LightEmission = 0.8
+	end
+	-- Ultra rare and up: a second ring, a column of light rising through it
+	-- and a beam of sparkles shooting out of the top.
+	if tier >= 3 then
+		groundRing("AuraRing", 2.9 * scale, mutation.Color:Lerp(Color3.new(1, 1, 1), 0.4), 0.55)
+		local column = Instance.new("ParticleEmitter")
+		column.Name = "AuraColumn"
+		column.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		column.Color = ColorSequence.new(mutation.Color, Color3.new(1, 1, 1))
+		column.LightEmission = 1
+		column.Rate = 20
+		column.Lifetime = NumberRange.new(1.2, 1.8)
+		column.Speed = NumberRange.new(height * 0.7, height)
+		column.SpreadAngle = Vector2.new(6, 6)
+		column.EmissionDirection = Enum.NormalId.Top
+		column.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 1) })
+		column.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5 * scale), NumberSequenceKeypoint.new(1, 0) })
+		column.Parent = root
+		local crown = emitter("AuraCrown", { mutation.Color, Color3.new(1, 1, 1) }, 18, 4, 0.35, 0.8)
+		crown.LightEmission = 1
+		crown.EmissionDirection = Enum.NormalId.Top
+		crown.SpreadAngle = Vector2.new(35, 35)
+		local attachment = Instance.new("Attachment")
+		attachment.Position = V(0, height, 0)
+		attachment.Parent = root
+		crown.Parent = attachment
+	end
+	-- Magic (Cigna Glamourina only): the full spell. A two-ring magic circle
+	-- with glowing runes, drifting pink glitter, a fountain of pink and teal stars
+	-- and a second, higher ring of orbs.
+	if tier >= 4 then
+		local pink = Color3.fromRGB(255, 120, 220)
+		local teal = Color3.fromRGB(90, 230, 255)
+		local radius = 3.4 * scale
+		groundRing("MagicCircle", radius, pink, 0.2, 0.08)
+		groundRing("MagicCircle", radius * 0.72, teal, 0.3, 0.08)
+		for k = 0, 7 do
+			local angle = k / 8 * math.pi * 2
+			glow("MagicRune", Enum.PartType.Block, V(0.35, 0.08, 0.35) * scale, CF(math.cos(angle) * radius * 0.86, 0.1, math.sin(angle) * radius * 0.86) * ANG(0, angle + math.pi / 4, 0), if k % 2 == 0 then pink else teal, 0.1)
+		end
+		-- A star in the middle of the circle: two crossing squares.
+		for _, turn in { 0, 45 } do
+			glow("MagicStar", Enum.PartType.Block, V(radius * 0.7, 0.05, radius * 0.7), CF(0, 0.07, 0) * ANG(0, rad(turn), 0), pink:Lerp(teal, 0.5), 0.75)
+		end
+		for k = 1, 6 do
+			local angle = k * math.pi / 3 + math.pi / 6
+			glow("MagicOrb", Enum.PartType.Ball, V(0.28, 0.28, 0.28) * scale, CF(math.cos(angle) * 1.6 * scale, height * 0.95, math.sin(angle) * 1.6 * scale), if k % 2 == 0 then pink else teal, 0)
+		end
+		local glitter = Instance.new("ParticleEmitter")
+		glitter.Name = "MagicGlitter"
+		glitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		glitter.Color = ColorSequence.new(pink, Color3.fromRGB(255, 200, 240))
+		glitter.LightEmission = 0.7
+		glitter.Rate = 6
+		glitter.Lifetime = NumberRange.new(2, 3)
+		glitter.Speed = NumberRange.new(1, 2)
+		glitter.SpreadAngle = Vector2.new(30, 30)
+		glitter.EmissionDirection = Enum.NormalId.Top
+		glitter.RotSpeed = NumberRange.new(-60, 60)
+		glitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.3, 0.8 * scale), NumberSequenceKeypoint.new(1, 0) })
+		glitter.Parent = root
+		local fountain = emitter("MagicFountain", { pink, Color3.new(1, 1, 1), teal }, 30, 9, 0.3, 1.6, Vector3.new(0, -9, 0))
+		fountain.LightEmission = 1
+		fountain.EmissionDirection = Enum.NormalId.Top
+		fountain.SpreadAngle = Vector2.new(30, 30)
+	end
 end
 
 -- Name tag -----------------------------------------------------------------
 
 -- Name tags are sized in studs (not pixels), so they shrink with distance
 -- like real signs instead of covering the screen when you zoom out.
-local TAG_STUDS_PER_ROW_UNIT = 0.03 -- a 26-unit name row is ~0.8 studs tall
-local TAG_WIDTH = 6
+-- (A little bigger than strictly needed, so they stay readable zoomed all the way out.)
+local TAG_STUDS_PER_ROW_UNIT = 0.036 -- a 26-unit name row is ~0.95 studs tall
+local TAG_WIDTH = 7.2
 
 -- Re-fits the tag to its visible rows (rows store their height as "Units").
 local function relayout(tag: BillboardGui)
@@ -1556,7 +1763,7 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 
 	if mini then
 		if mutation then
-			applyMutation(model, root, mutation, s)
+			applyMutation(model, root, mutation, s, true)
 			-- Followers stay light: drop the extra glow.
 			for _, light in root:GetChildren() do
 				if light:IsA("PointLight") or light:IsA("Fire") then
