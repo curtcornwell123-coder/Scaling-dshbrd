@@ -314,6 +314,8 @@ On the [Creator Dashboard](https://create.roblox.com/dashboard/creations), open 
 
 Paste each ID into `Config.GamePasses` / `Config.Products` in `src/shared/Config.luau`. Items left at `Id = 0` show as **SOON** in the shop.
 
+Pictures for the one-time purchases (512x512, upload them as each Developer Product's image) are in `assets/icons/`: `cash_bag.png`, `cash_vault.png`, `server_luck.png` and `instant_lock.png` (`make_icons.py` draws them).
+
 Suggested prices:
 
 | Item | Type | Price |
