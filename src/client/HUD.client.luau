@@ -22,7 +22,7 @@ local BuyLimited = Remotes:WaitForChild("BuyLimited") :: RemoteFunction
 local RequestUpgrade = Remotes:WaitForChild("RequestUpgrade") :: RemoteEvent
 local SetFollowers = Remotes:WaitForChild("SetFollowers") :: RemoteEvent
 local SkinAction = Remotes:WaitForChild("SkinAction") :: RemoteEvent
-local DiamondPurchase = Remotes:WaitForChild("DiamondPurchase") :: RemoteEvent
+local ShardPurchase = Remotes:WaitForChild("ShardPurchase") :: RemoteEvent
 local SellBrainrot = Remotes:WaitForChild("SellBrainrot") :: RemoteEvent
 local RedeemCode = Remotes:WaitForChild("RedeemCode") :: RemoteFunction
 local CodeList = Remotes:WaitForChild("CodeList") :: RemoteEvent
@@ -395,14 +395,14 @@ local function modal(title: string, color: Color3, height: number): (Frame, Fram
 end
 
 -- Shop ---------------------------------------------------------------------
--- A dark shop window: SHOP title with your Cash and Diamonds, a row of
+-- A dark shop window: SHOP title with your Cash and Shards, a row of
 -- category tiles, a FEATURED limited brainrot, a game pass shopBanner you can
 -- flip through, an ON SALE row of boosts, and a code box along the bottom.
 -- (Kept in its own block: a script can only have 200 locals at the top.)
 local shopFrame: Frame
 local renderLimited: () -> ()
 local buyLimitedItem: (string) -> ()
--- Opens another menu (Diamond Shop, Skins); set once those menus exist.
+-- Opens another menu (Shard Shop, Skins); set once those menus exist.
 local openMenu: (string) -> () = function() end
 do
 
@@ -474,7 +474,7 @@ do
 		end)
 	end
 
-	-- Header: SHOP, your Cash and Diamonds, close
+	-- Header: SHOP, your Cash and Shards, close
 	text(shopFrame, {
 		Position = UDim2.fromOffset(16, 8),
 		Size = UDim2.fromOffset(130, 46),
@@ -497,14 +497,13 @@ do
 			Text = "0",
 		})
 	end
-	-- Your Cash, Shards and Diamonds
+	-- Your Cash and Shards (+ opens the Shard Shop)
 	local cashAmount = currencyBar(160, Color3.fromRGB(240, 170, 40), "💵")
 	local shardAmount = currencyBar(325, Color3.fromRGB(70, 165, 225), "🔷")
-	local diamondAmount = currencyBar(490, SHOP_PURPLE, "💎")
-	local moreDiamonds = button(shopFrame, "+", SHOP_PURPLE:Lerp(WHITE, 0.2), UDim2.fromOffset(34, 34))
-	moreDiamonds.Position = UDim2.fromOffset(646, 14)
-	moreDiamonds.MouseButton1Click:Connect(function()
-		openMenu("Diamonds")
+	local moreShards = button(shopFrame, "+", Color3.fromRGB(70, 165, 225):Lerp(WHITE, 0.2), UDim2.fromOffset(34, 34))
+	moreShards.Position = UDim2.fromOffset(481, 14)
+	moreShards.MouseButton1Click:Connect(function()
+		openMenu("ShardShop")
 	end)
 	local closeShop = button(shopFrame, "X", SHOP_GREY, UDim2.fromOffset(44, 44))
 	closeShop.Position = UDim2.new(1, -56, 0, 9)
@@ -565,8 +564,8 @@ do
 	tile("Boosts", "⚡", Color3.fromRGB(140, 220, 60), function()
 		showShopPage("Boosts")
 	end)
-	tile("Diamonds", "💎", SHOP_PURPLE, function()
-		openMenu("Diamonds")
+	tile("Shard Shop", "🔷", SHOP_PURPLE, function()
+		openMenu("ShardShop")
 	end)
 	tile("Skins", "🧱", Color3.fromRGB(60, 170, 255), function()
 		openMenu("Skins")
@@ -937,7 +936,6 @@ do
 			return
 		end
 		cashAmount.Text = Config.FormatCash(data.Cash)
-		diamondAmount.Text = tostring(data.Diamonds or 0)
 		shardAmount.Text = tostring(data.Shards or 0)
 		for key, b in passButtons do
 			if data.Owns[key] then
@@ -1145,7 +1143,6 @@ local function scrollBody(parent: Instance): ScrollingFrame
 end
 
 local SHARD_COLOR = Color3.fromRGB(140, 220, 255)
-local DIAMOND_COLOR = Color3.fromRGB(120, 180, 255)
 
 local questsFrame, questsFrameBody = modal("QUESTS & SKINS", Color3.fromRGB(60, 170, 255), 600)
 local questsBody = scrollBody(questsFrameBody)
@@ -1208,9 +1205,9 @@ end
 local weeklyHeader = header(questsBody, 10, "WEEKLY QUESTS", Color3.fromRGB(255, 120, 255))
 text(questsBody, {
 	Size = UDim2.new(1, -10, 0, 20),
-	TextColor3 = DIAMOND_COLOR,
+	TextColor3 = SHARD_COLOR,
 	TextXAlignment = Enum.TextXAlignment.Left,
-	Text = string.format("+%d Diamond and +%d Shards each (much harder!)", Config.WeeklyDiamonds, Config.WeeklyShards),
+	Text = string.format("+%d Shards each (much harder!)", Config.WeeklyShards),
 	LayoutOrder = 11,
 })
 local weeklyRows: { QuestRow } = {}
@@ -1284,7 +1281,7 @@ local function renderQuests()
 	fill(dailyRows, q.Daily)
 	fill(weeklyRows, q.Weekly)
 
-	balanceLabel.Text = string.format("You have %d Shards and %d Diamonds", data.Shards or 0, data.Diamonds or 0)
+	balanceLabel.Text = string.format("You have %d Shards", data.Shards or 0)
 	for _, skin in Config.WallSkins do
 		local b = skinButtons[skin.Id]
 		local owned = data.Skins and table.find(data.Skins, skin.Id)
@@ -1302,15 +1299,12 @@ local function renderQuests()
 			b.BackgroundColor3 = Color3.fromRGB(60, 140, 255)
 		else
 			local needed = Config.MissingSkinRequirement(skin, data.Skins)
-			local balance = if skin.Currency == "Diamonds" then data.Diamonds else data.Shards
 			if needed then
 				b.Text = "Unlock " .. needed.Name .. " first"
 				b.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
 			else
-				b.Text = string.format("%s %s", Config.FormatNumber(skin.Cost), skin.Currency)
-				b.BackgroundColor3 = if (balance or 0) >= skin.Cost
-					then (if skin.Currency == "Diamonds" then DIAMOND_COLOR else GREEN)
-					else Color3.fromRGB(90, 90, 100)
+				b.Text = Config.FormatNumber(skin.Cost) .. " Shards"
+				b.BackgroundColor3 = if (data.Shards or 0) >= skin.Cost then GREEN else Color3.fromRGB(90, 90, 100)
 			end
 		end
 	end
@@ -1421,38 +1415,41 @@ local function renderFollowers()
 	end
 end
 
--- Diamond Shop (the booth by the spawn) ---------------------------------------
+-- Shard Shop (the booth by the spawn) -----------------------------------------
+-- Boosts and the Infinite Laser Door, bought with Shards. (Wall skins are in
+-- QUESTS & SKINS.)
 
-local diamondFrame, diamondFrameBody = modal("DIAMOND SHOP", DIAMOND_COLOR, 560)
-local diamondBody = scrollBody(diamondFrameBody)
-local diamondBalance = text(diamondBody, {
+local shardFrame, shardFrameBody = modal("SHARD SHOP", SHARD_COLOR, 560)
+local shardBody = scrollBody(shardFrameBody)
+local shardBalance = text(shardBody, {
 	Size = UDim2.new(1, -10, 0, 28),
-	TextColor3 = DIAMOND_COLOR,
+	TextColor3 = SHARD_COLOR,
 	Text = "",
 	LayoutOrder = 0,
 })
-text(diamondBody, {
+text(shardBody, {
 	Size = UDim2.new(1, -10, 0, 20),
 	TextColor3 = Color3.fromRGB(190, 190, 205),
 	TextStrokeTransparency = 1,
-	Text = "Diamonds come from weekly quests and admin abuse. Save up!",
+	Text = "Shards come from daily and weekly quests and admin abuse. Save up!",
 	LayoutOrder = 1,
 })
 
-local diamondButtons: { { Button: TextButton, Cost: number, SkinId: string?, ItemId: string? } } = {}
-local function diamondRow(order: number, name: string, description: string, cost: number, onBuy: () -> (), skinId: string?, itemId: string?)
+local shardButtons: { { Button: TextButton, Cost: number, ItemId: string } } = {}
+header(shardBody, 2, "BOOSTS & UPGRADES", GOLD)
+for i, item in Config.ShardShop do
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -10, 0, 70)
 	row.BackgroundColor3 = Color3.fromRGB(35, 45, 70)
-	row.LayoutOrder = order
+	row.LayoutOrder = 2 + i
 	corner(row, 10)
-	stroke(row, 2, DIAMOND_COLOR)
-	row.Parent = diamondBody
+	stroke(row, 2, SHARD_COLOR)
+	row.Parent = shardBody
 	text(row, {
 		Position = UDim2.fromOffset(12, 6),
 		Size = UDim2.new(1, -170, 0, 30),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		Text = name,
+		Text = item.Name,
 	})
 	text(row, {
 		Position = UDim2.fromOffset(12, 38),
@@ -1460,59 +1457,29 @@ local function diamondRow(order: number, name: string, description: string, cost
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextColor3 = Color3.fromRGB(190, 190, 205),
 		TextStrokeTransparency = 1,
-		Text = description,
+		Text = item.Description,
 	})
-	local b = button(row, cost .. " Diamonds", DIAMOND_COLOR, UDim2.fromOffset(150, 50))
+	local b = button(row, Config.FormatNumber(item.Cost) .. " Shards", SHARD_COLOR, UDim2.fromOffset(150, 50))
 	b.Position = UDim2.new(1, -160, 0, 10)
-	b.MouseButton1Click:Connect(onBuy)
-	table.insert(diamondButtons, { Button = b, Cost = cost, SkinId = skinId, ItemId = itemId })
+	b.MouseButton1Click:Connect(function()
+		ShardPurchase:FireServer(item.Id)
+	end)
+	table.insert(shardButtons, { Button = b, Cost = item.Cost, ItemId = item.Id })
 end
 
-header(diamondBody, 2, "BOOSTS", GOLD)
-for i, item in Config.DiamondShop do
-	diamondRow(2 + i, item.Name, item.Description, item.Cost, function()
-		DiamondPurchase:FireServer(item.Id)
-	end, nil, item.Id)
-end
-header(diamondBody, 20, "DIAMOND WALL SKINS", Color3.fromRGB(255, 170, 40))
-for i, skin in Config.WallSkins do
-	if skin.Currency == "Diamonds" and not Config.IsExclusiveSkin(skin) then
-		local needed = Config.SkinRequirement(skin)
-		local note = if needed then "Rare wall skin. Unlock " .. needed.Name .. " first." else "A rare wall skin for your base."
-		diamondRow(20 + i, skin.Name, note, skin.Cost, function()
-			local owned = data and data.Skins and table.find(data.Skins, skin.Id)
-			SkinAction:FireServer(if owned then "Equip" else "Buy", skin.Id)
-		end, skin.Id)
-	end
-end
-
-local function renderDiamondShop()
+local function renderShardShop()
 	if not data then
 		return
 	end
-	local diamonds = data.Diamonds or 0
-	diamondBalance.Text = string.format("You have %d Diamonds", diamonds)
-	for _, entry in diamondButtons do
-		local owned = entry.SkinId and data.Skins and table.find(data.Skins, entry.SkinId)
+	local shards = data.Shards or 0
+	shardBalance.Text = string.format("You have %s Shards", Config.FormatNumber(shards))
+	for _, entry in shardButtons do
 		if entry.ItemId == "InfiniteLock" and data.InfiniteLock then
 			entry.Button.Text = "OWNED"
 			entry.Button.BackgroundColor3 = GOLD
-		elseif entry.SkinId and data.Skin == entry.SkinId then
-			entry.Button.Text = "EQUIPPED"
-			entry.Button.BackgroundColor3 = GOLD
-		elseif owned then
-			entry.Button.Text = "EQUIP"
-			entry.Button.BackgroundColor3 = Color3.fromRGB(60, 140, 255)
 		else
-			local skin = entry.SkinId and Config.GetWallSkin(entry.SkinId)
-			local needed = skin and Config.MissingSkinRequirement(skin, data.Skins)
-			if needed then
-				entry.Button.Text = "LOCKED"
-				entry.Button.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
-			else
-				entry.Button.Text = entry.Cost .. " Diamonds"
-				entry.Button.BackgroundColor3 = if diamonds >= entry.Cost then DIAMOND_COLOR else Color3.fromRGB(90, 90, 100)
-			end
+			entry.Button.Text = Config.FormatNumber(entry.Cost) .. " Shards"
+			entry.Button.BackgroundColor3 = if shards >= entry.Cost then SHARD_COLOR else Color3.fromRGB(90, 90, 100)
 		end
 	end
 end
@@ -1639,7 +1606,7 @@ do
 end
 
 -- Only one menu open at a time.
-local menus = { shopFrame, rebirthFrame, upgradeFrame, questsFrame, followFrame, diamondFrame, sellFrame }
+local menus = { shopFrame, rebirthFrame, upgradeFrame, questsFrame, followFrame, shardFrame, sellFrame }
 local function toggleMenu(frame: Frame)
 	local open = not frame.Visible
 	for _, menu in menus do
@@ -1650,11 +1617,11 @@ end
 shopButton.MouseButton1Click:Connect(function()
 	toggleMenu(shopFrame)
 end)
--- The shop's Diamonds and Skins tiles open those menus.
+-- The shop's Shard Shop and Skins tiles open those menus.
 openMenu = function(name: string)
-	if name == "Diamonds" then
-		toggleMenu(diamondFrame)
-		renderDiamondShop()
+	if name == "ShardShop" then
+		toggleMenu(shardFrame)
+		renderShardShop()
 	elseif name == "Skins" then
 		toggleMenu(questsFrame)
 		renderQuests()
@@ -1672,12 +1639,12 @@ followButton.MouseButton1Click:Connect(function()
 	renderFollowers()
 end)
 
--- The two counters at the Diamond Shop booth.
+-- The two counters at the shop booth.
 ProximityPromptService.PromptTriggered:Connect(function(prompt)
 	local action = prompt:GetAttribute("Action")
-	if action == "DiamondShop" then
-		toggleMenu(diamondFrame)
-		renderDiamondShop()
+	if action == "ShardShop" then
+		toggleMenu(shardFrame)
+		renderShardShop()
 	elseif action == "RobuxShop" then
 		toggleMenu(shopFrame)
 	elseif action == "SellStand" then
@@ -1910,9 +1877,6 @@ do
 	local currencyRow = controls(money, 3)
 	smallButton(currencyRow, "Give Shards", SHARD_COLOR, 160, function()
 		send("Shards", amountBox.Text)
-	end)
-	smallButton(currencyRow, "Give Diamonds", DIAMOND_COLOR, 180, function()
-		send("Diamonds", amountBox.Text)
 	end)
 
 	local function levelButtons(row: Frame, count: number, action: string, color: Color3)
@@ -2216,14 +2180,12 @@ do
 		local codeRewardRow = controls(codes, 2)
 		local codeCash = inputBox(codeRewardRow, "", "Cash (e.g. 50k)", 170)
 		local codeShards = inputBox(codeRewardRow, "", "Shards", 130)
-		local codeDiamonds = inputBox(codeRewardRow, "", "Diamonds", 130)
 		local codeButtons = controls(codes, 3)
 		smallButton(codeButtons, "CREATE CODE", GREEN, 200, function()
 			send("CreateCode", {
 				Code = codeName.Text,
 				Cash = codeCash.Text,
 				Shards = codeShards.Text,
-				Diamonds = codeDiamonds.Text,
 				Hours = codeHours.Text,
 			})
 		end)
@@ -2372,9 +2334,9 @@ local function render()
 	renderUpgrades()
 	renderQuests()
 	renderFollowers()
-	renderDiamondShop()
+	renderShardShop()
 	renderSell()
-	currencyLabel.Text = string.format("🔷 %d Shards     💎 %d Diamonds", data.Shards or 0, data.Diamonds or 0)
+	currencyLabel.Text = string.format("🔷 %d Shards", data.Shards or 0)
 	rebirthInfo.Text = string.format(
 		"Rebirth %d\nCost: %s\nIncome x%.1f  ->  x%.1f\nYou keep gamepasses. Cash and brainrots reset.",
 		data.Rebirths,

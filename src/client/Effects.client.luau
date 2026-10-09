@@ -36,7 +36,7 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 
-	-- Spinning showpieces (the Diamond Shop's giant diamond).
+	-- Spinning showpieces (the Shard Shop's giant crystal).
 	for _, part in CollectionService:GetTagged("Spinner") do
 		local center = part:GetAttribute("SpinCenter")
 		if part:IsA("BasePart") and typeof(center) == "CFrame" then

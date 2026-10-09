@@ -47,7 +47,7 @@ end
 local startedBy: string? = nil
 local startedByAdmin = false -- a hired admin (not Corny or Ace) started it
 local introPlaying = false
-local showGift: (string, string?, number, number) -> ()
+local showGift: (string, string?, number) -> ()
 local showAnnouncement: (string, string) -> ()
 Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: string, extra: string?, mutationId: string?)
 	if kind == "abuse" then
@@ -56,8 +56,7 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 	elseif kind == "global" then
 		task.spawn(showAnnouncement, who, extra or "")
 	elseif kind == "abusegift" then
-		local diamonds, shards = string.match(extra or "", "^(%d+),(%d+)$")
-		task.spawn(showGift, brainrotId, mutationId, tonumber(diamonds) or 0, tonumber(shards) or 0)
+		task.spawn(showGift, brainrotId, mutationId, tonumber(extra) or 0)
 	end
 end)
 
@@ -1216,7 +1215,7 @@ local function founderIntro(eventId: string): Intro?
 end
 
 -- The gift card: pops up after the intro showing what you got.
-showGift = function(brainrotId: string, mutationId: string?, diamonds: number, shards: number)
+showGift = function(brainrotId: string, mutationId: string?, shards: number)
 	task.wait(0.5)
 	while introPlaying do
 		task.wait(0.2)
@@ -1232,7 +1231,7 @@ showGift = function(brainrotId: string, mutationId: string?, diamonds: number, s
 	local card = Instance.new("Frame")
 	card.AnchorPoint = Vector2.new(0.5, 0.5)
 	card.Position = UDim2.fromScale(0.5, 0.45)
-	card.Size = UDim2.fromOffset(420, 250)
+	card.Size = UDim2.fromOffset(420, 210)
 	card.BackgroundColor3 = Color3.fromRGB(30, 20, 45)
 	card.ZIndex = 8
 	card.Parent = gui
@@ -1263,10 +1262,9 @@ showGift = function(brainrotId: string, mutationId: string?, diamonds: number, s
 		s.Parent = t
 	end
 	line(14, 46, "ADMIN ABUSE GIFT!", GOLD)
-	line(72, 36, string.format("+%d Diamonds", diamonds), Color3.fromRGB(120, 180, 255))
-	line(112, 36, string.format("+%d Shards", shards), Color3.fromRGB(140, 220, 255))
-	line(152, 36, "+ " .. brainrotName, rarityColor)
-	line(200, 30, string.format("x%d Cash, x%d Luck, Speed & Jump while it lasts!", boosts.Income, boosts.Luck), Color3.fromRGB(120, 255, 140))
+	line(72, 36, string.format("+%d Shards", shards), Color3.fromRGB(140, 220, 255))
+	line(112, 36, "+ " .. brainrotName, rarityColor)
+	line(160, 30, string.format("x%d Cash, x%d Luck, Speed & Jump while it lasts!", boosts.Income, boosts.Luck), Color3.fromRGB(120, 255, 140))
 
 	tween(scale, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
 	confetti(60, 3)

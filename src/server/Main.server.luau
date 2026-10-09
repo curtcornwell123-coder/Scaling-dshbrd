@@ -44,7 +44,7 @@ local BuyLimited: RemoteFunction = makeRemote("RemoteFunction", "BuyLimited")
 local RequestUpgrade: RemoteEvent = makeRemote("RemoteEvent", "RequestUpgrade")
 local SetFollowers: RemoteEvent = makeRemote("RemoteEvent", "SetFollowers")
 local SkinAction: RemoteEvent = makeRemote("RemoteEvent", "SkinAction")
-local DiamondPurchase: RemoteEvent = makeRemote("RemoteEvent", "DiamondPurchase")
+local ShardPurchase: RemoteEvent = makeRemote("RemoteEvent", "ShardPurchase")
 local SellBrainrot: RemoteEvent = makeRemote("RemoteEvent", "SellBrainrot")
 local RedeemCode: RemoteFunction = makeRemote("RemoteFunction", "RedeemCode")
 local ChangeSetting: RemoteEvent = makeRemote("RemoteEvent", "ChangeSetting")
@@ -66,13 +66,12 @@ type SaveData = {
 	Unclaimed: { string }, -- paid brainrots waiting for a free slot
 	Followers: { string }, -- up to 3 brainrots (encoded) that follow you as minis
 	Shards: number,
-	Diamonds: number,
 	Skins: { string }, -- owned wall skin ids
 	Skin: string, -- equipped wall skin
 	Quests: QuestState,
-	CashBoostUntil: number, -- unix time the Diamond Shop 2x Cash boost ends
+	CashBoostUntil: number, -- unix time the Shard Shop 2x Cash boost ends
 	AbuseGiftWeek: number, -- the week this player last got the admin abuse gift
-	InfiniteLock: boolean, -- bought the Infinite Laser Door with Diamonds
+	InfiniteLock: boolean, -- bought the Infinite Laser Door with Shards
 	Codes: { string }, -- codes already redeemed (upper case)
 	Settings: PlayerSettings,
 }
@@ -337,7 +336,6 @@ local function defaultData(): SaveData
 		Unclaimed = {},
 		Followers = {},
 		Shards = 0,
-		Diamonds = 0,
 		Skins = { "Classic" },
 		Skin = "Classic",
 		CashBoostUntil = 0,
@@ -393,8 +391,10 @@ local function sanitize(raw: any): SaveData
 	if type(raw.Shards) == "number" then
 		data.Shards = math.max(0, math.floor(raw.Shards))
 	end
-	if type(raw.Diamonds) == "number" then
-		data.Diamonds = math.max(0, math.floor(raw.Diamonds))
+	-- Diamonds were removed: any left in an old save become Shards (once,
+	-- since Diamonds are no longer saved).
+	if type(raw.Diamonds) == "number" and raw.Diamonds > 0 then
+		data.Shards += math.floor(raw.Diamonds) * Config.ShardsPerOldDiamond
 	end
 	if type(raw.Skins) == "table" then
 		for _, id in raw.Skins do
@@ -598,7 +598,6 @@ local function snapshot(session: Session)
 		Limited = limitedOwned(session),
 		Shards = data.Shards,
 		CashBoostLeft = math.max(0, data.CashBoostUntil - os.time()),
-		Diamonds = data.Diamonds,
 		Skins = data.Skins,
 		Skin = data.Skin,
 		Settings = data.Settings,
@@ -671,9 +670,8 @@ local function addQuestProgress(player: Player, stat: string, amount: number)
 					done[quest.Id] = true
 					local text = string.format(quest.Text, quest.Goal)
 					if isWeekly then
-						data.Diamonds += Config.WeeklyDiamonds
 						data.Shards += Config.WeeklyShards
-						notify(player, string.format("WEEKLY QUEST DONE: %s  +%d Diamond, +%d Shards!", text, Config.WeeklyDiamonds, Config.WeeklyShards))
+						notify(player, string.format("WEEKLY QUEST DONE: %s  +%d Shards!", text, Config.WeeklyShards))
 					else
 						data.Shards += Config.DailyShards
 						notify(player, "Daily quest done: " .. text .. "  +" .. Config.DailyShards .. " Shards!")
@@ -908,7 +906,7 @@ local function lockDuration(session: Session): number
 	return if session.Owns.LongerLock then duration * 2 else duration
 end
 
--- Infinite Laser Door (gamepass or Diamonds): the lasers never turn off.
+-- Infinite Laser Door (gamepass or Shards): the lasers never turn off.
 local function hasInfiniteLock(session: Session): boolean
 	return session.Owns.InfiniteLock == true or session.Data.InfiniteLock
 end
@@ -1307,7 +1305,6 @@ local function giveAbuseGift(player: Player, session: Session)
 	end
 	data.AbuseGiftWeek = week
 	local gift = Config.AdminAbuseGift
-	data.Diamonds += gift.Diamonds
 	data.Shards += gift.Shards
 	local brainrot = Config.RollConveyor(rng, gift.BrainrotLuck, false)
 	local mutation = Config.RollMutation(rng, gift.BrainrotLuck, nightBoost())
@@ -1319,7 +1316,7 @@ local function giveAbuseGift(player: Player, session: Session)
 		table.insert(data.Unclaimed, Config.Encode(brainrot.Id, mutation))
 		notify(player, "Your gift brainrot will appear as soon as you have a free slot!")
 	end
-	Announce:FireClient(player, "abusegift", "", brainrot.Id, string.format("%d,%d", gift.Diamonds, gift.Shards), mutation)
+	Announce:FireClient(player, "abusegift", "", brainrot.Id, tostring(gift.Shards), mutation)
 	push(player)
 	task.spawn(save, player)
 end
@@ -1645,19 +1642,19 @@ SetFollowers.OnServerEvent:Connect(function(player: Player, indexes: unknown)
 	push(player)
 end)
 
--- Diamond Shop counter. You have to be at the booth, like a real shop.
-DiamondPurchase.OnServerEvent:Connect(function(player: Player, itemId: unknown)
+-- Shard Shop counter. You have to be at the booth, like a real shop.
+ShardPurchase.OnServerEvent:Connect(function(player: Player, itemId: unknown)
 	local session = sessions[player]
 	local hrp = getRoot(player)
 	if not session or not session.Loaded or not hrp or type(itemId) ~= "string" then
 		return
 	end
 	if (hrp.Position - world.ShopPosition).Magnitude > 35 then
-		notify(player, "Go to the Diamond Shop to buy that!")
+		notify(player, "Go to the Shard Shop to buy that!")
 		return
 	end
-	local item: Config.DiamondItem? = nil
-	for _, candidate in Config.DiamondShop do
+	local item: Config.ShardItem? = nil
+	for _, candidate in Config.ShardShop do
 		if candidate.Id == itemId then
 			item = candidate
 		end
@@ -1666,19 +1663,17 @@ DiamondPurchase.OnServerEvent:Connect(function(player: Player, itemId: unknown)
 		return
 	end
 	local data = session.Data
-	if data.Diamonds < item.Cost then
-		notify(player, string.format("You need %d Diamonds. Earn them from weekly quests and admin abuse!", item.Cost))
+	if data.Shards < item.Cost then
+		notify(player, string.format("You need %d Shards. Earn them from quests and admin abuse!", item.Cost))
 		return
 	end
-	data.Diamonds -= item.Cost
-	if item.Id == "ShardPack" then
-		data.Shards += Config.ShardPackAmount
-	elseif item.Id == "CashBoost" then
+	data.Shards -= item.Cost
+	if item.Id == "CashBoost" then
 		data.CashBoostUntil = math.max(os.time(), data.CashBoostUntil) + Config.CashBoostSeconds
 	elseif item.Id == "InfiniteLock" then
 		-- (refunded below if they already have it)
 		if hasInfiniteLock(session) then
-			data.Diamonds += item.Cost
+			data.Shards += item.Cost
 			notify(player, "You already have the Infinite Laser Door!")
 			push(player)
 			return
@@ -1729,11 +1724,12 @@ local function sanitizeCodes(raw: any): { [string]: Config.Code }
 			local function amount(v: any): number?
 				return if type(v) == "number" and v > 0 then v else nil
 			end
+			-- (Codes made before Diamonds were removed give Shards instead.)
+			local shards = (amount(info.Shards) or 0) + (amount(info.Diamonds) or 0) * Config.ShardsPerOldDiamond
 			out[key] = {
 				Code = key,
 				Cash = amount(info.Cash),
-				Shards = amount(info.Shards),
-				Diamonds = amount(info.Diamonds),
+				Shards = if shards > 0 then shards else nil,
 				Expires = amount(info.Expires),
 			}
 		end
@@ -1799,9 +1795,6 @@ local function rewardText(code: Config.Code): string
 	if code.Shards then
 		table.insert(got, code.Shards .. " Shards")
 	end
-	if code.Diamonds then
-		table.insert(got, code.Diamonds .. " Diamond" .. (if code.Diamonds == 1 then "" else "s"))
-	end
 	return table.concat(got, " + ")
 end
 
@@ -1851,12 +1844,11 @@ RedeemCode.OnServerInvoke = function(player: Player, typed: unknown): (boolean, 
 	table.insert(data.Codes, wanted)
 	data.Cash += code.Cash or 0
 	data.Shards += code.Shards or 0
-	data.Diamonds += code.Diamonds or 0
 	push(player)
 	return true, "Code redeemed! You got " .. rewardText(code) .. "!"
 end
 
--- Wall skins: buy with Shards/Diamonds, or equip one you own.
+-- Wall skins: buy with Shards, or equip one you own.
 SkinAction.OnServerEvent:Connect(function(player: Player, action: unknown, skinId: unknown)
 	local session = sessions[player]
 	local skin = if type(skinId) == "string" then Config.GetWallSkin(skinId) else nil
@@ -1879,16 +1871,11 @@ SkinAction.OnServerEvent:Connect(function(player: Player, action: unknown, skinI
 			notify(player, string.format("Unlock %s first!", needed.Name))
 			return
 		end
-		local balance = if skin.Currency == "Diamonds" then data.Diamonds else data.Shards
-		if balance < skin.Cost then
-			notify(player, string.format("You need %d %s for %s.", skin.Cost, skin.Currency, skin.Name))
+		if data.Shards < skin.Cost then
+			notify(player, string.format("You need %d Shards for %s.", skin.Cost, skin.Name))
 			return
 		end
-		if skin.Currency == "Diamonds" then
-			data.Diamonds -= skin.Cost
-		else
-			data.Shards -= skin.Cost
-		end
+		data.Shards -= skin.Cost
 		table.insert(data.Skins, skin.Id)
 		notify(player, "Unlocked " .. skin.Name .. "!")
 	elseif not table.find(data.Skins, skin.Id) then
@@ -1917,7 +1904,7 @@ RequestUpgrade.OnServerEvent:Connect(function(player: Player, kind: unknown)
 end)
 
 -- Event statue ---------------------------------------------------------------
--- A big spinning statue of the current event brainrot next to the Diamond
+-- A big spinning statue of the current event brainrot next to the Shard
 -- Shop. Tapping it buys it (same safe reserve-then-prompt flow as the shop).
 
 do
@@ -3777,11 +3764,10 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 					Code = key,
 					Cash = amount(info.Cash, limits.Cash),
 					Shards = amount(info.Shards, limits.Shards),
-					Diamonds = amount(info.Diamonds, limits.Diamonds),
 					Expires = if hours > 0 then os.time() + math.floor(hours * 3600) else nil,
 				}
-				if not code.Cash and not code.Shards and not code.Diamonds then
-					notify(admin, "Give the code a reward: Cash, Shards or Diamonds.")
+				if not code.Cash and not code.Shards then
+					notify(admin, "Give the code a reward: Cash or Shards.")
 					return
 				end
 				saved = changeLiveCodes(function(codes)
@@ -4042,7 +4028,7 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				end
 			elseif action == "InfiniteLock" then
 				-- Gives (or takes away) the Infinite Laser Door, the same as the
-				-- one sold for Diamonds. The gamepass can't be taken away here.
+				-- one sold for Shards. The gamepass can't be taken away here.
 				local on = value == true
 				data.InfiniteLock = on
 				if plot then
@@ -4086,14 +4072,10 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				else
 					notify(admin, player.DisplayName .. " doesn't own the event brainrot (or it's already Magic).")
 				end
-			elseif action == "Shards" or action == "Diamonds" then
+			elseif action == "Shards" then
 				local amount = math.floor(parseAmount(value) or 0)
-				if action == "Shards" then
-					data.Shards = math.max(0, data.Shards + amount)
-				else
-					data.Diamonds = math.max(0, data.Diamonds + amount)
-				end
-				notify(admin, string.format("%s: %d Shards, %d Diamonds", player.DisplayName, data.Shards, data.Diamonds))
+				data.Shards = math.max(0, data.Shards + amount)
+				notify(admin, string.format("%s: %d Shards", player.DisplayName, data.Shards))
 			elseif action == "Rebirths" then
 				data.Rebirths = math.max(0, math.floor(parseAmount(value) or 0))
 				if plot then

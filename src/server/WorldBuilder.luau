@@ -144,7 +144,7 @@ export type WallStyle = {
 	Moon: boolean?, -- Ace's own skin: a crescent moon over the base
 	TopSign: string?, -- role skins: a glowing sign floating over the base
 	Clover: boolean?, -- Ace's own skin: four-leaf clovers on the pillars
-	Pattern: string?, -- "Checker", "Stripes", "Dots", "Diamonds" or "Smileys" on floors and wall bands
+	Pattern: string?, -- "Checker", "Stripes", "Dots", "Argyle" or "Smileys" on floors and wall bands
 	PatternColor: Color3?,
 	PatternRainbow: boolean?, -- every stripe/tile its own color
 }
@@ -342,7 +342,7 @@ local function addPattern(part: BasePart, face: Enum.NormalId, pattern: string, 
 				tile(x, y, 1 / cols, 1 / rows, tint(r + c))
 			elseif pattern == "Dots" then
 				tile(x, y, 0.5 / cols, 0.5 / rows, tint(r * 3 + c), true)
-			elseif pattern == "Diamonds" and (r + c) % 2 == 0 then
+			elseif pattern == "Argyle" and (r + c) % 2 == 0 then
 				tile(x, y, 0.6 / cols, 0.6 / rows, tint(r + c), false, 45)
 			elseif pattern == "Smileys" and (r + c) % 2 == 0 then
 				smiley(x, y, 0.7 / cols, 0.7 / rows)
@@ -1228,7 +1228,7 @@ local function buildBarrier(parent: Instance)
 end
 
 -- The shop tent: a round, striped circus-style tent (like Bee Swarm's) by
--- the cave the brainrots come out of. Inside: a Diamond counter (left) and
+-- the cave the brainrots come out of. Inside: a Shard counter (left) and
 -- a Robux counter (right). The entrance faces the conveyor (-Z).
 -- A little market stall where players sell brainrots from a menu.
 local function buildSellStand(parent: Instance, center: Vector3)
@@ -1330,21 +1330,21 @@ local function buildShop(parent: Instance, center: Vector3)
 	local flag = block(shop, "Flag", Vector3.new(0.15, 2, 3.2), at(0, apex + 3, 1.7), blue, Enum.Material.Fabric)
 	flag.CanCollide = false
 
-	-- Small spinning diamond floating over the tent (spun by Effects.client)
+	-- A big shard crystal spinning over the tent (spun by Effects.client)
 	local cyan = Color3.fromRGB(80, 220, 255)
-	local diamond = block(shop, "BigDiamond", Vector3.new(3, 3, 3), at(0, apex + 8, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)), cyan, Enum.Material.Neon)
-	diamond.CanCollide = false
-	diamond:SetAttribute("SpinCenter", diamond.CFrame)
-	CollectionService:AddTag(diamond, "Spinner")
+	local crystal = block(shop, "BigShard", Vector3.new(2, 4.5, 2), at(0, apex + 8, 0) * CFrame.Angles(0, math.rad(45), 0), cyan, Enum.Material.Neon)
+	crystal.CanCollide = false
+	crystal:SetAttribute("SpinCenter", crystal.CFrame)
+	CollectionService:AddTag(crystal, "Spinner")
 	local glow = Instance.new("PointLight")
 	glow.Color = cyan
 	glow.Range = 20
 	glow.Brightness = 1
-	glow.Parent = diamond
+	glow.Parent = crystal
 
 	-- Two counters inside, each with a prompt and a sign
 	local counters = {
-		{ X = -4.5, Color = cyan, Action = "DiamondShop", Text = "Diamond Shop", Sign = "DIAMONDS" },
+		{ X = -4.5, Color = cyan, Action = "ShardShop", Text = "Shard Shop", Sign = "SHARDS" },
 		{ X = 4.5, Color = Color3.fromRGB(70, 220, 100), Action = "RobuxShop", Text = "Robux Shop", Sign = "ROBUX & EVENT" },
 	}
 	for _, info in counters do
@@ -1471,7 +1471,7 @@ function WorldBuilder.Build(): World
 	spawn.Name = "LobbySpawn"
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(12, 1, 12)
-	-- Beside the middle of the conveyor, right in front of the Diamond Shop.
+	-- Beside the middle of the conveyor, right in front of the Shard Shop.
 	-- The shop tent sits by the cave the brainrots come out of, with the event
 	-- statue right beside it, keeping the middle clear.
 	local shopPosition = Vector3.new(startX + 50, 0, 45)

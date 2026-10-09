@@ -133,7 +133,7 @@ Config.Mutations = {
 	-- Keep this list ordered from most to least common (the roll relies on it).
 	{ Id = "Gold", DisplayName = "Gold", Chance = 4, Multiplier = 2, Color = Color3.fromRGB(255, 200, 50) },
 	{ Id = "Candy", DisplayName = "Candy", Chance = 2.5, Multiplier = 2.5, Color = Color3.fromRGB(255, 160, 210) },
-	{ Id = "Diamond", DisplayName = "Diamond", Chance = 2, Multiplier = 3, Color = Color3.fromRGB(140, 230, 255) },
+	{ Id = "Diamond", DisplayName = "Crystal", Chance = 2, Multiplier = 3, Color = Color3.fromRGB(140, 230, 255) },
 	{ Id = "Frozen", DisplayName = "Frozen", Chance = 2, Multiplier = 3, Color = Color3.fromRGB(170, 225, 255) },
 	{ Id = "Sparkle", DisplayName = "Sparkle", Chance = 1.5, Multiplier = 4, Color = Color3.fromRGB(255, 250, 170) },
 	{ Id = "Electric", DisplayName = "Electric", Chance = 1.2, Multiplier = 4.5, Color = Color3.fromRGB(255, 230, 70) },
@@ -190,7 +190,7 @@ Config.WallLevels = {
 	{ Name = "Brick Wall", Height = 5.5, Cost = 25000, Material = Enum.Material.Brick },
 	{ Name = "Concrete Wall", Height = 9, Cost = 1000000, Material = Enum.Material.Concrete },
 	{ Name = "Steel Wall", Height = 13, Cost = 40000000, Material = Enum.Material.DiamondPlate },
-	{ Name = "Diamond Wall", Height = 18, Cost = 1500000000, Material = Enum.Material.Foil },
+	{ Name = "Platinum Wall", Height = 18, Cost = 1500000000, Material = Enum.Material.Foil },
 } :: { WallLevel }
 
 -- One floor per base level, so this list must be as long as WallLevels.
@@ -207,19 +207,16 @@ assert(#Config.Stories == #Config.WallLevels, "Config: need one floor per wall l
 Config.UpperFloorSlots = 10
 
 -- Wall skins -----------------------------------------------------------------
--- Cosmetic looks for your base walls, bought with quest currencies:
---   Shards   - 10 per daily quest, 100 per weekly quest (up to 510 a week)
---   Diamonds - 1 per weekly quest (plus 100 Shards), max 3 a week; for the best skins
--- They can't be bought with Robux, so everyone earns skins the same way.
+-- Cosmetic looks for your base walls, bought with Shards (10 per daily
+-- quest, 150 per weekly quest, 300 from the weekly admin abuse gift: about
+-- 960 a week at most). They can't be bought with Robux, so everyone earns
+-- skins the same way.
 -- A skin keeps your base level's wall height; it just changes the look.
-
-export type Currency = "Shards" | "Diamonds"
 
 export type WallSkin = {
 	Id: string,
 	Name: string,
-	Cost: number,
-	Currency: Currency,
+	Cost: number, -- in Shards
 	Color: Color3?,
 	Material: Enum.Material?, -- nil = the base level's own material
 	Glass: Color3?, -- window tint
@@ -237,46 +234,45 @@ export type WallSkin = {
 	RoleOnly: string?, -- "Tester" or "Mod": only players with that role can have it (free)
 	TopSign: string?, -- a glowing sign floating over the base (in the Trim color)
 	Clover: boolean?, -- four-leaf clovers on the walls (Ace's skin)
-	Pattern: string?, -- "Checker", "Stripes", "Dots", "Diamonds" or "Smileys" on the floors and wall bands
+	Pattern: string?, -- "Checker", "Stripes", "Dots", "Argyle" or "Smileys" on the floors and wall bands
 	PatternColor: Color3?,
 	PatternRainbow: boolean?, -- every stripe/tile its own color
 }
 
 Config.WallSkins = {
-	{ Id = "Classic", Name = "Classic Grey", Cost = 0, Currency = "Shards" },
+	{ Id = "Classic", Name = "Classic Grey", Cost = 0 },
 	-- Early: cheap and cheerful
-	{ Id = "Picnic", Name = "Picnic Checker", Cost = 80, Currency = "Shards", Color = Color3.fromRGB(250, 248, 240), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 220, 220), Trim = Color3.fromRGB(220, 50, 50), FloorColor = Color3.fromRGB(255, 255, 255), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Checker", PatternColor = Color3.fromRGB(220, 50, 50) },
-	{ Id = "RedBrick", Name = "Red Brick", Cost = 250, Currency = "Shards", Color = Color3.fromRGB(165, 65, 50), Material = Enum.Material.Brick, FloorColor = Color3.fromRGB(150, 105, 75), FloorMaterial = Enum.Material.WoodPlanks },
-	{ Id = "BubblegumDots", Name = "Bubblegum Dots", Cost = 400, Currency = "Shards", Color = Color3.fromRGB(255, 120, 190), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 210, 240), FloorColor = Color3.fromRGB(255, 200, 230), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Dots", PatternColor = Color3.fromRGB(120, 200, 255) },
-	{ Id = "Candy", Name = "Candy Pink", Cost = 600, Currency = "Shards", Color = Color3.fromRGB(255, 160, 205), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 225, 245), FloorColor = Color3.fromRGB(255, 225, 238), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Dots", PatternColor = Color3.fromRGB(255, 255, 255) },
-	{ Id = "SmileySunshine", Name = "Smiley Sunshine", Cost = 900, Currency = "Shards", Color = Color3.fromRGB(110, 200, 255), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 240, 150), Trim = Color3.fromRGB(255, 215, 50), FloorColor = Color3.fromRGB(150, 220, 255), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Smileys" },
-	{ Id = "Ice", Name = "Frozen Ice", Cost = 1200, Currency = "Shards", Color = Color3.fromRGB(175, 220, 255), Material = Enum.Material.Ice, Glass = Color3.fromRGB(225, 245, 255), FloorColor = Color3.fromRGB(215, 238, 255), FloorMaterial = Enum.Material.Ice },
-	{ Id = "Jungle", Name = "Jungle Stone", Cost = 2000, Currency = "Shards", Color = Color3.fromRGB(85, 120, 70), Material = Enum.Material.Slate, Glass = Color3.fromRGB(150, 220, 120), FloorColor = Color3.fromRGB(100, 85, 60), FloorMaterial = Enum.Material.Ground, Pattern = "Stripes", PatternColor = Color3.fromRGB(70, 110, 50) },
-	{ Id = "Cyber", Name = "Cyber Neon", Cost = 3500, Currency = "Shards", Color = Color3.fromRGB(30, 30, 40), Material = Enum.Material.Metal, Glass = Color3.fromRGB(0, 255, 200), GlassNeon = true, FloorColor = Color3.fromRGB(35, 35, 45), FloorMaterial = Enum.Material.DiamondPlate, Pattern = "Checker", PatternColor = Color3.fromRGB(0, 160, 140) },
-	-- Late: the Shard flex
-	{ Id = "RoyalDiamonds", Name = "Royal Diamonds", Cost = 6000, Currency = "Shards", Color = Color3.fromRGB(90, 40, 140), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 215, 120), GlassNeon = true, Trim = Color3.fromRGB(255, 200, 60), FloorColor = Color3.fromRGB(70, 30, 110), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Diamonds", PatternColor = Color3.fromRGB(255, 200, 60) },
-	-- Diamonds, early
-	{ Id = "MintStripes", Name = "Mint Stripes", Cost = 6, Currency = "Diamonds", Color = Color3.fromRGB(170, 240, 210), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(220, 255, 240), FloorColor = Color3.fromRGB(230, 255, 245), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Stripes", PatternColor = Color3.fromRGB(90, 200, 160) },
-	{ Id = "Gold", Name = "Royal Gold", Cost = 12, Currency = "Diamonds", Color = Color3.fromRGB(255, 200, 60), Material = Enum.Material.Foil, Glass = Color3.fromRGB(255, 240, 180) },
-	{ Id = "Galaxy", Name = "Galaxy", Cost = 25, Currency = "Diamonds", Color = Color3.fromRGB(45, 25, 85), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(200, 120, 255), GlassNeon = true, FloorColor = Color3.fromRGB(25, 15, 50), FloorMaterial = Enum.Material.Glass, Pattern = "Dots", PatternColor = Color3.fromRGB(230, 220, 255) },
-	{ Id = "Crystal", Name = "Crystal Palace", Cost = 45, Currency = "Diamonds", Color = Color3.fromRGB(150, 225, 255), Material = Enum.Material.Glass, Glass = Color3.fromRGB(220, 250, 255), GlassNeon = true, FloorColor = Color3.fromRGB(200, 240, 255), FloorMaterial = Enum.Material.Glass },
-	{ Id = "Lava", Name = "Lava Core", Cost = 75, Currency = "Diamonds", Color = Color3.fromRGB(55, 25, 20), Material = Enum.Material.CrackedLava, Glass = Color3.fromRGB(255, 120, 30), GlassNeon = true, FloorColor = Color3.fromRGB(45, 22, 18), FloorMaterial = Enum.Material.Slate },
-	{ Id = "Celestial", Name = "Celestial", Cost = 120, Currency = "Diamonds", Color = Color3.fromRGB(245, 240, 228), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 210, 90), GlassNeon = true, FloorColor = Color3.fromRGB(250, 246, 236), FloorMaterial = Enum.Material.Marble, Pattern = "Diamonds", PatternColor = Color3.fromRGB(255, 210, 90) },
-	-- Diamonds, late: the long-term goals
-	{ Id = "RainbowRoyale", Name = "Rainbow Royale", Cost = 200, Currency = "Diamonds", Color = Color3.fromRGB(250, 250, 255), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 180, 255), GlassNeon = true, Trim = Color3.fromRGB(255, 120, 255), FloorColor = Color3.fromRGB(255, 255, 255), FloorMaterial = Enum.Material.Marble, Pattern = "Stripes", PatternRainbow = true },
-	{ Id = "VoidEmperor", Name = "Void Emperor", Cost = 350, Currency = "Diamonds", Color = Color3.fromRGB(18, 10, 30), Material = Enum.Material.Slate, Glass = Color3.fromRGB(170, 80, 255), GlassNeon = true, Trim = Color3.fromRGB(150, 60, 255), FloorColor = Color3.fromRGB(25, 15, 40), FloorMaterial = Enum.Material.Slate, Pattern = "Diamonds", PatternColor = Color3.fromRGB(150, 60, 255) },
+	{ Id = "Picnic", Name = "Picnic Checker", Cost = 80, Color = Color3.fromRGB(250, 248, 240), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 220, 220), Trim = Color3.fromRGB(220, 50, 50), FloorColor = Color3.fromRGB(255, 255, 255), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Checker", PatternColor = Color3.fromRGB(220, 50, 50) },
+	{ Id = "RedBrick", Name = "Red Brick", Cost = 250, Color = Color3.fromRGB(165, 65, 50), Material = Enum.Material.Brick, FloorColor = Color3.fromRGB(150, 105, 75), FloorMaterial = Enum.Material.WoodPlanks },
+	{ Id = "MintStripes", Name = "Mint Stripes", Cost = 400, Color = Color3.fromRGB(170, 240, 210), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(220, 255, 240), FloorColor = Color3.fromRGB(230, 255, 245), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Stripes", PatternColor = Color3.fromRGB(90, 200, 160) },
+	{ Id = "BubblegumDots", Name = "Bubblegum Dots", Cost = 550, Color = Color3.fromRGB(255, 120, 190), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 210, 240), FloorColor = Color3.fromRGB(255, 200, 230), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Dots", PatternColor = Color3.fromRGB(120, 200, 255) },
+	{ Id = "Candy", Name = "Candy Pink", Cost = 700, Color = Color3.fromRGB(255, 160, 205), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 225, 245), FloorColor = Color3.fromRGB(255, 225, 238), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Dots", PatternColor = Color3.fromRGB(255, 255, 255) },
+	{ Id = "SmileySunshine", Name = "Smiley Sunshine", Cost = 900, Color = Color3.fromRGB(110, 200, 255), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 240, 150), Trim = Color3.fromRGB(255, 215, 50), FloorColor = Color3.fromRGB(150, 220, 255), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Smileys" },
+	{ Id = "Ice", Name = "Frozen Ice", Cost = 1200, Color = Color3.fromRGB(175, 220, 255), Material = Enum.Material.Ice, Glass = Color3.fromRGB(225, 245, 255), FloorColor = Color3.fromRGB(215, 238, 255), FloorMaterial = Enum.Material.Ice },
+	{ Id = "Gold", Name = "Royal Gold", Cost = 1500, Color = Color3.fromRGB(255, 200, 60), Material = Enum.Material.Foil, Glass = Color3.fromRGB(255, 240, 180) },
+	{ Id = "Jungle", Name = "Jungle Stone", Cost = 1900, Color = Color3.fromRGB(85, 120, 70), Material = Enum.Material.Slate, Glass = Color3.fromRGB(150, 220, 120), FloorColor = Color3.fromRGB(100, 85, 60), FloorMaterial = Enum.Material.Ground, Pattern = "Stripes", PatternColor = Color3.fromRGB(70, 110, 50) },
+	-- Mid: a few weeks of quests
+	{ Id = "Galaxy", Name = "Galaxy", Cost = 2400, Color = Color3.fromRGB(45, 25, 85), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(200, 120, 255), GlassNeon = true, FloorColor = Color3.fromRGB(25, 15, 50), FloorMaterial = Enum.Material.Glass, Pattern = "Dots", PatternColor = Color3.fromRGB(230, 220, 255) },
+	{ Id = "Cyber", Name = "Cyber Neon", Cost = 3000, Color = Color3.fromRGB(30, 30, 40), Material = Enum.Material.Metal, Glass = Color3.fromRGB(0, 255, 200), GlassNeon = true, FloorColor = Color3.fromRGB(35, 35, 45), FloorMaterial = Enum.Material.DiamondPlate, Pattern = "Checker", PatternColor = Color3.fromRGB(0, 160, 140) },
+	{ Id = "Crystal", Name = "Crystal Palace", Cost = 3700, Color = Color3.fromRGB(150, 225, 255), Material = Enum.Material.Glass, Glass = Color3.fromRGB(220, 250, 255), GlassNeon = true, FloorColor = Color3.fromRGB(200, 240, 255), FloorMaterial = Enum.Material.Glass },
+	{ Id = "RoyalDiamonds", Name = "Royal Argyle", Cost = 4500, Color = Color3.fromRGB(90, 40, 140), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 215, 120), GlassNeon = true, Trim = Color3.fromRGB(255, 200, 60), FloorColor = Color3.fromRGB(70, 30, 110), FloorMaterial = Enum.Material.SmoothPlastic, Pattern = "Argyle", PatternColor = Color3.fromRGB(255, 200, 60) },
+	-- Late: the long-term goals
+	{ Id = "Lava", Name = "Lava Core", Cost = 5500, Color = Color3.fromRGB(55, 25, 20), Material = Enum.Material.CrackedLava, Glass = Color3.fromRGB(255, 120, 30), GlassNeon = true, FloorColor = Color3.fromRGB(45, 22, 18), FloorMaterial = Enum.Material.Slate },
+	{ Id = "Celestial", Name = "Celestial", Cost = 7000, Color = Color3.fromRGB(245, 240, 228), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 210, 90), GlassNeon = true, FloorColor = Color3.fromRGB(250, 246, 236), FloorMaterial = Enum.Material.Marble, Pattern = "Argyle", PatternColor = Color3.fromRGB(255, 210, 90) },
+	{ Id = "RainbowRoyale", Name = "Rainbow Royale", Cost = 9000, Color = Color3.fromRGB(250, 250, 255), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 180, 255), GlassNeon = true, Trim = Color3.fromRGB(255, 120, 255), FloorColor = Color3.fromRGB(255, 255, 255), FloorMaterial = Enum.Material.Marble, Pattern = "Stripes", PatternRainbow = true },
+	{ Id = "VoidEmperor", Name = "Void Emperor", Cost = 12000, Color = Color3.fromRGB(18, 10, 30), Material = Enum.Material.Slate, Glass = Color3.fromRGB(170, 80, 255), GlassNeon = true, Trim = Color3.fromRGB(150, 60, 255), FloorColor = Color3.fromRGB(25, 15, 40), FloorMaterial = Enum.Material.Slate, Pattern = "Argyle", PatternColor = Color3.fromRGB(150, 60, 255) },
 	-- Role skins: free for testers (Config.TesterUserIds) and for mods (admins).
-	{ Id = "Tester", Name = "Beta Tester (testers only)", Cost = 0, Currency = "Diamonds", RoleOnly = "Tester", TopSign = "🧪 BETA TESTER", Trim = Color3.fromRGB(0, 230, 255), Color = Color3.fromRGB(235, 245, 250), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(120, 240, 255), GlassNeon = true, FloorColor = Color3.fromRGB(205, 220, 230), FloorMaterial = Enum.Material.DiamondPlate },
-	{ Id = "Mod", Name = "Moderator (mods only)", Cost = 0, Currency = "Diamonds", RoleOnly = "Mod", TopSign = "🛡️ MODERATOR", Trim = Color3.fromRGB(255, 45, 60), Color = Color3.fromRGB(28, 28, 34), Material = Enum.Material.Metal, Glass = Color3.fromRGB(255, 70, 80), GlassNeon = true, FloorColor = Color3.fromRGB(40, 40, 48), FloorMaterial = Enum.Material.DiamondPlate },
+	{ Id = "Tester", Name = "Beta Tester (testers only)", Cost = 0, RoleOnly = "Tester", TopSign = "🧪 BETA TESTER", Trim = Color3.fromRGB(0, 230, 255), Color = Color3.fromRGB(235, 245, 250), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(120, 240, 255), GlassNeon = true, FloorColor = Color3.fromRGB(205, 220, 230), FloorMaterial = Enum.Material.DiamondPlate },
+	{ Id = "Mod", Name = "Moderator (mods only)", Cost = 0, RoleOnly = "Mod", TopSign = "🛡️ MODERATOR", Trim = Color3.fromRGB(255, 45, 60), Color = Color3.fromRGB(28, 28, 34), Material = Enum.Material.Metal, Glass = Color3.fromRGB(255, 70, 80), GlassNeon = true, FloorColor = Color3.fromRGB(40, 40, 48), FloorMaterial = Enum.Material.DiamondPlate },
 	-- Ace's own skin, in Cigna Glamourina's pinks, with a crescent moon on top.
-	{ Id = "Ace", Name = "Glamourina Moon (Ace only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Ace", Moon = true, Trim = Color3.fromRGB(255, 30, 170), Color = Color3.fromRGB(240, 110, 200), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 190, 235), GlassNeon = true, FloorColor = Color3.fromRGB(255, 225, 245), FloorMaterial = Enum.Material.SmoothPlastic, Clover = true, Pattern = "Dots", PatternColor = Color3.fromRGB(255, 190, 230) },
+	{ Id = "Ace", Name = "Glamourina Moon (Ace only)", Cost = 0, FounderOnly = "Ace", Moon = true, Trim = Color3.fromRGB(255, 30, 170), Color = Color3.fromRGB(240, 110, 200), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 190, 235), GlassNeon = true, FloorColor = Color3.fromRGB(255, 225, 245), FloorMaterial = Enum.Material.SmoothPlastic, Clover = true, Pattern = "Dots", PatternColor = Color3.fromRGB(255, 190, 230) },
 	-- Corny's own skin, like his logo: navy walls, gold trim, corn everywhere.
-	{ Id = "Corny", Name = "Corny Gold (Corny only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Corny", Corn = true, Trim = Color3.fromRGB(250, 196, 60), Color = Color3.fromRGB(25, 32, 55), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 205, 60), FloorColor = Color3.fromRGB(255, 215, 90), FloorMaterial = Enum.Material.SmoothPlastic },
+	{ Id = "Corny", Name = "Corny Gold (Corny only)", Cost = 0, FounderOnly = "Corny", Corn = true, Trim = Color3.fromRGB(250, 196, 60), Color = Color3.fromRGB(25, 32, 55), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 205, 60), FloorColor = Color3.fromRGB(255, 215, 90), FloorMaterial = Enum.Material.SmoothPlastic },
 } :: { WallSkin }
 
--- Skins are a ladder: to buy one you must own the one before it that costs
--- the same currency (Red Brick -> Candy Pink -> ... and Royal Gold ->
--- Galaxy -> ...). Returns the skin you need first, if any.
+-- Skins are a ladder: to buy one you must own the one before it (Picnic
+-- Checker -> Red Brick -> Mint Stripes -> ...). Returns the skin you need
+-- first, if any.
 -- Skins only some players can have: a founder's own, or a role's (free).
 function Config.IsExclusiveSkin(skin: WallSkin): boolean
 	return skin.FounderOnly ~= nil or skin.RoleOnly ~= nil
@@ -302,7 +298,7 @@ function Config.SkinRequirement(skin: WallSkin): WallSkin?
 		if other.Id == skin.Id then
 			return previous
 		end
-		if other.Currency == skin.Currency and other.Cost > 0 and not Config.IsExclusiveSkin(other) then
+		if other.Cost > 0 and not Config.IsExclusiveSkin(other) then
 			previous = other
 		end
 	end
@@ -324,29 +320,29 @@ function Config.MissingSkinRequirement(skin: WallSkin, owned: { string }?): Wall
 	for _, other in Config.WallSkins do
 		if other.Id == skin.Id then
 			past = true
-		elseif past and other.Currency == skin.Currency and not Config.IsExclusiveSkin(other) and table.find(owned, other.Id) then
+		elseif past and not Config.IsExclusiveSkin(other) and table.find(owned, other.Id) then
 			return nil
 		end
 	end
 	return needed
 end
 
--- Diamond Shop: the counter in the shop tent (like a ticket shop). Diamonds
--- only come from weekly quests (up to 3 a week) and the admin abuse gift
--- (3 a week), so everything here is priced to be saved up for. Shards are
--- easy to earn (~650 a week), so a Shard Pouch is a poor trade on purpose.
-export type DiamondItem = { Id: string, Name: string, Description: string, Cost: number }
+-- Shard Shop: the counter in the shop tent (like a ticket shop). Shards
+-- come from quests and the admin abuse gift (~960 a week at most), so
+-- everything here is priced to be saved up for.
+export type ShardItem = { Id: string, Name: string, Description: string, Cost: number }
 
-Config.DiamondShop = {
-	{ Id = "ShardPack", Name = "Shard Pouch", Description = "Get 400 Shards for skins.", Cost = 2 },
-	{ Id = "CashBoost", Name = "2x Cash (30 min)", Description = "Double your income for 30 minutes. Stacks.", Cost = 3 },
-	{ Id = "ServerLuck", Name = "Server Luck (15 min)", Description = "More Rare+ spawns for EVERYONE. Be a hero.", Cost = 5 },
-	{ Id = "CashBoostBig", Name = "2x Cash (3 hours)", Description = "Double your income for 3 hours. Stacks.", Cost = 12 },
+Config.ShardShop = {
+	{ Id = "CashBoost", Name = "2x Cash (30 min)", Description = "Double your income for 30 minutes. Stacks.", Cost = 150 },
+	{ Id = "ServerLuck", Name = "Server Luck (15 min)", Description = "More Rare+ spawns for EVERYONE. Be a hero.", Cost = 250 },
+	{ Id = "CashBoostBig", Name = "2x Cash (3 hours)", Description = "Double your income for 3 hours. Stacks.", Cost = 600 },
 	-- The same as the Infinite Laser Door gamepass. The most expensive thing
-	-- in the game on purpose: months of weekly quests and admin abuse.
-	{ Id = "InfiniteLock", Name = "Infinite Laser Door", Description = "Your base lasers stay on forever. One-time, permanent.", Cost = 250 },
-} :: { DiamondItem }
-Config.ShardPackAmount = 400
+	-- in the game on purpose: months of quests and admin abuse.
+	{ Id = "InfiniteLock", Name = "Infinite Laser Door", Description = "Your base lasers stay on forever. One-time, permanent.", Cost = 12500 },
+} :: { ShardItem }
+-- Diamonds were removed from the game; old saves and old in-game codes turn
+-- every Diamond into this many Shards.
+Config.ShardsPerOldDiamond = 50
 Config.CashBoostSeconds = 30 * 60
 Config.BigCashBoostSeconds = 3 * 60 * 60
 
@@ -362,8 +358,8 @@ end
 -- Quests -----------------------------------------------------------------------
 -- Everyone gets the same 3 daily and 3 weekly quests (picked from the pools
 -- below). Days reset at midnight in the admin abuse time zone (Oklahoma);
--- weeks reset Monday at midnight. Daily quests pay Shards; weekly quests are
--- much harder and are the only way to earn Diamonds.
+-- weeks reset Monday at midnight. Both pay Shards; weekly quests are much
+-- harder and pay a lot more.
 
 export type QuestDef = {
 	Id: string, -- the stat it counts (see Main.server: addQuestProgress)
@@ -395,8 +391,7 @@ Config.WeeklyQuests = {
 
 Config.QuestsPerPeriod = 3
 Config.DailyShards = 10 -- per daily quest
-Config.WeeklyDiamonds = 1 -- per weekly quest
-Config.WeeklyShards = 100 -- per weekly quest, on top of the Diamond
+Config.WeeklyShards = 150 -- per weekly quest
 
 -- The day and week numbers quests are keyed on (local to the admin abuse
 -- time zone, so "midnight" is Oklahoma midnight).
@@ -444,7 +439,7 @@ Config.CarpetTiers = {
 	{ Name = "Red Carpet", Color = Color3.fromRGB(170, 20, 35), Material = Enum.Material.Fabric },
 	{ Name = "Royal Carpet", Color = Color3.fromRGB(95, 30, 150), Material = Enum.Material.Fabric, Trim = Color3.fromRGB(255, 200, 60) },
 	{ Name = "Golden Carpet", Color = Color3.fromRGB(235, 185, 50), Material = Enum.Material.Fabric, Trim = Color3.fromRGB(255, 255, 255), Glow = Color3.fromRGB(255, 220, 120) },
-	{ Name = "Diamond Carpet", Color = Color3.fromRGB(150, 225, 255), Material = Enum.Material.Glass, Trim = Color3.fromRGB(220, 250, 255), Glow = Color3.fromRGB(90, 220, 255), Sparkle = true },
+	{ Name = "Crystal Carpet", Color = Color3.fromRGB(150, 225, 255), Material = Enum.Material.Glass, Trim = Color3.fromRGB(220, 250, 255), Glow = Color3.fromRGB(90, 220, 255), Sparkle = true },
 	{ Name = "Rainbow Carpet", Color = Color3.fromRGB(255, 255, 255), Material = Enum.Material.Fabric, Trim = Color3.fromRGB(255, 200, 60), Glow = Color3.fromRGB(255, 120, 255), Sparkle = true, Rainbow = true },
 } :: { CarpetTier }
 
@@ -682,11 +677,8 @@ function Config.GetFounder(id: string): Founder?
 end
 -- A gift for every player who's online during admin abuse, at most once a
 -- week (so starting it again the same week doesn't give a second one).
--- Diamonds normally come only from weekly quests (1 a week), so 3 is a big
--- treat that still keeps Diamond Shop items worth working for.
 Config.AdminAbuseGift = {
-	Diamonds = 3,
-	Shards = 150,
+	Shards = 300,
 	BrainrotLuck = 5, -- one free brainrot, rolled with the same luck as Brainrot Rain
 }
 
@@ -792,15 +784,15 @@ Config.Products = {
 -- Codes typed into the box at the bottom of the shop. Each works once per
 -- player. Add new ones here (letters are matched without caring about caps);
 -- Expires is optional (unix time, e.g. from https://www.epochconverter.com).
-export type Code = { Code: string, Shards: number?, Diamonds: number?, Cash: number?, Expires: number? }
+export type Code = { Code: string, Shards: number?, Cash: number?, Expires: number? }
 -- Corny can also make codes in-game (admin panel > FOUNDER > CODES); those
 -- are saved for every server. Only this founder can make or delete them.
 Config.CodeMaker = "Corny"
--- Most a code made in-game can give (keeps Diamonds rare).
-Config.CodeLimits = { Cash = 1e15, Shards = 5000, Diamonds = 50 }
+-- Most a code made in-game can give (keeps Shards worth earning).
+Config.CodeLimits = { Cash = 1e15, Shards = 5000 }
 
 Config.Codes = {
-	{ Code = "RELEASE", Shards = 100, Diamonds = 1 },
+	{ Code = "RELEASE", Shards = 150 },
 	{ Code = "CORNY", Cash = 5000 },
 } :: { Code }
 
