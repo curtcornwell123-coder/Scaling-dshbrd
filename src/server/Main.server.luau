@@ -2103,6 +2103,124 @@ local function onSlap(player: Player, tool: Tool)
 	end
 end
 
+-- Corny's hammer --------------------------------------------------------------
+-- Only Config.HammerOwner (Corny) gets it. A swing flings everyone in front
+-- of him, spinning, with a shockwave. It doesn't ban or hurt anyone.
+
+local lastHammer: { [Player]: number } = {}
+Players.PlayerRemoving:Connect(function(player)
+	lastHammer[player] = nil
+end)
+
+local function hammerShockwave(position: Vector3)
+	local ring = Instance.new("Part")
+	ring.Name = "HammerShockwave"
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.CanTouch = false
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Material = Enum.Material.Neon
+	ring.Color = Color3.fromRGB(255, 60, 60)
+	ring.Size = Vector3.new(0.3, 2, 2)
+	ring.CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Transparency = 0.2
+	ring.Parent = workspace
+	TweenService:Create(ring, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.3, 26, 26), Transparency = 1 }):Play()
+	Debris:AddItem(ring, 0.6)
+end
+
+local function onHammer(player: Player, tool: Tool)
+	local founder = founderOf(player)
+	local hrp = getRoot(player)
+	if not founder or founder.Id ~= Config.HammerOwner or not hrp then
+		return
+	end
+	local now = os.clock()
+	if now - (lastHammer[player] or 0) < Config.HammerCooldown then
+		return
+	end
+	lastHammer[player] = now
+
+	local anim = Instance.new("StringValue")
+	anim.Name = "toolanim"
+	anim.Value = "Slash"
+	anim.Parent = tool
+	hammerShockwave(hrp.Position + hrp.CFrame.LookVector * 5 - Vector3.new(0, 2.5, 0))
+
+	for _, other in Players:GetPlayers() do
+		local otherRoot = if other ~= player then getRoot(other) else nil
+		if otherRoot then
+			local offset = otherRoot.Position - hrp.Position
+			local flat = Vector3.new(offset.X, 0, offset.Z)
+			if offset.Magnitude <= Config.HammerRange and flat.Magnitude > 0.01 and hrp.CFrame.LookVector:Dot(flat.Unit) > 0 then
+				-- Drop what they're carrying first (it runs home), then fling.
+				local carry = carries[other]
+				if carry then
+					returnCarry(carry, player.DisplayName .. "'s hammer sent you flying!")
+				end
+				local fling = Instance.new("BodyVelocity")
+				fling.MaxForce = Vector3.one * 1e6
+				fling.Velocity = flat.Unit * Config.HammerForce + Vector3.new(0, Config.HammerLift, 0)
+				fling.Parent = otherRoot
+				Debris:AddItem(fling, 0.25)
+				local spin = Instance.new("BodyAngularVelocity")
+				spin.MaxTorque = Vector3.one * 1e6
+				spin.AngularVelocity = Vector3.new(rng:NextNumber(-20, 20), rng:NextNumber(-20, 20), rng:NextNumber(-20, 20))
+				spin.Parent = otherRoot
+				Debris:AddItem(spin, 0.6)
+			end
+		end
+	end
+end
+
+local function giveHammer(player: Player)
+	local founder = founderOf(player)
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if not founder or founder.Id ~= Config.HammerOwner or not backpack or backpack:FindFirstChild("Ban Hammer") then
+		return
+	end
+	local tool = Instance.new("Tool")
+	tool.Name = "Ban Hammer"
+	tool.ToolTip = "Fling anyone in front of you (no ban, just fun)"
+	tool.CanBeDropped = false
+	tool.GripPos = Vector3.new(0, -1.3, 0)
+	-- The stick is the handle; the head is welded on top.
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Size = Vector3.new(0.45, 4.2, 0.45)
+	handle.Color = Color3.fromRGB(70, 45, 30)
+	handle.Material = Enum.Material.Wood
+	handle.CanCollide = false
+	handle.Massless = true
+	handle.Parent = tool
+	local function piece(name: string, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.CFrame = handle.CFrame * offset
+		p.Color = color
+		p.Material = material
+		p.CanCollide = false
+		p.Massless = true
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = handle
+		weld.Part1 = p
+		weld.Parent = p
+		p.Parent = tool
+	end
+	piece("Head", Vector3.new(2.8, 1.5, 1.5), CFrame.new(0, 2.3, 0), Color3.fromRGB(35, 35, 40), Enum.Material.Metal)
+	piece("Band", Vector3.new(0.4, 1.6, 1.6), CFrame.new(0, 2.3, 0), Color3.fromRGB(255, 50, 50), Enum.Material.Neon)
+	for _, side in { -1, 1 } do
+		piece("Face", Vector3.new(0.2, 1.3, 1.3), CFrame.new(side * 1.45, 2.3, 0), Color3.fromRGB(255, 200, 60), Enum.Material.Foil)
+	end
+	piece("Grip", Vector3.new(0.55, 1.2, 0.55), CFrame.new(0, -1.3, 0), Color3.fromRGB(200, 30, 30), Enum.Material.Fabric)
+	tool.Activated:Connect(function()
+		onHammer(player, tool)
+	end)
+	tool.Parent = backpack
+end
+
 local function giveSlap(player: Player)
 	local backpack = player:FindFirstChildOfClass("Backpack")
 	if not backpack or backpack:FindFirstChild("Slap") then
@@ -2169,6 +2287,7 @@ local function onCharacter(player: Player, character: Model)
 		character:PivotTo(plot.Parts.SpawnCFrame)
 	end
 	giveSlap(player)
+	giveHammer(player)
 	updateVipTag(player)
 	applyMovement(player)
 end

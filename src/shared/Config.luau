@@ -421,6 +421,12 @@ Config.StealRange = 14
 Config.SlapCooldown = 0.8
 Config.SlapRange = 8
 Config.SlapForce = 70
+-- Corny's hammer (only that founder gets it): flings whoever it hits.
+Config.HammerOwner = "Corny"
+Config.HammerRange = 11
+Config.HammerCooldown = 1
+Config.HammerForce = 150 -- sideways
+Config.HammerLift = 110 -- upward
 
 -- Rebirth ------------------------------------------------------------------
 
