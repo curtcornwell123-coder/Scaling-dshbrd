@@ -1381,8 +1381,8 @@ local function updateUpgradeLabel(plot: Plot)
 	end
 	local data = session.Data
 	plot.Parts.UpgradeLabel.Text = if hasInfiniteLock(session)
-		then string.format("UPGRADES\nBase Lv %d/%d | Lock FOREVER", data.WallLevel, #Config.WallLevels)
-		else string.format("UPGRADES\nBase Lv %d/%d | Lock %ds", data.WallLevel, #Config.WallLevels, lockDuration(session))
+		then string.format("UPGRADES\nBase Lv %d/%d | Lock FOREVER", data.WallLevel, math.max(data.WallLevel, Config.MaxWallLevel(session.Owns.VIP)))
+		else string.format("UPGRADES\nBase Lv %d/%d | Lock %ds", data.WallLevel, math.max(data.WallLevel, Config.MaxWallLevel(session.Owns.VIP)), lockDuration(session))
 end
 
 local function assignPlot(player: Player, session: Session)
@@ -1485,6 +1485,10 @@ local function onUpgrade(player: Player, plot: Plot, kind: string)
 		local nextLevel = Config.WallLevels[data.WallLevel + 1]
 		if not nextLevel then
 			notify(player, "Your base is fully upgraded!")
+			return
+		end
+		if nextLevel.Vip and not session.Owns.VIP then
+			notify(player, "The next floors are VIP only! Get VIP in the shop to build higher.")
 			return
 		end
 		cost, name = nextLevel.Cost, Config.Stories[data.WallLevel + 1].Name .. " + " .. nextLevel.Name

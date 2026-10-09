@@ -183,6 +183,7 @@ export type WallLevel = {
 	Height: number,
 	Cost: number, -- price of reaching this base level
 	Material: Enum.Material,
+	Vip: boolean?, -- only VIP owners can buy this level (and its floor)
 }
 
 Config.WallLevels = {
@@ -191,7 +192,18 @@ Config.WallLevels = {
 	{ Name = "Concrete Wall", Height = 9, Cost = 1000000, Material = Enum.Material.Concrete },
 	{ Name = "Steel Wall", Height = 13, Cost = 40000000, Material = Enum.Material.DiamondPlate },
 	{ Name = "Platinum Wall", Height = 18, Cost = 1500000000, Material = Enum.Material.Foil },
+	-- VIP only: two more floors (and 20 more slots) on top.
+	{ Name = "Royal Marble Wall", Height = 18, Cost = 60000000000, Material = Enum.Material.Marble, Vip = true },
+	{ Name = "Golden Palace Wall", Height = 18, Cost = 2500000000000, Material = Enum.Material.Foil, Vip = true },
 } :: { WallLevel }
+-- Levels everyone can reach; the ones after it are VIP only. A base gets
+-- its roof once it reaches this level.
+Config.StandardWallLevels = 5
+
+-- The highest base level this player can buy.
+function Config.MaxWallLevel(isVip: boolean?): number
+	return if isVip then #Config.WallLevels else Config.StandardWallLevels
+end
 
 -- One floor per base level, so this list must be as long as WallLevels.
 export type Story = { Name: string }
@@ -202,6 +214,8 @@ Config.Stories = {
 	{ Name = "3rd Floor" },
 	{ Name = "4th Floor" },
 	{ Name = "5th Floor" },
+	{ Name = "6th Floor (VIP)" },
+	{ Name = "7th Floor (VIP)" },
 } :: { Story }
 assert(#Config.Stories == #Config.WallLevels, "Config: need one floor per wall level")
 Config.UpperFloorSlots = 10
@@ -766,11 +780,13 @@ Config.DropLifetime = 90 -- seconds before an unclaimed drop disappears
 -- Monetization -------------------------------------------------------------
 -- Create these on the Creator Dashboard (your experience > Monetization),
 -- then paste the IDs below. Items with Id = 0 show as "coming soon".
+-- Prices are set on the dashboard (the shop reads them from Roblox).
+-- Suggested: 2x Cash 199, VIP 249, Longer Lock 149, Infinite Laser Door 450.
 
 Config.GamePasses = {
 	{ Key = "DoubleCash", Id = 0, Name = "2x Cash", Description = "Your brainrots make double cash forever." },
-	{ Key = "VIP", Id = 0, Name = "VIP", Description = "+2 base slots and a gold VIP tag." },
-	{ Key = "LongerLock", Id = 0, Name = "Longer Lock", Description = "Your base lock lasts twice as long." },
+	{ Key = "VIP", Id = 0, Name = "VIP", Description = "+2 base slots, 2 extra floors to buy, and a gold crown + VIP tag." },
+	{ Key = "LongerLock", Id = 0, Name = "Longer Lock", Description = "Your base lock lasts twice as long (2x lock time)." },
 	{ Key = "InfiniteLock", Id = 0, Name = "Infinite Laser Door", Description = "Your base lasers stay on forever. Nobody can steal from you." },
 } :: { GamePass }
 

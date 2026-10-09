@@ -23,7 +23,8 @@ export type PlotParts = {
 	Stairs: { { Carpet: Folder, Base: CFrame } }, -- Base: bottom-front-center of each staircase
 	Floors: { BasePart }, -- ground floor + every upper slab
 	LightSets: { [number]: { Ceiling: Folder, Posts: Folder } },
-	Roof: Folder, -- parented only when every floor is built
+	Roof: Model, -- parented once the base reaches Config.StandardWallLevels
+	RoofPivot: CFrame, -- where the roof sits on top of the ground floor
 	SignPost: BasePart,
 	UpgradePost: BasePart,
 	LockButton: BasePart, -- the owner's lock / unlock button by the door
@@ -628,11 +629,12 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		lightSets[story] = { Ceiling = ceiling, Posts = posts }
 	end
 
-	-- Roof: only once the base is fully upgraded.
-	local roof = Instance.new("Folder")
+	-- Roof: once the base reaches Config.StandardWallLevels. It's built on top
+	-- of the ground floor and moved up onto the top floor (SetStories).
+	local roof = Instance.new("Model")
 	roof.Name = "Roof"
 	do
-		local top = storyBase(#Config.Stories) + STORY_HEIGHT
+		local top = storyBase(1) + STORY_HEIGHT
 		local roofColor = Color3.fromRGB(90, 60, 55)
 		block(roof, "RoofSlab", Vector3.new(PLOT_SIZE, 1, PLOT_SIZE), at(0, top + 0.5, 0), WALL_COLOR, Enum.Material.Concrete)
 		for _, side in { -1, 1 } do
@@ -709,6 +711,7 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		Floors = floors,
 		LightSets = lightSets,
 		Roof = roof,
+		RoofPivot = roof:GetPivot(),
 		SignPost = signPost,
 		UpgradePost = upgradePost,
 		LockButton = lockButton,
@@ -759,7 +762,7 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 	local inner = PLOT_SIZE - WALL_THICKNESS * 2 -- back/front walls fit between the side walls
 	local frontWidth = (inner - ENTRANCE_WIDTH) / 2
 	local turn = CFrame.Angles(0, math.pi / 2, 0)
-	local roofed = stories >= #Config.Stories
+	local roofed = stories >= Config.StandardWallLevels
 
 	-- Floors with a floor (or the roof) above get walls all the way up to it.
 	local function heightOf(story: number): number
@@ -798,7 +801,7 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 	-- Role skins: a big glowing sign floating over the base.
 	local topSign = style.TopSign
 	if topSign then
-		local topY = if roofed then storyBase(#Config.Stories) + STORY_HEIGHT + 24 else storyBase(stories) + heightOf(stories) + 12
+		local topY = if roofed then storyBase(stories) + STORY_HEIGHT + 24 else storyBase(stories) + heightOf(stories) + 12
 		local anchor = Instance.new("Part")
 		anchor.Name = "TopSign"
 		anchor.Anchored = true
@@ -821,9 +824,9 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 	-- Ace's skin: a crescent moon floating over the base, high above the
 	-- roof once it's built, with its aura once the base is fully upgraded.
 	if style.Moon then
-		local topY = if roofed then storyBase(#Config.Stories) + STORY_HEIGHT + 30 else storyBase(stories) + heightOf(stories) + 16
+		local topY = if roofed then storyBase(stories) + STORY_HEIGHT + 30 else storyBase(stories) + heightOf(stories) + 16
 		local moonFolder = parts.WallFolders[1]
-		crescentMoon(moonFolder, parts.CFrame * CFrame.new(0, topY - FLOOR_TOP, 0), 9, level >= #Config.WallLevels)
+		crescentMoon(moonFolder, parts.CFrame * CFrame.new(0, topY - FLOOR_TOP, 0), 9, level >= Config.StandardWallLevels)
 	end
 
 	for i, beam in parts.Lasers do
@@ -881,7 +884,7 @@ end
 
 -- Shows the floors a base has bought and lifts the owner sign above them.
 function WorldBuilder.SetStories(parts: PlotParts, count: number)
-	local roofed = count >= #Config.Stories
+	local roofed = count >= Config.StandardWallLevels
 	for story, folder in parts.Stories do
 		folder.Parent = if story <= count then parts.Model else nil
 	end
@@ -891,6 +894,9 @@ function WorldBuilder.SetStories(parts: PlotParts, count: number)
 		local covered = story < count or roofed
 		set.Ceiling.Parent = if covered then holder else nil
 		set.Posts.Parent = if covered then nil else holder
+	end
+	if roofed then
+		parts.Roof:PivotTo(parts.RoofPivot + Vector3.new(0, storyBase(count) - storyBase(1), 0))
 	end
 	parts.Roof.Parent = if roofed then parts.Model else nil
 	local sign = parts.SignPost

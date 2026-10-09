@@ -1054,10 +1054,14 @@ local function renderUpgrades()
 		return
 	end
 	local longer = data.Owns and data.Owns.LongerLock
-	local function set(kind: string, now: string, nextText: string?, cost: number?, needRebirths: number?)
+	local function set(kind: string, now: string, nextText: string?, cost: number?, needRebirths: number?, needVip: boolean?)
 		local card = upgradeCards[kind]
 		card.Now.Text = now
-		if nextText and cost and needRebirths and (data.Rebirths or 0) < needRebirths then
+		if nextText and cost and needVip then
+			card.Next.Text = "Next: " .. nextText .. " (VIP only)"
+			card.Button.Text = "👑 VIP\nONLY"
+			card.Button.BackgroundColor3 = Color3.fromRGB(90, 90, 100)
+		elseif nextText and cost and needRebirths and (data.Rebirths or 0) < needRebirths then
 			card.Next.Text = "Next: " .. nextText .. string.format(" (needs %d rebirth%s)", needRebirths, if needRebirths == 1 then "" else "s")
 			card.Button.Text = "REBIRTH\n" .. needRebirths .. "x FIRST"
 			card.Button.BackgroundColor3 = Color3.fromRGB(90, 90, 100)
@@ -1081,7 +1085,9 @@ local function renderUpgrades()
 		"Base",
 		string.format("Level %d: %s, %d floor%s", level, wall.Name, level, if level == 1 then "" else "s"),
 		nextWall and nextStory and string.format("%s + %s (+%d slots)", nextStory.Name, nextWall.Name, Config.UpperFloorSlots),
-		nextWall and nextWall.Cost
+		nextWall and nextWall.Cost,
+		nil,
+		nextWall ~= nil and nextWall.Vip == true and not (data.Owns and data.Owns.VIP)
 	)
 
 	local nextLock = Config.LockLevels[data.LockLevel + 1]
