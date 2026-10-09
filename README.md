@@ -17,13 +17,17 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
      | 2 | 2 | Brick Wall | $25K |
      | 3 | 3 | Concrete Wall (too tall to jump) | $1M |
      | 4 | 4 | Steel Wall | $40M |
-     | 5 | 5 | Diamond Wall | $1.5B |
+     | 5 | 5 | Platinum Wall (and the roof) | $1.5B |
+     | 6 | 6 | Royal Marble Wall (**VIP only**) | $60B |
+     | 7 | 7 | Golden Palace Wall (**VIP only**) | $2.5T |
 
-   - **Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). After rebirthing you can go further: 150s ($25M, 1 rebirth), 180s ($250M, 2 rebirths), 210s ($2B, 4 rebirths), 240s ($40B, 6 rebirths). Lock upgrades are kept when you rebirth. The Longer Lock gamepass doubles it. The **Infinite Laser Door** (100 R$ gamepass, or 250 Diamonds) keeps your lasers on forever: your base locks itself as soon as you join and the lock pad shows LOCKED FOREVER. Admins can also switch it on or off for anyone (or themselves) with the **Infinite Door ON / OFF** buttons in the admin panel.
-   - **Stair carpets** come from rebirths: plain wood at first, then a new carpet every 5 rebirths: Red (5), Royal (10), Golden (15), Diamond (20) and Rainbow (25).
+     The roof goes on at level 5 and moves up with the VIP floors.
+
+   - **Lock:** how long your lasers stay on: 30s, 45s ($5K), 60s ($50K), 90s ($500K), 120s ($5M). After rebirthing you can go further: 150s ($25M, 1 rebirth), 180s ($250M, 2 rebirths), 210s ($2B, 4 rebirths), 240s ($40B, 6 rebirths). Lock upgrades are kept when you rebirth. The Longer Lock gamepass doubles it. The **Infinite Laser Door** (gamepass, or 12,500 Shards in the Shard Shop) keeps your lasers on forever: your base locks itself as soon as you join and the lock pad shows LOCKED FOREVER. Admins can also switch it on or off for anyone (or themselves) with the **Infinite Door ON / OFF** buttons in the admin panel.
+   - **Stair carpets** come from rebirths: plain wood at first, then a new carpet every 5 rebirths: Red (5), Royal (10), Golden (15), Crystal (20) and Rainbow (25).
 6. **Lock.** Step on the red **LOCK** pad. Red laser beams cross your entrance and zap anyone else who walks through. After the lock ends it recharges for 30s, and that's when you're vulnerable.
 7. **Sell** your own brainrots for half price (hold **F**).
-8. **Rebirth.** Reset your cash and brainrots (walls stay) for a permanent income multiplier (+0.5x each time).
+8. **Rebirth.** Reset your cash, floors (base level) and base brainrots for a permanent income multiplier (+0.5x each time). Your **vault** and its brainrots, lock upgrades, skins, passes and limited brainrots all stay.
 
 Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck purchases are announced to the whole server.
 
@@ -31,12 +35,12 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 
 | Rarity | Chance | Server Luck | Price range | Income |
 |---|---|---|---|---|
-| 🟩 Common | 60% | 42.8% | $25 – $120 | $1–4/s |
-| 🟦 Rare | 25% | 35.6% | $500 – $1.5K | $10–25/s |
-| 🟪 Epic | 10% | 14.4% | $5K – $15K | $60–150/s |
-| 🟨 Legendary | 4% | 5.7% | $75K – $200K | $500–1.2K/s |
-| 🟥 Mythic | 0.9% | 1.3% | $1.5M – $4M | $6K–15K/s |
-| ⬛ Secret | 0.1% | 0.14% | $25M – $50M | $120K–250K/s |
+| 🟩 Common | 60% | 42.8% | free – $250 | $1–9/s |
+| 🟦 Rare | 25% | 35.6% | $400 – $3.3K | $8–50/s |
+| 🟪 Epic | 10% | 14.4% | $5K – $40K | $60–340/s |
+| 🟨 Legendary | 4% | 5.7% | $75K – $700K | $500–3.8K/s |
+| 🟥 Mythic | 0.9% | 1.3% | $1.2M – $15M | $4.8K–50K/s |
+| ⬛ Secret | 0.1% | 0.14% | $25M – $600M | $120K–2.5M/s |
 | 💖 Event Special | not on the conveyor | | Robux | see below |
 
 ### Launch event: Cigna Glamourina (limited)
@@ -60,7 +64,7 @@ Any brainrot on the conveyor can roll a mutation. A mutation multiplies both its
 |---|---|---|---|
 | ✨ Gold | 4% | x2 | Shiny gold foil |
 | 🍬 Candy | 2.5% | x2.5 | Pastel candy colors, sprinkles |
-| 💎 Diamond | 2% | x3 | See-through ice-blue glass |
+| 🔷 Crystal | 2% | x3 | See-through ice-blue glass |
 | ❄️ Frozen | 2% | x3 | Ice, falling snowflakes |
 | ⭐ Sparkle | 1.5% | x4 | Its own colors, brighter, twinkling stars |
 | ⚡ Electric | 1.2% | x4.5 | Yellow charge, crackling sparks |
@@ -72,13 +76,13 @@ Any brainrot on the conveyor can roll a mutation. A mutation multiplies both its
 | 🌈 Rainbow | 0.3% | x10 | Cycles through every color |
 | 🕳️ Void | 0.2% | x12 | Pitch black, purple outline, dark matter pulled in |
 | 😇 Divine | 0.1% | x15 | White marble, golden halo, holy light |
-| ✨🔮 Magic | 1% when you get the event brainrot (event only) | x8 | Purple-teal shimmer, swirling stars, floating orbs |
+| ✨🔮 Magic | 1% when you get the event brainrot (event only) | x8 | Purple-teal shimmer, a full magic circle with runes, orbs, pink glitter and a star fountain |
 
-Galaxy and rarer spawns are announced to the whole server. About 1 in 6 conveyor brainrots is mutated (1 in 3 with Server Luck).
+The rarer the mutation, the bigger the show: rare ones (Radioactive to Cursed) add a glowing aura ring and rising motes; ultra rare ones (Rainbow, Void, Divine) add a second ring, a column of light and a sparkle crown; Magic gets the whole spell. Galaxy and rarer spawns are announced to the whole server. About 1 in 6 conveyor brainrots is mutated (1 in 3 with Server Luck).
 
 ### Using real 3D models
 
-Every brainrot has its own built-in design. To swap one for a 3D model:
+Every brainrot has its own built-in design, built smooth and rounded (rounded boxes, soft domed cylinders, smooth cones). To swap one for a 3D model:
 
 1. In Studio, create a **Folder** in **ReplicatedStorage** named `BrainrotModels` (so followers can use it too).
 2. Find a model in the **Toolbox** and drag it into that folder.
@@ -140,9 +144,16 @@ Just inside every base's door, on the right, there's a big round button (owner o
 
 Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tablet (just left of the jump button; tap again to stop), or **click the left stick** on a controller (click again to stop). Sprinting is 1.45x faster (`Config.SprintMultiplier`), on top of admin abuse's speed boost, but you can't sprint while carrying a stolen brainrot. On phones and tablets the music button and boost badges sit at the top right, out of the way.
 
-### New brainrots
+### Brainrots (68)
 
-- **Patatino Piccolino** (free): rides the conveyor like any Common, and anyone can take one for **$0** (the prompt says *Take (FREE)*), so new players can start earning right away. It earns $1/s, sells for $0, and free ones don't count toward buying quests.
+- **Free brainrots:** every 5th brainrot on the conveyor is a free **Patatino Piccolino** that anyone can take for **$0** (the prompt says *Take (FREE)*), so new players can start earning right away. Free ones never come from drops or gifts, sell for $0 and don't count toward buying quests.
+- **40 new ones this update**, each with its own model:
+  - Common: Cipollino Piangino, Carotino Corridore, Pomodorino Rimbalzo, Biscottino Ballerino, Fungo Funghetto, Uovo Sbadiglio, Peperone Piccante, Cuscinetto Ronfone.
+  - Rare: Pretzelino Annodato, Melanzana Mafiosa, Avocadino Palestrato, Ananasso Surfista, Lumacone Turbo, Polpetto Ottopodo, Zucchino Zombie, Fragolina Ninja.
+  - Epic: Gelato Vulcano, Panda Bambucco, Robo Moka, Cocco Bello, Spaghettosauro, Fenicottero Flamenco, Gufo Professore.
+  - Legendary: Leone Lasagnone, Squalo Scarpone, Granchio Corazzato, Unicornino Arcobaleno, Pinguino Pilota, Polipo Pianista, Tigre Tiramisù.
+  - Mythic: Fenice Focaccia, Kraken Carbonara, Golem Gorgonzola, Cerbero Calzone, Leviatano Linguine.
+  - Secret: Re Ravioli Supremo, Fantasma Fettuccine, Galassia Gnocchi, Imperatore Pizzone, Omega Brainrotto ($600M, $2.5M/s, the new top).
 - **Tung Tung Tung Sahur** (Legendary, $350K, $2K/s): the wooden log with a big grin and a baseball bat.
 - **Bubblegummo Blobbo** (Common, $150, $5/s), **Gelatino Gigante** (Rare, $2K, $32/s), **Donutto Dynamo** (Epic, $25K, $220/s), **Sushito Samurai** (Legendary, $500K, $2.8K/s), **Tacoraptor Supremo** (Mythic, $8M, $28K/s), **Astronauto Panino** (Secret, $120M, $550K/s): each the new top of its rarity, priced like the rest of the economy.
 
@@ -150,10 +161,10 @@ Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tabl
 
 Admins get a red **ADMIN** button on the left. The **Player** box at the top picks who the buttons act on: type `me`, `all`, or the start of someone's name. Below it, the panel is split into tabs, and each job has its own labelled box:
 
-- **PLAYERS:** Money & Currency (give/set cash, set rebirths, give Shards or Diamonds; amounts accept `5000`, `25k`, `2m` or `-500`), Base (base level, lock level, Infinite Door ON/OFF, Clear Base), and Shop Items (Free): give any gamepass (lasts until they leave) or any Robux shop item.
+- **PLAYERS:** **Moderation** (Kick with an optional reason; Ban, tapped twice, kicks them and keeps them out of the game for good in every server, even if they're offline; Unban lets them back. Nobody can kick or ban Corny or themselves; only Corny can act on a founder, and only founders on another admin. Roblox's own chat commands don't work in this game, so use these), Money & Currency (give/set cash, set rebirths, give Shards; amounts accept `5000`, `25k`, `2m` or `-500`), Base (base level, lock level, Infinite Door ON/OFF, Clear Base), and Shop Items (Free): give any gamepass (lasts until they leave) or any Robux shop item.
 - **EVENTS:** Admin Abuse (minutes + START/END), Drops (Brainrot Rain, Cash Rain with its own cash-per-bag box), Server Luck, and Announce to All Servers.
 - **BRAINROTS:** the mutation picker and every brainrot with Give / Spawn / Drop.
-- **FOUNDER** (only Corny and Ace see this tab): **CODES** (Corny only) makes codes in-game: a name, Cash / Shards / Diamonds (Diamonds up to 50, Shards up to 5,000) and how many hours it lasts (0 = forever). They save in a DataStore and work in every server, once per player; the list shows each code with a DELETE button. Also: start or end your founder event (with its own minutes box), and pick your event giant's look.
+- **FOUNDER** (only Corny and Ace see this tab): **SECURITY** (Corny only): **LOCK ALL ADMIN PANELS** takes the admin panel away from everyone but Corny (Ace and mods too), in every server, until he unlocks it; **RESET PLAYER** (tap twice) wipes the player in the Player box back to a new save (their Robux purchases stay). **CODES** (Corny only) makes codes in-game: a name, Cash / Shards (Shards up to 5,000) and how many hours it lasts (0 = forever). They save in a DataStore and work in every server, once per player; the list shows each code with a DELETE button. Also: start or end your founder event (with its own minutes box), and pick your event giant's look.
 
 The panel shrinks to fit smaller screens.
 
@@ -170,8 +181,7 @@ When it starts, everyone gets a huge intro: two white flashes and a red flash ov
 **Admin abuse boosts and gift** (tune them in `Config.AdminAbuseBoosts` and `Config.AdminAbuseGift`):
 - While it's live, everyone gets **3x cash**, **3x luck** (rare spawns and mutations), walks faster (24 instead of 16) and jumps higher. Carrying a stolen brainrot stays slow so stealing stays fair.
 - **Giant founders** (Corny and Ace, in their normal Roblox avatars, about 125 studs tall) stand just outside the fence on opposite sides of the map, like the devs in Grow a Garden. They appear in a puff of sparkles and just stand there doing one Roblox emote after another (wave, cheer, laugh, point), over and over, without moving around.
-- Everyone online gets a gift, shown on a pop-up card: **3 Diamonds, 150 Shards and a free brainrot** (rolled with Brainrot Rain luck). It's once per player per week, so starting admin abuse again the same week doesn't hand out more. Players who join while it's live still get theirs.
-- Why 3 Diamonds: weekly quests give up to 3 a week, so admin abuse doubles that for anyone who shows up, while the Diamond skins (12 to 120) still take real saving.
+- Everyone online gets a gift, shown on a pop-up card: **300 Shards and a free brainrot** (rolled with Brainrot Rain luck). It's once per player per week, so starting admin abuse again the same week doesn't hand out more. Players who join while it's live still get theirs.
 
 ### Founders and founder events
 
@@ -187,11 +197,15 @@ When players join they see the **Corny Games** loading screen (`src/first/Loadin
 
 ### Game music
 
-Background music for normal play is set in `Config.GameMusic` (a list of audio ids; shuffled if there are several). It loops quietly, fades out while a founder event plays its own song and back in afterwards, and players can switch it off with the **MUSIC: ON / OFF** button in the bottom right. `assets/music/brainrot_theme.mp3` is the game's own original, copyright-free theme (bouncy marimba melody, plucky chords, bass, claps; 68 seconds, loops): upload it and put its id in `Config.GameMusic`. Until an id is set, there's no music and no button.
+Background music for normal play is set in `Config.GameMusic` (a list of audio ids; shuffled if there are several). It loops quietly, fades out while a founder event plays its own song and back in afterwards, and players set its volume (0–100%, saved) in **Settings** (the ⚙️ button in the corner). `assets/music/brainrot_theme.mp3` is the game's own original, copyright-free theme (bouncy marimba melody, plucky chords, bass, claps; 68 seconds, loops): upload it and put its id in `Config.GameMusic`. Until an id is set, there's no music and no button.
 
-### Boost badges
+### Event labels and boost badges
 
-The bottom right of the screen lists every boost that's on right now and how long it has left: admin abuse (x3 cash, x3 luck, speed + jump), x2 luck from Ace's event, Server Luck, your own 2x Cash boost from the Diamond Shop, and the 2x Cash gamepass (forever).
+Small pills under the cash panel show what's on in the server, with time left: admin abuse (and its countdown in the last hour), a founder event ("until Corny leaves" for his long runs), its night mutation, and Server Luck. The bottom right lists every boost you have and how long it lasts: admin abuse (x3 cash, x3 luck, speed + jump), x2 luck from Ace's event, Server Luck, your own 2x Cash boost from the Shard Shop, and the 2x Cash gamepass (forever).
+
+### Settings
+
+The ⚙️ button (bottom right; top right on phones) opens Settings: a **music volume** slider (game and event music) and, for VIPs, a switch to **hide the VIP crown and tag**. Both are saved.
 
 ### Announcements to every server
 
@@ -203,18 +217,26 @@ Admins can type **`/announce your message`** (or **`/a your message`**) in chat,
 - **Event look:** in the admin panel's **FOUNDER** tab, either put on your event outfit in game and press **USE WHAT I'M WEARING NOW**, or paste a costume's outfit ID (or its whole link) into the box and press **USE OUTFIT**. **RESET TO MY NORMAL AVATAR** forgets the saved look. With **USE WHAT I'M WEARING NOW**, the event giant becomes an exact copy of how your character looks right then, and it's saved for good (change it any time by saving again). Until a look is saved, the giant copies your character if you're in the server, then your outfit id (`OutfitId` in `Config.FounderEvents`), then your Roblox avatar, and for Corny last of all a look-alike built from parts.
 - **Ace's event** comes next: it slots into `Config.FounderEvents` the same way.
 
-## Quests, Shards, Diamonds and the Diamond Shop
+## Quests, Shards and the Shard Shop
 
-Fair progression for free-to-play players. None of this can be bought with Robux.
+Fair progression for free-to-play players. None of this can be bought with Robux. (Diamonds were removed: old saves turned every Diamond into 50 Shards.)
 
 - **Daily quests:** 3 a day, the same for everyone, and new ones at midnight Oklahoma time. Each pays **10 Shards**.
-- **Weekly quests:** 3 a week, new every Monday, and much harder. Each pays **1 Diamond + 100 Shards**. Diamonds only come from weekly quests and the weekly admin abuse gift.
-- **Wall skins:** open the **QUESTS** button to see them. They're a ladder: you have to own the one before to buy the next. Shard skins: Red Brick 250 → Candy Pink 600 → Frozen Ice 1,200 → Jungle Stone 2,000 → Cyber Neon 3,500 (about 11 weeks of Shards in all). Diamond skins: Royal Gold 12 → Galaxy 25 → Crystal Palace 45 → Lava Core 75 → Celestial 120, the long-term flex. **Beta Tester** (white, cyan glow, a floating 🧪 BETA TESTER sign) is free for testers (`Config.TesterUserIds`, and admins), and **Moderator** (black metal, red glow, a floating 🛡️ MODERATOR sign) is free for every admin; nobody else sees them. **Glamourina Moon** is Ace's own skin (same rules, for Ace's account only): Cigna Glamourina pink walls with glowing magenta trim and pink glowing windows, and a big glowing crescent moon floating over the base (above the roof once it's built); when the base is fully upgraded the moon gets a pink halo, a ring and drifting sparkles. **Corny Gold** is Corny's own skin, free for him and hidden from everyone else: navy walls, gold trim, corn cobs on every pillar, and the Corny Games logo on the windows. The server checks it's really Corny (`Config.Founders`) before he can claim or wear it, and takes it off any other base. Skins only change the look; your base level still sets the wall height. Every floor of your base matches your skin. With Classic, floors are the same grey in your walls' material (wood, brick, concrete, steel or diamond).
-- **Shop tent:** a blue-and-cream striped circus-style tent (like Bee Swarm's) past the bases near the cave the brainrots come out of, with a little spinning diamond on top.
-  - The left counter spends Diamonds: Shard Pouch (2 for 400 Shards), 2x Cash for 30 min (3), Server Luck for everyone for 15 min (5), 2x Cash for 3 hours (12), the **Infinite Laser Door** (250, one-time, the same as the gamepass), plus the Diamond wall skins.
+- **Weekly quests:** 3 a week, new every Monday, and much harder. Each pays **150 Shards**. With the weekly admin abuse gift (300) that's about 960 Shards a week at most.
+- **Wall skins:** open the **QUESTS** button to see them. They're one ladder: you need the one before to buy the next (owning any higher skin counts, so new skins in between never lock anyone out). Picnic Checker 80 → Red Brick 250 → Mint Stripes 400 → Bubblegum Dots 550 → Candy Pink 700 → Smiley Sunshine 900 → Frozen Ice 1,200 → Royal Gold 1,500 → Jungle Stone 1,900 → Galaxy 2,400 → Cyber Neon 3,000 → Crystal Palace 3,700 → Royal Argyle 4,500 → Lava Core 5,500 → Celestial 7,000 → Rainbow Royale 9,000 → Void Emperor 12,000. Many have **patterns** on the floors and wall bands (checker, stripes, dots, argyle, smiley faces; Rainbow Royale's stripes are every color). **Beta Tester** (white, cyan glow, a floating 🧪 BETA TESTER sign) is free for testers (`Config.TesterUserIds`, and admins), and **Moderator** (black metal, red glow, a floating 🛡️ MODERATOR sign) is free for every admin; nobody else sees them. **Glamourina Moon** is Ace's own skin: pink walls with glowing magenta trim, pink dots, **four-leaf clovers on every pillar**, and a big glowing crescent moon over the base that gets a halo and sparkles once the base is fully upgraded. **Corny Gold** is Corny's own skin: navy walls, gold trim, corn cobs on every pillar, and the Corny Games logo on the windows. The server checks it's really them before they can claim or wear their skin. Skins only change the look; your base level still sets the wall height. Every floor (and the vault) matches your skin.
+- **Shop tent:** a blue-and-cream striped circus-style tent past the bases near the cave the brainrots come out of, with a spinning shard crystal on top.
+  - The left counter is the **Shard Shop**: 2x Cash for 30 min (150), Server Luck for everyone for 15 min (250), 2x Cash for 3 hours (600) and the **Infinite Laser Door** (12,500, one-time, the same as the gamepass).
   - The right counter opens the **Robux shop**: the limited event brainrot, gamepasses and boosts.
 
 Quest pools, goals, rewards, skins and shop items are all in `Config.luau`.
+
+## The vault
+
+Every base has a gold **🔒 VAULT** hatch in the ground floor. The owner clicks it to go down to a vault room deep under the base, with walls and floor in the base's skin, a big round vault door, and gold-rimmed podiums. Hold **V** (Move to Vault) on a brainrot in your base to put it on a podium; in the vault, **Move to Base** brings it back up. Vault brainrots **keep earning, can't be stolen or sold, and stay through rebirths**. You start with 2 podiums; buy more at the upgrade post (VAULT card): 4 ($250K), 6 ($10M), 8 ($500M), 10 ($25B), 12 ($1T). Vault upgrades are kept through rebirths too. Climb the ladder (EXIT) to go back up. Only the owner can open a vault.
+
+## Rebirth rewards
+
+The more you rebirth, the cooler your base looks (in your stair carpet's colors): glowing pedestal rims (1 rebirth), torches by the door (3), banners showing your rebirth count (5), guardian pillars with glowing orbs (10), a royal runway with lamps (15), a sky beacon everyone can see (20), and at 25 the **King's balcony** over the door with a **throne**: a gem-crowned throne in your carpet colors, Corny's made of corn cobs and Ace's a giant pink bloom. Stand on the gold pad below to sit on it (owner only).
 
 ## Followers
 
@@ -231,7 +253,8 @@ Press **FOLLOW** to pick up to 3 brainrots from your base to follow you around a
 
 - Stairs are open (steps on side beams), so you can see brainrots behind and under them.
 - Every floor gets lights: ceiling panels under each floor, or lamp posts on an open top floor.
-- A fully upgraded base (level 5) gets walls all the way up and a peaked roof with a gold ridge and a glowing star.
+- A base at level 5 gets walls all the way up and a peaked roof with a gold ridge and a glowing star; VIPs can build two more floors on top and the roof moves up with them.
+- **VIP** players wear a gold crown with red, purple and green gems over their VIP tag (they can hide both in Settings).
 
 ## Make money (Robux)
 
@@ -246,10 +269,10 @@ Suggested prices:
 
 | Item | Type | Price |
 |---|---|---|
-| 2x Cash | Pass | 299 R$ |
-| VIP (+2 base slots, VIP tag) | Pass | 399 R$ |
+| 2x Cash | Pass | 199 R$ |
+| VIP (+2 base slots, 2 extra floors to buy, crown + VIP tag) | Pass | 249 R$ |
 | Longer Lock (2x lock time) | Pass | 149 R$ |
-| Infinite Laser Door (lasers never turn off) | Pass | 100 R$ (or 250 Diamonds in the Diamond Shop) |
+| Infinite Laser Door (lasers never turn off) | Pass | 450 R$ (or 12,500 Shards in the Shard Shop) |
 | Cash Bag (10 min of income) | Product | 49 R$ |
 | Cash Vault (1 hr of income) | Product | 199 R$ |
 | Server Luck (15 min, whole server) | Product | 149 R$ |
@@ -264,7 +287,10 @@ src/shared/Config.luau            brainrots, odds, prices, locks, rebirths, Robu
 src/server/Main.server.luau       saving, bases, conveyor, buying, stealing, slapping, purchases
 src/server/WorldBuilder.luau      builds the map, conveyor and 8 bases from parts
 src/shared/BrainrotModel.luau     hand-built brainrot designs, mutations, minis, custom-model support
-src/client/Effects.client.luau    idle bobbing, rainbow cycling, spinning shop diamond (visual only)
+src/client/Effects.client.luau    idle bobbing, rainbow cycling, spinning shop crystal (visual only)
+src/client/Settings.client.luau   the settings panel (music volume, VIP tag)
+src/client/Sprint.client.luau     sprinting (Shift, SPRINT button, left stick)
+src/client/Music.client.luau      background music
 src/client/Followers.client.luau  draws everyone's mini followers
 src/server/LimitedStock.luau      global stock + serials for limited Robux brainrots
 src/client/HUD.client.luau        cash HUD, shop, rebirth menu, announcements, prompts
@@ -274,7 +300,7 @@ The server decides every purchase, steal and cash change, so exploiters can't sp
 
 ## Next ideas
 
-- **Real models**: swap the blocky brainrots for meshes (only `BrainrotModel.luau` needs to change).
+- **More brainrots**: 68 so far; aim for 100+ (add one in `Config.Brainrots` and a design in `BrainrotModel.luau`).
 - **Thumbnail + icon**: the biggest driver of clicks.
 - **Sounds**: purchase, steal, slap, laser zap.
 - **Limited-time event brainrots**, an **Index** of everything you've owned, **daily rewards**, **group rewards**.

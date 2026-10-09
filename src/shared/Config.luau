@@ -134,6 +134,11 @@ Config.Brainrots = {
 	{ Id = "BallerinaCapuchina", DisplayName = "Ballerina Capuchina", Rarity = "Mythic", Price = 2500000, Income = 10000, Color = Color3.fromRGB(245, 190, 170), Accent = Color3.fromRGB(180, 110, 60) },
 	{ Id = "MeatballoSupremo", DisplayName = "Meatballo Supremo", Rarity = "Mythic", Price = 4000000, Income = 15000, Color = Color3.fromRGB(120, 60, 40), Accent = Color3.fromRGB(255, 255, 255) },
 	{ Id = "TacoraptorSupremo", DisplayName = "Tacoraptor Supremo", Rarity = "Mythic", Price = 8000000, Income = 28000, Color = Color3.fromRGB(240, 190, 80), Accent = Color3.fromRGB(90, 200, 70) },
+	{ Id = "FeniceFocaccia", DisplayName = "Fenice Focaccia", Rarity = "Mythic", Price = 1200000, Income = 4800, Color = Color3.fromRGB(230, 170, 80), Accent = Color3.fromRGB(255, 110, 30) },
+	{ Id = "KrakenCarbonara", DisplayName = "Kraken Carbonara", Rarity = "Mythic", Price = 2000000, Income = 8000, Color = Color3.fromRGB(245, 225, 170), Accent = Color3.fromRGB(200, 90, 80) },
+	{ Id = "GolemGorgonzola", DisplayName = "Golem Gorgonzola", Rarity = "Mythic", Price = 3000000, Income = 11500, Color = Color3.fromRGB(235, 230, 200), Accent = Color3.fromRGB(80, 120, 210) },
+	{ Id = "CerberoCalzone", DisplayName = "Cerbero Calzone", Rarity = "Mythic", Price = 10000000, Income = 34000, Color = Color3.fromRGB(220, 160, 80), Accent = Color3.fromRGB(200, 45, 35) },
+	{ Id = "LeviatanoLinguine", DisplayName = "Leviatano Linguine", Rarity = "Mythic", Price = 15000000, Income = 50000, Color = Color3.fromRGB(60, 170, 170), Accent = Color3.fromRGB(250, 230, 170) },
 	-- Event Special
 	-- Launch event: 500 for sale at 50 Robux + 2 reserved. Earns $2.5K/s and
 	-- doubles with every rebirth, so she stays useful without breaking the economy.
@@ -144,6 +149,11 @@ Config.Brainrots = {
 	{ Id = "ScarpinoStellino", DisplayName = "Sneakerino Shoelacini", Rarity = "Secret", Price = 25000000, Income = 120000, Scale = 1.15, Color = Color3.fromRGB(110, 130, 205), Accent = Color3.fromRGB(240, 235, 222) },
 	{ Id = "IlCosmicoCannolo", DisplayName = "Il Cosmico Cannolo", Rarity = "Secret", Price = 50000000, Income = 250000, Color = Color3.fromRGB(30, 10, 60), Accent = Color3.fromRGB(255, 120, 255) },
 	{ Id = "AstronautoPanino", DisplayName = "Astronauto Panino", Rarity = "Secret", Price = 120000000, Income = 550000, Color = Color3.fromRGB(235, 235, 245), Accent = Color3.fromRGB(80, 180, 255) },
+	{ Id = "ReRavioliSupremo", DisplayName = "Re Ravioli Supremo", Rarity = "Secret", Price = 30000000, Income = 140000, Color = Color3.fromRGB(245, 220, 150), Accent = Color3.fromRGB(120, 40, 170) },
+	{ Id = "FantasmaFettuccine", DisplayName = "Fantasma Fettuccine", Rarity = "Secret", Price = 65000000, Income = 300000, Color = Color3.fromRGB(235, 245, 255), Accent = Color3.fromRGB(250, 230, 170) },
+	{ Id = "GalassiaGnocchi", DisplayName = "Galassia Gnocchi", Rarity = "Secret", Price = 200000000, Income = 900000, Color = Color3.fromRGB(60, 30, 120), Accent = Color3.fromRGB(80, 220, 255) },
+	{ Id = "ImperatorePizzone", DisplayName = "Imperatore Pizzone", Rarity = "Secret", Price = 300000000, Income = 1300000, Color = Color3.fromRGB(230, 180, 100), Accent = Color3.fromRGB(210, 45, 35) },
+	{ Id = "OmegaBrainrotto", DisplayName = "Omega Brainrotto", Rarity = "Secret", Price = 600000000, Income = 2500000, Color = Color3.fromRGB(255, 150, 180), Accent = Color3.fromRGB(90, 240, 255) },
 } :: { Brainrot }
 
 -- Mutations ----------------------------------------------------------------
