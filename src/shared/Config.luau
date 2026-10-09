@@ -449,6 +449,11 @@ Config.HammerRange = 11
 Config.HammerCooldown = 1
 Config.HammerForce = 150 -- sideways
 Config.HammerLift = 110 -- upward
+-- Each swing also cracks a glowing line straight along the ground; anyone
+-- standing on it takes damage and gets flung.
+Config.HammerLineLength = 70
+Config.HammerLineWidth = 4
+Config.HammerLineDamage = 35
 
 -- Rebirth ------------------------------------------------------------------
 

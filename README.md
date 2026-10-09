@@ -126,7 +126,7 @@ To build a place file without Studio sync: `rojo build -o BrainrotHeist.rbxl`.
 
 ## Corny's Ban Hammer
 
-Only Corny (`Config.HammerOwner`) gets a **Ban Hammer** in his backpack every time he spawns. Swinging it sends a red shockwave and flings everyone in front of him into the air, spinning (anyone carrying a stolen brainrot drops it and it runs home). It doesn't ban or hurt anyone. Range, cooldown and force are in `Config.Hammer*`.
+Only Corny (`Config.HammerOwner`) gets a **Ban Hammer** in his backpack every time he spawns. Swinging it sends a red shockwave and flings everyone in front of him into the air, spinning (anyone carrying a stolen brainrot drops it and it runs home), and cracks a glowing line straight along the ground for 70 studs: anyone standing on the line takes 35 damage and gets knocked off it. It doesn't ban anyone. Range, cooldown and force are in `Config.Hammer*`.
 
 ## Walking home
 

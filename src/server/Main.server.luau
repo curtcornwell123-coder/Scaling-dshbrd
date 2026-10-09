@@ -2187,6 +2187,71 @@ local function hammerShockwave(position: Vector3)
 	Debris:AddItem(ring, 0.6)
 end
 
+-- Sends someone flying (and spinning) away along `direction`.
+local function hammerFling(other: Player, otherRoot: BasePart, direction: Vector3, by: Player)
+	-- Drop what they're carrying first (it runs home).
+	local carry = carries[other]
+	if carry then
+		returnCarry(carry, by.DisplayName .. "'s hammer sent you flying!")
+	end
+	local fling = Instance.new("BodyVelocity")
+	fling.MaxForce = Vector3.one * 1e6
+	fling.Velocity = direction * Config.HammerForce + Vector3.new(0, Config.HammerLift, 0)
+	fling.Parent = otherRoot
+	Debris:AddItem(fling, 0.25)
+	local spin = Instance.new("BodyAngularVelocity")
+	spin.MaxTorque = Vector3.one * 1e6
+	spin.AngularVelocity = Vector3.new(rng:NextNumber(-20, 20), rng:NextNumber(-20, 20), rng:NextNumber(-20, 20))
+	spin.Parent = otherRoot
+	Debris:AddItem(spin, 0.6)
+end
+
+-- The crack in the ground: glowing segments race forward from the hammer,
+-- and anyone standing where it passes takes damage and is flung aside.
+local function hammerLine(player: Player, origin: Vector3, direction: Vector3, alreadyHit: { [Player]: boolean })
+	local step = 3
+	local floorY = origin.Y
+	for distance = 2, Config.HammerLineLength, step do
+		local center = origin + direction * distance
+		local crack = Instance.new("Part")
+		crack.Name = "HammerCrack"
+		crack.Anchored = true
+		crack.CanCollide = false
+		crack.CanQuery = false
+		crack.CanTouch = false
+		crack.Material = Enum.Material.Neon
+		crack.Color = if distance % (step * 2) < step then Color3.fromRGB(255, 50, 50) else Color3.fromRGB(255, 140, 40)
+		crack.Size = Vector3.new(2.4, 0.3, step + 0.4)
+		crack.CFrame = CFrame.lookAt(center, center + direction) * CFrame.Angles(0, rng:NextNumber(-0.15, 0.15), 0)
+		crack.Parent = workspace
+		TweenService:Create(crack, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Size = Vector3.new(0.6, 0.1, step) }):Play()
+		Debris:AddItem(crack, 1.3)
+
+		for _, other in Players:GetPlayers() do
+			local otherRoot = if other ~= player and not alreadyHit[other] then getRoot(other) else nil
+			if otherRoot then
+				local offset = otherRoot.Position - origin
+				local along = offset:Dot(direction)
+				local flatOffset = Vector3.new(offset.X, 0, offset.Z)
+				local sideways = (flatOffset - direction * along).Magnitude
+				local high = otherRoot.Position.Y - floorY
+				if along >= distance - step and along <= distance + step / 2 and sideways <= Config.HammerLineWidth and high > -2 and high < 8 then
+					alreadyHit[other] = true
+					local humanoid = otherRoot.Parent and otherRoot.Parent:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						humanoid:TakeDamage(Config.HammerLineDamage)
+					end
+					-- Knocked off the line, to whichever side they were on.
+					local side = flatOffset - direction * along
+					local away = if side.Magnitude > 0.1 then side.Unit else Vector3.new(-direction.Z, 0, direction.X)
+					hammerFling(other, otherRoot, (away + direction).Unit, player)
+				end
+			end
+		end
+		task.wait(0.025)
+	end
+end
+
 local function onHammer(player: Player, tool: Tool)
 	local founder = founderOf(player)
 	local hrp = getRoot(player)
@@ -2203,32 +2268,25 @@ local function onHammer(player: Player, tool: Tool)
 	anim.Name = "toolanim"
 	anim.Value = "Slash"
 	anim.Parent = tool
-	hammerShockwave(hrp.Position + hrp.CFrame.LookVector * 5 - Vector3.new(0, 2.5, 0))
+	local look = Vector3.new(hrp.CFrame.LookVector.X, 0, hrp.CFrame.LookVector.Z)
+	local direction = if look.Magnitude > 0.01 then look.Unit else Vector3.new(0, 0, -1)
+	local feet = hrp.Position - Vector3.new(0, 2.8, 0)
+	hammerShockwave(feet + direction * 5 + Vector3.new(0, 0.3, 0))
 
+	-- The swing itself flings everyone close in front.
+	local hit: { [Player]: boolean } = {}
 	for _, other in Players:GetPlayers() do
 		local otherRoot = if other ~= player then getRoot(other) else nil
 		if otherRoot then
 			local offset = otherRoot.Position - hrp.Position
 			local flat = Vector3.new(offset.X, 0, offset.Z)
-			if offset.Magnitude <= Config.HammerRange and flat.Magnitude > 0.01 and hrp.CFrame.LookVector:Dot(flat.Unit) > 0 then
-				-- Drop what they're carrying first (it runs home), then fling.
-				local carry = carries[other]
-				if carry then
-					returnCarry(carry, player.DisplayName .. "'s hammer sent you flying!")
-				end
-				local fling = Instance.new("BodyVelocity")
-				fling.MaxForce = Vector3.one * 1e6
-				fling.Velocity = flat.Unit * Config.HammerForce + Vector3.new(0, Config.HammerLift, 0)
-				fling.Parent = otherRoot
-				Debris:AddItem(fling, 0.25)
-				local spin = Instance.new("BodyAngularVelocity")
-				spin.MaxTorque = Vector3.one * 1e6
-				spin.AngularVelocity = Vector3.new(rng:NextNumber(-20, 20), rng:NextNumber(-20, 20), rng:NextNumber(-20, 20))
-				spin.Parent = otherRoot
-				Debris:AddItem(spin, 0.6)
+			if offset.Magnitude <= Config.HammerRange and flat.Magnitude > 0.01 and direction:Dot(flat.Unit) > 0 then
+				hit[other] = true
+				hammerFling(other, otherRoot, flat.Unit, player)
 			end
 		end
 	end
+	task.spawn(hammerLine, player, feet + Vector3.new(0, 0.15, 0), direction, hit)
 end
 
 local function giveHammer(player: Player)
