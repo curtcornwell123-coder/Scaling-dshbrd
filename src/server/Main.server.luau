@@ -1033,15 +1033,22 @@ end
 
 task.spawn(function()
 	while true do
-		task.wait(0.1)
-		for thief, carry in carries do
-			local hrp = getRoot(thief)
-			local session = sessions[thief]
-			if not hrp or not session or not session.Plot then
-				returnCarry(carry, "You dropped it! It ran back home.")
-			elseif isInside(session.Plot, hrp.Position) and os.clock() - carry.Started >= carry.MinTime then
-				completeCarry(carry)
+		-- One bad tick is logged and skipped; the loop never stops.
+		local ok, err = pcall(function()
+			task.wait(0.1)
+			for thief, carry in carries do
+				local hrp = getRoot(thief)
+				local session = sessions[thief]
+				if not hrp or not session or not session.Plot then
+					returnCarry(carry, "You dropped it! It ran back home.")
+				elseif isInside(session.Plot, hrp.Position) and os.clock() - carry.Started >= carry.MinTime then
+					completeCarry(carry)
+				end
 			end
+		end)
+		if not ok then
+			warn("[BrainrotHeist] carry loop error:", err)
+			task.wait(1)
 		end
 	end
 end)
@@ -1186,25 +1193,32 @@ end
 task.spawn(function()
 	local wasLive = false
 	while true do
-		local live = adminAbuseLive()
-		if live ~= wasLive then
-			-- Boosts switched on or off: refresh walk speeds and income displays.
-			for player, session in sessions do
-				if session.Loaded then
-					applyMovement(player)
-					push(player)
+		-- One bad tick is logged and skipped; the loop never stops.
+		local ok, err = pcall(function()
+			local live = adminAbuseLive()
+			if live ~= wasLive then
+				-- Boosts switched on or off: refresh walk speeds and income displays.
+				for player, session in sessions do
+					if session.Loaded then
+						applyMovement(player)
+						push(player)
+					end
 				end
 			end
-		end
-		if live then
-			for player, session in sessions do
-				if session.Loaded then
-					giveAbuseGift(player, session)
+			if live then
+				for player, session in sessions do
+					if session.Loaded then
+						giveAbuseGift(player, session)
+					end
 				end
 			end
+			wasLive = live
+			task.wait(1)
+		end)
+		if not ok then
+			warn("[BrainrotHeist] boosts loop error:", err)
+			task.wait(1)
 		end
-		wasLive = live
-		task.wait(1)
 	end
 end)
 
@@ -1931,9 +1945,16 @@ local function spawnOnConveyor(forced: Config.Brainrot?, forcedMutation: string?
 	end
 end
 
+-- Keeps the conveyor going forever: if one spawn ever fails, it's logged
+-- (server console) and the next one still comes.
 task.spawn(function()
 	while true do
-		spawnOnConveyor()
+		local ok, err = pcall(function()
+			spawnOnConveyor()
+		end)
+		if not ok then
+			warn("[BrainrotHeist] Conveyor spawn failed:", err)
+		end
 		task.wait(Config.ConveyorSpawnInterval)
 	end
 end)
@@ -3772,47 +3793,54 @@ task.spawn(function()
 	local sinceSave = 0
 	local sinceMinute = 0
 	while true do
-		task.wait(1)
-		sinceSave += 1
-		sinceMinute += 1
-		for player in sessions do
-			updateFollowers(player)
-		end
-		if sinceMinute >= 60 then
-			sinceMinute = 0
+		-- One bad tick is logged and skipped; the loop never stops.
+		local ok, err = pcall(function()
+			task.wait(1)
+			sinceSave += 1
+			sinceMinute += 1
 			for player in sessions do
-				task.spawn(addQuestProgress, player, "Minutes", 1)
+				updateFollowers(player)
 			end
-		end
-		local now = os.clock()
-		for _, plot in plots do
-			local owner = plot.Owner
-			local session = owner and sessions[owner]
-			if session and session.Loaded then
-				plot.Pending += plotIncome(plot, session)
-				plot.Parts.PendingLabel.Text = "COLLECT\n" .. Config.FormatCash(plot.Pending)
+			if sinceMinute >= 60 then
+				sinceMinute = 0
+				for player in sessions do
+					task.spawn(addQuestProgress, player, "Minutes", 1)
+				end
+			end
+			local now = os.clock()
+			for _, plot in plots do
+				local owner = plot.Owner
+				local session = owner and sessions[owner]
+				if session and session.Loaded then
+					plot.Pending += plotIncome(plot, session)
+					plot.Parts.PendingLabel.Text = "COLLECT\n" .. Config.FormatCash(plot.Pending)
 
-				if plot.LockedUntil == math.huge then
-					plot.Parts.LockLabel.Text = "LOCKED FOREVER"
-				elseif now < plot.LockedUntil then
-					plot.Parts.LockLabel.Text = string.format("LOCKED %ds", math.ceil(plot.LockedUntil - now))
-				else
-					if plot.Parts.Model:GetAttribute("Locked") then
-						setLaser(plot, false)
-					end
-					if now < plot.CooldownUntil then
-						plot.Parts.LockLabel.Text = string.format("RECHARGING %ds", math.ceil(plot.CooldownUntil - now))
+					if plot.LockedUntil == math.huge then
+						plot.Parts.LockLabel.Text = "LOCKED FOREVER"
+					elseif now < plot.LockedUntil then
+						plot.Parts.LockLabel.Text = string.format("LOCKED %ds", math.ceil(plot.LockedUntil - now))
 					else
-						plot.Parts.LockLabel.Text = "STEP TO LOCK"
+						if plot.Parts.Model:GetAttribute("Locked") then
+							setLaser(plot, false)
+						end
+						if now < plot.CooldownUntil then
+							plot.Parts.LockLabel.Text = string.format("RECHARGING %ds", math.ceil(plot.CooldownUntil - now))
+						else
+							plot.Parts.LockLabel.Text = "STEP TO LOCK"
+						end
 					end
 				end
 			end
-		end
-		if sinceSave >= 60 then
-			sinceSave = 0
-			for player in sessions do
-				task.spawn(save, player)
+			if sinceSave >= 60 then
+				sinceSave = 0
+				for player in sessions do
+					task.spawn(save, player)
+				end
 			end
+		end)
+		if not ok then
+			warn("[BrainrotHeist] income loop error:", err)
+			task.wait(1)
 		end
 	end
 end)

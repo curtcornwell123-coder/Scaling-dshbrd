@@ -723,6 +723,9 @@ Config.BigCashMinimum = 25000
 
 local byId: { [string]: Brainrot } = {}
 local byRarity: { [RarityId]: { Brainrot } } = {}
+-- The conveyor's pools leave out limited (Robux) brainrots: those only come
+-- from the shop or a gift, with a serial number.
+local conveyorByRarity: { [RarityId]: { Brainrot } } = {}
 for _, brainrot in Config.Brainrots do
 	byId[brainrot.Id] = brainrot
 	local list = byRarity[brainrot.Rarity]
@@ -731,6 +734,10 @@ for _, brainrot in Config.Brainrots do
 		byRarity[brainrot.Rarity] = list
 	end
 	table.insert(list, brainrot)
+	if not brainrot.Limited then
+		conveyorByRarity[brainrot.Rarity] = conveyorByRarity[brainrot.Rarity] or {}
+		table.insert(conveyorByRarity[brainrot.Rarity], brainrot)
+	end
 end
 
 function Config.GetBrainrot(id: string): Brainrot?
@@ -845,7 +852,7 @@ function Config.RollConveyor(rng: Random, luck: number, eventLive: boolean?): Br
 		if rarity.EventOnly and not eventLive then
 			weight = 0
 		end
-		if byRarity[rarityId] and weight > 0 then
+		if conveyorByRarity[rarityId] and weight > 0 then
 			weights[rarityId] = weight
 			total += weight
 		end
@@ -864,7 +871,7 @@ function Config.RollConveyor(rng: Random, luck: number, eventLive: boolean?): Br
 		end
 	end
 
-	local pool = byRarity[chosen]
+	local pool = conveyorByRarity[chosen]
 	return pool[rng:NextInteger(1, #pool)]
 end
 
