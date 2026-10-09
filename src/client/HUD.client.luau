@@ -1712,6 +1712,8 @@ local founderTab: AdminTab
 local limitedGiveRows: { Frame } = {}
 -- Making codes: only Config.CodeMaker (Corny) sees this box.
 local codeMakerCards: { Frame } = {}
+-- Only the head founder (Corny) can add mutations: these are hidden for others.
+local headFounderOnly: { GuiObject } = {}
 -- Each founder only sees the button for their own event.
 local founderEventButtons: { { Button: TextButton, Founder: string } } = {}
 do
@@ -2022,7 +2024,9 @@ do
 		end
 	end
 	local mutationIndex = 1
-	local mutationCard = section(brainrotsPage, 1, "MUTATION", "Tap to cycle the mutation used by Give, Spawn and Drop below.", PURPLE)
+	local mutationCard = section(brainrotsPage, 1, "MUTATION", "Tap to cycle the mutation used by Spawn and Drop below (Corny only).", PURPLE)
+	mutationCard.Visible = false
+	table.insert(headFounderOnly, mutationCard)
 	local mutationRow = controls(mutationCard, 1)
 	local mutationButton = smallButton(mutationRow, "None", GREY, 180, function() end)
 	smallButton(mutationRow, "Give MAGIC (event)", Color3.fromRGB(170, 110, 255), 230, function()
@@ -2041,7 +2045,7 @@ do
 		return if choice == "None" then id else Config.Encode(id, choice)
 	end
 
-	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = pick a mutation, then it goes into their base.  Spawn = on the conveyor.  Drop = falls near them (Spawn and Drop use the mutation above).", GOLD)
+	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base (Corny picks a mutation first).  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
 	-- The mutations Give can add (plus None), shown under a row when you press Give.
 	local giveChoices: { { Id: string?, Name: string, Color: Color3 } } = { { Id = nil, Name = "None", Color = UI_GREY } }
 	for _, mutation in Config.Mutations do
@@ -2111,6 +2115,11 @@ do
 		end
 
 		local giveButton = smallButton(row, "Give", GREEN, 80, function()
+			-- Other admins give it plain; Corny picks a mutation first.
+			if not (data and data.FounderId == Config.HeadFounder) then
+				send("Brainrot", brainrot.Id)
+				return
+			end
 			-- Opens this brainrot's mutation choices (and closes any other).
 			local other = openChooser
 			if other and other ~= chooser then
@@ -2340,6 +2349,9 @@ local function render()
 	end
 	for _, card in codeMakerCards do
 		card.Visible = data.FounderId == Config.CodeMaker
+	end
+	for _, item in headFounderOnly do
+		item.Visible = data.FounderId == Config.HeadFounder
 	end
 	-- Your own event, plus every event for the head founder (Corny).
 	for _, entry in founderEventButtons do

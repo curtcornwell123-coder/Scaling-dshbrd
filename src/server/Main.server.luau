@@ -3501,6 +3501,19 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 		return
 	end
 
+	-- Only the head founder (Corny) can add mutations: everyone else's Give,
+	-- Spawn and Drop come without one, and Give MAGIC is his alone.
+	local isHead = (founderOf(admin) or {} :: any).Id == Config.HeadFounder
+	if not isHead then
+		if action == "Brainrot" or action == "Spawn" or action == "DropBrainrot" then
+			local brainrot = Config.Decode(tostring(value))
+			value = if brainrot then brainrot.Id else value
+		elseif action == "GiveMagic" then
+			notify(admin, "Only " .. Config.HeadFounder .. " can add mutations.")
+			return
+		end
+	end
+
 	-- Server-wide actions
 	if action == "GlobalAnnounce" then
 		announceEverywhere(admin, tostring(value))
