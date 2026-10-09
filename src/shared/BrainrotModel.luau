@@ -569,6 +569,37 @@ designs.DonuttoDynamo = function(b, c, a)
 	return 4.8
 end
 
+-- Tung Tung Tung Sahur: a tall wooden log with a big grin and a baseball bat.
+designs.TungTungSahur = function(b, c, a)
+	local grain = darker(c, 0.18)
+	legs(b, c, 1.0, 0.55)
+	vcyl(b, "Log", 4.2, 1.9, V(0, 3.1, 0), c, Enum.Material.Wood)
+	ball(b, "LogTop", 1.9, V(0, 5.2, 0), c, Enum.Material.Wood)
+	-- Wood grain rings and a knot
+	for _, y in { 1.6, 2.6, 4.3 } do
+		vcyl(b, "Grain", 0.08, 1.94, V(0, y, 0), grain, Enum.Material.Wood)
+	end
+	zcyl(b, "Knot", 0.1, 0.4, V(0.55, 1.9, -0.93), a, Enum.Material.Wood, true)
+	-- Big round eyes, eyebrows and a wide grin
+	eyes(b, 0, 4.35, -0.85, 0.42, 0.62)
+	for _, side in { -1, 1 } do
+		box(b, "Brow", V(0.6, 0.14, 0.12), CF(side * 0.42, 4.95, -0.92) * ANG(0, 0, side * rad(-12)), darker(a, 0.4), nil, true)
+	end
+	egg(b, "Mouth", V(1.1, 0.42, 0.2), CF(0, 3.55, -0.92), Color3.fromRGB(60, 20, 20), nil, true)
+	box(b, "Teeth", V(0.9, 0.12, 0.08), CF(0, 3.66, -1.0), WHITE, nil, true)
+	-- Thin wooden arms; one holds a baseball bat
+	for _, side in { -1, 1 } do
+		local shoulder = V(side * 0.95, 3.4, 0)
+		local hand = V(side * 1.7, 2.6, -0.4)
+		capsule(b, "Arm", shoulder, hand, 0.28, c, Enum.Material.Wood)
+		ball(b, "Hand", 0.42, hand, c, Enum.Material.Wood)
+	end
+	local bat = Color3.fromRGB(215, 175, 110)
+	capsule(b, "Bat", V(1.7, 2.55, -0.45), V(2.2, 5.1, -0.6), 0.32, bat, Enum.Material.Wood)
+	ball(b, "BatEnd", 0.55, V(2.25, 5.25, -0.62), bat, Enum.Material.Wood)
+	return 6.3
+end
+
 -- A salmon sushi roll in a samurai helmet, katana ready.
 designs.SushitoSamurai = function(b, c, a)
 	local rice = Color3.fromRGB(245, 245, 240)

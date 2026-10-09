@@ -97,6 +97,7 @@ Config.Brainrots = {
 	-- Legendary
 	{ Id = "PinguinoHackerino", DisplayName = "Pinguino Hackerino", Rarity = "Legendary", Price = 75000, Income = 500, Color = Color3.fromRGB(40, 40, 50), Accent = Color3.fromRGB(0, 255, 120) },
 	{ Id = "LasagnaLightningo", DisplayName = "Lasagna Lightningo", Rarity = "Legendary", Price = 200000, Income = 1200, Color = Color3.fromRGB(220, 90, 40), Accent = Color3.fromRGB(255, 240, 80) },
+	{ Id = "TungTungSahur", DisplayName = "Tung Tung Tung Sahur", Rarity = "Legendary", Price = 350000, Income = 2000, Color = Color3.fromRGB(176, 120, 72), Accent = Color3.fromRGB(120, 78, 45) },
 	{ Id = "SushitoSamurai", DisplayName = "Sushito Samurai", Rarity = "Legendary", Price = 500000, Income = 2800, Color = Color3.fromRGB(250, 130, 90), Accent = Color3.fromRGB(200, 30, 40) },
 	-- Mythic
 	{ Id = "DragoniSpaghettoni", DisplayName = "Dragoni Spaghettoni", Rarity = "Mythic", Price = 1500000, Income = 6000, Color = Color3.fromRGB(200, 30, 30), Accent = Color3.fromRGB(255, 210, 120) },
