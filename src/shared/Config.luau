@@ -972,7 +972,7 @@ Config.DropLifetime = 90 -- seconds before an unclaimed drop disappears
 -- Suggested: 2x Cash 199, VIP 249, Longer Lock 149, Infinite Laser Door 450.
 
 Config.GamePasses = {
-	{ Key = "DoubleCash", Id = 0, Name = "2x Cash", Description = "Your brainrots make double cash forever." },
+	{ Key = "DoubleCash", Id = 2023580373, Name = "2x Cash", Description = "Your brainrots make double cash forever." },
 	{ Key = "VIP", Id = 2022590341, Name = "VIP", Description = "+2 base slots, 2 extra floors to buy, a gold crown + VIP tag, and the VIP Royale skin (velvet stairs, VIP throne and VIP vault)." },
 	{ Key = "LongerLock", Id = 0, Name = "Longer Lock", Description = "Your base lock lasts twice as long (2x lock time)." },
 	{ Key = "InfiniteLock", Id = 0, Name = "Infinite Laser Door", Description = "Your base lasers stay on forever. Nobody can steal from you." },

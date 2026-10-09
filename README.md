@@ -318,7 +318,7 @@ Suggested prices:
 
 | Item | Type | Price |
 |---|---|---|
-| 2x Cash | Pass | 199 R$ |
+| 2x Cash | Pass | 199 R$ (id `2023580373`) |
 | VIP (+2 base slots, 2 extra floors to buy, crown + VIP tag, VIP Royale skin) | Pass | 249 R$ (id `2022590341`) |
 | Longer Lock (2x lock time) | Pass | 149 R$ |
 | Infinite Laser Door (lasers never turn off) | Pass | 450 R$ (or 12,500 Shards in the Shard Shop) |
