@@ -1231,12 +1231,12 @@ local skinRows: { [string]: Frame } = {}
 for i, skin in Config.WallSkins do
 	local row = Instance.new("Frame")
 	row.Size = UDim2.new(1, -10, 0, 50)
-	row.BackgroundColor3 = if skin.FounderOnly then Color3.fromRGB(25, 32, 55) else TILE
+	row.BackgroundColor3 = if Config.IsExclusiveSkin(skin) then Color3.fromRGB(25, 32, 55) else TILE
 	row.LayoutOrder = 21 + i
 	-- Founder-only skins are hidden until we know you're that founder.
-	row.Visible = skin.FounderOnly == nil
+	row.Visible = not Config.IsExclusiveSkin(skin)
 	corner(row, 10)
-	if skin.FounderOnly then
+	if Config.IsExclusiveSkin(skin) then
 		stroke(row, 2, GOLD)
 	end
 	row.Parent = questsBody
@@ -1288,10 +1288,10 @@ local function renderQuests()
 	for _, skin in Config.WallSkins do
 		local b = skinButtons[skin.Id]
 		local owned = data.Skins and table.find(data.Skins, skin.Id)
-		if skin.FounderOnly then
-			skinRows[skin.Id].Visible = data.FounderId == skin.FounderOnly
+		if Config.IsExclusiveSkin(skin) then
+			skinRows[skin.Id].Visible = Config.CanUseSkin(skin, data.FounderId, data.Roles)
 		end
-		if skin.FounderOnly and not owned then
+		if Config.IsExclusiveSkin(skin) and not owned then
 			b.Text = "CLAIM (FREE)"
 			b.BackgroundColor3 = GOLD
 		elseif data.Skin == skin.Id then
@@ -1476,7 +1476,7 @@ for i, item in Config.DiamondShop do
 end
 header(diamondBody, 20, "DIAMOND WALL SKINS", Color3.fromRGB(255, 170, 40))
 for i, skin in Config.WallSkins do
-	if skin.Currency == "Diamonds" and not skin.FounderOnly then
+	if skin.Currency == "Diamonds" and not Config.IsExclusiveSkin(skin) then
 		local needed = Config.SkinRequirement(skin)
 		local note = if needed then "Rare wall skin. Unlock " .. needed.Name .. " first." else "A rare wall skin for your base."
 		diamondRow(20 + i, skin.Name, note, skin.Cost, function()

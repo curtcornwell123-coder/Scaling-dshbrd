@@ -142,6 +142,7 @@ export type WallStyle = {
 	Corn: boolean?, -- Corny's own skin: corn cobs, gold trim, and his logo on the windows
 	Trim: Color3?, -- glowing strips along the window sills and tops
 	Moon: boolean?, -- Ace's own skin: a crescent moon over the base
+	TopSign: string?, -- role skins: a glowing sign floating over the base
 }
 
 local CORN_YELLOW = Color3.fromRGB(255, 205, 40)
@@ -607,6 +608,7 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 		Corn = if skin then skin.Corn else nil,
 		Trim = if skin then skin.Trim else nil,
 		Moon = if skin then skin.Moon else nil,
+		TopSign = if skin then skin.TopSign else nil,
 	}
 	-- Floors match the skin; Classic floors are grey in the walls' material.
 	for _, floor in parts.Floors do
@@ -652,6 +654,29 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 		else
 			wallSegment(folder, at(0, -half + 1), inner, height, style)
 		end
+	end
+
+	-- Role skins: a big glowing sign floating over the base.
+	local topSign = style.TopSign
+	if topSign then
+		local topY = if roofed then storyBase(#Config.Stories) + STORY_HEIGHT + 24 else storyBase(stories) + heightOf(stories) + 12
+		local anchor = Instance.new("Part")
+		anchor.Name = "TopSign"
+		anchor.Anchored = true
+		anchor.CanCollide = false
+		anchor.CanQuery = false
+		anchor.CanTouch = false
+		anchor.Transparency = 1
+		anchor.Size = Vector3.one
+		anchor.CFrame = parts.CFrame * CFrame.new(0, topY - FLOOR_TOP, 0)
+		anchor.Parent = parts.WallFolders[1]
+		local sign = billboard(anchor, Vector2.new(520, 110), Vector3.zero, topSign, style.Trim or Color3.new(1, 1, 1))
+		sign.Font = Enum.Font.FredokaOne
+		local light = Instance.new("PointLight")
+		light.Color = style.Trim or Color3.new(1, 1, 1)
+		light.Range = 30
+		light.Brightness = 1.5
+		light.Parent = anchor
 	end
 
 	-- Ace's skin: a crescent moon floating over the base, high above the

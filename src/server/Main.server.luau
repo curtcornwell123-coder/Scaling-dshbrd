@@ -115,6 +115,7 @@ type Session = {
 	IsAdmin: boolean,
 	IsFounder: boolean,
 	FounderId: string, -- "Corny", "Ace", or "" for everyone else
+	Roles: { [string]: boolean }, -- Tester / Mod, for the role-only skins
 	NoSave: boolean, -- Studio test where loading failed: play, but never save
 	LastLimitedTry: number,
 	FollowerModels: { Model },
@@ -581,6 +582,7 @@ local function snapshot(session: Session)
 		IsAdmin = session.IsAdmin,
 		IsFounder = session.IsFounder,
 		FounderId = session.FounderId,
+		Roles = session.Roles,
 		Limited = limitedOwned(session),
 		Shards = data.Shards,
 		CashBoostLeft = math.max(0, data.CashBoostUntil - os.time()),
@@ -1797,11 +1799,11 @@ SkinAction.OnServerEvent:Connect(function(player: Player, action: unknown, skinI
 	local data = session.Data
 	-- Founder-only skins (Corny Gold): only that founder can claim or wear
 	-- it. Checked here on the server, so nobody else can get it.
-	if skin.FounderOnly and skin.FounderOnly ~= session.FounderId then
-		notify(player, string.format("Only %s can use %s!", skin.FounderOnly, skin.Name))
+	if not Config.CanUseSkin(skin, session.FounderId, session.Roles) then
+		notify(player, string.format("Only %s can use %s!", skin.FounderOnly or ((skin.RoleOnly or "") .. "s"), skin.Name))
 		return
 	end
-	if action == "Buy" and skin.FounderOnly and not table.find(data.Skins, skin.Id) then
+	if action == "Buy" and Config.IsExclusiveSkin(skin) and not table.find(data.Skins, skin.Id) then
 		table.insert(data.Skins, skin.Id)
 		notify(player, "Claimed " .. skin.Name .. "!")
 	elseif action == "Buy" and not table.find(data.Skins, skin.Id) then
@@ -2365,6 +2367,7 @@ local function load(player: Player)
 		IsAdmin = false,
 		IsFounder = false,
 		FounderId = "",
+		Roles = {},
 		NoSave = false,
 		LastLimitedTry = 0,
 		FollowerModels = {},
@@ -2415,9 +2418,13 @@ local function load(player: Player)
 	local founder = founderOf(player)
 	session.IsFounder = founder ~= nil
 	session.FounderId = if founder then founder.Id else ""
+	session.Roles = {
+		Mod = session.IsAdmin,
+		Tester = session.IsAdmin or table.find(Config.TesterUserIds, player.UserId) ~= nil,
+	}
 	-- A founder-only skin is only ever on its founder's base.
 	local equipped = Config.GetWallSkin(session.Data.Skin)
-	if equipped and equipped.FounderOnly and equipped.FounderOnly ~= session.FounderId then
+	if equipped and not Config.CanUseSkin(equipped, session.FounderId, session.Roles) then
 		session.Data.Skin = "Classic"
 	end
 

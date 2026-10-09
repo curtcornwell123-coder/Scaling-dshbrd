@@ -232,6 +232,8 @@ export type WallSkin = {
 	Corn: boolean?, -- corn cobs on the walls and the Corny Games logo on the windows
 	Trim: Color3?, -- glowing strips along the window sills and tops
 	Moon: boolean?, -- a crescent moon over the base, with an aura once it's fully upgraded
+	RoleOnly: string?, -- "Tester" or "Mod": only players with that role can have it (free)
+	TopSign: string?, -- a glowing sign floating over the base (in the Trim color)
 }
 
 Config.WallSkins = {
@@ -247,6 +249,9 @@ Config.WallSkins = {
 	{ Id = "Lava", Name = "Lava Core", Cost = 75, Currency = "Diamonds", Color = Color3.fromRGB(55, 25, 20), Material = Enum.Material.CrackedLava, Glass = Color3.fromRGB(255, 120, 30), GlassNeon = true, FloorColor = Color3.fromRGB(45, 22, 18), FloorMaterial = Enum.Material.Slate },
 	{ Id = "Celestial", Name = "Celestial", Cost = 120, Currency = "Diamonds", Color = Color3.fromRGB(245, 240, 228), Material = Enum.Material.Marble, Glass = Color3.fromRGB(255, 210, 90), GlassNeon = true, FloorColor = Color3.fromRGB(250, 246, 236), FloorMaterial = Enum.Material.Marble },
 	-- Corny's own skin, like his logo: navy walls, gold trim, corn everywhere.
+	-- Role skins: free for testers (Config.TesterUserIds) and for mods (admins).
+	{ Id = "Tester", Name = "Beta Tester (testers only)", Cost = 0, Currency = "Diamonds", RoleOnly = "Tester", TopSign = "🧪 BETA TESTER", Trim = Color3.fromRGB(0, 230, 255), Color = Color3.fromRGB(235, 245, 250), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(120, 240, 255), GlassNeon = true, FloorColor = Color3.fromRGB(205, 220, 230), FloorMaterial = Enum.Material.DiamondPlate },
+	{ Id = "Mod", Name = "Moderator (mods only)", Cost = 0, Currency = "Diamonds", RoleOnly = "Mod", TopSign = "🛡️ MODERATOR", Trim = Color3.fromRGB(255, 45, 60), Color = Color3.fromRGB(28, 28, 34), Material = Enum.Material.Metal, Glass = Color3.fromRGB(255, 70, 80), GlassNeon = true, FloorColor = Color3.fromRGB(40, 40, 48), FloorMaterial = Enum.Material.DiamondPlate },
 	-- Ace's own skin, in Cigna Glamourina's pinks, with a crescent moon on top.
 	{ Id = "Ace", Name = "Glamourina Moon (Ace only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Ace", Moon = true, Trim = Color3.fromRGB(255, 30, 170), Color = Color3.fromRGB(240, 110, 200), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 190, 235), GlassNeon = true, FloorColor = Color3.fromRGB(255, 225, 245), FloorMaterial = Enum.Material.SmoothPlastic },
 	{ Id = "Corny", Name = "Corny Gold (Corny only)", Cost = 0, Currency = "Diamonds", FounderOnly = "Corny", Corn = true, Trim = Color3.fromRGB(250, 196, 60), Color = Color3.fromRGB(25, 32, 55), Material = Enum.Material.SmoothPlastic, Glass = Color3.fromRGB(255, 205, 60), FloorColor = Color3.fromRGB(255, 215, 90), FloorMaterial = Enum.Material.SmoothPlastic },
@@ -255,8 +260,24 @@ Config.WallSkins = {
 -- Skins are a ladder: to buy one you must own the one before it that costs
 -- the same currency (Red Brick -> Candy Pink -> ... and Royal Gold ->
 -- Galaxy -> ...). Returns the skin you need first, if any.
-function Config.SkinRequirement(skin: WallSkin): WallSkin?
+-- Skins only some players can have: a founder's own, or a role's (free).
+function Config.IsExclusiveSkin(skin: WallSkin): boolean
+	return skin.FounderOnly ~= nil or skin.RoleOnly ~= nil
+end
+
+-- Whether this player may claim/wear the skin. `roles` = { Tester, Mod }.
+function Config.CanUseSkin(skin: WallSkin, founderId: string?, roles: { [string]: boolean }?): boolean
 	if skin.FounderOnly then
+		return skin.FounderOnly == founderId
+	end
+	if skin.RoleOnly then
+		return roles ~= nil and roles[skin.RoleOnly] == true
+	end
+	return true
+end
+
+function Config.SkinRequirement(skin: WallSkin): WallSkin?
+	if Config.IsExclusiveSkin(skin) then
 		return nil
 	end
 	local previous: WallSkin? = nil
@@ -264,7 +285,7 @@ function Config.SkinRequirement(skin: WallSkin): WallSkin?
 		if other.Id == skin.Id then
 			return previous
 		end
-		if other.Currency == skin.Currency and other.Cost > 0 and not other.FounderOnly then
+		if other.Currency == skin.Currency and other.Cost > 0 and not Config.IsExclusiveSkin(other) then
 			previous = other
 		end
 	end
@@ -440,6 +461,8 @@ Config.RebirthBonus = 0.5 -- +50% income per rebirth
 -- Roblox user IDs here (the number in their profile URL).
 
 Config.AdminUserIds = {} :: { number }
+-- Testers: get the Beta Tester wall skin (admins count as testers too).
+Config.TesterUserIds = {} :: { number }
 Config.AdminGroupRank = 255 -- for group games: this rank and above are admins
 
 -- Admin abuse --------------------------------------------------------------
