@@ -2648,7 +2648,8 @@ local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?, from: 
 	prompt.Triggered:Connect(function(player)
 		local session = sessions[player]
 		local plot = session and session.Plot
-		if not session or not plot or model:GetAttribute("Claimed") then
+		-- (Gone already: grabbed, or it timed out just as they pressed.)
+		if not session or not plot or model:GetAttribute("Claimed") or not model.Parent then
 			return
 		end
 		local index = freeSlot(plot, session)
