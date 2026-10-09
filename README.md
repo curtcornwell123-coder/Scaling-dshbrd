@@ -124,6 +124,10 @@ To build a place file without Studio sync: `rojo build -o BrainrotHeist.rbxl`.
 3. **Game Settings → Places → Max Players = 8**. There are 8 bases.
 4. Set up the Robux items below.
 
+## Sprint
+
+Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tablet (just left of the jump button; tap again to stop), or **click the left stick** on a controller (click again to stop). Sprinting is 1.45x faster (`Config.SprintMultiplier`), on top of admin abuse's speed boost, but you can't sprint while carrying a stolen brainrot. On phones and tablets the music button and boost badges sit at the top right, out of the way.
+
 ## Admin panel
 
 Admins get a red **ADMIN** button on the left. The **Player** box at the top picks who the buttons act on: type `me`, `all`, or the start of someone's name. Below it, the panel is split into tabs, and each job has its own labelled box:

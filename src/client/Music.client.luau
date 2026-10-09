@@ -73,6 +73,11 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local button = Instance.new("TextButton")
 button.AnchorPoint = Vector2.new(1, 1)
 button.Position = UDim2.new(1, -12, 1, -12)
+-- Phones and tablets: top right, out of the way of the jump and sprint buttons.
+if game:GetService("UserInputService").TouchEnabled then
+	button.AnchorPoint = Vector2.new(1, 0)
+	button.Position = UDim2.new(1, -12, 0, 8)
+end
 button.Size = UDim2.fromOffset(140, 38)
 button.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
 button.BackgroundTransparency = 0.15

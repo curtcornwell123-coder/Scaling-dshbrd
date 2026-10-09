@@ -2303,6 +2303,13 @@ badgeLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 badgeLayout.Padding = UDim.new(0, 6)
 badgeLayout.SortOrder = Enum.SortOrder.LayoutOrder
 badgeLayout.Parent = badgeHolder
+-- On phones and tablets the bottom right is for the jump and sprint buttons,
+-- so the badges sit top right (under the music button) instead.
+if game:GetService("UserInputService").TouchEnabled then
+	badgeHolder.AnchorPoint = Vector2.new(1, 0)
+	badgeHolder.Position = UDim2.new(1, -12, 0, 52)
+	badgeLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+end
 
 type Badge = { Frame: Frame, Name: TextLabel, Time: TextLabel }
 local badges: { [string]: Badge } = {}

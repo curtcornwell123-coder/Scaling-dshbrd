@@ -405,7 +405,8 @@ Config.LockLevels = {
 
 -- Stealing -----------------------------------------------------------------
 
-Config.CarryWalkSpeed = 13 -- thieves move slower while carrying
+Config.CarryWalkSpeed = 13 -- thieves move slower while carrying (and can't sprint)
+Config.SprintMultiplier = 1.45 -- Shift / SPRINT button / click the left stick
 Config.NormalWalkSpeed = 16
 Config.StealRange = 14
 Config.SlapCooldown = 0.8
