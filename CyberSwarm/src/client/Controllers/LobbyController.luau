@@ -1,9 +1,10 @@
 --!strict
 --[[
 	LobbyController
-	The hub screen: coin display, Play buttons for each mode, queue status with a leave button, and
-	the loadout editor. Every card is built once at startup and refreshed in place from
-	ClientState, so profile updates never rebuild UI.
+	The hub screen. A side rail on the left (PLAY / LOADOUT / ARMORY) opens one panel at a time next
+	to it, so the lobby world stays visible; a small coin counter sits top-right and the queue status
+	appears at the bottom while queued. Every card is built once at startup and refreshed in place
+	from ClientState, so profile updates never rebuild UI.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -22,6 +23,20 @@ local ClientState = require(script.Parent.Parent.ClientState)
 local UIController = require(script.Parent.UIController)
 local ShopController = require(script.Parent.ShopController)
 
+type PanelName = "Play" | "Loadout" | "Armory"
+
+type RailButton = {
+	name: PanelName,
+	button: TextButton,
+	title: TextLabel,
+	subtitle: TextLabel,
+	color: Color3,
+}
+
+-- Panels open just right of the rail and slide in from slightly further left.
+local PANEL_X = 0.135
+local PANEL_SLIDE_FROM = 0.115
+
 type RobotCard = {
 	robotId: string,
 	button: TextButton,
@@ -39,6 +54,11 @@ local queuePanel: Frame
 local queueTitle: TextLabel
 local queueStatus: TextLabel
 local cards: { RobotCard } = {}
+local railButtons: { RailButton } = {}
+local panels: { [string]: Frame } = {}
+local openPanel: PanelName? = nil
+-- Defined below; declared here because robot cards open the Armory through it.
+local setPanel: (name: PanelName?) -> ()
 
 local function playerCountText(mode: Types.ModeDef): string
 	if mode.minPlayers == mode.maxPlayers then
@@ -60,7 +80,7 @@ local function toggleRobot(robotId: string)
 	end
 	if table.find(profile.unlockedRobots, robotId) == nil then
 		UIController.showToast(Constants.NoticeText.BUY_IN_ARMORY, "Info")
-		ShopController.open()
+		setPanel("Armory")
 		return
 	end
 
@@ -155,59 +175,124 @@ local function refreshQueue(queue: Types.QueueSnapshot)
 	end
 end
 
-local function buildTopBar(layer: Frame)
-	local bar = UIKit.frame({
-		Name = "TopBar",
-		Size = UDim2.fromScale(1, 0.085),
+-- Shows one side panel at a time; picking the open panel's button again closes it.
+setPanel = function(name: PanelName?)
+	if name == openPanel then
+		name = nil
+	end
+	openPanel = name
+	for panelName, frame in panels do
+		local show = panelName == name
+		if show and not frame.Visible then
+			frame.Position = UDim2.fromScale(PANEL_SLIDE_FROM, 0.5)
+			frame.Visible = true
+			UIKit.tween(frame, Theme.Tween.Normal, { Position = UDim2.fromScale(PANEL_X, 0.5) })
+		elseif not show then
+			frame.Visible = false
+		end
+	end
+	if name == "Armory" then
+		ShopController.open()
+	else
+		ShopController.close()
+	end
+	for _, railButton in railButtons do
+		local selected = railButton.name == name
+		railButton.button.BackgroundColor3 = if selected then railButton.color else Theme.Colors.PanelDark
+		railButton.title.TextColor3 = if selected then Theme.Colors.PanelDark else railButton.color
+		railButton.subtitle.TextColor3 = if selected then Theme.Colors.PanelDark else Theme.Colors.TextDim
+	end
+end
+
+local function buildCurrency(layer: Frame)
+	local pill = UIKit.frame({
+		Name = "Currency",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(0.985, 0.02),
+		Size = UDim2.fromScale(0.22, 0.055),
 		BackgroundColor3 = Theme.Colors.PanelDark,
 		BackgroundTransparency = 0.15,
 		Parent = layer,
 	})
-	UIKit.gradient(bar, Theme.Colors.PanelDark, Theme.Colors.Panel, 0)
-	UIKit.frame({
-		Name = "Accent",
-		Size = UDim2.new(1, 0, 0, 3),
-		Position = UDim2.fromScale(0, 1),
-		BackgroundColor3 = Theme.Colors.Primary,
-		Parent = bar,
-	})
-	UIKit.label({
-		Size = UDim2.fromScale(0.3, 0.7),
-		Position = UDim2.fromScale(0.02, 0.15),
-		Font = Theme.Fonts.Title,
-		Text = string.upper(Constants.GAME_NAME),
-		TextColor3 = Theme.Colors.Primary,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = bar,
-	}, Theme.Text.TITLE_MAX)
+	UIKit.corner(pill, UDim.new(0.5, 0))
+	UIKit.stroke(pill, Theme.Colors.Warning, 2, 0.3)
 	coinsLabel = UIKit.label({
-		Size = UDim2.fromScale(0.3, 0.5),
-		Position = UDim2.fromScale(0.52, 0.25),
+		Size = UDim2.fromScale(0.88, 0.62),
+		Position = UDim2.fromScale(0.06, 0.19),
 		Text = "COINS 0",
 		TextColor3 = Theme.Colors.Warning,
-		TextXAlignment = Enum.TextXAlignment.Right,
-		Parent = bar,
-	}, Theme.Text.HEADER_MAX)
+		Parent = pill,
+	}, Theme.Text.BODY_MAX)
+end
 
-	local shopButton = UIKit.button({
-		Size = UDim2.fromScale(0.12, 0.7),
-		Position = UDim2.fromScale(0.86, 0.15),
-		Text = "ARMORY",
-		BackgroundColor3 = Theme.Colors.Secondary,
-		TextColor3 = Theme.Colors.PanelDark,
-		Parent = bar,
-	}, Theme.Text.HEADER_MAX)
-	UIKit.bindButton(shopButton, maid, ShopController.toggle)
+local RAIL_ENTRIES: { { name: PanelName, title: string, subtitle: string, color: Color3 } } = {
+	{ name = "Play", title = "PLAY", subtitle = "Pick a mode", color = Theme.Colors.Primary },
+	{ name = "Loadout", title = "LOADOUT", subtitle = "Equip robots", color = Theme.Colors.Secondary },
+	{ name = "Armory", title = "ARMORY", subtitle = "Unlock robots", color = Theme.Colors.Warning },
+}
+
+local function buildSideRail(layer: Frame)
+	local rail = UIKit.frame({
+		Name = "SideRail",
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(0.012, 0.5),
+		Size = UDim2.fromScale(0.11, 0.46),
+		BackgroundTransparency = 1,
+		Parent = layer,
+	})
+	UIKit.list(rail, Enum.FillDirection.Vertical, UDim.new(0.04, 0))
+
+	for order, entry in RAIL_ENTRIES do
+		-- Big square-ish buttons: easy to hit on touch screens, quiet when not selected.
+		local button = UIKit.button({
+			Name = entry.name,
+			LayoutOrder = order,
+			Size = UDim2.fromScale(1, 0.3),
+			BackgroundColor3 = Theme.Colors.PanelDark,
+			BackgroundTransparency = 0.1,
+			Parent = rail,
+		})
+		UIKit.stroke(button, entry.color, 2, 0.15)
+		local title = UIKit.label({
+			Size = UDim2.fromScale(0.86, 0.46),
+			Position = UDim2.fromScale(0.07, 0.14),
+			Font = Theme.Fonts.Title,
+			Text = entry.title,
+			TextColor3 = entry.color,
+			Parent = button,
+		}, Theme.Text.HEADER_MAX)
+		local subtitle = UIKit.label({
+			Size = UDim2.fromScale(0.86, 0.24),
+			Position = UDim2.fromScale(0.07, 0.64),
+			Font = Theme.Fonts.Light,
+			Text = entry.subtitle,
+			TextColor3 = Theme.Colors.TextDim,
+			Parent = button,
+		}, Theme.Text.SMALL_MAX)
+		UIKit.bindButton(button, maid, function()
+			setPanel(entry.name)
+		end)
+		table.insert(railButtons, {
+			name = entry.name,
+			button = button,
+			title = title,
+			subtitle = subtitle,
+			color = entry.color,
+		})
+	end
 end
 
 local function buildPlayPanel(layer: Frame)
 	local panel = UIKit.frame({
 		Name = "Play",
-		Position = UDim2.fromScale(0.02, 0.13),
-		Size = UDim2.fromScale(0.27, 0.62),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(PANEL_X, 0.5),
+		Size = UDim2.fromScale(0.3, 0.62),
 		BackgroundTransparency = 0.1,
+		Visible = false,
 		Parent = layer,
 	})
+	panels.Play = panel
 	UIKit.corner(panel)
 	UIKit.stroke(panel, Theme.Colors.Primary, 2, 0.3)
 
@@ -267,6 +352,7 @@ local function buildPlayPanel(layer: Frame)
 		}, Theme.Text.SMALL_MAX)
 		UIKit.bindButton(button, maid, function()
 			Remotes.RequestJoinQueue:fire(modeId)
+			setPanel(nil)
 		end)
 	end
 
@@ -323,11 +409,14 @@ end
 local function buildLoadoutPanel(layer: Frame)
 	local panel = UIKit.frame({
 		Name = "Loadout",
-		Position = UDim2.fromScale(0.69, 0.13),
-		Size = UDim2.fromScale(0.29, 0.8),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(PANEL_X, 0.5),
+		Size = UDim2.fromScale(0.32, 0.78),
 		BackgroundTransparency = 0.1,
+		Visible = false,
 		Parent = layer,
 	})
+	panels.Loadout = panel
 	UIKit.corner(panel)
 	UIKit.stroke(panel, Theme.Colors.Secondary, 2, 0.3)
 
@@ -403,18 +492,27 @@ end
 
 function LobbyController.init()
 	local layer = UIController.getLayer("Lobby")
-	buildTopBar(layer)
+	buildCurrency(layer)
+	buildSideRail(layer)
 	buildPlayPanel(layer)
 	buildQueuePanel(layer)
 	buildLoadoutPanel(layer)
 
 	maid:give(ClientState.profileChanged:connect(refreshProfile))
 	maid:give(ClientState.queueChanged:connect(refreshQueue))
-	-- Entering a match clears any queue display left over from the lobby.
+	maid:give(ShopController.closed:connect(function()
+		if openPanel == "Armory" then
+			setPanel(nil)
+		end
+	end))
+	-- Entering a match clears the queue display and closes any open panel.
 	maid:give(ClientState.matchChanged:connect(function()
 		if queuePanel.Visible then
 			queuePanel.Visible = false
 			maid:clear("queueTicker")
+		end
+		if openPanel ~= nil then
+			setPanel(nil)
 		end
 	end))
 

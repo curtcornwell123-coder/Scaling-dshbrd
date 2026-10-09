@@ -12,6 +12,7 @@ local Theme = require(ReplicatedStorage.Shared.Theme)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Maid = require(ReplicatedStorage.Shared.Util.Maid)
+local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local MathUtil = require(ReplicatedStorage.Shared.Util.Math)
 local RobotConfig = require(ReplicatedStorage.Shared.Config.RobotConfig)
 local UIKit = require(script.Parent.Parent.UI.UIKit)
@@ -19,6 +20,9 @@ local ClientState = require(script.Parent.Parent.ClientState)
 local UIController = require(script.Parent.UIController)
 
 local ROW_HEIGHT = 120
+-- The Armory opens beside the lobby's side rail, like the Play and Loadout panels.
+local PANEL_X = 0.135
+local PANEL_SLIDE_FROM = 0.115
 local ROW_GAP = 10
 
 type Row = {
@@ -28,6 +32,9 @@ type Row = {
 }
 
 local ShopController = {}
+
+-- Fires when the panel closes (its X button or another panel opening), so the rail can update.
+ShopController.closed = Signal.new() :: Signal.Signal<()>
 
 local maid = Maid.new()
 local panel: Frame
@@ -148,30 +155,30 @@ function ShopController.open()
 		return
 	end
 	refresh(ClientState.profile)
-	panel.Position = UDim2.fromScale(0.5, 0.56)
+	panel.Position = UDim2.fromScale(PANEL_SLIDE_FROM, 0.5)
 	panel.Visible = true
-	UIKit.tween(panel, Theme.Tween.Pop, { Position = UDim2.fromScale(0.5, 0.5) })
+	UIKit.tween(panel, Theme.Tween.Normal, { Position = UDim2.fromScale(PANEL_X, 0.5) })
 end
 
 function ShopController.close()
+	if not panel.Visible then
+		return
+	end
 	panel.Visible = false
+	ShopController.closed:fire()
 end
 
-function ShopController.toggle()
-	if panel.Visible then
-		ShopController.close()
-	else
-		ShopController.open()
-	end
+function ShopController.isOpen(): boolean
+	return panel.Visible
 end
 
 function ShopController.init()
 	local modal = UIController.getLayer("Modal")
 	panel = UIKit.frame({
 		Name = "Armory",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(0.56, 0.76),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.fromScale(PANEL_X, 0.5),
+		Size = UDim2.fromScale(0.5, 0.78),
 		BackgroundColor3 = Theme.Colors.Panel,
 		BackgroundTransparency = 0.04,
 		Visible = false,

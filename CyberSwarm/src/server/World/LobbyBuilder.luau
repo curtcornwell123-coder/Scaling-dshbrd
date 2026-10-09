@@ -1,8 +1,9 @@
 --!strict
 --[[
 	LobbyBuilder
-	Generates the hub lobby from Parts: a neon-gridded deck, a spawn, the title sign, and one queue
-	pad per mode in ModeConfig.Order. Each pad is self-describing: the QueuePad tag, a ModeId
+	Generates the hub lobby from Parts: an enclosed arena hall (tall panelled walls with neon trim,
+	pillars, corner towers, overhead light beams and big wall screens), a neon-gridded deck, a spawn
+	facing the pads, and one queue pad per mode in ModeConfig.Order. Each pad is self-describing: the QueuePad tag, a ModeId
 	attribute, and a "Status" billboard. QueueService discovers pads through CollectionService, so
 	pads placed by hand in Studio work the same way.
 ]]
@@ -23,7 +24,12 @@ local PAD_SIZE = 16
 local PAD_ROW_Z = 28
 local PAD_SPACING = 34
 local SPAWN_Z = -30
-local WALL_HEIGHT = 14
+local WALL_HEIGHT = 40
+local WALL_THICKNESS = 3
+local PILLAR_SPACING = 25
+local CORNER_TOWER_SIZE = 7
+local BEAM_ROWS = { -30, 0, 30 }
+local SCREEN_PIXELS_PER_STUD = 20
 
 export type PadInfo = {
 	pad: BasePart,
@@ -110,6 +116,183 @@ local function buildPad(model: Model, origin: Vector3, modeId: string, index: nu
 	}
 end
 
+-- Each wall is built in its own frame: local X runs along the wall, -Z faces into the lobby and
+-- Y = 0 is floor level, so every wall uses the same decoration code.
+local function buildWall(model: Model, base: Vector3, inward: Vector3, length: number): CFrame
+	local frame = CFrame.lookAt(base, base + inward)
+	local function at(x: number, y: number, z: number): CFrame
+		return frame * CFrame.new(x, y, z)
+	end
+
+	PartFactory.part({
+		name = "Wall",
+		size = Vector3.new(length, WALL_HEIGHT, WALL_THICKNESS),
+		cframe = at(0, WALL_HEIGHT * 0.5, WALL_THICKNESS * 0.5),
+		color = Theme.Colors.Panel,
+		material = Enum.Material.SmoothPlastic,
+		parent = model,
+	})
+
+	-- Lighter inset panels between the pillars give the wall depth.
+	local bays = math.max(1, math.floor(length / PILLAR_SPACING + 0.5))
+	local bayWidth = length / bays
+	for bay = 1, bays do
+		local x = -length * 0.5 + (bay - 0.5) * bayWidth
+		PartFactory.part({
+			name = "WallPanel",
+			size = Vector3.new(bayWidth - 4, WALL_HEIGHT - 14, 0.3),
+			cframe = at(x, WALL_HEIGHT * 0.5, -0.15),
+			color = Theme.Colors.PanelLight,
+			material = Enum.Material.SmoothPlastic,
+			canCollide = false,
+			parent = model,
+		})
+	end
+
+	-- Metal pillars with alternating cyan / magenta light stripes.
+	for pillar = 1, bays - 1 do
+		local x = -length * 0.5 + pillar * bayWidth
+		PartFactory.part({
+			name = "Pillar",
+			size = Vector3.new(3, WALL_HEIGHT, 1.6),
+			cframe = at(x, WALL_HEIGHT * 0.5, -0.8),
+			color = Theme.Colors.Metal,
+			material = Enum.Material.Metal,
+			parent = model,
+		})
+		local stripeColor = if pillar % 2 == 0 then Theme.Colors.Secondary else Theme.Colors.Primary
+		PartFactory.neon(
+			"PillarStripe",
+			Vector3.new(0.5, WALL_HEIGHT - 8, 0.2),
+			at(x, WALL_HEIGHT * 0.5, -1.7),
+			stripeColor,
+			model
+		)
+	end
+
+	PartFactory.neon("BaseTrim", Vector3.new(length, 0.5, 0.3), at(0, 0.9, -0.3), Theme.Colors.Primary, model)
+	PartFactory.neon(
+		"TopTrim",
+		Vector3.new(length, 0.6, 0.3),
+		at(0, WALL_HEIGHT - 4, -0.3),
+		Theme.Colors.Secondary,
+		model
+	)
+	PartFactory.part({
+		name = "Cornice",
+		size = Vector3.new(length, 1.5, WALL_THICKNESS + 2),
+		cframe = at(0, WALL_HEIGHT + 0.75, WALL_THICKNESS * 0.5 - 1),
+		color = Theme.Colors.Metal,
+		material = Enum.Material.Metal,
+		parent = model,
+	})
+	return frame
+end
+
+-- A glowing wall screen with a title and body text, mounted in front of the pillars.
+local function buildScreen(
+	model: Model,
+	wallFrame: CFrame,
+	x: number,
+	y: number,
+	size: Vector2,
+	title: string,
+	body: string,
+	accent: Color3
+)
+	local cframe = wallFrame * CFrame.new(x, y, -2.2)
+	PartFactory.neon(
+		"ScreenBorder",
+		Vector3.new(size.X + 1, size.Y + 1, 0.3),
+		cframe * CFrame.new(0, 0, 0.3),
+		accent,
+		model
+	)
+	local screen = PartFactory.part({
+		name = "Screen",
+		size = Vector3.new(size.X, size.Y, 0.4),
+		cframe = cframe,
+		color = Theme.Colors.PanelDark,
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		parent = model,
+	})
+
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "Display"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = SCREEN_PIXELS_PER_STUD
+	gui.LightInfluence = 0
+	gui.Adornee = screen
+
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Name = "Title"
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Position = UDim2.fromScale(0.05, 0.06)
+	titleLabel.Size = UDim2.fromScale(0.9, 0.36)
+	titleLabel.Font = Theme.Fonts.Title
+	titleLabel.TextScaled = true
+	titleLabel.TextColor3 = accent
+	titleLabel.Text = title
+	titleLabel.Parent = gui
+
+	local bodyLabel = Instance.new("TextLabel")
+	bodyLabel.Name = "Body"
+	bodyLabel.BackgroundTransparency = 1
+	bodyLabel.Position = UDim2.fromScale(0.07, 0.46)
+	bodyLabel.Size = UDim2.fromScale(0.86, 0.46)
+	bodyLabel.Font = Theme.Fonts.Body
+	bodyLabel.TextScaled = true
+	bodyLabel.TextWrapped = true
+	bodyLabel.TextColor3 = Theme.Colors.Text
+	bodyLabel.Text = body
+	bodyLabel.Parent = gui
+
+	gui.Parent = screen
+end
+
+local function buildCeiling(model: Model, origin: Vector3, span: number)
+	for _, z in BEAM_ROWS do
+		PartFactory.part({
+			name = "Beam",
+			size = Vector3.new(span, 2, 2.5),
+			cframe = CFrame.new(origin + Vector3.new(0, WALL_HEIGHT, z)),
+			color = Theme.Colors.Metal,
+			material = Enum.Material.Metal,
+			parent = model,
+		})
+		PartFactory.neon(
+			"BeamLight",
+			Vector3.new(span, 0.3, 0.9),
+			CFrame.new(origin + Vector3.new(0, WALL_HEIGHT - 1.15, z)),
+			Theme.Colors.Primary,
+			model
+		)
+	end
+end
+
+local function buildCornerTowers(model: Model, origin: Vector3, half: number)
+	for _, corner in { Vector3.new(-1, 0, -1), Vector3.new(1, 0, -1), Vector3.new(-1, 0, 1), Vector3.new(1, 0, 1) } do
+		local center = origin + Vector3.new(corner.X * (half + 1), 0, corner.Z * (half + 1))
+		PartFactory.part({
+			name = "CornerTower",
+			size = Vector3.new(CORNER_TOWER_SIZE, WALL_HEIGHT + 6, CORNER_TOWER_SIZE),
+			cframe = CFrame.new(center + Vector3.new(0, (WALL_HEIGHT + 6) * 0.5, 0)),
+			color = Theme.Colors.Metal,
+			material = Enum.Material.Metal,
+			parent = model,
+		})
+		PartFactory.neon(
+			"TowerCap",
+			Vector3.new(CORNER_TOWER_SIZE + 0.6, 0.8, CORNER_TOWER_SIZE + 0.6),
+			CFrame.new(center + Vector3.new(0, WALL_HEIGHT + 6.4, 0)),
+			Theme.Colors.Secondary,
+			model
+		)
+	end
+end
+
 function LobbyBuilder.build(parent: Instance): Lobby
 	applyLighting()
 
@@ -148,33 +331,45 @@ function LobbyBuilder.build(parent: Instance): Lobby
 		)
 	end
 
-	-- Invisible walls keep players on the deck; neon rails show where the edge is.
-	for _, wall in
-		{
-			{ Vector3.new(0, WALL_HEIGHT * 0.5, half), Vector3.new(FLOOR_SIZE, WALL_HEIGHT, 1) },
-			{ Vector3.new(0, WALL_HEIGHT * 0.5, -half), Vector3.new(FLOOR_SIZE, WALL_HEIGHT, 1) },
-			{ Vector3.new(half, WALL_HEIGHT * 0.5, 0), Vector3.new(1, WALL_HEIGHT, FLOOR_SIZE) },
-			{ Vector3.new(-half, WALL_HEIGHT * 0.5, 0), Vector3.new(1, WALL_HEIGHT, FLOOR_SIZE) },
-		}
-	do
-		local barrier = PartFactory.part({
-			name = "Barrier",
-			size = wall[2],
-			cframe = CFrame.new(origin + wall[1]),
-			color = Theme.Colors.Primary,
-			transparency = 1,
-			parent = model,
-		})
-		barrier.CanQuery = false
-		local railSize = Vector3.new(math.max(wall[2].X, 1), 0.4, math.max(wall[2].Z, 1))
-		PartFactory.neon(
-			"Rail",
-			railSize,
-			CFrame.new(origin + Vector3.new(wall[1].X, 1.2, wall[1].Z)),
-			Theme.Colors.Secondary,
-			model
-		)
-	end
+	-- Enclosed arena hall: four panelled walls, corner towers, and overhead light beams.
+	local backWall = buildWall(model, origin + Vector3.new(0, 0, half), Vector3.new(0, 0, -1), FLOOR_SIZE)
+	buildWall(model, origin + Vector3.new(0, 0, -half), Vector3.new(0, 0, 1), FLOOR_SIZE)
+	local leftWall = buildWall(model, origin + Vector3.new(-half, 0, 0), Vector3.new(1, 0, 0), FLOOR_SIZE)
+	local rightWall = buildWall(model, origin + Vector3.new(half, 0, 0), Vector3.new(-1, 0, 0), FLOOR_SIZE)
+	buildCornerTowers(model, origin, half)
+	buildCeiling(model, origin, FLOOR_SIZE)
+
+	-- Big screens: the title above the queue pads, and a short briefing on each side wall.
+	buildScreen(
+		model,
+		backWall,
+		0,
+		24,
+		Vector2.new(48, 16),
+		string.upper(Constants.GAME_NAME),
+		"SEND THE SWARM. BREAK THE DEFENSE.",
+		Theme.Colors.Primary
+	)
+	buildScreen(
+		model,
+		leftWall,
+		0,
+		18,
+		Vector2.new(34, 18),
+		"HOW TO PLAY",
+		"Step on a pad or press PLAY.\nBuy robots between waves.\nSurvivors damage the enemy HQ.",
+		Theme.Colors.Secondary
+	)
+	buildScreen(
+		model,
+		rightWall,
+		0,
+		18,
+		Vector2.new(34, 18),
+		"THE DEFENSE MUTATES",
+		"Every wave the enemy gains a military upgrade. Check the incoming mutation and counter it.",
+		Theme.Military.Amber
+	)
 
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "LobbySpawn"
@@ -182,32 +377,13 @@ function LobbyBuilder.build(parent: Instance): Lobby
 	spawn.Neutral = true
 	spawn.Duration = 0
 	spawn.Size = Vector3.new(12, 1, 12)
-	spawn.CFrame = CFrame.new(origin + Vector3.new(0, 0.5, SPAWN_Z))
+	-- Turned to face +Z so players spawn looking at the queue pads and the title screen.
+	spawn.CFrame = CFrame.new(origin + Vector3.new(0, 0.5, SPAWN_Z)) * CFrame.Angles(0, math.pi, 0)
 	spawn.Color = Theme.Colors.Primary
 	spawn.Material = Enum.Material.Neon
 	spawn.Transparency = 0.35
 	spawn.TopSurface = Enum.SurfaceType.Smooth
 	spawn.Parent = model
-
-	-- Title sign floating behind the spawn.
-	local titleAnchor =
-		PartFactory.marker("TitleAnchor", CFrame.new(origin + Vector3.new(0, 22, -half + 8)), Vector3.one, model)
-	PartFactory.billboard(
-		titleAnchor,
-		string.upper(Constants.GAME_NAME),
-		Theme.Colors.Primary,
-		Vector2.new(60, 12),
-		0,
-		600
-	)
-	PartFactory.billboard(
-		titleAnchor,
-		"SEND THE SWARM. BREAK THE DEFENSE.",
-		Theme.Colors.Secondary,
-		Vector2.new(50, 3),
-		-7.5,
-		600
-	)
 
 	local pads: { PadInfo } = {}
 	for index, modeId in ModeConfig.Order do
