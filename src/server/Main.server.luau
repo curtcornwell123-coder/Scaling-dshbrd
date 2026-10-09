@@ -754,7 +754,60 @@ local function pedestalCFrame(plot: Plot, index: number): CFrame
 	return plot.Parts.Pedestals[index].CFrame * CFrame.new(0, 1, 0)
 end
 
+-- Bought and grabbed brainrots walk home: across the grass to the door, in,
+-- up the stairs floor by floor, then onto their pedestal.
+local WALK_SPEED = 18
+
+local function walkPath(plot: Plot, target: CFrame): { Vector3 }
+	local parts = plot.Parts
+	local half = parts.Floors[1].Size.Z / 2
+	local points = {
+		(parts.CFrame * CFrame.new(0, -0.5, -half - 8)).Position, -- outside the door
+		(parts.CFrame * CFrame.new(0, 0.5, -half + 6)).Position, -- just inside
+	}
+	for k, stair in parts.Stairs do
+		local bottomY = stair.Base.Position.Y
+		if target.Position.Y < bottomY + 4 then
+			break -- already on the pedestal's floor
+		end
+		local nextStair = parts.Stairs[k + 1]
+		local height = if nextStair then nextStair.Base.Position.Y - bottomY else 20
+		table.insert(points, (stair.Base * CFrame.new(0, 0.5, -2)).Position)
+		table.insert(points, (stair.Base * CFrame.new(0, height + 0.5, 32)).Position)
+	end
+	table.insert(points, target.Position)
+	return points
+end
+
+local function walkHome(model: Model, root: BasePart, points: { Vector3 }, target: CFrame)
+	-- No stealing or selling it on the way (see onSteal / the HUD prompts).
+	model:SetAttribute("Walking", true)
+	task.spawn(function()
+		local position = root.Position
+		for _, point in points do
+			if not model.Parent or model:GetAttribute("Carried") then
+				return
+			end
+			local distance = (point - position).Magnitude
+			if distance > 0.05 then
+				-- Face where it's going (designs face -Z, like CFrame.lookAt).
+				local level = Vector3.new(point.X, position.Y, point.Z)
+				local facing = if (level - position).Magnitude > 0.05 then CFrame.lookAt(position, level).Rotation else root.CFrame.Rotation
+				local tween = TweenService:Create(root, TweenInfo.new(distance / WALK_SPEED, Enum.EasingStyle.Linear), { CFrame = CFrame.new(point) * facing })
+				tween:Play()
+				tween.Completed:Wait()
+			end
+			position = point
+		end
+		if model.Parent then
+			root.CFrame = target
+			model:SetAttribute("Walking", false)
+		end
+	end)
+end
+
 -- Puts a brainrot in a base slot, reusing `model` if given (bought or stolen).
+-- `animate`: a reused model walks home from where it is.
 local function placeBrainrot(plot: Plot, index: number, id: string, mutation: string?, model: Model?, animate: boolean, serial: number?)
 	local brainrot = Config.GetBrainrot(id)
 	if not brainrot then
@@ -780,9 +833,10 @@ local function placeBrainrot(plot: Plot, index: number, id: string, mutation: st
 	addBasePrompts(m, brainrot, mutation)
 
 	root.Anchored = true
-	if animate then
-		TweenService:Create(root, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CFrame = target }):Play()
+	if animate and model and (root.Position - target.Position).Magnitude > 6 then
+		walkHome(m, root, walkPath(plot, target), target)
 	else
+		m:SetAttribute("Walking", false)
 		root.CFrame = target
 	end
 
@@ -960,7 +1014,7 @@ onSteal = function(thief: Player, model: Model)
 	local plot = plots[model:GetAttribute("PlotIndex") :: number]
 	local index = model:GetAttribute("Slot") :: number
 	local owner = plot and plot.Owner
-	if not plot or not owner or owner == thief or model:GetAttribute("Carried") then
+	if not plot or not owner or owner == thief or model:GetAttribute("Carried") or model:GetAttribute("Walking") then
 		return
 	end
 	local slot = plot.Slots[index]

@@ -128,6 +128,10 @@ To build a place file without Studio sync: `rojo build -o BrainrotHeist.rbxl`.
 
 Only Corny (`Config.HammerOwner`) gets a **Ban Hammer** in his backpack every time he spawns. Swinging it sends a red shockwave and flings everyone in front of him into the air, spinning (anyone carrying a stolen brainrot drops it and it runs home). It doesn't ban or hurt anyone. Range, cooldown and force are in `Config.Hammer*`.
 
+## Walking home
+
+Brainrots you buy off the conveyor (or grab from a drop) **walk** to your base instead of zipping there: across the grass to your door, inside, up the stairs floor by floor, and onto their pedestal (`WALK_SPEED` in Main). Nobody can steal or sell one while it's still walking.
+
 ## Door lock button
 
 Just inside every base's door, on the right, there's a big round button (owner only). Press it to **lock** the base right away (same as the lock pad, with the same recharge), or press it while locked to **open the door early** (for friends); opening early starts the recharge, so it can't stretch a lock out. With the Infinite Laser Door it simply opens and closes. The button glows red when you can lock and green while locked.

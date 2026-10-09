@@ -2432,7 +2432,8 @@ local function updatePrompt(prompt: ProximityPrompt)
 	end
 	local owner = model:GetAttribute("OwnerUserId")
 	-- Limited (Robux) brainrots can't be stolen or sold.
-	local carried = model:GetAttribute("Carried") == true or model:GetAttribute("Protected") == true
+	-- (Also hidden while it's still walking home.)
+	local carried = model:GetAttribute("Carried") == true or model:GetAttribute("Protected") == true or model:GetAttribute("Walking") == true
 	local plot = model.Parent
 	local locked = plot ~= nil and plot:GetAttribute("Locked") == true
 	if action == "Sell" then
