@@ -18,10 +18,11 @@ local rainbowTimer = 0
 RunService.RenderStepped:Connect(function(dt)
 	local t = os.clock()
 
-	-- Idle bob for brainrots sitting on pedestals.
+	-- Idle bob for brainrots sitting on pedestals (not while one is still
+	-- walking home: the server moves those along their path).
 	for _, plot in plots:GetChildren() do
 		for _, model in plot:GetChildren() do
-			if model:IsA("Model") and model:GetAttribute("Slot") and not model:GetAttribute("Carried") then
+			if model:IsA("Model") and model:GetAttribute("Slot") and not model:GetAttribute("Carried") and not model:GetAttribute("Walking") then
 				local root = model.PrimaryPart
 				-- Upper-floor pedestals live inside Story folders, so search deep.
 				local pedestal = plot:FindFirstChild("Pedestal" .. tostring(model:GetAttribute("Slot")), true)
