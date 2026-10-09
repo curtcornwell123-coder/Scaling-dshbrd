@@ -40,7 +40,7 @@ Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck p
 | 🟪 Epic | 10% | 14.4% | $5K – $40K | $60–340/s |
 | 🟨 Legendary | 4% | 5.7% | $75K – $700K | $500–3.8K/s |
 | 🟥 Mythic | 0.9% | 1.3% | $1.2M – $15M | $4.8K–50K/s |
-| ⬛ Secret | 0.1% | 0.14% | $25M – $600M | $120K–2.5M/s |
+| ⬛ Secret | 0.1% | 0.14% | $25M – $1B | $120K–4M/s |
 | 💖 Event Special | not on the conveyor | | Robux | see below |
 
 ### Launch event: Cigna Glamourina (limited)
@@ -144,7 +144,7 @@ Just inside every base's door, on the right, there's a big round button (owner o
 
 Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tablet (just left of the jump button; tap again to stop), or **click the left stick** on a controller (click again to stop). Sprinting is 1.45x faster (`Config.SprintMultiplier`), on top of admin abuse's speed boost, but you can't sprint while carrying a stolen brainrot. On phones and tablets the music button and boost badges sit at the top right, out of the way.
 
-### Brainrots (68)
+### Brainrots (100)
 
 - **Free brainrots:** every 5th brainrot on the conveyor is a free **Patatino Piccolino** that anyone can take for **$0** (the prompt says *Take (FREE)*), so new players can start earning right away. Free ones never come from drops or gifts, sell for $0 and don't count toward buying quests.
 - **40 new ones this update**, each with its own model:
@@ -153,7 +153,14 @@ Hold **Shift** on a keyboard, tap the round **SPRINT** button on a phone or tabl
   - Epic: Gelato Vulcano, Panda Bambucco, Robo Moka, Cocco Bello, Spaghettosauro, Fenicottero Flamenco, Gufo Professore.
   - Legendary: Leone Lasagnone, Squalo Scarpone, Granchio Corazzato, Unicornino Arcobaleno, Pinguino Pilota, Polipo Pianista, Tigre Tiramisù.
   - Mythic: Fenice Focaccia, Kraken Carbonara, Golem Gorgonzola, Cerbero Calzone, Leviatano Linguine.
-  - Secret: Re Ravioli Supremo, Fantasma Fettuccine, Galassia Gnocchi, Imperatore Pizzone, Omega Brainrotto ($600M, $2.5M/s, the new top).
+  - Secret: Re Ravioli Supremo, Fantasma Fettuccine, Galassia Gnocchi, Imperatore Pizzone, Omega Brainrotto ($600M, $2.5M/s).
+- **32 meme classics** (the famous Italian brainrot characters, built in the game's own smooth style):
+  - Common: Lirilì Larilà, Tim Cheese, Pipi Kiwi, Talpa di Ferro, Svinino Bombondino.
+  - Rare: Trippi Troppi, Bandito Bobritto, Cacto Hipopotamo, Ta Ta Ta Sahur, Perochello Lemonchello, Brr Brr Patapim.
+  - Epic: Cappuccino Assassino, Brri Brri Bicus Dicus Bombicus, Trulimero Trulicina, Chimpanzini Bananini, Salamino Penguino, Zibra Zubra Zibralini.
+  - Legendary: Burbaloni Loliloli, Chef Crabracadabra, Glorbo Fruttodrillo, Blueberrinni Octopusini, Orangutini Ananassini, Lionel Cactuseli.
+  - Mythic: Bombardiro Crocodilo, Bombombini Gusini, Frigo Camelo, Rhino Toasterino, Cocofanto Elefanto.
+  - Secret: La Vacca Saturno Saturnita, Trenostruzzo Turbo 3000, Graipuss Medussi, and **La Grande Combinasion** ($1B, $4M/s, the new top).
 - **Tung Tung Tung Sahur** (Legendary, $350K, $2K/s): the wooden log with a big grin and a baseball bat.
 - **Bubblegummo Blobbo** (Common, $150, $5/s), **Gelatino Gigante** (Rare, $2K, $32/s), **Donutto Dynamo** (Epic, $25K, $220/s), **Sushito Samurai** (Legendary, $500K, $2.8K/s), **Tacoraptor Supremo** (Mythic, $8M, $28K/s), **Astronauto Panino** (Secret, $120M, $550K/s): each the new top of its rarity, priced like the rest of the economy.
 
@@ -304,7 +311,7 @@ The server decides every purchase, steal and cash change, so exploiters can't sp
 
 ## Next ideas
 
-- **More brainrots**: 68 so far; aim for 100+ (add one in `Config.Brainrots` and a design in `BrainrotModel.luau`).
+- **More brainrots**: 100 so far; keep adding (add one in `Config.Brainrots` and a design in `BrainrotModel.luau`).
 - **Thumbnail + icon**: the biggest driver of clicks.
 - **Sounds**: purchase, steal, slap, laser zap.
 - **Limited-time event brainrots**, an **Index** of everything you've owned, **daily rewards**, **group rewards**.

@@ -90,6 +90,11 @@ Config.Brainrots = {
 	{ Id = "UovoSbadiglio", DisplayName = "Uovo Sbadiglio", Rarity = "Common", Price = 130, Income = 5, Color = Color3.fromRGB(250, 245, 235), Accent = Color3.fromRGB(255, 200, 60) },
 	{ Id = "PeperonePiccante", DisplayName = "Peperone Piccante", Rarity = "Common", Price = 180, Income = 7, Color = Color3.fromRGB(220, 30, 30), Accent = Color3.fromRGB(60, 150, 50) },
 	{ Id = "CuscinettoRonfone", DisplayName = "Cuscinetto Ronfone", Rarity = "Common", Price = 220, Income = 8, Color = Color3.fromRGB(190, 170, 240), Accent = Color3.fromRGB(150, 200, 255) },
+	{ Id = "LiriliLarila", DisplayName = "Lirilì Larilà", Rarity = "Common", Price = 35, Income = 1, Color = Color3.fromRGB(90, 165, 80), Accent = Color3.fromRGB(165, 165, 175) },
+	{ Id = "TimCheese", DisplayName = "Tim Cheese", Rarity = "Common", Price = 55, Income = 2, Color = Color3.fromRGB(255, 210, 80), Accent = Color3.fromRGB(255, 150, 170) },
+	{ Id = "PipiKiwi", DisplayName = "Pipi Kiwi", Rarity = "Common", Price = 85, Income = 3, Color = Color3.fromRGB(140, 100, 60), Accent = Color3.fromRGB(130, 200, 70) },
+	{ Id = "TalpaDiFerro", DisplayName = "Talpa di Ferro", Rarity = "Common", Price = 110, Income = 4, Color = Color3.fromRGB(115, 115, 125), Accent = Color3.fromRGB(255, 150, 40) },
+	{ Id = "SvininoBombondino", DisplayName = "Svinino Bombondino", Rarity = "Common", Price = 200, Income = 7, Color = Color3.fromRGB(35, 35, 42), Accent = Color3.fromRGB(255, 160, 180) },
 	-- Rare
 	{ Id = "BananitoBandito", DisplayName = "Bananito Bandito", Rarity = "Rare", Price = 500, Income = 10, Color = Color3.fromRGB(255, 225, 50), Accent = Color3.fromRGB(30, 30, 30) },
 	{ Id = "CroissantoFurioso", DisplayName = "Croissanto Furioso", Rarity = "Rare", Price = 900, Income = 16, Color = Color3.fromRGB(215, 150, 70), Accent = Color3.fromRGB(255, 80, 40) },
@@ -104,6 +109,12 @@ Config.Brainrots = {
 	{ Id = "PolpettoOttopodo", DisplayName = "Polpetto Ottopodo", Rarity = "Rare", Price = 2400, Income = 38, Color = Color3.fromRGB(220, 110, 190), Accent = Color3.fromRGB(255, 190, 230) },
 	{ Id = "ZucchinoZombie", DisplayName = "Zucchino Zombie", Rarity = "Rare", Price = 2800, Income = 44, Color = Color3.fromRGB(90, 140, 60), Accent = Color3.fromRGB(220, 215, 195) },
 	{ Id = "FragolinaNinja", DisplayName = "Fragolina Ninja", Rarity = "Rare", Price = 3300, Income = 50, Color = Color3.fromRGB(230, 40, 60), Accent = Color3.fromRGB(25, 25, 30) },
+	{ Id = "TrippiTroppi", DisplayName = "Trippi Troppi", Rarity = "Rare", Price = 450, Income = 9, Color = Color3.fromRGB(255, 130, 100), Accent = Color3.fromRGB(240, 160, 70) },
+	{ Id = "BanditoBobritto", DisplayName = "Bandito Bobritto", Rarity = "Rare", Price = 800, Income = 15, Color = Color3.fromRGB(150, 95, 55), Accent = Color3.fromRGB(35, 35, 40) },
+	{ Id = "CactoHipopotamo", DisplayName = "Cacto Hipopotamo", Rarity = "Rare", Price = 1100, Income = 19, Color = Color3.fromRGB(100, 170, 90), Accent = Color3.fromRGB(255, 110, 160) },
+	{ Id = "TaTaTaSahur", DisplayName = "Ta Ta Ta Sahur", Rarity = "Rare", Price = 1600, Income = 27, Color = Color3.fromRGB(170, 190, 210), Accent = Color3.fromRGB(40, 40, 48) },
+	{ Id = "PerochelloLemonchello", DisplayName = "Perochello Lemonchello", Rarity = "Rare", Price = 2200, Income = 36, Color = Color3.fromRGB(255, 230, 70), Accent = Color3.fromRGB(70, 190, 80) },
+	{ Id = "BrrBrrPatapim", DisplayName = "Brr Brr Patapim", Rarity = "Rare", Price = 3000, Income = 46, Color = Color3.fromRGB(140, 95, 60), Accent = Color3.fromRGB(90, 180, 70) },
 	-- Epic
 	{ Id = "CactussoBossino", DisplayName = "Cactusso Bossino", Rarity = "Epic", Price = 5000, Income = 60, Color = Color3.fromRGB(60, 170, 70), Accent = Color3.fromRGB(255, 120, 200) },
 	{ Id = "WaffelinoWizardo", DisplayName = "Waffelino Wizardo", Rarity = "Epic", Price = 9000, Income = 100, Color = Color3.fromRGB(230, 180, 90), Accent = Color3.fromRGB(90, 50, 200) },
@@ -117,6 +128,12 @@ Config.Brainrots = {
 	{ Id = "Spaghettosauro", DisplayName = "Spaghettosauro", Rarity = "Epic", Price = 28000, Income = 250, Color = Color3.fromRGB(245, 210, 110), Accent = Color3.fromRGB(200, 40, 35) },
 	{ Id = "FenicotteroFlamenco", DisplayName = "Fenicottero Flamenco", Rarity = "Epic", Price = 32000, Income = 280, Color = Color3.fromRGB(255, 130, 170), Accent = Color3.fromRGB(210, 30, 50) },
 	{ Id = "GufoProfessore", DisplayName = "Gufo Professore", Rarity = "Epic", Price = 40000, Income = 340, Color = Color3.fromRGB(140, 100, 70), Accent = Color3.fromRGB(240, 225, 190) },
+	{ Id = "CappuccinoAssassino", DisplayName = "Cappuccino Assassino", Rarity = "Epic", Price = 6000, Income = 62, Color = Color3.fromRGB(250, 248, 245), Accent = Color3.fromRGB(140, 90, 55) },
+	{ Id = "BrriBrriBicus", DisplayName = "Brri Brri Bicus Dicus Bombicus", Rarity = "Epic", Price = 8000, Income = 85, Color = Color3.fromRGB(120, 170, 230), Accent = Color3.fromRGB(240, 190, 60) },
+	{ Id = "TrulimeroTrulicina", DisplayName = "Trulimero Trulicina", Rarity = "Epic", Price = 13000, Income = 130, Color = Color3.fromRGB(110, 160, 220), Accent = Color3.fromRGB(255, 140, 80) },
+	{ Id = "ChimpanziniBananini", DisplayName = "Chimpanzini Bananini", Rarity = "Epic", Price = 16000, Income = 160, Color = Color3.fromRGB(255, 225, 70), Accent = Color3.fromRGB(120, 85, 55) },
+	{ Id = "SalaminoPenguino", DisplayName = "Salamino Penguino", Rarity = "Epic", Price = 26000, Income = 230, Color = Color3.fromRGB(190, 60, 70), Accent = Color3.fromRGB(250, 235, 225) },
+	{ Id = "ZibraZubra", DisplayName = "Zibra Zubra Zibralini", Rarity = "Epic", Price = 35000, Income = 300, Color = Color3.fromRGB(245, 245, 245), Accent = Color3.fromRGB(30, 30, 35) },
 	-- Legendary
 	{ Id = "PinguinoHackerino", DisplayName = "Pinguino Hackerino", Rarity = "Legendary", Price = 75000, Income = 500, Color = Color3.fromRGB(40, 40, 50), Accent = Color3.fromRGB(0, 255, 120) },
 	{ Id = "LasagnaLightningo", DisplayName = "Lasagna Lightningo", Rarity = "Legendary", Price = 200000, Income = 1200, Color = Color3.fromRGB(220, 90, 40), Accent = Color3.fromRGB(255, 240, 80) },
@@ -129,6 +146,12 @@ Config.Brainrots = {
 	{ Id = "PinguinoPilota", DisplayName = "Pinguino Pilota", Rarity = "Legendary", Price = 420000, Income = 2400, Color = Color3.fromRGB(35, 35, 45), Accent = Color3.fromRGB(245, 245, 250) },
 	{ Id = "PolipoPianista", DisplayName = "Polipo Pianista", Rarity = "Legendary", Price = 650000, Income = 3550, Color = Color3.fromRGB(150, 90, 200), Accent = Color3.fromRGB(25, 25, 30) },
 	{ Id = "TigreTiramisu", DisplayName = "Tigre Tiramisù", Rarity = "Legendary", Price = 700000, Income = 3800, Color = Color3.fromRGB(240, 215, 170), Accent = Color3.fromRGB(90, 55, 35) },
+	{ Id = "BurbaloniLoliloli", DisplayName = "Burbaloni Loliloli", Rarity = "Legendary", Price = 85000, Income = 560, Color = Color3.fromRGB(170, 120, 80), Accent = Color3.fromRGB(120, 80, 50) },
+	{ Id = "ChefCrabracadabra", DisplayName = "Chef Crabracadabra", Rarity = "Legendary", Price = 140000, Income = 880, Color = Color3.fromRGB(230, 80, 60), Accent = Color3.fromRGB(250, 250, 250) },
+	{ Id = "GlorboFruttodrillo", DisplayName = "Glorbo Fruttodrillo", Rarity = "Legendary", Price = 220000, Income = 1350, Color = Color3.fromRGB(70, 160, 70), Accent = Color3.fromRGB(90, 150, 70) },
+	{ Id = "BlueberrinniOctopusini", DisplayName = "Blueberrinni Octopusini", Rarity = "Legendary", Price = 300000, Income = 1750, Color = Color3.fromRGB(70, 80, 170), Accent = Color3.fromRGB(110, 120, 210) },
+	{ Id = "OrangutiniAnanassini", DisplayName = "Orangutini Ananassini", Rarity = "Legendary", Price = 480000, Income = 2700, Color = Color3.fromRGB(240, 200, 60), Accent = Color3.fromRGB(210, 110, 40) },
+	{ Id = "LionelCactuseli", DisplayName = "Lionel Cactuseli", Rarity = "Legendary", Price = 800000, Income = 4300, Color = Color3.fromRGB(90, 165, 80), Accent = Color3.fromRGB(250, 190, 60) },
 	-- Mythic
 	{ Id = "DragoniSpaghettoni", DisplayName = "Dragoni Spaghettoni", Rarity = "Mythic", Price = 1500000, Income = 6000, Color = Color3.fromRGB(200, 30, 30), Accent = Color3.fromRGB(255, 210, 120) },
 	{ Id = "BallerinaCapuchina", DisplayName = "Ballerina Capuchina", Rarity = "Mythic", Price = 2500000, Income = 10000, Color = Color3.fromRGB(245, 190, 170), Accent = Color3.fromRGB(180, 110, 60) },
@@ -139,6 +162,11 @@ Config.Brainrots = {
 	{ Id = "GolemGorgonzola", DisplayName = "Golem Gorgonzola", Rarity = "Mythic", Price = 3000000, Income = 11500, Color = Color3.fromRGB(235, 230, 200), Accent = Color3.fromRGB(80, 120, 210) },
 	{ Id = "CerberoCalzone", DisplayName = "Cerbero Calzone", Rarity = "Mythic", Price = 10000000, Income = 34000, Color = Color3.fromRGB(220, 160, 80), Accent = Color3.fromRGB(200, 45, 35) },
 	{ Id = "LeviatanoLinguine", DisplayName = "Leviatano Linguine", Rarity = "Mythic", Price = 15000000, Income = 50000, Color = Color3.fromRGB(60, 170, 170), Accent = Color3.fromRGB(250, 230, 170) },
+	{ Id = "BombardiroCrocodilo", DisplayName = "Bombardiro Crocodilo", Rarity = "Mythic", Price = 1800000, Income = 7000, Color = Color3.fromRGB(80, 150, 70), Accent = Color3.fromRGB(150, 155, 165) },
+	{ Id = "BombombiniGusini", DisplayName = "Bombombini Gusini", Rarity = "Mythic", Price = 2500000, Income = 9800, Color = Color3.fromRGB(250, 250, 250), Accent = Color3.fromRGB(255, 160, 50) },
+	{ Id = "FrigoCamelo", DisplayName = "Frigo Camelo", Rarity = "Mythic", Price = 5000000, Income = 18000, Color = Color3.fromRGB(240, 245, 250), Accent = Color3.fromRGB(210, 170, 110) },
+	{ Id = "RhinoToasterino", DisplayName = "Rhino Toasterino", Rarity = "Mythic", Price = 6500000, Income = 22500, Color = Color3.fromRGB(200, 205, 215), Accent = Color3.fromRGB(150, 150, 160) },
+	{ Id = "CocofantoElefanto", DisplayName = "Cocofanto Elefanto", Rarity = "Mythic", Price = 12000000, Income = 40000, Color = Color3.fromRGB(120, 80, 50), Accent = Color3.fromRGB(165, 165, 175) },
 	-- Event Special
 	-- Launch event: 500 for sale at 50 Robux + 2 reserved. Earns $2.5K/s and
 	-- doubles with every rebirth, so she stays useful without breaking the economy.
@@ -154,6 +182,10 @@ Config.Brainrots = {
 	{ Id = "GalassiaGnocchi", DisplayName = "Galassia Gnocchi", Rarity = "Secret", Price = 200000000, Income = 900000, Color = Color3.fromRGB(60, 30, 120), Accent = Color3.fromRGB(80, 220, 255) },
 	{ Id = "ImperatorePizzone", DisplayName = "Imperatore Pizzone", Rarity = "Secret", Price = 300000000, Income = 1300000, Color = Color3.fromRGB(230, 180, 100), Accent = Color3.fromRGB(210, 45, 35) },
 	{ Id = "OmegaBrainrotto", DisplayName = "Omega Brainrotto", Rarity = "Secret", Price = 600000000, Income = 2500000, Color = Color3.fromRGB(255, 150, 180), Accent = Color3.fromRGB(90, 240, 255) },
+	{ Id = "LaVaccaSaturnita", DisplayName = "La Vacca Saturno Saturnita", Rarity = "Secret", Price = 40000000, Income = 190000, Color = Color3.fromRGB(250, 250, 250), Accent = Color3.fromRGB(230, 190, 140) },
+	{ Id = "TrenostruzzoTurbo", DisplayName = "Trenostruzzo Turbo 3000", Rarity = "Secret", Price = 90000000, Income = 410000, Color = Color3.fromRGB(200, 40, 40), Accent = Color3.fromRGB(40, 40, 48) },
+	{ Id = "GraipussMedussi", DisplayName = "Graipuss Medussi", Rarity = "Secret", Price = 150000000, Income = 680000, Color = Color3.fromRGB(130, 60, 170), Accent = Color3.fromRGB(220, 160, 255) },
+	{ Id = "LaGrandeCombinasion", DisplayName = "La Grande Combinasion", Rarity = "Secret", Price = 1000000000, Income = 4000000, Color = Color3.fromRGB(176, 120, 72), Accent = Color3.fromRGB(255, 200, 50) },
 } :: { Brainrot }
 
 -- Mutations ----------------------------------------------------------------
