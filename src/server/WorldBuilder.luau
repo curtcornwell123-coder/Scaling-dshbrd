@@ -24,6 +24,10 @@ export type PlotParts = {
 	Floors: { BasePart }, -- ground floor + every upper slab
 	LightSets: { [number]: { Ceiling: Folder, Posts: Folder } },
 	Prestige: Folder, -- rebirth decorations (SetPrestige)
+	Vault: Folder, -- the room under the base (walls restyled by SetWallLevel)
+	VaultPodiums: { BasePart },
+	VaultSpawn: CFrame, -- where you land inside the vault
+	HatchCFrame: CFrame, -- where you come back up
 	Roof: Model, -- parented once the base reaches Config.StandardWallLevels
 	RoofPivot: CFrame, -- where the roof sits on top of the ground floor
 	SignPost: BasePart,
@@ -479,6 +483,104 @@ local function wallSegment(folder: Instance, cf: CFrame, length: number, height:
 	end
 end
 
+-- The vault room, deep under a base. Its walls, floor and ceiling follow the
+-- base's wall skin (SetWallLevel restyles every part named Vault*Wall /
+-- VaultFloor / VaultCeiling). Podiums sit in two curved rows facing the door.
+local VAULT_FLOOR = -46 -- floor top, below the plot floor
+local VAULT_SIZE = 44
+local VAULT_HEIGHT = 16
+local function buildVault(model: Instance, at: (number, number, number) -> CFrame): (Folder, { BasePart })
+	local vault = Instance.new("Folder")
+	vault.Name = "Vault"
+	vault.Parent = model
+	local half = VAULT_SIZE / 2
+	block(vault, "VaultFloor", Vector3.new(VAULT_SIZE, 1, VAULT_SIZE), at(0, VAULT_FLOOR - 0.5, 0), Color3.fromRGB(60, 60, 70), Enum.Material.Marble)
+	block(vault, "VaultCeiling", Vector3.new(VAULT_SIZE, 1, VAULT_SIZE), at(0, VAULT_FLOOR + VAULT_HEIGHT + 0.5, 0), Color3.fromRGB(60, 60, 70), Enum.Material.Marble)
+	for _, side in { -1, 1 } do
+		block(vault, "VaultWall", Vector3.new(2, VAULT_HEIGHT, VAULT_SIZE + 4), at(side * (half + 1), VAULT_FLOOR + VAULT_HEIGHT / 2, 0), Color3.fromRGB(80, 80, 90), Enum.Material.Marble)
+		block(vault, "VaultWall", Vector3.new(VAULT_SIZE, VAULT_HEIGHT, 2), at(0, VAULT_FLOOR + VAULT_HEIGHT / 2, side * (half + 1)), Color3.fromRGB(80, 80, 90), Enum.Material.Marble)
+	end
+	-- A big round vault door on the back wall, for the look.
+	local door = block(vault, "VaultDoor", Vector3.new(1, 11, 11), at(0, VAULT_FLOOR + 7, half - 0.2) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(190, 190, 200), Enum.Material.Metal)
+	door.Shape = Enum.PartType.Cylinder
+	door.CanCollide = false
+	for k = 0, 5 do
+		local angle = k / 6 * math.pi * 2
+		local spoke = block(vault, "VaultDoorSpoke", Vector3.new(0.5, 5, 0.5), at(0, VAULT_FLOOR + 7, half - 1) * CFrame.Angles(0, 0, angle) * CFrame.new(0, 1.6, 0), Color3.fromRGB(255, 200, 60), Enum.Material.Foil)
+		spoke.CanCollide = false
+	end
+	local hub = block(vault, "VaultDoorHub", Vector3.new(1.4, 2.2, 2.2), at(0, VAULT_FLOOR + 7, half - 1.1) * CFrame.Angles(0, math.rad(90), 0), Color3.fromRGB(255, 200, 60), Enum.Material.Foil)
+	hub.Shape = Enum.PartType.Cylinder
+	hub.CanCollide = false
+	-- Lights
+	for _, spot in { { -10, -10 }, { 10, -10 }, { -10, 10 }, { 10, 10 } } do
+		local lamp = block(vault, "VaultLamp", Vector3.new(4, 0.3, 4), at(spot[1], VAULT_FLOOR + VAULT_HEIGHT - 0.2, spot[2]), Color3.fromRGB(255, 240, 210), Enum.Material.Neon)
+		lamp.CanCollide = false
+		local light = Instance.new("PointLight")
+		light.Range = 26
+		light.Brightness = 1.1
+		light.Color = Color3.fromRGB(255, 235, 200)
+		light.Parent = lamp
+	end
+	-- Podiums: gold-rimmed, in two rows of six
+	local podiums: { BasePart } = {}
+	for row = 0, 1 do
+		for column = 0, 5 do
+			local i = #podiums + 1
+			local x = (column - 2.5) * 6.5
+			local z = 4 + row * 9
+			local podium = block(vault, "VaultPodium" .. i, Vector3.new(5, 1.4, 5), at(x, VAULT_FLOOR + 0.7, z), Color3.fromRGB(50, 50, 60), Enum.Material.Marble)
+			podium:SetAttribute("VaultSlot", i)
+			local rim = block(podium, "PodiumRim", Vector3.new(5.4, 0.3, 5.4), at(x, VAULT_FLOOR + 1.3, z), Color3.fromRGB(255, 200, 60), Enum.Material.Neon)
+			rim.CanCollide = false
+			podiums[i] = podium
+		end
+	end
+	-- The ladder back up, by the entrance spot
+	local exit = block(vault, "VaultExit", Vector3.new(4, 0.3, 4), at(0, VAULT_FLOOR + 0.15, -half + 2.5), Color3.fromRGB(255, 200, 60), Enum.Material.Neon)
+	exit.CanCollide = false
+	for _, side in { -1, 1 } do
+		local rail = block(vault, "VaultLadder", Vector3.new(0.3, VAULT_HEIGHT, 0.3), at(side * 1.2, VAULT_FLOOR + VAULT_HEIGHT / 2, -half + 0.4), Color3.fromRGB(150, 150, 160), Enum.Material.Metal)
+		rail.CanCollide = false
+	end
+	for k = 1, 7 do
+		local rung = block(vault, "VaultLadder", Vector3.new(2.4, 0.25, 0.25), at(0, VAULT_FLOOR + k * 2, -half + 0.4), Color3.fromRGB(150, 150, 160), Enum.Material.Metal)
+		rung.CanCollide = false
+	end
+	billboard(exit, Vector2.new(200, 60), Vector3.new(0, 4, 0), "⬆ EXIT", Color3.fromRGB(255, 215, 90))
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "VaultExitPrompt"
+	prompt.ActionText = "Climb up"
+	prompt.ObjectText = "Leave Vault"
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt:SetAttribute("Action", "ExitVault")
+	prompt.Parent = exit
+	return vault, podiums
+end
+
+-- Shows which vault podiums are unlocked (the rest are dimmed with a sign).
+function WorldBuilder.SetVaultPodiums(parts: PlotParts, unlocked: number)
+	for i, podium in parts.VaultPodiums do
+		local open = i <= unlocked
+		local rim = podium:FindFirstChild("PodiumRim") :: BasePart?
+		if rim then
+			rim.Color = if open then Color3.fromRGB(255, 200, 60) else Color3.fromRGB(90, 90, 100)
+			rim.Material = if open then Enum.Material.Neon else Enum.Material.SmoothPlastic
+		end
+		local sign = podium:FindFirstChild("LockedSign")
+		if open and sign then
+			sign:Destroy()
+		elseif not open and not sign then
+			local label = billboard(podium, Vector2.new(170, 50), Vector3.new(0, 2.5, 0), "🔒 UPGRADE", Color3.fromRGB(200, 200, 210))
+			local gui = label.Parent :: BillboardGui
+			gui.Name = "LockedSign"
+			gui.MaxDistance = 40
+		end
+	end
+end
+
 local function buildPlot(parent: Instance, index: number, center: Vector3): PlotParts
 	local cf = CFrame.lookAt(center, Vector3.new(center.X, center.Y, 0))
 	local color = PLOT_COLORS[(index - 1) % #PLOT_COLORS + 1]
@@ -695,6 +797,25 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 	prestige.Name = "Prestige"
 	prestige.Parent = model
 
+	-- The vault: a hatch in the ground floor and a room deep underneath it.
+	local hatch = block(model, "VaultHatch", Vector3.new(5, 0.3, 5), at(0, FLOOR_TOP + 0.15, -10), Color3.fromRGB(70, 70, 80), Enum.Material.DiamondPlate)
+	hatch.CanCollide = false
+	local hatchRing = block(model, "VaultHatchRing", Vector3.new(0.4, 4.2, 4.2), at(0, FLOOR_TOP + 0.32, -10) * CFrame.Angles(0, 0, math.rad(90)), Color3.fromRGB(255, 200, 60), Enum.Material.Neon)
+	hatchRing.Shape = Enum.PartType.Cylinder
+	hatchRing.CanCollide = false
+	hatchRing.Transparency = 0.3
+	billboard(hatch, Vector2.new(200, 60), Vector3.new(0, 3, 0), "🔒 VAULT", Color3.fromRGB(255, 215, 90))
+	local hatchPrompt = Instance.new("ProximityPrompt")
+	hatchPrompt.Name = "VaultPrompt"
+	hatchPrompt.ActionText = "Enter Vault"
+	hatchPrompt.ObjectText = "Your Vault"
+	hatchPrompt.HoldDuration = 0.3
+	hatchPrompt.MaxActivationDistance = 10
+	hatchPrompt.RequiresLineOfSight = false
+	hatchPrompt:SetAttribute("Action", "EnterVault")
+	hatchPrompt.Parent = hatch
+	local vault, vaultPodiums = buildVault(model, at)
+
 	local signPost = block(model, "Sign", Vector3.new(1, 1, 1), at(0, FLOOR_TOP + SIGN_HEIGHT, half - 1), WALL_COLOR)
 	signPost.Transparency = 1
 	signPost.CanCollide = false
@@ -716,6 +837,10 @@ local function buildPlot(parent: Instance, index: number, center: Vector3): Plot
 		Floors = floors,
 		LightSets = lightSets,
 		Prestige = prestige,
+		Vault = vault,
+		VaultPodiums = vaultPodiums,
+		VaultSpawn = at(0, VAULT_FLOOR + 3, -VAULT_SIZE / 2 + 5),
+		HatchCFrame = at(0, FLOOR_TOP + 3, -14),
 		Roof = roof,
 		RoofPivot = roof:GetPivot(),
 		SignPost = signPost,
@@ -761,6 +886,29 @@ function WorldBuilder.SetWallLevel(parts: PlotParts, level: number, stories: num
 		local pattern = style.Pattern
 		if pattern then
 			addPattern(floor, Enum.NormalId.Top, pattern, style.PatternColor or Color3.new(1, 1, 1), style.PatternRainbow, 6)
+		end
+	end
+	-- The vault matches the base: walls in the skin, floor in its floor color.
+	for _, part in parts.Vault:GetChildren() do
+		if part:IsA("BasePart") then
+			if part.Name == "VaultWall" or part.Name == "VaultCeiling" then
+				part.Color = style.Color
+				part.Material = style.Material
+			elseif part.Name == "VaultFloor" then
+				part.Color = if skin and skin.FloorColor then skin.FloorColor else style.Color
+				part.Material = if skin and skin.FloorMaterial then skin.FloorMaterial else style.Material
+				for _, old in part:GetChildren() do
+					if old.Name == "Pattern" then
+						old:Destroy()
+					end
+				end
+				local pattern = style.Pattern
+				if pattern then
+					addPattern(part, Enum.NormalId.Top, pattern, style.PatternColor or Color3.new(1, 1, 1), style.PatternRainbow, 6)
+				end
+			elseif part.Name == "VaultDoorSpoke" or part.Name == "VaultDoorHub" then
+				part.Color = style.Trim or Color3.fromRGB(255, 200, 60)
+			end
 		end
 	end
 

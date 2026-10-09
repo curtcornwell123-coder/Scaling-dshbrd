@@ -58,6 +58,8 @@ type SaveData = {
 	Cash: number,
 	Rebirths: number,
 	Brainrots: { string }, -- brainrot ids placed in the base, in slot order
+	Vault: { string }, -- brainrots on the vault podiums (kept through rebirths)
+	VaultLevel: number, -- Config.VaultLevels index (kept through rebirths)
 	Steals: number,
 	WallLevel: number,
 	Stories: number,
@@ -103,6 +105,7 @@ type Plot = {
 	Parts: WorldBuilder.PlotParts,
 	Owner: Player?,
 	Slots: { [number]: Slot },
+	Vault: { [number]: Slot }, -- the vault podiums under the base
 	Pending: number, -- cash waiting on the collect pad
 	LockedUntil: number,
 	CooldownUntil: number,
@@ -150,6 +153,7 @@ for i, parts in world.Plots do
 		Parts = parts,
 		Owner = nil,
 		Slots = {},
+		Vault = {},
 		Pending = 0,
 		LockedUntil = 0,
 		CooldownUntil = 0,
@@ -233,6 +237,15 @@ local function founderOf(player: Player): Config.Founder?
 	return nil
 end
 
+-- Whether this player can use the admin panel right now. Corny can lock it
+-- for everyone but himself (adminsLocked, set from his panel).
+local adminsLockedNow = function(): boolean
+	return false
+end
+local function hasAdminPowers(session: Session): boolean
+	return session.IsAdmin and (not adminsLockedNow() or session.FounderId == Config.HeadFounder)
+end
+
 local function incomeMultiplier(session: Session): number
 	local multiplier = Config.RebirthMultiplier(session.Data.Rebirths)
 	if adminAbuseLive() then
@@ -249,11 +262,13 @@ end
 
 local function plotIncome(plot: Plot, session: Session): number
 	local total = 0
-	for _, slot in plot.Slots do
-		if not slot.StolenBy then
-			local brainrot = Config.GetBrainrot(slot.Id)
-			if brainrot then
-				total += Config.IncomeOf(brainrot, slot.Mutation, session.Data.Rebirths)
+	for _, slots in { plot.Slots, plot.Vault } do
+		for _, slot in slots do
+			if not slot.StolenBy then
+				local brainrot = Config.GetBrainrot(slot.Id)
+				if brainrot then
+					total += Config.IncomeOf(brainrot, slot.Mutation, session.Data.Rebirths)
+				end
 			end
 		end
 	end
@@ -263,6 +278,14 @@ end
 local function placedCount(plot: Plot): number
 	local count = 0
 	for _ in plot.Slots do
+		count += 1
+	end
+	return count
+end
+
+local function vaultCount(plot: Plot): number
+	local count = 0
+	for _ in plot.Vault do
 		count += 1
 	end
 	return count
@@ -328,6 +351,8 @@ local function defaultData(): SaveData
 		Cash = Config.StartingCash,
 		Rebirths = 0,
 		Brainrots = {},
+		Vault = {},
+		VaultLevel = 1,
 		Steals = 0,
 		WallLevel = 1,
 		Stories = 1,
@@ -380,6 +405,19 @@ local function sanitize(raw: any): SaveData
 				end
 			end
 		end
+	end
+	if type(raw.Vault) == "table" then
+		for _, entry in raw.Vault do
+			if type(entry) == "string" and #data.Vault < Config.VaultMaxPodiums then
+				local brainrot, mutation, serial = Config.Decode(entry)
+				if brainrot then
+					table.insert(data.Vault, Config.Encode(brainrot.Id, mutation, serial))
+				end
+			end
+		end
+	end
+	if type(raw.VaultLevel) == "number" then
+		data.VaultLevel = math.clamp(math.floor(raw.VaultLevel), 1, #Config.VaultLevels)
 	end
 	if type(raw.Followers) == "table" then
 		for _, entry in raw.Followers do
@@ -490,6 +528,14 @@ local function syncBrainrots(session: Session)
 		end
 	end
 	session.Data.Brainrots = list
+	local vault = {}
+	for i = 1, Config.VaultMaxPodiums do
+		local slot = plot.Vault[i]
+		if slot then
+			table.insert(vault, Config.Encode(slot.Id, slot.Mutation, slot.Serial))
+		end
+	end
+	session.Data.Vault = vault
 end
 
 -- itemId -> serial for every limited brainrot this player owns.
@@ -591,7 +637,8 @@ local function snapshot(session: Session)
 		InfiniteLock = session.Owns.InfiniteLock == true or data.InfiniteLock,
 		Owns = session.Owns,
 		PlotIndex = if plot then plot.Parts.Index else 0,
-		IsAdmin = session.IsAdmin,
+		IsAdmin = hasAdminPowers(session),
+		AdminsLocked = adminsLockedNow(),
 		IsFounder = session.IsFounder,
 		FounderId = session.FounderId,
 		Roles = session.Roles,
@@ -601,6 +648,8 @@ local function snapshot(session: Session)
 		Skins = data.Skins,
 		Skin = data.Skin,
 		Settings = data.Settings,
+		VaultLevel = data.VaultLevel,
+		VaultUsed = if plot then vaultCount(plot) else #data.Vault,
 		Quests = questSnapshot(data),
 		Base = baseList(session),
 	}
@@ -611,11 +660,13 @@ local function updateLeaderstats(session: Session)
 	if not stats then
 		return
 	end
-	local cash = stats:FindFirstChild("Cash") :: IntValue?
+	-- Cash shows as text ("$1.5Qi"): a whole-number value can't hold more
+	-- than ~9.2 Qi and would wrap around to a huge negative number.
+	local cash = stats:FindFirstChild("Cash") :: StringValue?
 	local steals = stats:FindFirstChild("Steals") :: IntValue?
 	local rebirths = stats:FindFirstChild("Rebirths") :: IntValue?
 	if cash then
-		cash.Value = math.floor(session.Data.Cash)
+		cash.Value = Config.FormatCash(session.Data.Cash)
 	end
 	if steals then
 		steals.Value = session.Data.Steals
@@ -625,11 +676,18 @@ local function updateLeaderstats(session: Session)
 	end
 end
 
+-- Keeps cash a real, saveable number: never NaN, negative or past MaxCash.
+local function clampCash(data: SaveData)
+	local cash = data.Cash
+	data.Cash = if cash ~= cash then 0 else math.clamp(cash, 0, Config.MaxCash)
+end
+
 local function push(player: Player)
 	local session = sessions[player]
 	if not session or not session.Loaded then
 		return
 	end
+	clampCash(session.Data)
 	updateLeaderstats(session)
 	DataUpdated:FireClient(player, snapshot(session))
 end
@@ -640,6 +698,7 @@ local function save(player: Player): boolean
 		return false
 	end
 	syncBrainrots(session)
+	clampCash(session.Data)
 	local key = "Player_" .. player.UserId
 	local data = session.Data
 	local ok, err = pcall(function()
@@ -726,6 +785,8 @@ end
 -- Brainrots in bases -------------------------------------------------------
 
 local onSell: (Player, Model) -> ()
+local moveToVault: (Player, Model) -> ()
+local moveToBase: (Player, Model) -> ()
 local onSteal: (Player, Model) -> ()
 local deliverUnclaimed: (Player, Session) -> ()
 
@@ -761,6 +822,24 @@ local function addBasePrompts(model: Model, brainrot: Config.Brainrot, mutation:
 	steal.Triggered:Connect(function(player)
 		onSteal(player, model)
 	end)
+
+	-- Limited brainrots stay through rebirths anyway, so they don't need the vault.
+	if not brainrot.Limited then
+		local toVault = Instance.new("ProximityPrompt")
+		toVault.Name = "ToVaultPrompt"
+		toVault.ActionText = "Move to Vault"
+		toVault.ObjectText = fullName(brainrot, mutation)
+		toVault.HoldDuration = 0.4
+		toVault.MaxActivationDistance = 10
+		toVault.RequiresLineOfSight = false
+		toVault.KeyboardKeyCode = Enum.KeyCode.V
+		toVault.UIOffset = Vector2.new(0, 70)
+		toVault:SetAttribute("Action", "ToVault")
+		toVault.Parent = root
+		toVault.Triggered:Connect(function(player)
+			moveToVault(player, model)
+		end)
+	end
 end
 
 local function pedestalCFrame(plot: Plot, index: number): CFrame
@@ -841,6 +920,7 @@ local function placeBrainrot(plot: Plot, index: number, id: string, mutation: st
 	local owner = plot.Owner
 	m:SetAttribute("PlotIndex", plot.Parts.Index)
 	m:SetAttribute("Slot", index)
+	m:SetAttribute("Vault", nil)
 	m:SetAttribute("OwnerUserId", if owner then owner.UserId else 0)
 	m:SetAttribute("Carried", false)
 	m.Parent = plot.Parts.Model
@@ -857,6 +937,62 @@ local function placeBrainrot(plot: Plot, index: number, id: string, mutation: st
 	plot.Slots[index] = { Id = id, Mutation = mutation, Serial = serial, Model = m }
 
 	-- Income that grows with rebirths shows the owner's current amount.
+	local session = owner and sessions[owner]
+	if session and brainrot.IncomeGrowth then
+		BrainrotModel.SetIncomeText(m, Config.IncomeOf(brainrot, mutation, session.Data.Rebirths))
+	end
+end
+
+-- Vault ------------------------------------------------------------------------
+-- Brainrots on the vault podiums under a base keep earning, can't be stolen
+-- or sold, and stay through rebirths. Moved with prompts: "Move to Vault" on
+-- a base brainrot, "Move to Base" in the vault (the owner only sees them).
+
+local function removePrompts(model: Model)
+	local root = model.PrimaryPart
+	if root then
+		for _, child in root:GetChildren() do
+			if child:IsA("ProximityPrompt") then
+				child:Destroy()
+			end
+		end
+	end
+end
+
+local function placeInVault(plot: Plot, index: number, id: string, mutation: string?, serial: number?, model: Model?)
+	local brainrot = Config.GetBrainrot(id)
+	local podium = plot.Parts.VaultPodiums[index]
+	if not brainrot or not podium then
+		return
+	end
+	local target = podium.CFrame * CFrame.new(0, 1.2, 0)
+	local m = model or BrainrotModel.Create(brainrot, mutation, target * CFrame.new(0, -0.5, 0), false, serial)
+	BrainrotModel.RemovePrice(m)
+	removePrompts(m)
+	local root = m.PrimaryPart :: BasePart
+	root.Anchored = true
+	root.CFrame = target
+	local owner = plot.Owner
+	m:SetAttribute("PlotIndex", plot.Parts.Index)
+	m:SetAttribute("Slot", nil)
+	m:SetAttribute("Vault", index)
+	m:SetAttribute("OwnerUserId", if owner then owner.UserId else 0)
+	m:SetAttribute("Carried", false)
+	m:SetAttribute("Walking", false)
+	m.Parent = plot.Parts.Vault
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "FromVaultPrompt"
+	prompt.ActionText = "Move to Base"
+	prompt.ObjectText = fullName(brainrot, mutation)
+	prompt.HoldDuration = 0.4
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt:SetAttribute("Action", "FromVault")
+	prompt.Parent = root
+	prompt.Triggered:Connect(function(player)
+		moveToBase(player, m)
+	end)
+	plot.Vault[index] = { Id = id, Mutation = mutation, Serial = serial, Model = m }
 	local session = owner and sessions[owner]
 	if session and brainrot.IncomeGrowth then
 		BrainrotModel.SetIncomeText(m, Config.IncomeOf(brainrot, mutation, session.Data.Rebirths))
@@ -1122,6 +1258,60 @@ onSell = function(player: Player, model: Model)
 		deliverUnclaimed(player, session)
 		push(player)
 	end
+end
+
+moveToVault = function(player: Player, model: Model)
+	local session = sessions[player]
+	local plot = session and session.Plot
+	if not session or not plot or plot.Owner ~= player or model:GetAttribute("Walking") then
+		return
+	end
+	local index = model:GetAttribute("Slot") :: number?
+	local slot = index and plot.Slots[index]
+	if not index or not slot or slot.Model ~= model or slot.StolenBy then
+		return
+	end
+	local podiums = Config.VaultLevels[session.Data.VaultLevel].Podiums
+	local free: number? = nil
+	for i = 1, podiums do
+		if not plot.Vault[i] then
+			free = i
+			break
+		end
+	end
+	if not free then
+		notify(player, "Your vault is full! Upgrade it at the upgrade post for more podiums.")
+		return
+	end
+	plot.Slots[index] = nil
+	placeInVault(plot, free, slot.Id, slot.Mutation, slot.Serial, model)
+	updateFollowers(player)
+	notify(player, fullName(Config.GetBrainrot(slot.Id) :: Config.Brainrot, slot.Mutation) .. " is safe in your vault!")
+	deliverUnclaimed(player, session)
+	push(player)
+end
+
+moveToBase = function(player: Player, model: Model)
+	local session = sessions[player]
+	local plot = session and session.Plot
+	if not session or not plot or plot.Owner ~= player then
+		return
+	end
+	local index = model:GetAttribute("Vault") :: number?
+	local slot = index and plot.Vault[index]
+	if not index or not slot or slot.Model ~= model then
+		return
+	end
+	local free = freeSlot(plot, session)
+	if not free then
+		notify(player, "No free pedestal in your base!")
+		return
+	end
+	plot.Vault[index] = nil
+	removePrompts(model)
+	placeBrainrot(plot, free, slot.Id, slot.Mutation, model, false, slot.Serial)
+	notify(player, "Moved " .. fullName(Config.GetBrainrot(slot.Id) :: Config.Brainrot, slot.Mutation) .. " back to your base.")
+	push(player)
 end
 
 -- The Sell Stand by the shop: sell one brainrot (by pedestal) or all of them.
@@ -1426,6 +1616,13 @@ local function assignPlot(player: Player, session: Session)
 					placeBrainrot(plot, index, brainrot.Id, mutation, nil, false, serial)
 				end
 			end
+			WorldBuilder.SetVaultPodiums(plot.Parts, Config.VaultLevels[session.Data.VaultLevel].Podiums)
+			for i, entry in session.Data.Vault do
+				local brainrot, mutation, serial = Config.Decode(entry)
+				if brainrot then
+					placeInVault(plot, i, brainrot.Id, mutation, serial, nil)
+				end
+			end
 			updateUpgradeLabel(plot)
 			deliverUnclaimed(player, session)
 			-- Re-pick saved followers from the placed brainrots.
@@ -1446,6 +1643,10 @@ end
 
 local function releasePlot(plot: Plot)
 	clearPlotBrainrots(plot)
+	for index, slot in plot.Vault do
+		slot.Model:Destroy()
+		plot.Vault[index] = nil
+	end
 	plot.Owner = nil
 	plot.Pending = 0
 	plot.LockedUntil = 0
@@ -1471,6 +1672,7 @@ local function applyBaseLevels(plot: Plot, session: Session)
 	WorldBuilder.SetStories(plot.Parts, session.Data.Stories)
 	WorldBuilder.SetCarpet(plot.Parts, Config.CarpetTierFor(session.Data.Rebirths))
 	WorldBuilder.SetPrestige(plot.Parts, session.Data.Rebirths, session.Data.Stories, throneLook(session))
+	WorldBuilder.SetVaultPodiums(plot.Parts, Config.VaultLevels[session.Data.VaultLevel].Podiums)
 	applyInfiniteLock(plot, session)
 	setLaser(plot, os.clock() < plot.LockedUntil)
 	updateVipPedestals(plot)
@@ -1516,6 +1718,13 @@ local function onUpgrade(player: Player, plot: Plot, kind: string)
 			return
 		end
 		cost, name = nextLock.Cost, nextLock.Duration .. "s Lock"
+	elseif kind == "Vault" then
+		local nextVault = Config.VaultLevels[data.VaultLevel + 1]
+		if not nextVault then
+			notify(player, "Your vault is already maxed out!")
+			return
+		end
+		cost, name = nextVault.Cost, nextVault.Podiums .. " Vault Podiums"
 	else
 		return
 	end
@@ -1529,6 +1738,8 @@ local function onUpgrade(player: Player, plot: Plot, kind: string)
 		-- Walls and floor always go up together.
 		data.WallLevel += 1
 		data.Stories = data.WallLevel
+	elseif kind == "Vault" then
+		data.VaultLevel += 1
 	else
 		data.LockLevel += 1
 	end
@@ -1796,6 +2007,65 @@ task.spawn(function()
 	end)
 	while true do
 		loadLiveCodes()
+		task.wait(60)
+	end
+end)
+
+-- Admin lock: Corny's switch that takes the admin panel away from everyone
+-- else (Ace and the mods too). Saved, and shared with every server.
+local ADMIN_LOCK_TOPIC = "BrainrotHeistAdminLock"
+local adminsLocked = false
+ReplicatedStorage:SetAttribute("AdminsLocked", false)
+adminsLockedNow = function(): boolean
+	return adminsLocked
+end
+
+local function setAdminsLocked(locked: boolean)
+	if adminsLocked == locked then
+		return
+	end
+	adminsLocked = locked
+	ReplicatedStorage:SetAttribute("AdminsLocked", locked)
+	for player in sessions do
+		push(player)
+	end
+end
+
+local function loadAdminLock()
+	local store = codeStore
+	if not store then
+		return
+	end
+	local ok, raw = pcall(function()
+		return store:GetAsync("AdminsLocked")
+	end)
+	if ok then
+		setAdminsLocked(raw == true)
+	end
+end
+
+local function saveAdminLock(locked: boolean): boolean
+	setAdminsLocked(locked)
+	local store = codeStore
+	local saved = store ~= nil and pcall(function()
+		(store :: DataStore):SetAsync("AdminsLocked", locked)
+	end)
+	if saved then
+		pcall(function()
+			MessagingService:PublishAsync(ADMIN_LOCK_TOPIC, locked)
+		end)
+	end
+	return saved
+end
+
+task.spawn(function()
+	pcall(function()
+		MessagingService:SubscribeAsync(ADMIN_LOCK_TOPIC, function(packet)
+			setAdminsLocked(packet.Data == true)
+		end)
+	end)
+	while true do
+		loadAdminLock()
 		task.wait(60)
 	end
 end)
@@ -2605,7 +2875,7 @@ local function load(player: Player)
 	local leaderstats = Instance.new("Folder")
 	leaderstats.Name = "leaderstats"
 	for _, name in { "Cash", "Steals", "Rebirths" } do
-		local value = Instance.new("IntValue")
+		local value = Instance.new(if name == "Cash" then "StringValue" else "IntValue")
 		value.Name = name
 		value.Parent = leaderstats
 	end
@@ -2677,10 +2947,29 @@ game:BindToClose(function()
 	end
 end)
 
--- King's throne: the gold pad under a max-prestige balcony seats the base's
+-- Base prompts handled in one place: the vault hatch and ladder take the
+-- owner down and up, and the gold pad under a max-prestige balcony seats the
 -- owner on the throne.
 game:GetService("ProximityPromptService").PromptTriggered:Connect(function(prompt: ProximityPrompt, player: Player)
-	if prompt:GetAttribute("Action") ~= "Throne" then
+	local action = prompt:GetAttribute("Action")
+	if action == "EnterVault" or action == "ExitVault" then
+		-- The vault hatch (in the base) and the ladder back up (in the vault).
+		for _, plot in plots do
+			if prompt:IsDescendantOf(plot.Parts.Model) then
+				if plot.Owner ~= player then
+					notify(player, "Only the owner can open this vault!")
+					return
+				end
+				local character = player.Character
+				if character and getRoot(player) and not carries[player] then
+					character:PivotTo(if action == "EnterVault" then plot.Parts.VaultSpawn else plot.Parts.HatchCFrame)
+				end
+				return
+			end
+		end
+		return
+	end
+	if action ~= "Throne" then
 		return
 	end
 	for _, plot in plots do
@@ -2723,13 +3012,30 @@ RequestRebirth.OnServerEvent:Connect(function(player)
 	end
 	local oldCarpet = Config.CarpetTierFor(session.Data.Rebirths)
 	session.Data.Rebirths += 1
+	-- Cash, floors and the base's brainrots reset; the vault (and its
+	-- upgrades), lock upgrades, skins and passes stay.
 	session.Data.Cash = Config.StartingCash
-	if session.Plot then
-		clearPlotBrainrots(session.Plot, true)
-		session.Plot.Pending = 0
-		applyBaseLevels(session.Plot, session)
+	session.Data.WallLevel = 1
+	session.Data.Stories = 1
+	local plot = session.Plot
+	if plot then
+		clearPlotBrainrots(plot, true)
+		plot.Pending = 0
+		applyBaseLevels(plot, session)
+		-- Limited brainrots stay; any left on a floor that just reset move
+		-- down to the ground floor.
+		for index, slot in table.clone(plot.Slots) do
+			local free = if isSlotUnlocked(session, index) then nil else freeSlot(plot, session)
+			if free then
+				plot.Slots[index] = nil
+				placeBrainrot(plot, free, slot.Id, slot.Mutation, slot.Model, false, slot.Serial)
+			end
+		end
 	end
 	notify(player, string.format("REBIRTH! Your income is now x%.1f", incomeMultiplier(session)))
+	if #session.Data.Vault > 0 or (plot and vaultCount(plot) > 0) then
+		notify(player, "Your vault brainrots are safe!")
+	end
 	local newCarpet = Config.CarpetTierFor(session.Data.Rebirths)
 	if newCarpet > oldCarpet then
 		notify(player, "Your stairs got a new carpet: " .. Config.CarpetTiers[newCarpet].Name .. "!")
@@ -3537,7 +3843,7 @@ end
 
 local function announceEverywhere(player: Player, raw: string)
 	local session = sessions[player]
-	if not session or not session.IsAdmin then
+	if not session or not hasAdminPowers(session) then
 		return
 	end
 	local message = string.sub(string.match(raw, "^%s*(.-)%s*$") or "", 1, 200)
@@ -3625,6 +3931,48 @@ local function parseAmount(value: unknown): number?
 	end
 	local multipliers = { [""] = 1, k = 1e3, m = 1e6, b = 1e9, t = 1e12 }
 	return n * multipliers[suffix :: string]
+end
+
+-- Wipes a player back to a brand-new save: cash, rebirths, base levels,
+-- brainrots (base and vault), quests, skins and currencies. Only their Robux
+-- purchases stay (limited brainrots and the purchase receipts).
+local function resetPlayer(player: Player)
+	local session = sessions[player]
+	if not session or not session.Loaded then
+		return
+	end
+	local carry = carries[player]
+	if carry then
+		returnCarry(carry, nil)
+	end
+	local old = session.Data
+	local fresh = defaultData()
+	fresh.Receipts = old.Receipts
+	fresh.Settings = old.Settings
+	session.Data = fresh
+	session.FollowerModels = {}
+	local plot = session.Plot
+	if plot then
+		clearPlotBrainrots(plot, true)
+		for index, slot in plot.Vault do
+			slot.Model:Destroy()
+			plot.Vault[index] = nil
+		end
+		plot.Pending = 0
+		applyBaseLevels(plot, session)
+		-- Limited brainrots left on an upper floor come down to the ground.
+		for index, slot in table.clone(plot.Slots) do
+			local free = if isSlotUnlocked(session, index) then nil else freeSlot(plot, session)
+			if free then
+				plot.Slots[index] = nil
+				placeBrainrot(plot, free, slot.Id, slot.Mutation, slot.Model, false, slot.Serial)
+			end
+		end
+	end
+	updateFollowers(player)
+	notify(player, "Your progress was reset by " .. Config.HeadFounder .. ".")
+	push(player)
+	task.spawn(save, player)
 end
 
 -- "me", "all", or the start of someone's name / display name.
@@ -3755,6 +4103,10 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 	if not adminSession or not adminSession.IsAdmin or type(action) ~= "string" then
 		return
 	end
+	if not hasAdminPowers(adminSession) then
+		notify(admin, "The admin panel is locked by " .. Config.HeadFounder .. ".")
+		return
+	end
 
 	-- Only the head founder (Corny) can add mutations: everyone else's Give,
 	-- Spawn and Drop come without one, and Give MAGIC is his alone.
@@ -3767,6 +4119,30 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 			notify(admin, "Only " .. Config.HeadFounder .. " can add mutations.")
 			return
 		end
+	end
+
+	-- Corny's security switches
+	if action == "AdminLock" or action == "ResetPlayer" then
+		if not isHead then
+			notify(admin, "Only " .. Config.HeadFounder .. " can do that.")
+			return
+		end
+		if action == "AdminLock" then
+			local locked = value == true
+			local saved = saveAdminLock(locked)
+			notify(admin, (if locked then "Admin panels LOCKED: only you can use one now." else "Admin panels are back on for every admin.")
+				.. (if saved then " (every server)" else " (this server only: it couldn't be saved)"))
+		else
+			if string.lower(tostring(target or "")) == "all" then
+				notify(admin, "Reset one player at a time.")
+				return
+			end
+			for _, player in resolveTargets(admin, target) do
+				resetPlayer(player)
+				notify(admin, "Reset " .. player.DisplayName .. ": money, base, vault and stats are back to the start.")
+			end
+		end
+		return
 	end
 
 	-- Server-wide actions

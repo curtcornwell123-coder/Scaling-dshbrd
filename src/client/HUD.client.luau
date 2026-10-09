@@ -999,7 +999,7 @@ end)
 
 -- Base upgrades panel: opened from the upgrade post in your base --------------
 
-local upgradeFrame, upgradeBody = modal("BASE UPGRADES", Color3.fromRGB(255, 170, 40), 310)
+local upgradeFrame, upgradeBody = modal("BASE UPGRADES", Color3.fromRGB(255, 170, 40), 420)
 local upgradeLayout = Instance.new("UIListLayout")
 upgradeLayout.Padding = UDim.new(0, 10)
 upgradeLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -1048,6 +1048,7 @@ end
 
 upgradeCard(1, "Base", "BASE (floor + walls)", Color3.fromRGB(255, 170, 40))
 upgradeCard(2, "Lock", "LOCK TIME", RED)
+upgradeCard(3, "Vault", "VAULT (kept on rebirth)", GOLD)
 
 local function renderUpgrades()
 	if not data or not data.WallLevel then
@@ -1088,6 +1089,16 @@ local function renderUpgrades()
 		nextWall and nextWall.Cost,
 		nil,
 		nextWall ~= nil and nextWall.Vip == true and not (data.Owns and data.Owns.VIP)
+	)
+
+	local vaultLevel = data.VaultLevel or 1
+	local vault = Config.VaultLevels[vaultLevel]
+	local nextVault = Config.VaultLevels[vaultLevel + 1]
+	set(
+		"Vault",
+		string.format("%d podiums (%d used). Enter by the hatch in your base.", vault.Podiums, data.VaultUsed or 0),
+		nextVault and string.format("%d podiums", nextVault.Podiums),
+		nextVault and nextVault.Cost
 	)
 
 	local nextLock = Config.LockLevels[data.LockLevel + 1]
@@ -1687,6 +1698,7 @@ local limitedGiveRows: { Frame } = {}
 local codeMakerCards: { Frame } = {}
 -- Only the head founder (Corny) can add mutations: these are hidden for others.
 local headFounderOnly: { GuiObject } = {}
+local adminLockButton: TextButton? = nil -- Corny's switch (text follows data.AdminsLocked)
 -- Each founder only sees the button for their own event.
 local founderEventButtons: { { Button: TextButton, Founder: string } } = {}
 do
@@ -2174,6 +2186,36 @@ do
 	end
 
 	do
+		-- Security (Corny only): lock everyone else's admin panel, and reset a
+		-- player. Reset needs a second tap within 3 seconds.
+		local security = section(founderPage, -1, "SECURITY (only you)", "LOCK takes the admin panel away from everyone but you (Ace and mods too), in every server, until you unlock it. RESET wipes the player typed in the Player box at the top: money, base, vault and stats (their Robux purchases stay).", RED)
+		security.Visible = false
+		table.insert(headFounderOnly, security)
+		local switchRow = controls(security, 1)
+		adminLockButton = smallButton(switchRow, "LOCK ALL ADMIN PANELS", RED, 300, function()
+			send("AdminLock", not (data and data.AdminsLocked == true))
+		end)
+		local resetRow = controls(security, 2)
+		local armedUntil = 0
+		local resetButton: TextButton
+		resetButton = smallButton(resetRow, "RESET PLAYER", Color3.fromRGB(150, 40, 40), 300, function()
+			if os.clock() < armedUntil then
+				armedUntil = 0
+				resetButton.Text = "RESET PLAYER"
+				send("ResetPlayer", nil)
+			else
+				armedUntil = os.clock() + 3
+				resetButton.Text = "TAP AGAIN TO RESET"
+				task.delay(3, function()
+					if os.clock() >= armedUntil then
+						resetButton.Text = "RESET PLAYER"
+					end
+				end)
+			end
+		end)
+	end
+
+	do
 		-- Codes: make one here and it works in every server, saved for good.
 		local codes = section(founderPage, 1, "CODES", "Make a code players type in the shop's code box. It works in every server and saves for good. Each player can use a code once. Hours = how long it lasts (0 = forever).", GOLD)
 		codes.Visible = false
@@ -2311,6 +2353,9 @@ local function render()
 	end
 	cashLabel.Text = Config.FormatCash(data.Cash)
 	adminButton.Visible = data.IsAdmin == true
+	if not data.IsAdmin and adminFrame.Visible then
+		adminFrame.Visible = false -- locked by Corny while it was open
+	end
 	founderTab.Button.Visible = data.IsFounder == true
 	for _, row in limitedGiveRows do
 		row.Visible = data.FounderId == Config.LimitedGiver
@@ -2320,6 +2365,9 @@ local function render()
 	end
 	for _, item in headFounderOnly do
 		item.Visible = data.FounderId == Config.HeadFounder
+	end
+	if adminLockButton then
+		adminLockButton.Text = if data.AdminsLocked then "🔒 LOCKED: TAP TO UNLOCK" else "LOCK ALL ADMIN PANELS"
 	end
 	-- Your own event, plus every event for the head founder (Corny).
 	for _, entry in founderEventButtons do
@@ -2344,7 +2392,7 @@ local function render()
 	renderSell()
 	currencyLabel.Text = string.format("🔷 %d Shards", data.Shards or 0)
 	rebirthInfo.Text = string.format(
-		"Rebirth %d\nCost: %s\nIncome x%.1f  ->  x%.1f\nYou keep gamepasses. Cash and brainrots reset.",
+		"Rebirth %d\nCost: %s\nIncome x%.1f  ->  x%.1f\nCash, floors and base brainrots reset. Your vault, lock, skins and passes stay.",
 		data.Rebirths,
 		Config.FormatCash(data.RebirthCost),
 		data.Multiplier,
@@ -2383,14 +2431,16 @@ updateCarry()
 
 local function updatePrompt(prompt: ProximityPrompt)
 	local action = prompt:GetAttribute("Action")
-	if action == "OpenUpgrades" or action == "LockToggle" then
-		-- Prompt lives on the upgrade post / door button, directly inside the plot model.
-		local post = prompt.Parent
-		local plot = post and post.Parent
+	if action == "OpenUpgrades" or action == "LockToggle" or action == "EnterVault" or action == "ExitVault" or action == "Throne" then
+		-- Base fixtures: only the base's owner sees these.
+		local plot: Instance? = prompt.Parent
+		while plot and plot:GetAttribute("PlotIndex") == nil do
+			plot = plot.Parent
+		end
 		prompt.Enabled = plot ~= nil and plot:GetAttribute("OwnerUserId") == player.UserId
 		return
 	end
-	if action ~= "Sell" and action ~= "Steal" then
+	if action ~= "Sell" and action ~= "Steal" and action ~= "ToVault" and action ~= "FromVault" then
 		return
 	end
 	local root = prompt.Parent
@@ -2404,7 +2454,7 @@ local function updatePrompt(prompt: ProximityPrompt)
 	local carried = model:GetAttribute("Carried") == true or model:GetAttribute("Protected") == true or model:GetAttribute("Walking") == true
 	local plot = model.Parent
 	local locked = plot ~= nil and plot:GetAttribute("Locked") == true
-	if action == "Sell" then
+	if action == "Sell" or action == "ToVault" or action == "FromVault" then
 		prompt.Enabled = not carried and owner == player.UserId
 	else
 		prompt.Enabled = not carried and not locked and owner ~= 0 and owner ~= player.UserId

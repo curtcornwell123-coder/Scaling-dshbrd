@@ -462,6 +462,22 @@ function Config.CarpetTierFor(rebirths: number): number
 	return math.min(#Config.CarpetTiers, rebirths // Config.CarpetRebirthStep)
 end
 
+-- Vault ---------------------------------------------------------------------
+-- A room under every base (enter through the hatch). Brainrots on its
+-- podiums keep earning, can't be stolen, and stay through rebirths. Vault
+-- upgrades (more podiums) are kept through rebirths too.
+export type VaultLevel = { Podiums: number, Cost: number }
+
+Config.VaultLevels = {
+	{ Podiums = 2, Cost = 0 },
+	{ Podiums = 4, Cost = 250000 },
+	{ Podiums = 6, Cost = 10000000 },
+	{ Podiums = 8, Cost = 500000000 },
+	{ Podiums = 10, Cost = 25000000000 },
+	{ Podiums = 12, Cost = 1000000000000 },
+} :: { VaultLevel }
+Config.VaultMaxPodiums = 12
+
 -- Prestige: the more you rebirth, the cooler your base looks. Each step
 -- keeps the ones before it. Colors follow your stair carpet.
 Config.PrestigeLadder = {
@@ -1009,9 +1025,18 @@ function Config.RollConveyor(rng: Random, luck: number, eventLive: boolean?): Br
 	return pool[rng:NextInteger(1, #pool)]
 end
 
+-- Cash never goes above this (far past anything the economy reaches), so
+-- it always saves and shows correctly.
+Config.MaxCash = 1e60
+
 function Config.FormatNumber(n: number): string
+	if n ~= n then
+		return "0"
+	elseif math.abs(n) == math.huge then
+		return if n > 0 then "∞" else "-∞"
+	end
 	n = math.floor(n)
-	local suffixes = { "", "K", "M", "B", "T", "Qa", "Qi" }
+	local suffixes = { "", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg" }
 	local i = 1
 	local value = n
 	while math.abs(value) >= 1000 and i < #suffixes do
