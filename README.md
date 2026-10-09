@@ -14,12 +14,12 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
      | Level | Floors | Walls | Cost |
      |---|---|---|---|
      | 1 | 1 | Wood Fence (hop-able) | free |
-     | 2 | 2 | Brick Wall | $25K |
-     | 3 | 3 | Concrete Wall (too tall to jump) | $1M |
-     | 4 | 4 | Steel Wall | $40M |
-     | 5 | 5 | Platinum Wall (and the roof) | $1.5B |
-     | 6 | 6 | Royal Marble Wall (**VIP only**) | $60B |
-     | 7 | 7 | Golden Palace Wall (**VIP only**) | $2.5T |
+     | 2 | 2 | Brick Wall | $50K |
+     | 3 | 3 | Concrete Wall (too tall to jump) | $2.5M |
+     | 4 | 4 | Steel Wall | $100M |
+     | 5 | 5 | Platinum Wall (and the roof) | $4B |
+     | 6 | 6 | Royal Marble Wall (**VIP only**) | $150B |
+     | 7 | 7 | Golden Palace Wall (**VIP only**) | $6T |
 
      The roof goes on at level 5 and moves up with the VIP floors.
 
@@ -27,7 +27,7 @@ A Roblox "steal a brainrot" game. Buy brainrots off the conveyor, let them make 
    - **Stair carpets** come from rebirths: plain wood at first, then a new carpet every 5 rebirths: Red (5), Royal (10), Golden (15), Crystal (20) and Rainbow (25).
 6. **Lock.** Step on the red **LOCK** pad. Red laser beams cross your entrance and zap anyone else who walks through. After the lock ends it recharges for 30s, and that's when you're vulnerable.
 7. **Sell** your own brainrots for half price (hold **F**).
-8. **Rebirth.** Reset your cash, floors (base level) and base brainrots for a permanent income multiplier (+0.5x each time). Your **vault** and its brainrots, lock upgrades, skins, passes and limited brainrots all stay.
+8. **Rebirth.** Reset your cash, floors (base level) and base brainrots for a permanent income multiplier (+0.5x each time; the first rebirth costs $2.5M and each one after costs 6x more). Your **vault** and its brainrots, lock upgrades, skins, passes and limited brainrots all stay.
 
 Rare spawns (Legendary and up), big buys, big steals, rebirths and Server Luck purchases are announced to the whole server.
 
@@ -58,25 +58,25 @@ To put her on sale: create a Developer Product named "Cigna Glamourina" priced a
 
 ### Mutations
 
-Any brainrot on the conveyor can roll a mutation. A mutation multiplies both its price and its income and changes how it looks. Server Luck doubles these chances.
+Any brainrot on the conveyor can roll a mutation, and **mutations stack**: after one rolls there's a 12% chance another lands on top (up to 3, e.g. "Gold Galaxy"). Each mutation adds a percentage of the brainrot's base income and price, and a stack adds them all up (Gold +100% and Galaxy +600% make +700%, so 8x the base). The rarest one in the stack leads the look; the others add their particles. Server Luck doubles these chances. Corny's admin panel can stack up to 3 mutations when giving a brainrot.
 
-| Mutation | Chance | Income & price | Look |
+| Mutation | Chance | Bonus (income & price) | Look |
 |---|---|---|---|
-| ✨ Gold | 4% | x2 | Shiny gold foil |
-| 🍬 Candy | 2.5% | x2.5 | Pastel candy colors, sprinkles |
-| 🔷 Crystal | 2% | x3 | See-through ice-blue glass |
-| ❄️ Frozen | 2% | x3 | Ice, falling snowflakes |
-| ⭐ Sparkle | 1.5% | x4 | Its own colors, brighter, twinkling stars |
-| ⚡ Electric | 1.2% | x4.5 | Yellow charge, crackling sparks |
-| 😊 Smiley | 1% | x5 | Sunny yellow, little smiley faces floating around it |
-| ☢️ Radioactive | 0.9% | x5.5 | Toxic green, glowing spots, green fumes |
-| 🔥 Lava | 0.8% | x5 | Cracked lava rock, on fire |
-| 🌌 Galaxy | 0.6% | x7 | Deep-space glass, drifting stars |
-| 💀 Cursed | 0.5% | x8 | Blood-dark stone, black smoke, embers |
-| 🌈 Rainbow | 0.3% | x10 | Cycles through every color |
-| 🕳️ Void | 0.2% | x12 | Pitch black, purple outline, dark matter pulled in |
-| 😇 Divine | 0.1% | x15 | White marble, golden halo, holy light |
-| ✨🔮 Magic | 1% when you get the event brainrot (event only) | x8 | Purple-teal shimmer, a full magic circle with runes, orbs, pink glitter and a star fountain |
+| ✨ Gold | 4% | +100% | Shiny gold foil |
+| 🍬 Candy | 2.5% | +150% | Pastel candy colors, sprinkles |
+| 🔷 Crystal | 2% | +200% | See-through ice-blue glass |
+| ❄️ Frozen | 2% | +200% | Ice, falling snowflakes |
+| ⭐ Sparkle | 1.5% | +300% | Its own colors, brighter, twinkling stars |
+| ⚡ Electric | 1.2% | +350% | Yellow charge, crackling sparks |
+| 😊 Smiley | 1% | +400% | Sunny yellow, little smiley faces floating around it |
+| ☢️ Radioactive | 0.9% | +450% | Toxic green, glowing spots, green fumes |
+| 🔥 Lava | 0.8% | +400% | Cracked lava rock, on fire |
+| 🌌 Galaxy | 0.6% | +600% | Deep-space glass, drifting stars |
+| 💀 Cursed | 0.5% | +700% | Blood-dark stone, black smoke, embers |
+| 🌈 Rainbow | 0.3% | +900% | Cycles through every color |
+| 🕳️ Void | 0.2% | +1100% | Pitch black, purple outline, dark matter pulled in |
+| 😇 Divine | 0.1% | +1400% | White marble, golden halo, holy light |
+| ✨🔮 Magic | 1% when you get the event brainrot (event only) | +700% | Purple-teal shimmer, a full magic circle with runes, orbs, pink glitter and a star fountain |
 
 The rarer the mutation, the bigger the show: rare ones (Radioactive to Cursed) add a glowing aura ring and rising motes; ultra rare ones (Rainbow, Void, Divine) add a second ring, a column of light and a sparkle crown; Magic gets the whole spell. Galaxy and rarer spawns are announced to the whole server. About 1 in 6 conveyor brainrots is mutated (1 in 3 with Server Luck).
 
@@ -130,7 +130,15 @@ To build a place file without Studio sync: `rojo build -o BrainrotHeist.rbxl`.
 
 ## Corny's Ban Hammer
 
-Only Corny (`Config.HammerOwner`) gets a **Ban Hammer** in his backpack every time he spawns. Swinging it sends a red shockwave and flings everyone in front of him into the air, spinning (anyone carrying a stolen brainrot drops it and it runs home), and cracks a glowing line straight along the ground for 70 studs: anyone standing on the line takes 35 damage and gets knocked off it. It doesn't ban anyone. Range, cooldown and force are in `Config.Hammer*`.
+Only Corny (`Config.HammerOwner`) gets a **Ban Hammer** in his backpack every time he spawns. While it's in his hand he also has three powers, with controls that switch to whatever he's using (a hint bar shows the keys or buttons; phones and tablets get on-screen buttons):
+
+| Power | Keyboard | Controller | Phone / tablet |
+|---|---|---|---|
+| **FLY** (on/off; fly where you move) | F (Space / Q = up / down) | Y (A / B = up / down) | FLY button (▲ ▼ buttons) |
+| **ZOOM** super sprint (on/off) | G | X | ZOOM button |
+| **SLAM**: a shockwave across the whole map flings every other player sky-high, with a camera shake for everyone (15s recharge) | R | R1 | SLAM button |
+
+Swinging it sends a red shockwave and flings everyone in front of him into the air, tumbling and spinning with a burst of sparks (anyone carrying a stolen brainrot drops it and it runs home), and cracks a glowing line straight along the ground for 70 studs: anyone standing on the line takes 35 damage and gets knocked off it. It doesn't ban anyone. Range, cooldown and force are in `Config.Hammer*`.
 
 ## Walking home
 
@@ -179,7 +187,9 @@ Who is an admin: the founders, the game's owner (or the group owner, for group g
 
 ### Admin abuse and drops
 
-The admin panel can drop any brainrot (with any mutation) from the sky, start a **Brainrot Rain** of 10 lucky brainrots, or start a **Cash Rain** of 30 cash drops (each worth the amount box). First player to grab a drop keeps it.
+The admin panel can drop any brainrot (with any mutation) from the sky, start a **Brainrot Rain** of 5 lucky brainrots, or start a **Cash Rain** of 15 cash drops (each worth the amount box). First player to grab a drop keeps it.
+
+**Economy pace:** every brainrot earns 60% of its listed income (`Config.IncomeScale`; prices stay the same, so everything takes longer to afford), base levels and rebirths cost more (rebirth starts at $2.5M and grows 6x each time), and drops are smaller: founder-event throws come about half as often, are brainrots only 15% of the time (with less luck), and their cash bags are worth 20 seconds of the grabber's own income (at least $500) instead of a flat amount.
 
 There's a weekly **admin abuse** event. Everyone sees a countdown during the hour before it starts and a LIVE banner while it runs. It's set to **Saturday 2:00 PM Central time (Oklahoma)**, and daylight saving is handled automatically. Change it in `Config.AdminAbuse`. Admins can also start or end it any time: type how many minutes in the **Minutes** box in the admin panel, then press **Start Admin Abuse**.
 
@@ -188,7 +198,7 @@ When it starts, everyone gets a huge intro: two white flashes and a red flash ov
 **Admin abuse boosts and gift** (tune them in `Config.AdminAbuseBoosts` and `Config.AdminAbuseGift`):
 - While it's live, everyone gets **3x cash**, **3x luck** (rare spawns and mutations), walks faster (24 instead of 16) and jumps higher. Carrying a stolen brainrot stays slow so stealing stays fair.
 - **Giant founders** (Corny and Ace, in their normal Roblox avatars, about 125 studs tall) stand just outside the fence on opposite sides of the map, like the devs in Grow a Garden. They appear in a puff of sparkles and just stand there doing one Roblox emote after another (wave, cheer, laugh, point), over and over, without moving around.
-- Everyone online gets a gift, shown on a pop-up card: **100 Shards and a free brainrot** (rolled with Brainrot Rain luck). It's once per player per week, so starting admin abuse again the same week doesn't hand out more. Players who join while it's live still get theirs.
+- Everyone online gets a gift, shown on a pop-up card: **100 Shards and a free brainrot** (rolled with a little extra luck). It's once per player per week, so starting admin abuse again the same week doesn't hand out more. Players who join while it's live still get theirs.
 
 ### Founders and founder events
 
@@ -206,9 +216,17 @@ When players join they see the **Corny Games** loading screen (`src/first/Loadin
 
 Background music for normal play is set in `Config.GameMusic` (a list of audio ids; shuffled if there are several). It loops quietly, fades out while a founder event plays its own song and back in afterwards, and players set its volume (0–100%, saved) in **Settings** (the ⚙️ button in the corner). `assets/music/brainrot_theme.mp3` is the game's own original, copyright-free theme (bouncy marimba melody, plucky chords, bass, claps; 68 seconds, loops): upload it and put its id in `Config.GameMusic`. Until an id is set, there's no music and no button.
 
+### Money bars
+
+Your cash (with income per second), Shards, and base slots / steals sit in slim bars in the top-left corner, so the middle of the screen stays clear.
+
+### Game updates
+
+When a server closes for an update, everyone sees a **GAME UPDATING!** screen (starry backdrop, rainbow title, spinning gear and a filling bar) while their progress saves, then gets a friendly "just got updated, rejoin to play the new version" message instead of a plain "server shut down".
+
 ### Event labels and boost badges
 
-Small pills under the cash panel show what's on in the server, with time left: admin abuse (and its countdown in the last hour), a founder event ("until Corny leaves" for his long runs), its night mutation, and Server Luck. The bottom right lists every boost you have and how long it lasts: admin abuse (x3 cash, x3 luck, speed + jump), x2 luck from Ace's event, Server Luck, your own 2x Cash boost from the Shard Shop, and the 2x Cash gamepass (forever).
+Small pills at the top of the screen show what's on in the server, with time left: admin abuse (and its countdown in the last hour), a founder event ("until Corny leaves" for his long runs), its night mutation, and Server Luck. The bottom right lists every boost you have and how long it lasts: admin abuse (x3 cash, x3 luck, speed + jump), x2 luck from Ace's event, Server Luck, your own 2x Cash boost from the Shard Shop, and the 2x Cash gamepass (forever).
 
 ### Settings
 

@@ -114,49 +114,64 @@ end
 camera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 rescale()
 
--- Cash panel ---------------------------------------------------------------
+-- Money bars ----------------------------------------------------------------
+-- Slim horizontal bars in the top-left corner: cash (with income per
+-- second), Shards, and your base slots and steals. Small on purpose so the
+-- middle of the screen stays clear.
+local statBars = Instance.new("Frame")
+statBars.Name = "StatBars"
+statBars.BackgroundTransparency = 1
+statBars.Position = UDim2.fromOffset(12, 8)
+statBars.Size = UDim2.fromOffset(250, 0)
+statBars.AutomaticSize = Enum.AutomaticSize.Y
+statBars.Parent = gui
+local statLayout = Instance.new("UIListLayout")
+statLayout.Padding = UDim.new(0, 6)
+statLayout.SortOrder = Enum.SortOrder.LayoutOrder
+statLayout.Parent = statBars
 
-local cashPanel = Instance.new("Frame")
-cashPanel.AnchorPoint = Vector2.new(0.5, 0)
-cashPanel.Position = UDim2.new(0.5, 0, 0, 8)
-cashPanel.Size = UDim2.fromOffset(320, 112)
-cashPanel.BackgroundColor3 = PANEL_BG
-cashPanel.BackgroundTransparency = 0.1
-corner(cashPanel, 10)
-stroke(cashPanel, 3, EDGE)
-cashPanel.Parent = gui
-local cashAccent = Instance.new("Frame")
-cashAccent.BorderSizePixel = 0
-cashAccent.BackgroundColor3 = GREEN
-cashAccent.AnchorPoint = Vector2.new(0.5, 1)
-cashAccent.Position = UDim2.new(0.5, 0, 1, -4)
-cashAccent.Size = UDim2.new(1, -24, 0, 3)
-cashAccent.Parent = cashPanel
+local function statBar(order: number, icon: string, color: Color3, height: number): (TextLabel, TextLabel)
+	local bar = Instance.new("Frame")
+	bar.LayoutOrder = order
+	bar.Size = UDim2.new(1, 0, 0, height)
+	bar.BackgroundColor3 = PANEL_BG
+	bar.BackgroundTransparency = 0.15
+	corner(bar, height // 2)
+	stroke(bar, 2, color:Lerp(Color3.new(0, 0, 0), 0.35))
+	bar.Parent = statBars
+	local badge = Instance.new("Frame")
+	badge.Size = UDim2.fromOffset(height, height)
+	badge.BackgroundColor3 = color
+	corner(badge, height // 2)
+	badge.Parent = bar
+	text(badge, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.7, 0.7),
+		TextStrokeTransparency = 1,
+		Text = icon,
+	})
+	local main = text(bar, {
+		Position = UDim2.fromOffset(height + 8, 3),
+		Size = UDim2.new(0.62, -height, 1, -6),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = color:Lerp(WHITE, 0.35),
+		Text = "",
+	})
+	local side = text(bar, {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -10, 0, 6),
+		Size = UDim2.new(0.38, -6, 1, -12),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextColor3 = Color3.fromRGB(200, 200, 215),
+		Text = "",
+	})
+	return main, side
+end
 
-local cashLabel = text(cashPanel, {
-	Position = UDim2.fromOffset(10, 4),
-	Size = UDim2.new(1, -20, 0, 46),
-	TextColor3 = Color3.fromRGB(120, 255, 120),
-	Text = "$0",
-})
-local incomeLabel = text(cashPanel, {
-	Position = UDim2.fromOffset(10, 50),
-	Size = UDim2.new(1, -20, 0, 20),
-	Text = "+$0/s",
-})
-local slotsLabel = text(cashPanel, {
-	Position = UDim2.fromOffset(10, 70),
-	Size = UDim2.new(1, -20, 0, 18),
-	TextColor3 = Color3.fromRGB(200, 200, 210),
-	Text = "Base 0/10",
-})
-
-local currencyLabel = text(cashPanel, {
-	Position = UDim2.fromOffset(10, 90),
-	Size = UDim2.new(1, -20, 0, 18),
-	TextColor3 = Color3.fromRGB(140, 220, 255),
-	Text = "🔷 0   💎 0",
-})
+local cashLabel, incomeLabel = statBar(1, "💵", GREEN, 36)
+local currencyLabel, _ = statBar(2, "🔷", Color3.fromRGB(70, 165, 225), 30)
+local slotsLabel, stealsLabel = statBar(3, "🏠", Color3.fromRGB(150, 150, 165), 26)
 
 local carryLabel = text(gui, {
 	AnchorPoint = Vector2.new(0.5, 1),
@@ -177,7 +192,9 @@ side.Size = UDim2.fromOffset(130, 400)
 side.Parent = gui
 local sideLayout = Instance.new("UIListLayout")
 sideLayout.Padding = UDim.new(0, 10)
+sideLayout.SortOrder = Enum.SortOrder.LayoutOrder
 sideLayout.Parent = side
+local sideCount = 0
 
 -- Menu buttons styled like the shop's category tiles: a big icon and a label.
 local function sideButton(label: string, emoji: string, color: Color3): TextButton
@@ -205,6 +222,8 @@ local function sideButton(label: string, emoji: string, color: Color3): TextButt
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Text = label,
 	})
+	sideCount += 1
+	b.LayoutOrder = sideCount
 	b.Parent = side
 	return b
 end
@@ -259,7 +278,7 @@ end
 
 local banner = text(gui, {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 194),
+	Position = UDim2.new(0.5, 0, 0, 44),
 	Size = UDim2.fromOffset(760, 48),
 	Text = "",
 	Visible = false,
@@ -294,7 +313,7 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 	local mutation = Config.GetMutation(mutationId)
 	local label = if brainrot then string.upper(Config.Rarities[brainrot.Rarity].DisplayName) .. " " .. brainrot.DisplayName else ""
 	if mutation then
-		label = string.upper(mutation.DisplayName) .. " " .. label
+		label = string.upper(Config.MutationLabel(mutationId)) .. " " .. label
 	end
 	local color = if mutation then mutation.Color elseif brainrot then rarityColor(brainrot) else WHITE
 	if kind == "spawn" and brainrot then
@@ -307,6 +326,8 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 		showBanner(who .. " is dropping a " .. label .. " from the sky! GRAB IT!", color)
 	elseif kind == "grab" and brainrot then
 		showBanner(who .. " grabbed the " .. label .. "!", color)
+	elseif kind == "slam" then
+		showBanner("🔨 " .. string.upper(who) .. "'S HAMMER SLAM!", RED)
 	elseif kind == "rain" then
 		showBanner("BRAINROT RAIN! Grab them before anyone else!", Color3.fromRGB(200, 140, 255))
 	elseif kind == "cashrain" then
@@ -314,7 +335,7 @@ Announce.OnClientEvent:Connect(function(kind: string, who: string, brainrotId: s
 	elseif kind == "abuse" then
 		showBanner("ADMIN ABUSE HAS STARTED!", RED)
 	elseif kind == "limited" and brainrot then
-		local name = if mutation then string.upper(mutation.DisplayName) .. " " .. brainrot.DisplayName else brainrot.DisplayName
+		local name = if mutation then string.upper(Config.MutationLabel(mutationId)) .. " " .. brainrot.DisplayName else brainrot.DisplayName
 		showBanner(who .. " got " .. name .. " #" .. (extra or "?") .. "!", color)
 	elseif kind == "magic" and brainrot then
 		showBanner(who .. "'s " .. brainrot.DisplayName .. " turned MAGIC!", Color3.fromRGB(190, 130, 255))
@@ -1391,7 +1412,7 @@ local function renderFollowers()
 				Size = UDim2.new(1, -170, 0, 30),
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextColor3 = if mutation then mutation.Color else Config.Rarities[brainrot.Rarity].Color,
-				Text = (if mutation then mutation.DisplayName .. " " else "") .. brainrot.DisplayName,
+				Text = (if mutation then Config.MutationLabel(entry.Mutation) .. " " else "") .. brainrot.DisplayName,
 			})
 			local b = button(row, if entry.Following then "FOLLOWING" else "FOLLOW", if entry.Following then GOLD else GREEN, UDim2.fromOffset(140, 34))
 			b.Position = UDim2.new(1, -150, 0, 5)
@@ -1580,7 +1601,7 @@ do
 				Size = UDim2.new(1, -200, 1, -12),
 				TextXAlignment = Enum.TextXAlignment.Left,
 				TextColor3 = color,
-				Text = (if mutation then mutation.DisplayName .. " " else "") .. brainrot.DisplayName,
+				Text = (if mutation then Config.MutationLabel(entry.Mutation) .. " " else "") .. brainrot.DisplayName,
 			})
 			local b = button(row, if sellable then "SELL " .. Config.FormatCash(value) else "LIMITED", if sellable then SELL_GREEN else UI_GREY, UDim2.fromOffset(180, 36))
 			b.Position = UDim2.new(1, -184, 0, 4)
@@ -2270,9 +2291,9 @@ do
 		return if choice == "None" then id else Config.Encode(id, choice)
 	end
 
-	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base (Corny picks a mutation first).  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
+	local listCard = section(brainrotsPage, 2, "ALL BRAINROTS", "Give = into their base (Corny can stack up to 3 mutations first).  Spawn = on the conveyor.  Drop = falls near them.", GOLD)
 	-- The mutations Give can add (plus None), shown under a row when you press Give.
-	local giveChoices: { { Id: string?, Name: string, Color: Color3 } } = { { Id = nil, Name = "None", Color = UI_GREY } }
+	local giveChoices: { { Id: string?, Name: string, Color: Color3 } } = {}
 	for _, mutation in Config.Mutations do
 		if not mutation.Exclusive then
 			table.insert(giveChoices, { Id = mutation.Id, Name = mutation.DisplayName, Color = mutation.Color })
@@ -2329,15 +2350,43 @@ do
 		chooserLayout.Padding = UDim.new(0, 5)
 		chooserLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		chooserLayout.Parent = chooser
-		for k, choice in giveChoices do
-			local b = smallButton(chooser, choice.Name, choice.Color, 108, function()
-				send("Brainrot", if choice.Id then Config.Encode(brainrot.Id, choice.Id) else brainrot.Id)
-				chooser.Visible = false
-				openChooser = nil
-			end)
-			b.Size = UDim2.fromOffset(108, 30)
-			b.LayoutOrder = k
+		-- Tap mutations to stack them (up to Config.MaxMutations), then GIVE.
+		local picked: { string } = {}
+		local pickButtons: { [string]: TextButton } = {}
+		local giveNow: TextButton
+		local function refreshPicks()
+			for id, b in pickButtons do
+				b.Text = (if table.find(picked, id) then "✓ " else "") .. (Config.GetMutation(id) :: Config.Mutation).DisplayName
+			end
+			giveNow.Text = if #picked == 0 then "GIVE PLAIN" else "GIVE (" .. #picked .. ")"
 		end
+		for k, choice in giveChoices do
+			local id = choice.Id
+			if id then
+				local b = smallButton(chooser, choice.Name, choice.Color, 108, function()
+					local at = table.find(picked, id)
+					if at then
+						table.remove(picked, at)
+					elseif #picked < Config.MaxMutations then
+						table.insert(picked, id)
+					end
+					refreshPicks()
+				end)
+				b.Size = UDim2.fromOffset(108, 30)
+				b.LayoutOrder = k
+				pickButtons[id] = b
+			end
+		end
+		giveNow = smallButton(chooser, "GIVE PLAIN", GREEN, 120, function()
+			local stack = Config.JoinMutations(picked)
+			send("Brainrot", if stack then Config.Encode(brainrot.Id, stack) else brainrot.Id)
+			table.clear(picked)
+			refreshPicks()
+			chooser.Visible = false
+			openChooser = nil
+		end)
+		giveNow.Size = UDim2.fromOffset(120, 30)
+		giveNow.LayoutOrder = 999
 
 		local giveButton = smallButton(row, "Give", GREEN, 80, function()
 			-- Other admins give it plain; Corny picks a mutation first.
@@ -2581,6 +2630,7 @@ do
 end
 
 local adminButton = sideButton("ADMIN", "🛠️", RED)
+adminButton.LayoutOrder = -2 -- top of the list, so it's never cut off on small screens
 adminButton.Visible = false
 adminButton.MouseButton1Click:Connect(function()
 	shopFrame.Visible = false
@@ -2593,6 +2643,7 @@ end)
 -- one: kick, ban (tap twice), unban and announcements to every server.
 local modFrame: Frame
 local modButton = sideButton("MOD", "🛡️", Color3.fromRGB(70, 120, 230))
+modButton.LayoutOrder = -1 -- top of the list, so it's never cut off on phones
 modButton.Visible = false
 do
 	local MOD_BLUE = Color3.fromRGB(70, 120, 230)
@@ -2714,11 +2765,9 @@ local function render()
 	if founderTab.Page.Visible and not data.IsFounder then
 		selectTab(playersTab)
 	end
-	incomeLabel.Text = string.format("+%s/s   x%.1f income", Config.FormatCash(data.Income), data.Multiplier)
-	if (data.CashBoostLeft or 0) > 0 then
-		incomeLabel.Text ..= string.format("  (2x boost %dm)", math.ceil(data.CashBoostLeft / 60))
-	end
-	slotsLabel.Text = string.format("Base %d/%d   Steals %d", data.Placed, data.MaxSlots, data.Steals)
+	incomeLabel.Text = string.format("+%s/s", Config.FormatCash(data.Income))
+	slotsLabel.Text = string.format("Base %d/%d", data.Placed, data.MaxSlots)
+	stealsLabel.Text = string.format("Steals %d", data.Steals)
 
 	renderLimited()
 	renderUpgrades()
@@ -2727,7 +2776,7 @@ local function render()
 	renderShardShop()
 	renderSell()
 	renderIndex()
-	currencyLabel.Text = string.format("🔷 %d Shards", data.Shards or 0)
+	currencyLabel.Text = Config.FormatNumber(data.Shards or 0) .. " Shards"
 	rebirthInfo.Text = string.format(
 		"Rebirth %d\nCost: %s\nIncome x%.1f  ->  x%.1f\nCash, floors and base brainrots reset. Your vault, lock, skins and passes stay.",
 		data.Rebirths,
@@ -2811,7 +2860,7 @@ task.spawn(function()
 end)
 
 -- Event labels -----------------------------------------------------------------
--- Small pills under the cash panel for what's on in the server right now:
+-- Small pills at the top of the screen for what's on in the server right now:
 -- admin abuse (and its countdown in the last hour), a founder event and its
 -- night, and Server Luck, each with its time left. Kept small on purpose.
 do
@@ -2819,7 +2868,7 @@ do
 	strip.Name = "EventLabels"
 	strip.BackgroundTransparency = 1
 	strip.AnchorPoint = Vector2.new(0.5, 0)
-	strip.Position = UDim2.new(0.5, 0, 0, 126)
+	strip.Position = UDim2.new(0.5, 0, 0, 8)
 	strip.Size = UDim2.fromOffset(760, 26)
 	strip.Parent = gui
 	local layout = Instance.new("UIListLayout")

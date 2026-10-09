@@ -92,6 +92,10 @@ RunService.Heartbeat:Connect(function()
 	end
 	local base = if abuseLive() then Config.AdminAbuseBoosts.WalkSpeed else Config.NormalWalkSpeed
 	local speed = if sprinting then base * Config.SprintMultiplier else base
+	-- Corny's hammer SUPER SPRINT (set by HammerPowers.client).
+	if player:GetAttribute("HammerSprint") then
+		speed = Config.HammerSprintSpeed
+	end
 	if math.abs(humanoid.WalkSpeed - speed) > 0.01 then
 		humanoid.WalkSpeed = speed
 	end

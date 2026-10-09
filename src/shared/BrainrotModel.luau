@@ -3347,9 +3347,13 @@ end
 
 -- Mutations ----------------------------------------------------------------
 
-local function applyMutation(model: Model, root: BasePart, mutation: Config.Mutation, scale: number, mini: boolean?)
+-- `secondary`: one of the commoner mutations in a stack. Only the rarest
+-- recolors the brainrot and gets the big rarity effects; the others add
+-- their particles and sparkles on top.
+local function applyMutation(model: Model, root: BasePart, mutation: Config.Mutation, scale: number, mini: boolean?, secondary: boolean?)
 	local i = 0
-	for _, d in model:GetDescendants() do
+	local recolor: { Instance } = if secondary then {} else model:GetDescendants()
+	for _, d in recolor do
 		if d:IsA("BasePart") and d ~= root and not d:GetAttribute("Keep") then
 			i += 1
 			if mutation.Id == "Gold" then
@@ -3425,7 +3429,7 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 		fire.SecondaryColor = Color3.fromRGB(255, 220, 60)
 		fire.Parent = root
 	end
-	if mutation.Id == "Rainbow" then
+	if mutation.Id == "Rainbow" and not secondary then
 		CollectionService:AddTag(model, "RainbowBrainrot")
 	end
 
@@ -3603,7 +3607,7 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 	-- The rarer the mutation, the bigger the show: 1 = common (Gold..Smiley),
 	-- 2 = rare (Radioactive..Cursed), 3 = ultra rare (Rainbow, Void, Divine),
 	-- 4 = Magic (Cigna Glamourina only). Mini followers keep it simple.
-	local tier = if mini then 1 elseif mutation.Chance <= 0 then 4 elseif mutation.Chance <= 0.3 then 3 elseif mutation.Chance <= 0.9 then 2 else 1
+	local tier = if mini or secondary then 1 elseif mutation.Chance <= 0 then 4 elseif mutation.Chance <= 0.3 then 3 elseif mutation.Chance <= 0.9 then 2 else 1
 	local _, bounds = model:GetBoundingBox()
 	local height = bounds.Y
 
@@ -3618,11 +3622,13 @@ local function applyMutation(model: Model, root: BasePart, mutation: Config.Muta
 	sparkles.Size = NumberSequence.new(0.3 + 0.08 * tier)
 	sparkles.Parent = root
 
-	local light = Instance.new("PointLight")
-	light.Color = mutation.Color
-	light.Range = 8 * scale * (1 + 0.3 * (tier - 1))
-	light.Brightness = 1.5 + 0.4 * (tier - 1)
-	light.Parent = root
+	if not secondary then
+		local light = Instance.new("PointLight")
+		light.Color = mutation.Color
+		light.Range = 8 * scale * (1 + 0.3 * (tier - 1))
+		light.Brightness = 1.5 + 0.4 * (tier - 1)
+		light.Parent = root
+	end
 
 	-- A glowing (non-colliding) decoration welded to the model; mutations
 	-- don't recolor it.
@@ -3796,7 +3802,7 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 	local model = Instance.new("Model")
 	model.Name = brainrot.Id
 	model:SetAttribute("BrainrotId", brainrot.Id)
-	model:SetAttribute("Mutation", if mutation then mutation.Id else nil)
+	model:SetAttribute("Mutation", Config.JoinMutations(if mutationId then { mutationId } else {}))
 	-- Limited (Robux) brainrots can't be stolen or sold.
 	model:SetAttribute("Protected", brainrot.Limited == true)
 
@@ -3823,8 +3829,10 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 	local topY = (height :: number) * s
 
 	if mini then
+		for _, m in Config.SplitMutations(mutationId) do
+			applyMutation(model, root, m, s, true, m ~= mutation)
+		end
 		if mutation then
-			applyMutation(model, root, mutation, s, true)
 			-- Followers stay light: drop the extra glow.
 			for _, light in root:GetChildren() do
 				if light:IsA("PointLight") or light:IsA("Fire") then
@@ -3855,8 +3863,9 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 		sparkles.Size = NumberSequence.new(0.4)
 		sparkles.Parent = root
 	end
-	if mutation then
-		applyMutation(model, root, mutation, s)
+	-- Commoner mutations of a stack first, so the rarest one leads the look.
+	for _, m in Config.SplitMutations(mutationId) do
+		applyMutation(model, root, m, s, false, m ~= mutation)
 	end
 
 	-- Name tag (world-sized; a bit bigger for bigger brainrots)
@@ -3875,7 +3884,11 @@ function BrainrotModel.Create(brainrot: Config.Brainrot, mutationId: string?, cf
 	layout.Parent = tag
 
 	if mutation then
-		label(tag, "Mutation", string.upper(mutation.DisplayName), mutation.Color, 22, 0)
+		local bonus = 0
+		for _, m in Config.SplitMutations(mutationId) do
+			bonus += Config.MutationBonus(m)
+		end
+		label(tag, "Mutation", string.format("%s  +%d%%", string.upper(Config.MutationLabel(mutationId)), bonus), mutation.Color, 22, 0)
 	end
 	local rarityColor = if brainrot.Rarity == "Secret" then Color3.fromRGB(255, 120, 255) else rarity.Color
 	label(tag, "Rarity", string.upper(rarity.DisplayName), rarityColor, 18, 1)

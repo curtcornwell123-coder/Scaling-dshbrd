@@ -55,6 +55,9 @@ export type Product = {
 }
 
 Config.GameName = "Brainrot Heist"
+-- When a server closes for an update, how long everyone sees the "GAME
+-- UPDATING!" screen before being sent off (progress saves meanwhile).
+Config.UpdateNoticeSeconds = 7
 
 local rarityOrder: { RarityId } = { "Common", "Rare", "Epic", "Legendary", "Mythic", "Secret", "EventSpecial" }
 Config.RarityOrder = rarityOrder
@@ -260,13 +263,13 @@ export type WallLevel = {
 
 Config.WallLevels = {
 	{ Name = "Wood Fence", Height = 3, Cost = 0, Material = Enum.Material.WoodPlanks },
-	{ Name = "Brick Wall", Height = 5.5, Cost = 25000, Material = Enum.Material.Brick },
-	{ Name = "Concrete Wall", Height = 9, Cost = 1000000, Material = Enum.Material.Concrete },
-	{ Name = "Steel Wall", Height = 13, Cost = 40000000, Material = Enum.Material.DiamondPlate },
-	{ Name = "Platinum Wall", Height = 18, Cost = 1500000000, Material = Enum.Material.Foil },
+	{ Name = "Brick Wall", Height = 5.5, Cost = 50000, Material = Enum.Material.Brick },
+	{ Name = "Concrete Wall", Height = 9, Cost = 2500000, Material = Enum.Material.Concrete },
+	{ Name = "Steel Wall", Height = 13, Cost = 100000000, Material = Enum.Material.DiamondPlate },
+	{ Name = "Platinum Wall", Height = 18, Cost = 4000000000, Material = Enum.Material.Foil },
 	-- VIP only: two more floors (and 20 more slots) on top.
-	{ Name = "Royal Marble Wall", Height = 18, Cost = 60000000000, Material = Enum.Material.Marble, Vip = true },
-	{ Name = "Golden Palace Wall", Height = 18, Cost = 2500000000000, Material = Enum.Material.Foil, Vip = true },
+	{ Name = "Royal Marble Wall", Height = 18, Cost = 150000000000, Material = Enum.Material.Marble, Vip = true },
+	{ Name = "Golden Palace Wall", Height = 18, Cost = 6000000000000, Material = Enum.Material.Foil, Vip = true },
 } :: { WallLevel }
 -- Levels everyone can reach; the ones after it are VIP only. A base gets
 -- its roof once it reaches this level.
@@ -605,8 +608,12 @@ Config.SlapForce = 70
 Config.HammerOwner = "Corny"
 Config.HammerRange = 11
 Config.HammerCooldown = 1
-Config.HammerForce = 150 -- sideways
-Config.HammerLift = 110 -- upward
+Config.HammerForce = 320 -- sideways
+Config.HammerLift = 200 -- upward
+-- Powers while the hammer is in his hand (HammerPowers.client):
+Config.HammerFlySpeed = 90 -- FLY
+Config.HammerSprintSpeed = 85 -- SUPER SPRINT
+Config.HammerSlamCooldown = 15 -- SLAM: flings every other player on the map
 -- Each swing also cracks a glowing line straight along the ground; anyone
 -- standing on it takes damage and gets flung.
 Config.HammerLineLength = 70
@@ -615,8 +622,8 @@ Config.HammerLineDamage = 35
 
 -- Rebirth ------------------------------------------------------------------
 
-Config.RebirthBaseCost = 1000000
-Config.RebirthCostGrowth = 5
+Config.RebirthBaseCost = 2500000
+Config.RebirthCostGrowth = 6
 Config.RebirthBonus = 0.5 -- +50% income per rebirth
 
 -- Admins -------------------------------------------------------------------
@@ -690,7 +697,10 @@ Config.FounderGiantSpots = {
 	Corny = Vector3.new(-170, 0, 470),
 	Ace = Vector3.new(170, 0, -470),
 } :: { [string]: Vector3 }
-Config.FounderCashDrop = 25000 -- cash in each bag a founder throws or drops
+-- Cash bags from founder events: a few seconds of the grabber's own income
+-- (so they matter early on without skipping the game later), at least this.
+Config.FounderCashDrop = 500
+Config.FounderCashDropSeconds = 20
 
 -- Founder events: each stars only that founder, wearing their special event
 -- outfit (not their normal avatar). Admins start them from the admin panel.
@@ -749,9 +759,9 @@ Config.FounderEvents = {
 		-- hands together). To use an animation instead, paste its id here
 		-- ("rbxassetid://123...").
 		PoseAnimationId = "",
-		DropEvery = 4, -- seconds between throws from each UFO (two UFOs)
-		BrainrotChance = 0.3,
-		BrainrotLuck = 4,
+		DropEvery = 9, -- seconds between throws from each UFO (two UFOs)
+		BrainrotChance = 0.15,
+		BrainrotLuck = 2,
 		-- Sprinkles like his hat, rainbow like his pants.
 		Mutations = { { Id = "Candy", Chance = 45 }, { Id = "Rainbow", Chance = 8 } },
 		-- Alien colors: neon green, toxic lime, teal, and an alien purple.
@@ -783,9 +793,9 @@ Config.FounderEvents = {
 		Spots = { Vector3.new(0, 0, 240), Vector3.new(0, 0, -240) },
 		Luck = 2,
 		-- Ace and his dancers throw cash bags and brainrots all event long.
-		DropEvery = 3,
-		BrainrotChance = 0.3,
-		BrainrotLuck = 4,
+		DropEvery = 8,
+		BrainrotChance = 0.15,
+		BrainrotLuck = 2,
 		Guaranteed = "BallerinaCapuchina",
 		Dancer = "CignaGlamourina",
 		Colors = { Color3.fromRGB(255, 130, 200), Color3.fromRGB(255, 190, 230), Color3.fromRGB(230, 120, 255), Color3.fromRGB(255, 220, 240) },
@@ -811,7 +821,7 @@ end
 -- week (so starting it again the same week doesn't give a second one).
 Config.AdminAbuseGift = {
 	Shards = 100,
-	BrainrotLuck = 5, -- one free brainrot, rolled with the same luck as Brainrot Rain
+	BrainrotLuck = 3, -- one free brainrot, rolled with the same luck as Brainrot Rain
 }
 
 local WEEK = 7 * 24 * 3600
@@ -890,9 +900,9 @@ function Config.LimitedOnSale(item: LimitedItem): boolean
 end
 
 -- Admin drops: what the "Brainrot Rain" and "Cash Rain" buttons drop.
-Config.BrainrotRainCount = 10
-Config.BrainrotRainLuck = 5 -- rain is luckier than the conveyor
-Config.CashRainCount = 30
+Config.BrainrotRainCount = 5
+Config.BrainrotRainLuck = 3 -- rain is luckier than the conveyor
+Config.CashRainCount = 15
 Config.DropLifetime = 90 -- seconds before an unclaimed drop disappears
 
 -- Monetization -------------------------------------------------------------
@@ -983,36 +993,104 @@ function Config.GetGamePass(key: string): GamePass?
 end
 
 local mutationsById: { [string]: Mutation } = {}
-for _, mutation in Config.Mutations do
+local mutationOrder: { [string]: number } = {}
+for i, mutation in Config.Mutations do
 	mutationsById[mutation.Id] = mutation
+	mutationOrder[mutation.Id] = i
 end
 
+-- Mutations stack: a brainrot can have up to Config.MaxMutations of them,
+-- written "Gold+Galaxy" (always in Config.Mutations order, rarest last).
+Config.MaxMutations = 3
+-- After a mutation rolls, the chance another one rolls on top of it (and
+-- again for a third).
+Config.MutationStackChance = 0.12
+
+-- Every mutation in a stack, commonest first.
+function Config.SplitMutations(id: string?): { Mutation }
+	local list: { Mutation } = {}
+	if id then
+		for part in string.gmatch(id, "[^+]+") do
+			local mutation = mutationsById[part]
+			if mutation and not table.find(list, mutation) and #list < Config.MaxMutations then
+				table.insert(list, mutation)
+			end
+		end
+		table.sort(list, function(x: Mutation, y: Mutation): boolean
+			return mutationOrder[x.Id] < mutationOrder[y.Id]
+		end)
+	end
+	return list
+end
+
+-- Builds a stack id from mutation ids (drops unknown ones and repeats).
+function Config.JoinMutations(ids: { string }): string?
+	local list = Config.SplitMutations(table.concat(ids, "+"))
+	if #list == 0 then
+		return nil
+	end
+	local parts = {}
+	for _, mutation in list do
+		table.insert(parts, mutation.Id)
+	end
+	return table.concat(parts, "+")
+end
+
+-- The rarest mutation of a stack (its color and look lead), or nil.
 function Config.GetMutation(id: string?): Mutation?
-	return if id then mutationsById[id] else nil
+	local list = Config.SplitMutations(id)
+	return list[#list]
+end
+
+-- Each mutation adds a percentage of the base income and price
+-- (Gold +100%, Galaxy +600%, Divine +1400%); a stack adds them all up.
+function Config.MutationBonus(mutation: Mutation): number
+	return math.floor((mutation.Multiplier - 1) * 100 + 0.5)
 end
 
 local function mutationMultiplier(mutationId: string?): number
-	local mutation = Config.GetMutation(mutationId)
-	return if mutation then mutation.Multiplier else 1
+	local multiplier = 1
+	for _, mutation in Config.SplitMutations(mutationId) do
+		multiplier += mutation.Multiplier - 1
+	end
+	return multiplier
+end
+
+-- "Gold Galaxy" for a stack (empty when there's no mutation).
+function Config.MutationLabel(id: string?): string
+	local names = {}
+	for _, mutation in Config.SplitMutations(id) do
+		table.insert(names, mutation.DisplayName)
+	end
+	return table.concat(names, " ")
 end
 
 -- Exclusive mutations (like Magic) only go on the brainrots they name.
 function Config.MutationAllowed(brainrot: Brainrot, mutationId: string?): boolean
-	local mutation = Config.GetMutation(mutationId)
-	if not mutation then
+	local list = Config.SplitMutations(mutationId)
+	if #list == 0 then
 		return mutationId == nil
 	end
-	return mutation.Exclusive == nil or table.find(mutation.Exclusive, brainrot.Id) ~= nil
+	for _, mutation in list do
+		if mutation.Exclusive and not table.find(mutation.Exclusive, brainrot.Id) then
+			return false
+		end
+	end
+	return true
 end
 
 function Config.PriceOf(brainrot: Brainrot, mutationId: string?): number
 	return brainrot.Price * mutationMultiplier(mutationId)
 end
 
+-- The whole game's earning speed: every brainrot earns this share of its
+-- listed Income (prices stay the same, so everything takes longer to afford).
+Config.IncomeScale = 0.6
+
 -- `rebirths` only matters for brainrots with IncomeGrowth.
 function Config.IncomeOf(brainrot: Brainrot, mutationId: string?, rebirths: number?): number
 	local growth = if brainrot.IncomeGrowth then brainrot.IncomeGrowth ^ (rebirths or 0) else 1
-	return brainrot.Income * mutationMultiplier(mutationId) * growth
+	return brainrot.Income * Config.IncomeScale * mutationMultiplier(mutationId) * growth
 end
 
 function Config.SellValue(brainrot: Brainrot, mutationId: string?): number
@@ -1032,18 +1110,20 @@ function Config.Decode(entry: string): (Brainrot?, string?, number?)
 	local id, rest = string.match(entry, "^([^:]+):?(.*)$")
 	local mutationId, serialText = string.match(rest or "", "^([^:]*):?(.*)$")
 	local brainrot = id and byId[id]
-	local mutation = Config.GetMutation(mutationId)
 	-- Exclusive mutations (Magic) are dropped from brainrots that can't have them.
-	if mutation and mutation.Exclusive and not (brainrot and table.find(mutation.Exclusive, brainrot.Id)) then
-		mutation = nil
+	local kept = {}
+	for _, mutation in Config.SplitMutations(mutationId) do
+		if not mutation.Exclusive or (brainrot and table.find(mutation.Exclusive, brainrot.Id)) then
+			table.insert(kept, mutation.Id)
+		end
 	end
 	local serial = tonumber(serialText)
-	return brainrot, if mutation then mutation.Id else nil, if serial then math.floor(serial) else nil
+	return brainrot, Config.JoinMutations(kept), if serial then math.floor(serial) else nil
 end
 
 -- Rolls a mutation (or nil) for a conveyor spawn.
 -- `boost`: one mutation made more likely (tonight's night mutation).
-function Config.RollMutation(rng: Random, luck: number, boost: { Id: string, Multiplier: number }?): string?
+local function rollOne(rng: Random, luck: number, boost: { Id: string, Multiplier: number }?): string?
 	local roll = rng:NextNumber(0, 100)
 	-- Rarest first, so luck can't push a common mutation past a rare one.
 	for i = #Config.Mutations, 1, -1 do
@@ -1057,6 +1137,24 @@ function Config.RollMutation(rng: Random, luck: number, boost: { Id: string, Mul
 		end
 	end
 	return nil
+end
+
+-- Rolls a mutation stack (or nil): one mutation at the normal odds, then a
+-- small chance of another stacking on top (Config.MutationStackChance).
+function Config.RollMutation(rng: Random, luck: number, boost: { Id: string, Multiplier: number }?): string?
+	local first = rollOne(rng, luck, boost)
+	if not first then
+		return nil
+	end
+	local ids = { first }
+	while #ids < Config.MaxMutations and rng:NextNumber() < Config.MutationStackChance do
+		local extra = rollOne(rng, math.max(luck, 1) * 6, boost)
+		if not extra or table.find(ids, extra) then
+			break
+		end
+		table.insert(ids, extra)
+	end
+	return Config.JoinMutations(ids)
 end
 
 function Config.RebirthCost(rebirths: number): number

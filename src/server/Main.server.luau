@@ -48,6 +48,7 @@ local ShardPurchase: RemoteEvent = makeRemote("RemoteEvent", "ShardPurchase")
 local SellBrainrot: RemoteEvent = makeRemote("RemoteEvent", "SellBrainrot")
 local RedeemCode: RemoteFunction = makeRemote("RemoteFunction", "RedeemCode")
 local ChangeSetting: RemoteEvent = makeRemote("RemoteEvent", "ChangeSetting")
+local HammerPower: RemoteEvent = makeRemote("RemoteEvent", "HammerPower")
 
 remotes.Parent = ReplicatedStorage
 ReplicatedStorage:SetAttribute("LuckEndsAt", 0)
@@ -308,8 +309,17 @@ local function isInside(plot: Plot, position: Vector3): boolean
 end
 
 local function fullName(brainrot: Config.Brainrot, mutationId: string?): string
-	local mutation = Config.GetMutation(mutationId)
-	return if mutation then mutation.DisplayName .. " " .. brainrot.DisplayName else brainrot.DisplayName
+	local label = Config.MutationLabel(mutationId)
+	return if label ~= "" then label .. " " .. brainrot.DisplayName else brainrot.DisplayName
+end
+
+local function hasMagic(mutationId: string?): boolean
+	for _, mutation in Config.SplitMutations(mutationId) do
+		if mutation.Id == "Magic" then
+			return true
+		end
+	end
+	return false
 end
 
 -- Worth telling the whole server about: Legendary+ or a rare mutation.
@@ -1422,12 +1432,11 @@ end
 -- Puts a paid brainrot in the base. If every pedestal is taken it waits in
 -- Unclaimed and appears as soon as a slot frees up.
 local function grantLimited(player: Player, session: Session, brainrot: Config.Brainrot, serial: number): string?
-	-- Every copy rolls for a mutation: normal odds, plus 1% Magic (event-only).
-	local mutation: string? = nil
+	-- Every copy rolls for a mutation: normal odds, plus 1% Magic (event-only),
+	-- which stacks on top of whatever it rolled.
+	local mutation: string? = Config.RollMutation(rng, 1)
 	if Config.MutationAllowed(brainrot, "Magic") and rng:NextNumber(0, 100) < Config.MagicChance then
-		mutation = "Magic"
-	else
-		mutation = Config.RollMutation(rng, 1)
+		mutation = Config.JoinMutations({ mutation or "", "Magic" })
 	end
 	local plot = session.Plot
 	local index = plot and freeSlot(plot, session)
@@ -1447,7 +1456,7 @@ local function grantLimited(player: Player, session: Session, brainrot: Config.B
 		table.insert(session.Data.Unclaimed, Config.Encode(brainrot.Id, mutation, serial))
 		notify(player, name .. " will appear as soon as you have a free slot!")
 	end
-	if mutation == "Magic" then
+	if hasMagic(mutation) then
 		notify(player, "INCREDIBLE! You rolled the 1% MAGIC mutation!")
 	end
 	push(player)
@@ -2514,17 +2523,96 @@ local function hammerFling(other: Player, otherRoot: BasePart, direction: Vector
 	if carry then
 		returnCarry(carry, by.DisplayName .. "'s hammer sent you flying!")
 	end
+	-- They tumble (sit) so they cartwheel through the air, then land.
+	local humanoid = otherRoot.Parent and otherRoot.Parent:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.Sit = true
+	end
 	local fling = Instance.new("BodyVelocity")
 	fling.MaxForce = Vector3.one * 1e6
 	fling.Velocity = direction * Config.HammerForce + Vector3.new(0, Config.HammerLift, 0)
 	fling.Parent = otherRoot
-	Debris:AddItem(fling, 0.25)
+	Debris:AddItem(fling, 0.35)
 	local spin = Instance.new("BodyAngularVelocity")
 	spin.MaxTorque = Vector3.one * 1e6
-	spin.AngularVelocity = Vector3.new(rng:NextNumber(-20, 20), rng:NextNumber(-20, 20), rng:NextNumber(-20, 20))
+	spin.AngularVelocity = Vector3.new(rng:NextNumber(-45, 45), rng:NextNumber(-45, 45), rng:NextNumber(-45, 45))
 	spin.Parent = otherRoot
-	Debris:AddItem(spin, 0.6)
+	Debris:AddItem(spin, 1.0)
+	-- A burst of sparks where they got hit.
+	local burst = Instance.new("Attachment")
+	burst.Parent = otherRoot
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparks.Color = ColorSequence.new(Color3.fromRGB(255, 80, 60), Color3.fromRGB(255, 220, 90))
+	sparks.LightEmission = 1
+	sparks.Speed = NumberRange.new(15, 30)
+	sparks.SpreadAngle = Vector2.new(180, 180)
+	sparks.Lifetime = NumberRange.new(0.3, 0.6)
+	sparks.Size = NumberSequence.new(0.6, 0)
+	sparks.Rate = 0
+	sparks.Parent = burst
+	sparks:Emit(40)
+	Debris:AddItem(burst, 1)
 end
+
+-- SLAM: the hammer's super move. A red shockwave races across the whole
+-- map from Corny and flings every other player sky-high.
+local lastSlam: { [Player]: number } = {}
+Players.PlayerRemoving:Connect(function(player)
+	lastSlam[player] = nil
+end)
+local function hammerSlam(player: Player, hrp: BasePart)
+	local center = hrp.Position - Vector3.new(0, 2.8, 0)
+	for k = 0, 2 do
+		local ring = Instance.new("Part")
+		ring.Name = "HammerSlamWave"
+		ring.Anchored = true
+		ring.CanCollide = false
+		ring.CanQuery = false
+		ring.CanTouch = false
+		ring.Shape = Enum.PartType.Cylinder
+		ring.Material = Enum.Material.Neon
+		ring.Color = if k == 1 then Color3.fromRGB(255, 200, 60) else Color3.fromRGB(255, 50, 50)
+		ring.Size = Vector3.new(0.4 + k * 0.3, 4, 4)
+		ring.CFrame = CFrame.new(center + Vector3.new(0, 0.4 + k * 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90))
+		ring.Transparency = 0.15
+		ring.Parent = workspace
+		TweenService:Create(ring, TweenInfo.new(1.6 + k * 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.4, 900, 900), Transparency = 1 }):Play()
+		Debris:AddItem(ring, 2.4)
+	end
+	local founder = founderOf(player)
+	Announce:FireAllClients("slam", if founder then founder.Name else player.DisplayName, "")
+	for _, other in Players:GetPlayers() do
+		local otherRoot = if other ~= player then getRoot(other) else nil
+		if otherRoot then
+			local flat = Vector3.new(otherRoot.Position.X - center.X, 0, otherRoot.Position.Z - center.Z)
+			local away = if flat.Magnitude > 0.1 then flat.Unit else Vector3.new(1, 0, 0)
+			-- The wave reaches farther players a little later.
+			task.delay(math.min(1.2, flat.Magnitude / 400), function()
+				if otherRoot.Parent then
+					hammerFling(other, otherRoot, away, player)
+				end
+			end)
+		end
+	end
+end
+
+HammerPower.OnServerEvent:Connect(function(player: Player, power: unknown)
+	local founder = founderOf(player)
+	local character = player.Character
+	local hrp = getRoot(player)
+	-- Only Corny, with the hammer in his hand.
+	if power ~= "Slam" or not founder or founder.Id ~= Config.HammerOwner or not hrp or not character or not character:FindFirstChild("Ban Hammer") then
+		return
+	end
+	local now = os.clock()
+	if now - (lastSlam[player] or 0) < Config.HammerSlamCooldown then
+		notify(player, string.format("SLAM recharging: %ds", math.ceil(Config.HammerSlamCooldown - (now - (lastSlam[player] or 0)))))
+		return
+	end
+	lastSlam[player] = now
+	hammerSlam(player, hrp)
+end)
 
 -- The crack in the ground: glowing segments race forward from the hammer,
 -- and anyone standing where it passes takes damage and is flung aside.
@@ -2617,7 +2705,7 @@ local function giveHammer(player: Player)
 	end
 	local tool = Instance.new("Tool")
 	tool.Name = "Ban Hammer"
-	tool.ToolTip = "Fling anyone in front of you (no ban, just fun)"
+	tool.ToolTip = "Swing to fling. Also: FLY, SUPER SPRINT and SLAM (whole map)"
 	tool.CanBeDropped = false
 	tool.GripPos = Vector3.new(0, -1.3, 0)
 	-- The stick is the handle; the head is welded on top.
@@ -3016,6 +3104,11 @@ game:BindToClose(function()
 	if RunService:IsStudio() and not store then
 		return
 	end
+	-- Everyone sees the "GAME UPDATING!" screen (UpdateNotice.client) while
+	-- their progress saves, then gets a friendly message instead of a bare
+	-- "server shut down".
+	local started = os.clock()
+	Announce:FireAllClients("updating", "", "")
 	local pending = 0
 	for player, session in sessions do
 		pending += 1
@@ -3028,6 +3121,13 @@ game:BindToClose(function()
 	local deadline = os.clock() + 25
 	while pending > 0 and os.clock() < deadline do
 		task.wait(0.1)
+	end
+	-- Give the screen a few seconds to show, then send everyone off nicely.
+	while os.clock() - started < Config.UpdateNoticeSeconds and os.clock() < deadline do
+		task.wait(0.1)
+	end
+	for _, player in Players:GetPlayers() do
+		player:Kick("🛠️ " .. Config.GameName .. " just got updated! Your progress is saved. Rejoin to play the new version.")
 	end
 end)
 
@@ -3321,7 +3421,9 @@ local function dropBrainrot(brainrot: Config.Brainrot, mutation: string?, from: 
 	end)
 end
 
-local function dropCash(amount: number, from: Vector3?)
+-- `incomeSeconds`: the bag is worth that many seconds of the grabber's own
+-- income instead (at least `amount`), for founder-event bags.
+local function dropCash(amount: number, from: Vector3?, incomeSeconds: number?)
 	local landing = if from then randomOpenPosition() else randomDropPosition()
 	local orb = Instance.new("Part")
 	orb.Name = "CashDrop"
@@ -3346,7 +3448,7 @@ local function dropCash(amount: number, from: Vector3?)
 	label.TextScaled = true
 	label.TextColor3 = Color3.fromRGB(140, 255, 140)
 	label.TextStrokeTransparency = 0
-	label.Text = Config.FormatCash(amount)
+	label.Text = if incomeSeconds then "💰 CASH" else Config.FormatCash(amount)
 	label.Parent = tag
 
 	if from then
@@ -3364,8 +3466,13 @@ local function dropCash(amount: number, from: Vector3?)
 			return
 		end
 		orb:SetAttribute("Taken", true)
-		session.Data.Cash += amount
+		local plot = session.Plot
+		local worth = if incomeSeconds and plot then math.max(amount, math.floor(plotIncome(plot, session) * incomeSeconds)) else amount
+		session.Data.Cash += worth
 		orb:Destroy()
+		if incomeSeconds then
+			notify(player, "+" .. Config.FormatCash(worth))
+		end
 		push(player)
 	end)
 	task.delay(Config.DropLifetime, function()
@@ -3424,7 +3531,7 @@ local function founderDrop(from: Vector3, brainrotChance: number, luck: number, 
 		end
 		dropBrainrot(brainrot, mutation or Config.RollMutation(rng, luck, nightBoost()), from)
 	else
-		dropCash(Config.FounderCashDrop, from)
+		dropCash(Config.FounderCashDrop, from, Config.FounderCashDropSeconds)
 	end
 end
 
@@ -4661,10 +4768,10 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 				if plot then
 					for index, slot in plot.Slots do
 						local brainrot = Config.GetBrainrot(slot.Id)
-						if brainrot and Config.MutationAllowed(brainrot, "Magic") and slot.Mutation ~= "Magic" and not slot.StolenBy then
+						if brainrot and Config.MutationAllowed(brainrot, "Magic") and not hasMagic(slot.Mutation) and not slot.StolenBy then
 							local following = table.find(session.FollowerModels, slot.Model)
 							slot.Model:Destroy()
-							placeBrainrot(plot, index, slot.Id, "Magic", nil, false, slot.Serial)
+							placeBrainrot(plot, index, slot.Id, Config.JoinMutations({ slot.Mutation or "", "Magic" }), nil, false, slot.Serial)
 							if following then
 								session.FollowerModels[following] = plot.Slots[index].Model
 							end
@@ -4673,9 +4780,9 @@ AdminAction.OnServerEvent:Connect(function(admin: Player, action: unknown, targe
 					end
 				end
 				for i, entry in data.Unclaimed do
-					local brainrot, _, serial = Config.Decode(entry)
+					local brainrot, oldMutation, serial = Config.Decode(entry)
 					if brainrot and Config.MutationAllowed(brainrot, "Magic") then
-						data.Unclaimed[i] = Config.Encode(brainrot.Id, "Magic", serial)
+						data.Unclaimed[i] = Config.Encode(brainrot.Id, Config.JoinMutations({ oldMutation or "", "Magic" }), serial)
 						given = true
 					end
 				end

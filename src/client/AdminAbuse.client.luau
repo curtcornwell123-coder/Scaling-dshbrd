@@ -1224,7 +1224,7 @@ showGift = function(brainrotId: string, mutationId: string?, shards: number)
 	local mutation = Config.GetMutation(mutationId)
 	local brainrotName = if brainrot then brainrot.DisplayName else "a brainrot"
 	if mutation then
-		brainrotName = string.upper(mutation.DisplayName) .. " " .. brainrotName
+		brainrotName = string.upper(Config.MutationLabel(mutationId)) .. " " .. brainrotName
 	end
 	local rarityColor = if brainrot then Config.Rarities[brainrot.Rarity].Color else GOLD
 
