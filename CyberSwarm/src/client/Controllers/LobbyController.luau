@@ -1,12 +1,15 @@
 --!strict
 --[[
 	LobbyController
-	The hub screen. A side rail on the left (PLAY / LOADOUT / ARMORY) opens one panel at a time next
-	to it, so the lobby world stays visible; a small coin counter sits top-right and the queue status
-	appears at the bottom while queued. Every card is built once at startup and refreshed in place
-	from ClientState, so profile updates never rebuild UI.
+	The hub screen. A top bar on the right shows the player's name, Coins, Gems, and the Armory
+	button. A side rail on the left (DEPLOY / LOADOUT) opens one panel at a time beside it, so the
+	lobby world stays visible. Nothing here can queue a player: queues are joined only by standing
+	on a pad in the world, so the Deploy panel is information only (modes and live pad counts), and
+	the queue panel at the bottom just reports the server's decision.
+	Every element is built once and refreshed in place from ClientState.
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -23,7 +26,7 @@ local ClientState = require(script.Parent.Parent.ClientState)
 local UIController = require(script.Parent.UIController)
 local ShopController = require(script.Parent.ShopController)
 
-type PanelName = "Play" | "Loadout" | "Armory"
+type PanelName = "Deploy" | "Loadout" | "Armory"
 
 type RailButton = {
 	name: PanelName,
@@ -33,10 +36,6 @@ type RailButton = {
 	color: Color3,
 }
 
--- Panels open just right of the rail and slide in from slightly further left.
-local PANEL_X = 0.135
-local PANEL_SLIDE_FROM = 0.115
-
 type RobotCard = {
 	robotId: string,
 	button: TextButton,
@@ -44,19 +43,34 @@ type RobotCard = {
 	status: TextLabel,
 }
 
+type ModeCard = {
+	live: TextLabel,
+	shownCount: number,
+	shownSeconds: number,
+}
+
+-- Panels open just right of the rail and slide in from slightly further left.
+local PANEL_X = 0.135
+local PANEL_SLIDE_FROM = 0.115
+
 local LobbyController = {}
 
 local maid = Maid.new()
 local coinsLabel: TextLabel
+local gemsLabel: TextLabel
 local statsLabel: TextLabel
 local loadoutHeader: TextLabel
+local armoryButton: TextButton
 local queuePanel: Frame
 local queueTitle: TextLabel
 local queueStatus: TextLabel
 local cards: { RobotCard } = {}
+local modeCards: { [string]: ModeCard } = {}
 local railButtons: { RailButton } = {}
 local panels: { [string]: Frame } = {}
 local openPanel: PanelName? = nil
+local shownQueueSeconds = -1
+local boardTicking = false
 -- Defined below; declared here because robot cards open the Armory through it.
 local setPanel: (name: PanelName?) -> ()
 
@@ -65,6 +79,10 @@ local function playerCountText(mode: Types.ModeDef): string
 		return if mode.maxPlayers == 1 then "1 PLAYER" else `{mode.maxPlayers} PLAYERS`
 	end
 	return `{mode.minPlayers}-{mode.maxPlayers} PLAYERS`
+end
+
+local function secondsUntil(serverTime: number): number
+	return math.max(0, math.ceil(serverTime - workspace:GetServerTimeNow()))
 end
 
 local function toggleRobot(robotId: string)
@@ -103,7 +121,8 @@ local function toggleRobot(robotId: string)
 end
 
 local function refreshProfile(profile: Types.PlayerData)
-	UIKit.setText(coinsLabel, `COINS {MathUtil.formatCount(profile.coins)}   GEMS {MathUtil.formatCount(profile.gems)}`)
+	UIKit.setText(coinsLabel, `COINS {MathUtil.formatCount(profile.coins)}`)
+	UIKit.setText(gemsLabel, `GEMS {MathUtil.formatCount(profile.gems)}`)
 	local stats = profile.stats
 	UIKit.setText(statsLabel, `WINS {stats.wins}   LOSSES {stats.losses}   BEST WAVE {stats.highestWave}`)
 	UIKit.setText(loadoutHeader, `LOADOUT  {#profile.equippedLoadout}/{Constants.MAX_LOADOUT}`)
@@ -116,7 +135,7 @@ local function refreshProfile(profile: Types.PlayerData)
 			UIKit.setText(card.status, `EQUIPPED  #{equippedSlot}`)
 			card.status.TextColor3 = Theme.Colors.Primary
 			card.stroke.Color = Theme.Colors.Primary
-			card.stroke.Thickness = 3
+			card.stroke.Thickness = 2.5
 			card.button.BackgroundColor3 = Theme.Colors.PanelLight
 		elseif owned then
 			UIKit.setText(card.status, "TAP TO EQUIP")
@@ -137,20 +156,53 @@ local function refreshProfile(profile: Types.PlayerData)
 	end
 end
 
-local shownQueueSeconds = -1
+-- Live pad counts in the Deploy panel. Strings are only rebuilt when a number on screen changes.
+local function renderBoard(board: { Types.QueueBoardEntry })
+	local counting = false
+	for _, entry in board do
+		local card = modeCards[entry.modeId]
+		if card ~= nil then
+			local endsAt = entry.countdownEndsAt
+			local seconds = if endsAt ~= nil then secondsUntil(endsAt) else -1
+			if endsAt ~= nil then
+				counting = true
+			end
+			if seconds ~= card.shownSeconds or entry.count ~= card.shownCount then
+				card.shownSeconds = seconds
+				card.shownCount = entry.count
+				card.live.Text = if seconds >= 0
+					then `ON PAD {entry.count}/{entry.capacity}  -  STARTING IN {seconds}`
+					else `ON PAD {entry.count}/{entry.capacity}`
+				card.live.TextColor3 = if seconds >= 0 then Theme.Colors.Success else Theme.Colors.TextDim
+			end
+		end
+	end
+	-- A per-frame ticker only runs while some pad is counting down, and is connected once.
+	if counting and not boardTicking then
+		boardTicking = true
+		maid:set(
+			"boardTicker",
+			RunService.Heartbeat:Connect(function()
+				renderBoard(ClientState.queueBoard)
+			end)
+		)
+	elseif not counting and boardTicking then
+		boardTicking = false
+		maid:clear("boardTicker")
+	end
+end
 
-local function updateQueueCountdown(queue: Types.QueueSnapshot, force: boolean)
+local function updateQueueStatus(queue: Types.QueueSnapshot, force: boolean)
 	local endsAt = queue.countdownEndsAt
 	if endsAt == nil then
 		shownQueueSeconds = -1
-		UIKit.setText(queueStatus, `{queue.count}/{queue.capacity} READY  -  NEED {queue.required}`)
+		UIKit.setText(queueStatus, `{queue.count}/{queue.capacity} ON PAD  -  NEED {queue.required}`)
 		return
 	end
-	local remaining = math.max(0, math.ceil(endsAt - workspace:GetServerTimeNow()))
-	-- Only build a new string when the visible number changes.
+	local remaining = secondsUntil(endsAt)
 	if remaining ~= shownQueueSeconds or force then
 		shownQueueSeconds = remaining
-		UIKit.setText(queueStatus, `LAUNCHING IN {remaining}`)
+		UIKit.setText(queueStatus, `{queue.count}/{queue.capacity} ON PAD  -  LAUNCHING IN {remaining}`)
 	end
 end
 
@@ -163,19 +215,20 @@ local function refreshQueue(queue: Types.QueueSnapshot)
 	end
 	local mode = ModeConfig.Modes[modeId]
 	UIKit.setText(queueTitle, `QUEUED: {string.upper(mode.displayName)}`)
+	queueTitle.TextColor3 = mode.padColor
 	queuePanel.Visible = true
-	updateQueueCountdown(queue, true)
+	updateQueueStatus(queue, true)
 	if queue.countdownEndsAt ~= nil then
 		maid:set(
 			"queueTicker",
 			RunService.Heartbeat:Connect(function()
-				updateQueueCountdown(queue, false)
+				updateQueueStatus(queue, false)
 			end)
 		)
 	end
 end
 
--- Shows one side panel at a time; picking the open panel's button again closes it.
+-- Shows one panel at a time; picking the open panel's button again closes it.
 setPanel = function(name: PanelName?)
 	if name == openPanel then
 		name = nil
@@ -202,33 +255,64 @@ setPanel = function(name: PanelName?)
 		railButton.title.TextColor3 = if selected then Theme.Colors.PanelDark else railButton.color
 		railButton.subtitle.TextColor3 = if selected then Theme.Colors.PanelDark else Theme.Colors.TextDim
 	end
+	local armoryOpen = name == "Armory"
+	armoryButton.BackgroundColor3 = if armoryOpen then Theme.Colors.Warning else Theme.Colors.PanelDark
+	armoryButton.TextColor3 = if armoryOpen then Theme.Colors.PanelDark else Theme.Colors.Warning
 end
 
-local function buildCurrency(layer: Frame)
-	local pill = UIKit.frame({
-		Name = "Currency",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.fromScale(0.985, 0.02),
-		Size = UDim2.fromScale(0.22, 0.055),
+local function topBarChip(parent: Instance, order: number, width: number, color: Color3, text: string): TextLabel
+	local chip = UIKit.frame({
+		LayoutOrder = order,
+		Size = UDim2.fromScale(width, 1),
 		BackgroundColor3 = Theme.Colors.PanelDark,
 		BackgroundTransparency = 0.15,
-		Parent = layer,
+		Parent = parent,
 	})
-	UIKit.corner(pill, UDim.new(0.5, 0))
-	UIKit.stroke(pill, Theme.Colors.Warning, 2, 0.3)
-	coinsLabel = UIKit.label({
-		Size = UDim2.fromScale(0.88, 0.62),
-		Position = UDim2.fromScale(0.06, 0.19),
-		Text = "COINS 0",
-		TextColor3 = Theme.Colors.Warning,
-		Parent = pill,
+	UIKit.corner(chip, UDim.new(0.5, 0))
+	UIKit.stroke(chip, color, 1.5, 0.4)
+	return UIKit.label({
+		Size = UDim2.fromScale(0.86, 0.6),
+		Position = UDim2.fromScale(0.07, 0.2),
+		Text = text,
+		TextColor3 = color,
+		Parent = chip,
 	}, Theme.Text.BODY_MAX)
 end
 
+-- Top bar: player name, Coins, Gems, and the Armory button. No game name or logo.
+local function buildTopBar(layer: Frame)
+	local bar = UIKit.frame({
+		Name = "TopBar",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(0.985, 0.02),
+		Size = UDim2.fromScale(0.56, 0.055),
+		BackgroundTransparency = 1,
+		Parent = layer,
+	})
+	UIKit.list(bar, Enum.FillDirection.Horizontal, UDim.new(0.012, 0), Enum.HorizontalAlignment.Right)
+
+	topBarChip(bar, 1, 0.3, Theme.Colors.Text, Players.LocalPlayer.DisplayName)
+	coinsLabel = topBarChip(bar, 2, 0.22, Theme.Colors.Warning, "COINS 0")
+	gemsLabel = topBarChip(bar, 3, 0.18, Theme.Colors.Primary, "GEMS 0")
+
+	armoryButton = UIKit.button({
+		Name = "Armory",
+		LayoutOrder = 4,
+		Size = UDim2.fromScale(0.22, 1),
+		Text = "ARMORY",
+		BackgroundColor3 = Theme.Colors.PanelDark,
+		TextColor3 = Theme.Colors.Warning,
+		Parent = bar,
+	}, Theme.Text.BODY_MAX)
+	UIKit.stroke(armoryButton, Theme.Colors.Warning, 1.5, 0.2)
+	UIKit.bindButton(armoryButton, maid, function()
+		setPanel("Armory")
+	end)
+end
+
 local RAIL_ENTRIES: { { name: PanelName, title: string, subtitle: string, color: Color3 } } = {
-	{ name = "Play", title = "PLAY", subtitle = "Pick a mode", color = Theme.Colors.Primary },
+	{ name = "Deploy", title = "DEPLOY", subtitle = "Modes & pads", color = Theme.Colors.Primary },
 	{ name = "Loadout", title = "LOADOUT", subtitle = "Equip robots", color = Theme.Colors.Secondary },
-	{ name = "Armory", title = "ARMORY", subtitle = "Unlock robots", color = Theme.Colors.Warning },
 }
 
 local function buildSideRail(layer: Frame)
@@ -236,23 +320,23 @@ local function buildSideRail(layer: Frame)
 		Name = "SideRail",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.fromScale(0.012, 0.5),
-		Size = UDim2.fromScale(0.11, 0.46),
+		Size = UDim2.fromScale(0.11, 0.3),
 		BackgroundTransparency = 1,
 		Parent = layer,
 	})
-	UIKit.list(rail, Enum.FillDirection.Vertical, UDim.new(0.04, 0))
+	UIKit.list(rail, Enum.FillDirection.Vertical, UDim.new(0.06, 0))
 
 	for order, entry in RAIL_ENTRIES do
-		-- Big square-ish buttons: easy to hit on touch screens, quiet when not selected.
+		-- Big buttons: easy to hit on touch screens, quiet when not selected.
 		local button = UIKit.button({
 			Name = entry.name,
 			LayoutOrder = order,
-			Size = UDim2.fromScale(1, 0.3),
+			Size = UDim2.fromScale(1, 0.47),
 			BackgroundColor3 = Theme.Colors.PanelDark,
 			BackgroundTransparency = 0.1,
 			Parent = rail,
 		})
-		UIKit.stroke(button, entry.color, 2, 0.15)
+		UIKit.stroke(button, entry.color, 1.5, 0.3)
 		local title = UIKit.label({
 			Size = UDim2.fromScale(0.86, 0.46),
 			Position = UDim2.fromScale(0.07, 0.14),
@@ -282,9 +366,10 @@ local function buildSideRail(layer: Frame)
 	end
 end
 
-local function buildPlayPanel(layer: Frame)
+-- Information only: mode names, descriptions, and how many players stand on each pad.
+local function buildDeployPanel(layer: Frame)
 	local panel = UIKit.frame({
-		Name = "Play",
+		Name = "Deploy",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.fromScale(PANEL_X, 0.5),
 		Size = UDim2.fromScale(0.3, 0.62),
@@ -292,23 +377,23 @@ local function buildPlayPanel(layer: Frame)
 		Visible = false,
 		Parent = layer,
 	})
-	panels.Play = panel
+	panels.Deploy = panel
 	UIKit.corner(panel)
-	UIKit.stroke(panel, Theme.Colors.Primary, 2, 0.3)
+	UIKit.stroke(panel, Theme.Colors.Primary, 1.5, 0.35)
 
 	UIKit.label({
-		Size = UDim2.fromScale(0.9, 0.09),
+		Size = UDim2.fromScale(0.9, 0.08),
 		Position = UDim2.fromScale(0.05, 0.03),
 		Font = Theme.Fonts.Title,
-		Text = "DEPLOY",
+		Text = "MODES",
 		TextColor3 = Theme.Colors.Primary,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,
 	}, Theme.Text.HEADER_MAX)
 
 	local list = UIKit.frame({
-		Size = UDim2.fromScale(0.9, 0.72),
-		Position = UDim2.fromScale(0.05, 0.14),
+		Size = UDim2.fromScale(0.9, 0.74),
+		Position = UDim2.fromScale(0.05, 0.13),
 		BackgroundTransparency = 1,
 		Parent = panel,
 	})
@@ -316,44 +401,49 @@ local function buildPlayPanel(layer: Frame)
 
 	for order, modeId in ModeConfig.Order do
 		local mode = ModeConfig.Modes[modeId]
-		local button = UIKit.button({
+		local card = UIKit.frame({
 			Name = modeId,
 			LayoutOrder = order,
-			Size = UDim2.fromScale(1, 0.3),
+			Size = UDim2.fromScale(1, 0.31),
 			BackgroundColor3 = Theme.Colors.PanelLight,
 			Parent = list,
 		})
-		UIKit.stroke(button, mode.padColor, 2)
+		UIKit.corner(card)
+		UIKit.stroke(card, mode.padColor, 1.5, 0.35)
 		UIKit.label({
-			Size = UDim2.fromScale(0.62, 0.45),
-			Position = UDim2.fromScale(0.05, 0.1),
+			Size = UDim2.fromScale(0.6, 0.34),
+			Position = UDim2.fromScale(0.05, 0.08),
 			Font = Theme.Fonts.Title,
 			Text = string.upper(mode.displayName),
 			TextColor3 = mode.padColor,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			Parent = button,
+			Parent = card,
 		}, Theme.Text.HEADER_MAX)
 		UIKit.label({
-			Size = UDim2.fromScale(0.32, 0.3),
-			Position = UDim2.fromScale(0.64, 0.15),
+			Size = UDim2.fromScale(0.34, 0.24),
+			Position = UDim2.fromScale(0.62, 0.12),
 			Text = playerCountText(mode),
 			TextColor3 = Theme.Colors.TextDim,
 			TextXAlignment = Enum.TextXAlignment.Right,
-			Parent = button,
+			Parent = card,
 		}, Theme.Text.SMALL_MAX)
 		UIKit.label({
-			Size = UDim2.fromScale(0.9, 0.3),
-			Position = UDim2.fromScale(0.05, 0.6),
+			Size = UDim2.fromScale(0.9, 0.26),
+			Position = UDim2.fromScale(0.05, 0.44),
 			Font = Theme.Fonts.Light,
 			Text = mode.description,
-			TextColor3 = Theme.Colors.Text,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			Parent = button,
+			Parent = card,
 		}, Theme.Text.SMALL_MAX)
-		UIKit.bindButton(button, maid, function()
-			Remotes.RequestJoinQueue:fire(modeId)
-			setPanel(nil)
-		end)
+		local live = UIKit.label({
+			Size = UDim2.fromScale(0.9, 0.22),
+			Position = UDim2.fromScale(0.05, 0.72),
+			Text = `ON PAD 0/{mode.maxPlayers}`,
+			TextColor3 = Theme.Colors.TextDim,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Parent = card,
+		}, Theme.Text.SMALL_MAX)
+		modeCards[modeId] = { live = live, shownCount = 0, shownSeconds = -1 }
 	end
 
 	statsLabel = UIKit.label({
@@ -366,44 +456,32 @@ local function buildPlayPanel(layer: Frame)
 	}, Theme.Text.SMALL_MAX)
 end
 
+-- Status only (no buttons): appears while the server has the player in a pad's queue.
 local function buildQueuePanel(layer: Frame)
 	queuePanel = UIKit.frame({
 		Name = "Queue",
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.fromScale(0.5, 0.96),
-		Size = UDim2.fromScale(0.36, 0.12),
+		Size = UDim2.fromScale(0.3, 0.1),
 		BackgroundColor3 = Theme.Colors.PanelDark,
-		BackgroundTransparency = 0.05,
+		BackgroundTransparency = 0.1,
 		Visible = false,
 		Parent = layer,
 	})
 	UIKit.corner(queuePanel)
-	UIKit.stroke(queuePanel, Theme.Colors.Secondary, 2)
+	UIKit.stroke(queuePanel, Theme.Colors.Secondary, 1.5, 0.3)
 	queueTitle = UIKit.label({
-		Size = UDim2.fromScale(0.62, 0.42),
-		Position = UDim2.fromScale(0.04, 0.1),
+		Size = UDim2.fromScale(0.9, 0.44),
+		Position = UDim2.fromScale(0.05, 0.08),
 		Font = Theme.Fonts.Title,
-		TextColor3 = Theme.Colors.Secondary,
-		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = queuePanel,
 	}, Theme.Text.HEADER_MAX)
 	queueStatus = UIKit.label({
-		Size = UDim2.fromScale(0.62, 0.34),
-		Position = UDim2.fromScale(0.04, 0.56),
+		Size = UDim2.fromScale(0.9, 0.34),
+		Position = UDim2.fromScale(0.05, 0.56),
 		TextColor3 = Theme.Colors.Text,
-		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = queuePanel,
 	}, Theme.Text.BODY_MAX)
-	local leave = UIKit.button({
-		Size = UDim2.fromScale(0.28, 0.64),
-		Position = UDim2.fromScale(0.69, 0.18),
-		Text = "LEAVE",
-		BackgroundColor3 = Theme.Colors.Danger,
-		Parent = queuePanel,
-	}, Theme.Text.HEADER_MAX)
-	UIKit.bindButton(leave, maid, function()
-		Remotes.RequestLeaveQueue:fire()
-	end)
 end
 
 local function buildLoadoutPanel(layer: Frame)
@@ -418,7 +496,7 @@ local function buildLoadoutPanel(layer: Frame)
 	})
 	panels.Loadout = panel
 	UIKit.corner(panel)
-	UIKit.stroke(panel, Theme.Colors.Secondary, 2, 0.3)
+	UIKit.stroke(panel, Theme.Colors.Secondary, 1.5, 0.35)
 
 	loadoutHeader = UIKit.label({
 		Size = UDim2.fromScale(0.9, 0.06),
@@ -492,14 +570,15 @@ end
 
 function LobbyController.init()
 	local layer = UIController.getLayer("Lobby")
-	buildCurrency(layer)
+	buildTopBar(layer)
 	buildSideRail(layer)
-	buildPlayPanel(layer)
+	buildDeployPanel(layer)
 	buildQueuePanel(layer)
 	buildLoadoutPanel(layer)
 
 	maid:give(ClientState.profileChanged:connect(refreshProfile))
 	maid:give(ClientState.queueChanged:connect(refreshQueue))
+	maid:give(ClientState.queueBoardChanged:connect(renderBoard))
 	maid:give(ShopController.closed:connect(function()
 		if openPanel == "Armory" then
 			setPanel(nil)
@@ -520,6 +599,7 @@ function LobbyController.init()
 	if profile ~= nil then
 		refreshProfile(profile)
 	end
+	renderBoard(ClientState.queueBoard)
 end
 
 return LobbyController

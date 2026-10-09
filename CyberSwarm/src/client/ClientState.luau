@@ -16,10 +16,12 @@ local ClientState = {}
 
 ClientState.profile = nil :: Types.PlayerData?
 ClientState.queue = nil :: Types.QueueSnapshot?
+ClientState.queueBoard = {} :: { Types.QueueBoardEntry }
 ClientState.match = nil :: Types.MatchSnapshot?
 
 ClientState.profileChanged = Signal.new() :: Signal.Signal<Types.PlayerData>
 ClientState.queueChanged = Signal.new() :: Signal.Signal<Types.QueueSnapshot>
+ClientState.queueBoardChanged = Signal.new() :: Signal.Signal<{ Types.QueueBoardEntry }>
 ClientState.matchChanged = Signal.new() :: Signal.Signal<Types.MatchSnapshot>
 ClientState.matchClosed = Signal.new() :: Signal.Signal<()>
 
@@ -31,6 +33,10 @@ function ClientState.start()
 	Remotes.QueueUpdated:connect(function(queue: Types.QueueSnapshot)
 		ClientState.queue = queue
 		ClientState.queueChanged:fire(queue)
+	end)
+	Remotes.QueueBoard:connect(function(board: { Types.QueueBoardEntry })
+		ClientState.queueBoard = board
+		ClientState.queueBoardChanged:fire(board)
 	end)
 	Remotes.MatchUpdated:connect(function(match: Types.MatchSnapshot)
 		ClientState.match = match

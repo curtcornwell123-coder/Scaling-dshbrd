@@ -1,9 +1,10 @@
 --!strict
 --[[
 	Theme
-	The single source of truth for Cyber Swarm's look. The player's robot swarm and all UI use neon
-	cyan and magenta on deep navy; the AI defense uses a military palette (olive, khaki, gunmetal,
-	warning red) so the two sides read instantly. Server world parts and client UI both read here.
+	The single source of truth for the game's look. The player's robot swarm and the UI use cyan and
+	magenta accents on deep navy; the AI defense uses a military palette (olive, khaki, gunmetal,
+	warning red) so the two sides read instantly. The lobby world uses solid painted-metal tones
+	(Theme.World) with glow kept to small accents. Server world parts and client UI both read here.
 ]]
 
 local Theme = {}
@@ -13,16 +14,30 @@ Theme.Colors = {
 	Panel = Color3.fromRGB(14, 18, 34),
 	PanelLight = Color3.fromRGB(24, 30, 54),
 	PanelDark = Color3.fromRGB(5, 6, 12),
-	Primary = Color3.fromRGB(0, 238, 255),
-	Secondary = Color3.fromRGB(255, 46, 196),
+	Primary = Color3.fromRGB(64, 196, 226),
+	Secondary = Color3.fromRGB(214, 78, 166),
 	Text = Color3.fromRGB(236, 244, 255),
 	TextDim = Color3.fromRGB(136, 150, 184),
-	Success = Color3.fromRGB(64, 255, 156),
-	Warning = Color3.fromRGB(255, 202, 64),
-	Danger = Color3.fromRGB(255, 72, 96),
+	Success = Color3.fromRGB(86, 214, 146),
+	Warning = Color3.fromRGB(236, 190, 84),
+	Danger = Color3.fromRGB(230, 86, 100),
 	Metal = Color3.fromRGB(28, 32, 46),
 	MetalDark = Color3.fromRGB(16, 18, 28),
 	Ground = Color3.fromRGB(18, 20, 30),
+}
+
+-- Lobby hall: solid surfaces lit by the scene, not by glow.
+Theme.World = {
+	Floor = Color3.fromRGB(62, 66, 76),
+	FloorSeam = Color3.fromRGB(48, 52, 60),
+	Wall = Color3.fromRGB(92, 98, 110),
+	WallPanel = Color3.fromRGB(116, 122, 136),
+	Pillar = Color3.fromRGB(58, 62, 72),
+	Trim = Color3.fromRGB(40, 44, 52),
+	Beam = Color3.fromRGB(70, 74, 84),
+	Stencil = Color3.fromRGB(226, 220, 200),
+	RingUnlit = Color3.fromRGB(44, 48, 56),
+	Screen = Color3.fromRGB(20, 24, 34),
 }
 
 -- Military palette for towers, the enemy HQ, and battlefield props.
@@ -40,10 +55,10 @@ Theme.Military = {
 
 Theme.RarityColors = {
 	Common = Color3.fromRGB(150, 170, 200),
-	Rare = Color3.fromRGB(0, 238, 255),
+	Rare = Color3.fromRGB(64, 196, 226),
 	Epic = Color3.fromRGB(176, 92, 255),
 	Legendary = Color3.fromRGB(255, 202, 64),
-	Mythic = Color3.fromRGB(255, 46, 196),
+	Mythic = Color3.fromRGB(214, 78, 166),
 } :: { [string]: Color3 }
 
 Theme.Fonts = {

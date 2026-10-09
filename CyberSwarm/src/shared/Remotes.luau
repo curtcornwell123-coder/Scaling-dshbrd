@@ -7,6 +7,9 @@
 	handlers receive `...unknown` so every argument must be type-checked before use, and each remote
 	has its own per-player token-bucket rate limiter applied before any handler runs.
 
+	There is deliberately no intent for joining or leaving a match queue: queues are decided only by
+	the server's pad detection (QueueService), so a client cannot queue itself by firing a remote.
+
 	Server -> client remotes carry one typed payload table.
 
 	Call Remotes.init() once from each Bootstrap before using any wrapper: the server creates the
@@ -143,8 +146,6 @@ local Remotes = {}
 
 -- Client -> server intents.
 Remotes.RequestSync = intent("RequestSync", 3, 0.5) :: ClientIntent<()>
-Remotes.RequestJoinQueue = intent("RequestJoinQueue", 4, 1) :: ClientIntent<string>
-Remotes.RequestLeaveQueue = intent("RequestLeaveQueue", 4, 1) :: ClientIntent<()>
 Remotes.RequestSpawnRobot = intent("RequestSpawnRobot", 15, 10) :: ClientIntent<string, number>
 Remotes.RequestUpgradeRobot = intent("RequestUpgradeRobot", 5, 3) :: ClientIntent<string>
 Remotes.RequestSetLoadout = intent("RequestSetLoadout", 5, 2) :: ClientIntent<{ string }>
@@ -153,6 +154,7 @@ Remotes.RequestUnlockRobot = intent("RequestUnlockRobot", 3, 1) :: ClientIntent<
 -- Server -> client events.
 Remotes.ProfileUpdated = serverEvent("ProfileUpdated", false) :: ServerEvent<Types.PlayerData>
 Remotes.QueueUpdated = serverEvent("QueueUpdated", false) :: ServerEvent<Types.QueueSnapshot>
+Remotes.QueueBoard = serverEvent("QueueBoard", false) :: ServerEvent<{ Types.QueueBoardEntry }>
 Remotes.MatchUpdated = serverEvent("MatchUpdated", false) :: ServerEvent<Types.MatchSnapshot>
 Remotes.MatchClosed = serverEvent("MatchClosed", false) :: ServerEvent<boolean>
 Remotes.Notify = serverEvent("Notify", false) :: ServerEvent<Types.NoticePayload>

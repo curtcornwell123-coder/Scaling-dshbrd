@@ -228,6 +228,15 @@ export type MatchSnapshot = {
 	result: MatchResult?,
 }
 
+-- Live status of one mode's pad, broadcast to everyone in the lobby.
+export type QueueBoardEntry = {
+	modeId: string,
+	count: number,
+	required: number,
+	capacity: number,
+	countdownEndsAt: number?,
+}
+
 export type QueueSnapshot = {
 	modeId: string?,
 	count: number,

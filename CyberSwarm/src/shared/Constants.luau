@@ -17,6 +17,7 @@ Constants.MAX_LOADOUT = 5
 
 Constants.Tags = {
 	QueuePad = "CyberSwarm_QueuePad",
+	QueueBoard = "CyberSwarm_QueueBoard",
 	Robot = "CyberSwarm_Robot",
 	Tower = "CyberSwarm_Tower",
 	EnemyBase = "CyberSwarm_EnemyBase",
@@ -25,6 +26,8 @@ Constants.Tags = {
 
 Constants.Attributes = {
 	ModeId = "ModeId",
+	-- Radius of a queue pad's standing zone, in studs (falls back to half the pad's footprint).
+	QueueRadius = "QueueRadius",
 	MatchId = "MatchId",
 	TowerId = "TowerId",
 	RobotId = "RobotId",
@@ -77,8 +80,13 @@ Constants.Match = {
 }
 
 Constants.Queue = {
-	TICK = 0.25,
-	PAD_VERTICAL_TOLERANCE = 8,
+	-- Pad checks run on the server this often; it must be well under LEAVE_GRACE.
+	TICK = 0.1,
+	-- Seconds a player may be off their pad (jitter, a bump) before they leave the queue.
+	LEAVE_GRACE = 0.3,
+	-- Height above the pad that still counts as standing on it, so jumping in place keeps your spot.
+	PAD_VERTICAL_TOLERANCE = 12,
+	RING_SEGMENTS = 24,
 }
 
 Constants.Camera = {
@@ -130,9 +138,7 @@ Constants.ErrorCode = {
 	RobotLocked = "ROBOT_LOCKED",
 	AlreadyUnlocked = "ALREADY_UNLOCKED",
 	InvalidMode = "INVALID_MODE",
-	AlreadyInMatch = "ALREADY_IN_MATCH",
 	DataNotLoaded = "DATA_NOT_LOADED",
-	NoCharacter = "NO_CHARACTER",
 	NoMapAvailable = "NO_MAP_AVAILABLE",
 	MatchFailed = "MATCH_FAILED",
 }
@@ -150,9 +156,7 @@ Constants.NoticeText = {
 	ROBOT_LOCKED = "That robot is not available yet.",
 	ALREADY_UNLOCKED = "You already own that robot.",
 	INVALID_MODE = "That mode is not available.",
-	ALREADY_IN_MATCH = "You are already in a match.",
 	DATA_NOT_LOADED = "Your data is still loading.",
-	NO_CHARACTER = "Wait for your character to spawn.",
 	NO_MAP_AVAILABLE = "No map is available for that mode.",
 	MATCH_FAILED = "The match could not start. Please try again.",
 	ROBOT_UNLOCKED = "Robot unlocked!",

@@ -3,7 +3,8 @@
 	PlaceholderModels
 	Builds every unit model. If a Model exists at ServerStorage/Assets/<modelPath> it is cloned;
 	otherwise a placeholder is generated from Parts so the game runs with zero external assets.
-	Robots are neon cyber machines; towers and the enemy HQ use the military palette.
+	Robots are painted cyber machines with a glowing eye; towers and the enemy HQ use the military
+	palette. Glow is kept to small accents.
 
 	Asset rules (documented in README): robots need a PrimaryPart; towers need a PrimaryPart whose
 	PivotOffset sits at the bottom centre, plus an anchored part named "Head" that the turret
@@ -74,13 +75,11 @@ local function buildRobot(def: Types.RobotDef): Model
 		size = if visual.shape == "Ball" then Vector3.one * size.X else size,
 		cframe = CFrame.identity,
 		color = visual.color,
-		material = Enum.Material.Neon,
-		transparency = 0.1,
+		material = Enum.Material.SmoothPlastic,
 		shape = shapeOf(visual),
 		canCollide = false,
 		parent = model,
 	})
-	body.CastShadow = false
 	model.PrimaryPart = body
 
 	-- Visor and eye strip on the front face (-Z is "forward" for CFrame.lookAt).
@@ -99,24 +98,29 @@ local function buildRobot(def: Types.RobotDef): Model
 		visual.accent,
 		model
 	)
-	PartFactory.neon(
-		"CoreRing",
-		Vector3.new(size.X * 1.05, size.Y * 0.12, size.Z * 1.05),
-		CFrame.new(0, -size.Y * 0.15, 0),
-		visual.accent,
-		model
-	)
+	-- Painted band; only the eye glows, so swarms stay readable without washing out the scene.
+	PartFactory.part({
+		name = "CoreRing",
+		size = Vector3.new(size.X * 1.05, size.Y * 0.12, size.Z * 1.05),
+		cframe = CFrame.new(0, -size.Y * 0.15, 0),
+		color = visual.accent,
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		parent = model,
+	})
 
 	if def.flying then
-		local rotor = PartFactory.neon(
-			"Rotor",
-			Vector3.new(0.2, size.X * 1.5, size.Z * 1.5),
-			CFrame.new(0, size.Y * 0.5 + 0.25, 0) * CFrame.Angles(0, 0, math.rad(90)),
-			visual.accent,
-			model
-		)
-		rotor.Shape = Enum.PartType.Cylinder
-		rotor.Transparency = 0.35
+		PartFactory.part({
+			name = "Rotor",
+			size = Vector3.new(0.2, size.X * 1.5, size.Z * 1.5),
+			cframe = CFrame.new(0, size.Y * 0.5 + 0.25, 0) * CFrame.Angles(0, 0, math.rad(90)),
+			color = visual.accent,
+			material = Enum.Material.SmoothPlastic,
+			transparency = 0.35,
+			shape = Enum.PartType.Cylinder,
+			canCollide = false,
+			parent = model,
+		})
 	else
 		for _, side in { -1, 1 } do
 			PartFactory.part({

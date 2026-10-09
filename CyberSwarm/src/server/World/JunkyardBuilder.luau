@@ -152,20 +152,24 @@ local function buildDeck(scenery: Folder)
 			parent = scenery,
 		})
 	end
-	PartFactory.neon(
-		"DeckRail",
-		Vector3.new(44, 0.3, 0.3),
-		CFrame.new(DECK_CENTER + Vector3.new(0, 1.6, -5)),
-		Theme.Colors.Primary,
-		scenery
-	)
-	PartFactory.neon(
-		"DeckTrim",
-		Vector3.new(44, 0.2, 0.3),
-		CFrame.new(DECK_CENTER + Vector3.new(0, 0.5, 5)),
-		Theme.Colors.Secondary,
-		scenery
-	)
+	PartFactory.part({
+		name = "DeckRail",
+		size = Vector3.new(44, 0.3, 0.3),
+		cframe = CFrame.new(DECK_CENTER + Vector3.new(0, 1.6, -5)),
+		color = Theme.Colors.Primary,
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		parent = scenery,
+	})
+	PartFactory.part({
+		name = "DeckTrim",
+		size = Vector3.new(44, 0.2, 0.3),
+		cframe = CFrame.new(DECK_CENTER + Vector3.new(0, 0.5, 5)),
+		color = Theme.Colors.Secondary,
+		material = Enum.Material.SmoothPlastic,
+		canCollide = false,
+		parent = scenery,
+	})
 	-- Invisible guard rail so nobody walks off the front edge.
 	local guard = PartFactory.part({
 		name = "DeckGuard",
@@ -181,21 +185,23 @@ end
 local function buildRobotGate(scenery: Folder)
 	local gate = WAYPOINTS[1]
 	for _, side in { -1, 1 } do
-		PartFactory.neon(
-			"GatePost",
-			Vector3.new(1, 12, 1),
-			CFrame.new(gate + Vector3.new(0, 6, side * (LANE_WIDTH * 0.5 + 1))),
-			Theme.Colors.Primary,
-			scenery
-		)
+		PartFactory.part({
+			name = "GatePost",
+			size = Vector3.new(1, 12, 1),
+			cframe = CFrame.new(gate + Vector3.new(0, 6, side * (LANE_WIDTH * 0.5 + 1))),
+			color = Theme.Colors.Primary,
+			material = Enum.Material.Metal,
+			parent = scenery,
+		})
 	end
-	PartFactory.neon(
-		"GateBeam",
-		Vector3.new(1, 1, LANE_WIDTH + 3),
-		CFrame.new(gate + Vector3.new(0, 12, 0)),
-		Theme.Colors.Secondary,
-		scenery
-	)
+	PartFactory.part({
+		name = "GateBeam",
+		size = Vector3.new(1, 1, LANE_WIDTH + 3),
+		cframe = CFrame.new(gate + Vector3.new(0, 12, 0)),
+		color = Theme.Colors.Secondary,
+		material = Enum.Material.Metal,
+		parent = scenery,
+	})
 end
 
 local function scrapHeap(scenery: Folder, center: Vector3, seed: number)

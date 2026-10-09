@@ -1,14 +1,15 @@
 # Cyber Swarm
 
-A reverse tower defense game for Roblox. **You** send swarms of neon robots down a lane. An **AI
+A reverse tower defense game for Roblox. **You** send swarms of robots down a lane. An **AI
 military defense** (rifle turrets, gatling nests, howitzers, flak cannons, cryo mortars) tries to stop
 them. After every wave the defense gains a random **stacking military mutation**, such as Rapid Reload,
 Reactive Armor or EMP Strike, so each round gets harder. Spend coins between waves on robots and
 upgrades, get survivors to the enemy **Command HQ**, and destroy it before the mutations overwhelm you.
 
-The look is split on purpose. Your swarm and all UI are neon cyan and magenta on a dark background.
-The defense is olive, khaki and gunmetal with red warning lights, so you can always tell the two
-sides apart.
+The look is split on purpose. Your swarm and the UI use cyan and magenta accents. The defense is
+olive, khaki and gunmetal with red warning lights, so you can always tell the two sides apart. Glow
+is kept to small accents (robot eyes, turret lights, pad rings); the lobby is a bright, solid hall.
+The game's name appears only as a small stencil on a lobby wall, never in the screen UI.
 
 ---
 
@@ -23,14 +24,14 @@ sides apart.
    ```
 3. Open Roblox Studio, create a new **Baseplate** place, open the **Rojo** plugin tab and click
    **Connect**.
-4. Press **Play**. You spawn in the lobby. Walk onto the cyan **SOLO** pad, or press **SOLO** in the
-   Deploy panel, and the match starts after a 3 second countdown.
+4. Press **Play**. You spawn in the lobby facing the three round queue pads. Walk onto the **SOLO**
+   pad; its floor ring lights up and the match starts after a 3 second countdown.
 
 In Studio the game uses in-memory player data and prints a warning, because Studio has no DataStore
 access by default. To test real saving, publish the place and enable
 *Game Settings → Security → Enable Studio Access to API Services*.
 
-The Output window should show the debug command banner, `[Tests] 32 passed, 0 failed.` and
+The Output window should show the debug command banner, `[Tests] 42 passed, 0 failed.` and
 `[Cyber Swarm] Server ready.`. You will also see one orange warning from DataService about in-memory
 data; that is expected in an unpublished place.
 
@@ -44,8 +45,27 @@ data; that is expected in an unpublished place.
 | Wave Result | You get the completion bonus, and the next mutation is rolled. |
 | Match End | **Victory** if the HQ falls. **Defeat** if you run out of coins and robots, or hit the wave limit. Profile coins and stats are saved, then you return to the lobby. |
 
-Unlock more robots (Medic, Glitch, Drone, Bomber) in the **Armory** with profile coins, then equip
-up to 5 in the **Loadout** panel.
+Unlock more robots (Medic, Glitch, Drone, Bomber) in the **Armory** (top bar) with profile coins,
+then equip up to 5 in the **Loadout** panel (side rail). The **Deploy** panel lists the modes and
+how many players stand on each pad; it is information only.
+
+### Queueing (pads only)
+
+Modes are joined **only by standing on that mode's pad** in the lobby. Mobile, console and desktop
+all work the same way: walk on. There are no queue buttons, keybinds, prompts, or queue remotes.
+
+- The server checks every player 10 times a second: the character must be alive and inside the pad
+  zone (within its radius, and no more than 12 studs above it, so jumping in place is fine).
+- One queue per player. Walking onto a different pad moves you there at once.
+- Leaving the zone (walking, jumping, or being pushed off) removes you after a 0.3 s grace period,
+  so physics jitter never drops you. Dying, resetting, or disconnecting removes you immediately.
+- Feedback is in the world: the pad's floor ring fills as players join, and the queue board on the
+  back wall shows each mode's count and countdown. A small status panel at the bottom of the screen
+  reports the server's decision while you are queued.
+
+The rules live in `Logic/QueueRules.luau` (pure) and are unit-tested for: stepping on and off
+repeatedly, jitter shorter than the grace, being pushed off, dying on a pad, entering a match,
+switching pads quickly, two players arriving together, and a full pad.
 
 ---
 
@@ -59,7 +79,7 @@ CyberSwarm/
     ├── shared/                 → ReplicatedStorage.Shared
     │   ├── Types.luau          shared type definitions (configs, data, snapshots)
     │   ├── Constants.luau      engineering constants, tags, layout names, error codes (no balance)
-    │   ├── Theme.luau          colors (neon UI + military palette), fonts, tweens
+    │   ├── Theme.luau          colors (UI accents, lobby world, military palette), fonts, tweens
     │   ├── Remotes.luau        every remote, typed wrappers, per-player rate limiting
     │   ├── ConfigValidator.luau startup config checks
     │   ├── Config/             ALL balance numbers
@@ -72,7 +92,8 @@ CyberSwarm/
     │   ├── Logic/              pure, unit-tested rules
     │   │   ├── StatResolver    tower stat resolution + robot upgrade scaling
     │   │   ├── MutationRoller  weighted rolls + stacking limits
-    │   │   └── WaveMath        coin formulas, swarm cap, payouts
+    │   │   ├── WaveMath        coin formulas, swarm cap, payouts
+    │   │   └── QueueRules      pad queue membership (grace, death, switching, capacity)
     │   └── Util/               Signal, Maid, Math, TableUtil, RateLimiter
     ├── server/                 → ServerScriptService.Server
     │   ├── Bootstrap.server.luau   the only Script
@@ -119,7 +140,8 @@ tick. Gunfire is drawn client-side by `EffectsController` from pooled parts, sen
 
 The server owns coins, robots, towers, health, waves and mutations. Clients only send intents
 (`RequestSpawnRobot(robotId, laneIndex)`, `RequestUpgradeRobot`, `RequestSetLoadout`,
-`RequestUnlockRobot`, `RequestJoinQueue`, `RequestLeaveQueue`, `RequestSync`). Every intent:
+`RequestUnlockRobot`, `RequestSync`). There is deliberately no queue intent: queueing is decided
+only by the server's pad detection. Every intent:
 
 - passes a per-player, per-remote token-bucket rate limiter before any handler runs (limits are in
   `Remotes.luau`);
@@ -155,7 +177,7 @@ Cost, damage, position and time always come from config and server clocks, never
 2. Pick abilities from the implemented kinds: `Heal`, `Disable`, `Explode`. The required fields for
    each are listed in `Constants.ABILITY_FIELDS`.
 3. Optional: put a Model at `ServerStorage/Assets/Robots/<Name>` (the `modelPath`). It needs a
-   `PrimaryPart`. Every other part is welded to it automatically. Without a model, a neon placeholder
+   `PrimaryPart`. Every other part is welded to it automatically. Without a model, a painted placeholder
    is generated from `visual`.
 
 ### Add a tower
@@ -217,8 +239,9 @@ you save your own `ServerStorage/Maps/Junkyard`, the hand-built version wins.
 Add an entry to `ModeConfig.Modes` and `ModeConfig.Order`. A lobby pad appears automatically.
 `sideLayout = "Shared"` puts all players on one arena (Solo, Co-op).
 `sideLayout = "PerPlayer"` gives each player an arena; the first HQ destroyed wins (1v1). Queue pads
-are any Part tagged `CyberSwarm_QueuePad` with a `ModeId` attribute. An optional `Status`
-BillboardGui on the pad shows queue progress.
+are any Part tagged `CyberSwarm_QueuePad` with a `ModeId` attribute. Optional: a `QueueRadius`
+number attribute (otherwise half the pad's footprint), a `Ring` folder of `Segment_1..N` parts that
+fill as players join, and a `Mode_<ModeId>` TextLabel on a screen tagged `CyberSwarm_QueueBoard`.
 
 ---
 
