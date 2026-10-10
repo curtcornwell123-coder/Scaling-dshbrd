@@ -225,9 +225,9 @@ Sim.fireIf = fireIf
 local DEFAULTS = {
 	BasePart = {
 		Anchored = false, CanCollide = true, CanQuery = true, CanTouch = true, CastShadow = true, Transparency = 0,
-		Reflectance = 0, Locked = false, Massless = false, CollisionGroup = "Default",
+		Reflectance = 0, Locked = false, Massless = false, CollisionGroup = "Default", Material = Enum.Material.Plastic,
 	},
-	Part = { Size = Vector3.new(4, 1, 2) },
+	Part = { Size = Vector3.new(4, 1, 2), Shape = Enum.PartType.Block },
 	WedgePart = { Size = Vector3.new(4, 1, 2) },
 	SpawnLocation = { Duration = 10, Neutral = true, Enabled = true, Size = Vector3.new(12, 1, 12) },
 	Humanoid = { Health = 100, MaxHealth = 100, WalkSpeed = 16, JumpPower = 50, HipHeight = 2 },
