@@ -3,6 +3,7 @@
 -- and runs every client-side effect: egg timers, prompt filtering, pet wandering,
 -- treadmill belts, step popups, bat swings, knockback, hatch/fuse effects and sounds.
 
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -988,6 +989,24 @@ task.spawn(function()
 		end
 		task.wait(0.5)
 	end
+end)
+
+---------------------------------------------------------------------------
+-- Leaving? Alert sound + a free gift popup (once per day)
+---------------------------------------------------------------------------
+
+GuiService.MenuOpened:Connect(function()
+	if not state.leaveReward then
+		return
+	end
+	Panels.open("StayGift")
+	task.spawn(function()
+		for _ = 1, 3 do
+			sound("Alert")
+			task.wait(0.25)
+		end
+	end)
+	flash(c(255, 210, 90))
 end)
 
 ---------------------------------------------------------------------------

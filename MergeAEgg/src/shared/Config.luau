@@ -599,6 +599,9 @@ Config.PlaytimeGifts = {
 	{ minutes = 120, egg = 6 },
 }
 
+-- Shown when a player opens the Roblox menu (usually about to leave). Once per day.
+Config.LeaveReward = { egg = 3, money = 2000, incomeSeconds = 300 }
+
 Config.FriendBoost = 2 -- money multiplier while a Roblox friend is in your server
 
 Config.IndexSetBonus = 0.02 -- +2% money per completed biome set
@@ -612,6 +615,7 @@ Config.Sounds = {
 	Hit = "rbxasset://sounds/swordslash.wav",
 	Notify = "rbxasset://sounds/electronicpingshort.wav",
 	Click = "rbxasset://sounds/electronicpingshort.wav",
+	Alert = "rbxasset://sounds/electronicpingshort.wav",
 }
 
 ---------------------------------------------------------------------------

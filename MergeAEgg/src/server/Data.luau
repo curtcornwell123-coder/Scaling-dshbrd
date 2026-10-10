@@ -40,6 +40,7 @@ Data.TEMPLATE = {
 	playtime = { day = 0, seconds = 0, claimed = {} },
 	vipEggDay = 0,
 	bossEggDay = 0,
+	leaveRewardDay = 0,
 	groupRewardClaimed = false,
 	giftedPasses = {}, -- passes received as gifts
 	purchases = {}, -- recent receipt ids, newest last

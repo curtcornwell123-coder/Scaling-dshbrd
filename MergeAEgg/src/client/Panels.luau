@@ -1483,6 +1483,28 @@ local function buildGiftPicker()
 	end
 end
 
+local function buildStayGift()
+	local w = window("StayGift", "🎁 WAIT! Don't go yet!", c(255, 90, 90), Vector2.new(620, 380))
+	w.keys = { "leaveReward" }
+	local reward = Config.LeaveReward
+	UI.text(w.body, { Text = "🎁", Size = UDim2.fromOffset(140, 140), Position = UDim2.new(0.5, 0, 0, 0), AnchorPoint = Vector2.new(0.5, 0) })
+	UI.text(w.body, {
+		Text = `Here's a free gift for staying!\n<font color="#7dff6b">Cash</font> + a <font color="{"#" .. Config.Rarities[reward.egg].color:ToHex()}">{Config.Rarities[reward.egg].name} Egg</font>`,
+		Size = UDim2.new(1, -20, 0, 90),
+		Position = UDim2.fromOffset(10, 140),
+	})
+	local claim = UI.button(w.body, { text = "Claim!", color = GREEN, size = UDim2.fromOffset(300, 64), position = UDim2.new(0.5, 0, 1, -6), anchor = Vector2.new(0.5, 1), onClick = function()
+		env.request("ClaimLeaveReward")
+		Panels.close("StayGift")
+	end })
+	local pulse = claim:FindFirstChildOfClass("UIScale")
+	w.tick = function()
+		if pulse then
+			pulse.Scale = 1 + math.abs(math.sin(os.clock() * 4)) * 0.06
+		end
+	end
+end
+
 local function buildWelcome()
 	local w = window("Welcome", "Welcome back!", c(80, 210, 60), Vector2.new(600, 330))
 	local text = UI.text(w.body, { Text = "", Size = UDim2.new(1, -20, 0, 160), Position = UDim2.fromOffset(10, 10) })
@@ -1608,6 +1630,7 @@ function Panels.init(environment)
 	buildPopup()
 	buildGiftPicker()
 	buildWelcome()
+	buildStayGift()
 	buildAdmin()
 
 	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, _, purchased)

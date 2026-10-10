@@ -216,6 +216,9 @@ local FIELDS = {
 	maxBiome = function(_, data)
 		return data.maxBiome
 	end,
+	leaveReward = function(_, data)
+		return data.leaveRewardDay < today()
+	end,
 	friends = function(player)
 		local session = sessions[player]
 		return if session then session.friendsHere else 0
@@ -824,6 +827,17 @@ function Economy.claimPlaytime(player: Player, index: number)
 	Economy.sync(player, "playtime", "money", "speed", "eggs", "nests")
 end
 
+-- "Wait, don't go!" gift when the player opens the Roblox menu. Once per day.
+function Economy.claimLeaveReward(player: Player)
+	local data = Data.get(player)
+	if not data or data.leaveRewardDay >= today() then
+		return
+	end
+	data.leaveRewardDay = today()
+	grantReward(player, Config.LeaveReward, "Stay gift")
+	Economy.sync(player, "leaveReward", "money", "eggs", "nests")
+end
+
 function Economy.claimGroup(player: Player)
 	local data = Data.get(player)
 	if not data or data.groupRewardClaimed then
@@ -1358,6 +1372,7 @@ function Economy.init(context)
 	Net.on("ClaimDaily", Economy.claimDaily)
 	Net.on("ClaimPlaytime", Economy.claimPlaytime)
 	Net.on("ClaimGroup", Economy.claimGroup)
+	Net.on("ClaimLeaveReward", Economy.claimLeaveReward)
 	Net.on("SetGiftTarget", Economy.setGiftTarget)
 end
 
