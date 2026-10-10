@@ -1,0 +1,5 @@
+# Intermediate render output (regenerate with render3d/run_all.sh and overlay.py)
+*/previews/
+*/previews_titled/
+*/renders/
+__pycache__/
