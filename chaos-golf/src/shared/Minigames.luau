@@ -55,8 +55,9 @@ function Minigames.tokensFor(id: string, score: number): number
 		-- max score 50
 		return if score >= 40 then 6 elseif score >= 25 then 4 elseif score >= 10 then 2 elseif score > 0 then 1 else 0
 	elseif id == "Drive" then
-		-- score = best distance in studs along the ramp
-		return if score >= 40 then 6 elseif score >= 32 then 4 elseif score >= 24 then 3 elseif score >= 14 then 2 else 1
+		-- score = best distance in studs along the ramp (the 48-stud lanes give ~38 studs of ramp;
+		-- a full-power base drive reaches ~35, Power upgrades reach the cap)
+		return if score >= 36 then 6 elseif score >= 30 then 4 elseif score >= 22 then 3 elseif score >= 12 then 2 else 1
 	elseif id == "Hazard" then
 		-- score = strokes used (0 = failed)
 		return if score == 1 then 6 elseif score == 2 then 4 elseif score == 3 then 3 elseif score == 4 then 2 else 0
