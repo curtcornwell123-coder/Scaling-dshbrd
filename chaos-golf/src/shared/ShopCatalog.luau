@@ -128,6 +128,20 @@ ShopCatalog.Tabs = {
 					end
 				end
 			end
+			for _, id in Config.Celebrations do
+				table.insert(out, {
+					Key = "celebration:" .. id,
+					Title = id,
+					Subtitle = if id == "Default" then "Cup-sink celebration" else "Celebration Pack exclusive",
+					Accent = Config.Colors.Gold,
+					Price = nil,
+					Preview = { Kind = "Pass", Ref = "Celebrations" },
+					Action = "celebration",
+					A = id,
+					Category = "Celebrations",
+					ItemId = id,
+				})
+			end
 			return out
 		end,
 	},
@@ -169,6 +183,6 @@ ShopCatalog.Tabs = {
 } :: { Tab }
 
 -- Locker sub-filters shown as chips above the grid.
-ShopCatalog.LockerFilters = { "All", "Skins", "Trails", "Knockouts", "Arrows" }
+ShopCatalog.LockerFilters = { "All", "Skins", "Trails", "Knockouts", "Arrows", "Celebrations" }
 
 return ShopCatalog

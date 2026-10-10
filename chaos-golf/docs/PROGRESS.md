@@ -9,6 +9,7 @@ Resume point for the next session. Verify with `/tmp/claude-0/check.sh` (re-down
 - Client: State, Hud (coin counter + world toasts), WorldFx, GolfController, MatchUi, Previews, Catalog, Terminals, Boards
 
 ## In progress / next
+- Tests: `python3 tests/run.py <path-to-luau>` (pure shared logic: odds, pity, daily, ranks, maps, catalog)
 - Client: Prompts (personalized prompt text, invite kiosk, vote confirmation), Guide (first-join arrow)
 - Integrate LobbyBuilder + CourseBuilder (background builders) and assets (icons, ball mesh)
 - Zero diagnostics + rojo build, then docs: GDD.md, Monetization.md (price sheet), README setup

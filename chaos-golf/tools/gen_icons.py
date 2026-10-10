@@ -527,13 +527,15 @@ def _fib_sphere(n, seed_rot=(0.35, 0.8, 0.2)):
 
 def draw_golf_ball(img, center, radius, base_color, *, dimples=84, outline=True, ow=None,
                    outline_color=None, shadow=True, rim_color=(0.35, 0.85, 1.0), gloss=True,
-                   metal=False, tilt_deg=34.0, light_dir=(-0.5, 0.62, 0.62), spin=(0.35, 0.8, 0.2)):
+                   metal=False, tilt_deg=34.0, light_dir=(-0.5, 0.62, 0.62), spin=(0.35, 0.8, 0.2),
+                   base_color2=None, emissive=0.0):
     """Shaded, dimpled golf ball onto Canvas `img`.
 
     Every pixel gets a sphere normal; the nearest of `dimples` evenly spread dimple
     centres bends it into a soft cup (smooth land, no crease), which gives the
     classic dark/light dimple pairs foreshortened toward the rim. Lambert + wrap,
     Blinn specular, neon fresnel rim, a stylised gloss and a sticker outline.
+    base_color2 = optional bottom colour (vertical gradient); emissive = 0..1 Neon glow.
     """
     cx, cy = center
     r = float(radius)
@@ -581,6 +583,9 @@ def draw_golf_ball(img, center, radius, base_color, *, dimples=84, outline=True,
     N2 = N + (math.tan(math.radians(tilt_deg)) * prof)[:, None] * t
     N2 /= np.linalg.norm(N2, axis=1, keepdims=True)
     ao = 1 - np.where(u < 1, 0.16 * (1 - u * u) ** 2, 0.0)
+    if base_color2 is not None:
+        tb = np.clip((py[inside] + 0.85) / 1.7, 0, 1)[:, None]
+        base = base[None, :] * (1 - tb) + np.asarray(base_color2, np.float32)[None, :] * tb
 
     L = np.array(light_dir, np.float32)
     L /= np.linalg.norm(L)
@@ -601,6 +606,8 @@ def draw_golf_ball(img, center, radius, base_color, *, dimples=84, outline=True,
         nh = np.clip(N2 @ H, 0, 1)
         spec = (nh ** 55 * 0.55 + nh ** 7 * 0.08)[:, None] * WHITE
     col = diff * ao[:, None] + spec
+    if emissive:
+        col = col * (1 - emissive * 0.45) + base * emissive * (0.75 + 0.25 * ao[:, None])
     if rim_color is not None:
         fres = (1 - N[:, 2]) ** 2.6
         side = np.clip(0.55 + 0.45 * (N[:, 0] * 0.8 - N[:, 1] * 0.6), 0, 1)
@@ -635,11 +642,10 @@ def stamp_array(kind="flag", res=512):
         return (k + x * k, k + y * k)
 
     if kind == "flag":
-        d.rounded_rectangle((*P(-0.12, -0.56), *P(-0.03, 0.42)), radius=int(0.04 * k), fill=255)
-        flag = [P(-0.06, -0.58), P(0.44, -0.40), P(-0.06, -0.20)]
-        d.polygon(round_poly(flag, 0.03 * k), fill=255)
-        d.ellipse((*P(-0.40, 0.33), *P(0.32, 0.55)), fill=255)
-        d.ellipse((*P(0.10, 0.14), *P(0.30, 0.34)), fill=255)
+        d.rounded_rectangle((*P(-0.24, -0.66), *P(-0.10, 0.42)), radius=int(0.06 * k), fill=255)
+        flag = [P(-0.14, -0.70), P(0.56, -0.42), P(-0.14, -0.12)]
+        d.polygon(round_poly(flag, 0.05 * k), fill=255)
+        d.ellipse((*P(-0.62, 0.30), *P(0.46, 0.62)), fill=255)
     elif kind == "ball":
         d.ellipse((*P(-0.48, -0.48), *P(0.48, 0.48)), fill=255)
         for ang in range(0, 360, 60):
@@ -813,11 +819,11 @@ def emblem_image(kind, accent, metal="steel", size=S):
         draw_golf_ball(cv, (c + R * 0.05, c + R * 0.03), R * 0.15, rgb("#F7F9FF"), dimples=40,
                        ow=R * 0.03, shadow=True, rim_color=None)
     elif kind == "rocket":
-        for k, (ox, oy, w) in enumerate([(-0.55, 0.25, 0.10), (-0.30, 0.50, 0.08), (-0.62, -0.05, 0.06)]):
+        for k, (ox, oy, w) in enumerate([(-0.50, 0.30, 0.11), (-0.22, 0.56, 0.09), (-0.64, 0.00, 0.07)]):
             a = (c + R * ox, c + R * oy)
             b = (a[0] - R * 0.35, a[1] + R * 0.35)
             cv.over(rgb("#BFF3FF"), m_inter(m_line([a, b], R * w), inner), 0.85)
-        draw_rocket(cv, c + R * 0.05, c - R * 0.02, R * 0.48, angle=42)
+        draw_rocket(cv, c + R * 0.04, c - R * 0.04, R * 0.60, angle=42)
     elif kind == "hazard":
         ys, xs = np.mgrid[0:size, 0:size].astype(np.float32)
         band = ((xs + ys) / (R * 0.26)) % 2.0
@@ -827,6 +833,93 @@ def emblem_image(kind, accent, metal="steel", size=S):
         cv.over_arr(rgb("#FFB703"), (1 - stripes) * im)
         cv.over(SHADOW, m_inter(m_sub(inner, m_shift(inner, 0, R * 0.08)), inner), 0.0)
         draw_hazard_triangle(cv, c, c + R * 0.02, R * 0.40)
+    elif kind == "skin":
+        # two-tone ball: one ball, two paint jobs split on a diagonal
+        bx, by, br = c, c, R * 0.60
+        glow(cv, m_circle(bx, by, br), R * 0.12, light(accent, 0.4), 0.7)
+        draw_golf_ball(cv, (bx, by), br, rgb("#FF4FA3"), dimples=64, ow=R * 0.04, shadow=False,
+                       rim_color=rgb("#FFD1E8"))
+        other = Canvas(size)
+        draw_golf_ball(other, (bx, by), br, rgb("#00E5FF"), dimples=64, ow=R * 0.04, shadow=False,
+                       rim_color=rgb("#E0FBFF"))
+        half = np.asarray(m_rotate(m_poly([(0, c), (size, c), (size, size), (0, size)]), 35, c, c),
+                          np.float32) / 255.0
+        cv.paste(other.rgb * half[..., None], other.a * half, 0, 0)
+        seam_m = m_inter(m_rotate(m_rrect(0, c - R * 0.025, size, c + R * 0.025, 4), 35, c, c),
+                         m_circle(bx, by, br))
+        cv.over(WHITE, seam_m, 0.95)
+    elif kind == "trail":
+        # ball trailing a tapered multi-colour ribbon
+        def bez(t):
+            p0, p1, p2 = np.array([c - R * 0.70, c + R * 0.42]), np.array([c - R * 0.05, c + R * 0.62]), \
+                np.array([c + R * 0.30, c - R * 0.22])
+            return p0 * (1 - t) ** 2 + 2 * p1 * t * (1 - t) + p2 * t * t
+        ts = np.linspace(0, 1, 60)
+        cols = [rgb("#B04DFF"), rgb("#0066FF"), rgb("#00E5FF"), WHITE]
+        for k, col in enumerate(cols):
+            wmax = R * (0.34 - 0.075 * k)
+            left, right = [], []
+            for t in ts:
+                pnt = bez(t)
+                tan = bez(min(t + 0.01, 1)) - bez(max(t - 0.01, 0))
+                nrm = np.array([-tan[1], tan[0]]) / (np.linalg.norm(tan) + 1e-9)
+                w = wmax * (0.08 + 0.92 * t ** 1.3)
+                left.append(tuple(pnt + nrm * w))
+                right.append(tuple(pnt - nrm * w))
+            rm = m_inter(m_poly(left + right[::-1]), inner)
+            if k == 0:
+                cv.add(col, m_blur(rm, R * 0.05), 0.6)
+            cv.over(col, rm, 0.95)
+        for t, rr in ((0.22, 0.035), (0.45, 0.05), (0.62, 0.03)):
+            pnt = bez(t) + np.array([R * 0.06, -R * 0.20])
+            sparkle(cv, pnt[0], pnt[1], R * rr * 2.2)
+        draw_golf_ball(cv, (c + R * 0.30, c - R * 0.22), R * 0.34, rgb("#F7F9FF"), dimples=56,
+                       ow=R * 0.035, shadow=False, rim_color=rgb("#00E5FF"))
+    elif kind == "burst":
+        # comic impact burst with a ball smashing into it
+        rng = np.random.default_rng(5)
+        def burst(rr_out, rr_in, n, jitter):
+            pts = []
+            for k in range(2 * n):
+                a = math.pi * k / n + 0.12
+                rr = (rr_out if k % 2 == 0 else rr_in) * (1 + rng.uniform(-jitter, jitter))
+                pts.append((c + math.cos(a) * rr, c + math.sin(a) * rr))
+            return pts
+        outer_b = m_poly(burst(R * 0.70, R * 0.42, 11, 0.10), R * 0.02)
+        cv.over(ink(accent, 0.8), m_dilate(outer_b, R * 0.035))
+        cv.over(rad(rgb("#FFE14D"), rgb("#FF7A00"), (c, c), R * 0.7), outer_b)
+        inner_b = m_poly(burst(R * 0.46, R * 0.28, 9, 0.12), R * 0.02)
+        cv.over(rad(WHITE, rgb("#FFF27A"), (c, c), R * 0.46), inner_b)
+        for k, (oy, L) in enumerate(((-0.16, 0.30), (0.04, 0.38), (0.24, 0.26))):
+            a0 = (c - R * 0.70, c + R * oy - R * 0.02)
+            cv.over(WHITE, m_inter(m_line([a0, (a0[0] + R * L, a0[1])], R * 0.06), inner), 0.9)
+        draw_golf_ball(cv, (c - R * 0.04, c + R * 0.02), R * 0.27, rgb("#F7F9FF"), dimples=48,
+                       ow=R * 0.035, shadow=False, rim_color=rgb("#FFB36B"))
+        for a, rr in ((-0.6, 0.06), (0.9, 0.05), (2.5, 0.045), (3.6, 0.05)):
+            x, y = c + math.cos(a) * R * 0.58, c + math.sin(a) * R * 0.58
+            cv.over(ink(accent, 0.8), m_circle(x, y, R * rr * 1.3))
+            cv.over(rgb("#FFE14D"), m_circle(x, y, R * rr))
+    elif kind == "arrow":
+        # chunky aim arrow launching from a ball, dotted aim line behind it
+        ang = -45.0
+
+        def T(x, y):
+            a = math.radians(ang)
+            return (c + R * (x * math.cos(a) - y * math.sin(a)), c + R * (x * math.sin(a) + y * math.cos(a)))
+        shaft = [T(-0.04, -0.12), T(0.26, -0.12), T(0.26, 0.12), T(-0.04, 0.12)]
+        head = [T(0.20, -0.33), T(0.60, 0.0), T(0.20, 0.33)]
+        am = m_union(m_poly(shaft, R * 0.03), m_poly(head, R * 0.05))
+        cv.over(ink(accent, 0.85), m_dilate(am, R * 0.05))
+        cv.over(lin(WHITE, light(accent, 0.2), T(0, -0.3), T(0, 0.3)), am)
+        cv.add(light(accent, 0.3), m_blur(am, R * 0.08), 0.35)
+        cv.over(WHITE, m_inter(m_sub(am, m_shift(am, R * 0.02, R * 0.05)), am), 0.6)
+        for t in (-0.13, -0.23):
+            x, y = T(t, 0)
+            cv.over(ink(accent, 0.85), m_circle(x, y, R * 0.055))
+            cv.over(WHITE, m_circle(x, y, R * 0.038))
+        bx, by = T(-0.46, 0)
+        draw_golf_ball(cv, (bx, by), R * 0.20, rgb("#F7F9FF"), dimples=48, ow=R * 0.035, shadow=False,
+                       rim_color=light(accent, 0.3))
     # glass gloss over the whole medallion
     gl = m_inter(m_ellipse(c - R * 0.15, c - R * 0.52, R * 0.62, R * 0.30), inner)
     cv.over(WHITE, m_blur(gl, R * 0.02), 0.16)
@@ -1035,10 +1128,6 @@ def draw_crate(cv, cx, cy, scale, col, *, metal="steel", emblem=None, seam=None,
         warp_onto(cv, emblem, P0, P1, P2)
     return body, lid
 
-
-# ======================================================================================
-# Debug entry point (replaced below by the full icon set)
-# ======================================================================================
 
 # ======================================================================================
 # Props
@@ -1314,7 +1403,7 @@ def draw_sack(cv, cx, cy, size, col, tie=rgb("#E8B021"), emblem=True, frill=True
     oc = ink(col, 0.8)
     drop_shadow(cv, m_dilate(shape, s * 0.05), 0, s * 0.10, s * 0.08, 0.5)
     cv.over(oc, m_dilate(shape, s * 0.05))
-    cv.over(rad(light(col, 0.30), dark(col, 0.35), (cx - s * 0.35, cy - s * 0.25), s * 1.5), shape)
+    cv.over(rad(light(col, 0.38), dark(col, 0.28), (cx - s * 0.35, cy - s * 0.25), s * 1.5), shape)
     # side shading + highlight
     cv.over(BLACK, m_inter(m_blur(m_sub(shape, m_shift(shape, -s * 0.10, -s * 0.06)), s * 0.06), shape), 0.35)
     cv.over(WHITE, m_inter(m_blur(m_ellipse(cx - s * 0.42, cy - s * 0.05, s * 0.16, s * 0.34), s * 0.05), shape), 0.30)
@@ -1462,17 +1551,57 @@ def crate_icon(col, *, metal="steel", emblem="ball", seam=None, bg_in=None, bg_o
     return cv
 
 
-@icon("crate_basic", "In-game reference: Basic Crate (Coin Shop)")
-def crate_basic():
-    return crate_icon(rgb("#3D8BFF"), metal="steel", emblem="ball",
+@icon("crate_skins", "Shop crate: Ball Skin Crate (Coins or Skin key)")
+def crate_skins():
+    def bg(cv):
+        rng = np.random.default_rng(21)
+        for col in (rgb("#FF4FA3"), rgb("#00E5FF"), rgb("#FFD93B"), rgb("#7CF2B8")) * 2:
+            x, y = rng.uniform(200, 1850), rng.uniform(200, 1850)
+            if math.hypot(x - C, y - C) < 700:
+                continue
+            cv.over(col, m_circle(x, y, rng.uniform(40, 80)), 0.16)
+    return crate_icon(rgb("#3D8BFF"), metal="steel", emblem="skin", seam=rgb("#D8E8FF"), extra_bg=bg,
                       sparkle_spots=[(430, 470, 60), (1660, 560, 46)])
 
 
-@icon("crate_premium", "In-game reference: Premium Crate (Coin Shop)")
-def crate_premium():
-    return crate_icon(rgb("#B04DFF"), metal="gold", emblem="ball", seam=rgb("#FFB8F5"),
-                      aura=rgb("#C77DFF"),
-                      sparkle_spots=[(410, 460, 72), (1680, 520, 56), (1640, 1500, 40), (380, 1450, 36)])
+@icon("crate_trails", "Shop crate: Trail Crate (Coins or Trail key)")
+def crate_trails():
+    def bg(cv):
+        for k, (y0, col) in enumerate(((1500, rgb("#B04DFF")), (1640, rgb("#00E5FF")), (1780, rgb("#FFFFFF")))):
+            pts = [(x, y0 - 420 * math.sin(math.pi * x / S) + 60 * math.sin(x / 260.0)) for x in range(-50, S + 60, 40)]
+            cv.add(col, m_blur(m_line(pts, 36 - k * 8), 6), 0.16)
+    return crate_icon(rgb("#00E5FF"), metal="steel", emblem="trail", seam=rgb("#E0FBFF"),
+                      bg_in=rgb("#27B9E8"), bg_out=rgb("#0A1240"), rays_col=rgb("#C9F6FF"), extra_bg=bg,
+                      sparkle_spots=[(430, 470, 60), (1660, 560, 46)])
+
+
+@icon("crate_knockouts", "Shop crate: Knockout Crate (Coins or Knockout key)")
+def crate_knockouts():
+    def bg(cv):
+        pts = []
+        for k in range(28):
+            a = math.pi * k / 14
+            rr = S * (0.62 if k % 2 == 0 else 0.44)
+            pts.append((C + math.cos(a) * rr, C * 0.98 + math.sin(a) * rr))
+        cv.over(rgb("#FFD0B0"), m_poly(pts), 0.08)
+    return crate_icon(rgb("#FF5A36"), metal="steel", emblem="burst", seam=rgb("#FFE1C8"),
+                      bg_in=rgb("#FF6F45"), bg_out=rgb("#2E0712"), rays_col=rgb("#FFD0B0"), extra_bg=bg,
+                      sparkle_spots=[(430, 470, 60), (1660, 560, 46)])
+
+
+@icon("crate_arrows", "Shop crate: Arrow Crate (Coins or Arrow key)")
+def crate_arrows():
+    def bg(cv):
+        for k in range(3):
+            x = 260 + k * 150
+            ch = [(x, 1500), (x + 120, 1620), (x, 1740), (x - 60, 1740), (x + 60, 1620), (x - 60, 1500)]
+            cv.over(rgb("#FFF3B0"), m_poly(ch, 10), 0.10 + 0.04 * k)
+            x2 = S - 260 - (2 - k) * 150
+            ch2 = [(x2, 360), (x2 + 120, 480), (x2, 600), (x2 - 60, 600), (x2 + 60, 480), (x2 - 60, 360)]
+            cv.over(rgb("#FFF3B0"), m_poly(ch2, 10), 0.10 + 0.04 * k)
+    return crate_icon(rgb("#FFC83D"), metal="steel", emblem="arrow", seam=rgb("#FFF6D0"),
+                      bg_in=rgb("#F2A93B"), bg_out=rgb("#3A1400"), rays_col=rgb("#FFF3B0"), extra_bg=bg,
+                      sparkle_spots=[(430, 470, 60), (1660, 560, 46)])
 
 
 def mythic_crate(cv_extra=None):
@@ -1532,7 +1661,7 @@ def crate_hazard():
         fade = np.clip((ys - S * 0.78) / (S * 0.06), 0, 1)
         cv.over_arr(rgb("#14110A"), st * fade * 0.55)
     return crate_icon(rgb("#FFB703"), metal="dark", emblem="hazard", seam=rgb("#FFF1B8"),
-                      bg_in=rgb("#FFC233"), bg_out=rgb("#2E1A00"), rays_col=rgb("#FFF1B8"), extra_bg=bg,
+                      bg_in=rgb("#C9741A"), bg_out=rgb("#1F1000"), rays_col=rgb("#FFE08A"), extra_bg=bg,
                       sparkle_spots=[(430, 470, 56), (1660, 540, 44)])
 
 
@@ -1553,12 +1682,12 @@ def pass_vip():
 def pass_double_coins():
     cv = Canvas(color=NAVY)
     background(cv, rgb("#1FD17A"), rgb("#032B1F"), rays=(16, rgb("#E9FFB0"), 0.12))
-    glow(cv, m_circle(C * 0.86, C * 0.92, S * 0.24), S * 0.10, GOLD, 0.45)
-    draw_coin(cv, C * 0.80, C * 1.10, 430, tilt=0.42, angle=-14)
-    draw_coin(cv, C * 0.92, C * 0.70, 430, tilt=0.42, angle=-14)
-    draw_text(cv, "2X", C * 1.30, S * 0.69, 560, top=WHITE, bottom=rgb("#FFE36B"), outline=rgb("#06301F"),
-              ow=60, rotate=8, extrude=34)
-    sparkles(cv, [(440, 470, 66), (1580, 520, 54), (420, 1420, 38)], glow_col=GOLD)
+    glow(cv, m_circle(C, C * 0.80, S * 0.25), S * 0.10, GOLD, 0.5)
+    draw_coin(cv, C + 50, C * 0.92, 390, tilt=0.42, angle=-6)
+    draw_coin(cv, C - 40, C * 0.92 - 165, 390, tilt=0.42, angle=-13)
+    draw_text(cv, "2X", C, S * 0.695, 540, top=WHITE, bottom=rgb("#FFE36B"), outline=rgb("#06301F"),
+              ow=60, rotate=6, extrude=34)
+    sparkles(cv, [(420, 520, 66), (1640, 560, 54), (430, 1380, 38), (1620, 1360, 34)], glow_col=GOLD)
     return cv
 
 
@@ -1589,25 +1718,25 @@ def pass_founder():
     cv = Canvas(color=NAVY)
     background(cv, rgb("#4A4E6E"), rgb("#0E0F18"), rays=(12, red, 0.10))
     glow(cv, m_circle(C, C, S * 0.28), S * 0.10, red, 0.35)
-    top, w, h = S * 0.16, S * 0.62, S * 0.70
+    top, w, h = S * 0.185, S * 0.56, S * 0.64
     outer = m_poly(shield_pts(C, top, w, h))
     sticker(cv, outer, lin(light(red, 0.15), dark(red, 0.25), (C - w / 2, top), (C + w / 2, top + h)),
             outline=rgb("#0B0C14"), ow=34, shadow=(0, 40, 36, 0.6), bevel=24, top_light=0.4, bottom_dark=0.35)
-    inner = m_poly(shield_pts(C, top + 70, w - 150, h - 130))
+    inner = m_poly(shield_pts(C, top + 64, w - 136, h - 118))
     cv.over(rgb("#0B0C14"), m_dilate(inner, 14))
     cv.over(rad(light(dark_c, 0.12), dark(dark_c, 0.35), (C, top + 260), w * 0.6), inner)
     cv.over(WHITE, m_inter(m_poly(shield_pts(C, top + 70, w - 150, h * 0.36)), inner), 0.06)
-    draw_golf_ball(cv, (C, top + h * 0.43), 245, rgb("#F7F9FF"), rim_color=light(red, 0.2), dimples=72)
+    draw_golf_ball(cv, (C, top + h * 0.44), 225, rgb("#F7F9FF"), rim_color=light(red, 0.2), dimples=72)
     # star above the ball
     star = []
     for k in range(10):
         a = -math.pi / 2 + k * math.pi / 5
-        rr = 105 if k % 2 == 0 else 46
-        star.append((C + rr * math.cos(a), top + 135 + rr * math.sin(a)))
+        rr = 96 if k % 2 == 0 else 42
+        star.append((C + rr * math.cos(a), top + 128 + rr * math.sin(a)))
     sticker(cv, m_poly(star, 8), vgrad(GOLD_L, GOLD_D, top + 30, top + 240), outline=GOLD_INK, ow=14,
             shadow=(0, 10, 10, 0.5))
-    draw_ribbon(cv, C, top + h * 0.80, S * 0.74, S * 0.13, "FOUNDER", red, arc_r=S * 1.4, trim=dark_c,
-                text_top=WHITE, text_bot=rgb("#FFD6DA"), tail=S * 0.06, text_size=S * 0.085)
+    draw_ribbon(cv, C, top + h * 0.79, S * 0.62, S * 0.12, "FOUNDER", red, arc_r=S * 1.4, trim=dark_c,
+                text_top=WHITE, text_bot=rgb("#FFD6DA"), tail=S * 0.045, text_size=S * 0.078)
     return cv
 
 
@@ -1624,7 +1753,7 @@ def coins_icon(bg_in, bg_out, rays_col, draw_fn, sparkle_spots, glow_col=GOLD, r
 def product_coins_1():
     def art(cv):
         rng = np.random.default_rng(1)
-        draw_sack(cv, C, C * 0.98, 420, rgb("#C98B4E"), emblem=True)
+        draw_sack(cv, C, C * 0.98, 420, rgb("#E39A4F"), emblem=True)
         draw_coin(cv, C - 380, C * 1.48, 170, tilt=0.45, angle=12)
         draw_coin(cv, C + 360, C * 1.50, 190, tilt=0.40, angle=-16)
         draw_coin(cv, C + 120, C * 1.62, 150, tilt=0.35, angle=8)
@@ -1635,7 +1764,7 @@ def product_coins_1():
 def product_coins_2():
     def art(cv):
         rng = np.random.default_rng(2)
-        draw_sack(cv, C, C * 0.90, 500, rgb("#D9A066"), emblem=True, lumpy=1.0)
+        draw_sack(cv, C, C * 0.90, 500, rgb("#E8A85E"), emblem=True, lumpy=1.0)
         coin_pile(cv, C, C * 1.70, 1300, 300, 13, rng, r=160)
     return coins_icon(rgb("#3D8BFF"), rgb("#071A40"), rgb("#BFE0FF"), art,
                       [(420, 500, 62), (1640, 560, 52), (1690, 1100, 36)])
@@ -1673,51 +1802,91 @@ def product_mythic_crate():
     return cv
 
 
+def _qbez(p0, p1, p2, n=48):
+    p0, p1, p2 = (np.array(p, np.float64) for p in (p0, p1, p2))
+    return [tuple(p0 * (1 - t) ** 2 + 2 * p1 * t * (1 - t) + p2 * t * t) for t in np.linspace(0, 1, n)]
+
+
 @icon("game_icon", "Experience icon (512x512)")
 def game_icon():
     cv = Canvas(color=NAVY)
-    background(cv, rgb("#8A2BE2"), rgb("#12062E"), center=(C * 0.95, C * 1.15), radius=S * 0.85,
+    background(cv, rgb("#8A2BE2"), rgb("#12062E"), center=(C, C * 1.25), radius=S * 0.85,
                rays=(18, rgb("#FF8BD1"), 0.08), vignette=0.35)
-    # neon chaos streaks
-    def arc(p0, p1, p2, n=40):
-        pts = []
-        for k in range(n + 1):
-            t = k / n
-            pts.append(tuple(np.array(p0) * (1 - t) ** 2 + 2 * np.array(p1) * t * (1 - t) + np.array(p2) * t * t))
-        return pts
-    streaks = [
-        (arc((-100, 1180), (300, 700), (640, 1240)), rgb("#00E5FF"), 46),
-        (arc((640, 1240), (900, 760), (1120, 1180)), rgb("#00E5FF"), 40),
-        (arc((-80, 1330), (330, 860), (660, 1330)), rgb("#FF00A0"), 30),
-        (arc((660, 1330), (900, 900), (1130, 1300)), rgb("#FF00A0"), 26),
-        (arc((40, 1000), (420, 560), (760, 1000)), rgb("#FFD000"), 22),
-    ]
-    green_y = S * 0.775
-    draw_green(cv, C * 1.02, green_y, 860, 250, 130)
-    for pts, col, w in streaks:
-        line = m_line(pts, w)
-        cv.add(col, m_blur(line, w * 1.4), 0.9)
-        cv.over(light(col, 0.5), line)
-        cv.over(WHITE, m_line(pts, w * 0.35), 0.8)
-    # bounce marks
-    for x, y in ((640, 1240), (660, 1330)):
-        pass
-    draw_cup(cv, 1490, green_y + 10, 140, 48)
-    draw_flag(cv, 1540, green_y + 12, 820, rgb("#FFD000"), flag_w=420)
-    # ball mid-bounce
-    glow(cv, m_circle(1180, 1180, 270), 70, rgb("#00E5FF"), 0.45)
-    draw_golf_ball(cv, (1180, 1180), 250, rgb("#F7F9FF"), dimples=72, rim_color=(0.2, 0.95, 1.0))
-    # impact sparks
-    for k in range(7):
-        a = math.radians(200 + k * 22)
-        p0 = (1180 + math.cos(a) * 300, 1180 + math.sin(a) * 300)
-        p1 = (1180 + math.cos(a) * 380, 1180 + math.sin(a) * 380)
+    gy = S * 0.80
+    draw_green(cv, C, gy, 900, 225, 120)
+    l1, l2 = (360, gy + 70), (720, gy + 10)
+    ball = (1010, 1300)
+    br = 230
+    # ball shadow on the green
+    cv.over(SHADOW, m_blur(m_ellipse(ball[0] + 40, gy + 20, br * 0.9, br * 0.22), 20), 0.45)
+    draw_cup(cv, 1560, gy + 30, 125, 42)
+    draw_flag(cv, 1610, gy + 32, 620, rgb("#FFD000"), flag_w=330)
+    # impact marks where the ball bounced
+    for (x, y), k in ((l1, 0.8), (l2, 1.0)):
+        ring = m_sub(m_ellipse(x, y, 120 * k, 34 * k), m_ellipse(x, y, 96 * k, 24 * k))
+        cv.add(rgb("#BFF3FF"), m_blur(ring, 6), 0.7)
+        for a in (-150, -120, -60, -30):
+            ar = math.radians(a)
+            p0 = (x + math.cos(ar) * 70 * k, y + math.sin(ar) * 40 * k)
+            p1 = (x + math.cos(ar) * 150 * k, y + math.sin(ar) * 110 * k)
+            cv.over(WHITE, m_line([p0, p1], 16 * k), 0.9)
+    # neon chaos streaks along the bounce path
+    paths = [_qbez((-80, 1260), (150, 1200), l1), _qbez(l1, (540, gy - 640), l2),
+             _qbez(l2, (840, 1240), ball)]
+    for dx, dy, col, w in ((0, 0, rgb("#00E5FF"), 44), (-10, 26, rgb("#FF00A0"), 26), (8, -22, rgb("#FFD000"), 18)):
+        for pts in paths:
+            pts2 = [(x + dx, y + dy) for x, y in pts]
+            line = m_line(pts2, w)
+            cv.add(col, m_blur(line, w * 1.3), 0.85)
+            cv.over(light(col, 0.45), line)
+            if w > 30:
+                cv.over(WHITE, m_line(pts2, w * 0.35), 0.85)
+    glow(cv, m_circle(*ball, br * 1.1), 70, rgb("#00E5FF"), 0.5)
+    draw_golf_ball(cv, ball, br, rgb("#F7F9FF"), dimples=72, rim_color=(0.2, 0.95, 1.0))
     # title
-    draw_text(cv, "CHAOS", C, S * 0.17, 470, top=rgb("#FFF36B"), bottom=rgb("#FF8A00"),
-              outline=rgb("#1A0636"), ow=58, rotate=4, extrude=40, tracking=-0.01)
-    draw_text(cv, "GOLF", C, S * 0.395, 470, top=WHITE, bottom=rgb("#7FEFFF"), outline=rgb("#1A0636"),
-              ow=58, rotate=4, extrude=40, tracking=-0.01)
-    sparkles(cv, [(1840, 470, 60), (250, 640, 50)], glow_col=rgb("#FF8BD1"))
+    draw_text(cv, "CHAOS", C, S * 0.155, 450, top=rgb("#FFF36B"), bottom=rgb("#FF8A00"),
+              outline=rgb("#1A0636"), ow=56, rotate=4, extrude=38)
+    draw_text(cv, "GOLF", C, S * 0.365, 450, top=WHITE, bottom=rgb("#7FEFFF"), outline=rgb("#1A0636"),
+              ow=56, rotate=4, extrude=38)
+    sparkles(cv, [(1850, 520, 58), (210, 640, 48), (1840, 1120, 36)], glow_col=rgb("#FF8BD1"))
+    return cv
+
+
+@icon("icon_daily_grand", "In-game reference: 14-day login grand prize - Eternal Dawn ball (exclusive)")
+def icon_daily_grand():
+    warm, pink = rgb("#FFB547"), rgb("#FF5E7E")
+    bc = (C, S * 0.47)
+    br = 420
+    cv = Canvas(color=NAVY)
+    background(cv, rgb("#FF7A59"), rgb("#1E0830"), center=bc, radius=S * 0.82, vignette=0.4)
+    cv.add_arr(rgb("#FFD36B"), rays_alpha(bc[0], bc[1], 16, rot=0.1, width=0.22, r1=S * 0.9) * 0.32)
+    cv.add_arr(rgb("#FFE7A3"), rays_alpha(bc[0], bc[1], 8, rot=0.3, width=0.07, r1=S * 0.8) * 0.30)
+    glow(cv, m_circle(*bc, br * 1.15), 170, warm, 0.85)
+    glow(cv, m_circle(*bc, br * 0.9), 90, pink, 0.35)
+    # dawn horizon
+    hz = m_ellipse(C, S * 1.66, S * 1.05, S * 0.76)
+    cv.over(vgrad(rgb("#4A1452"), rgb("#14051F"), S * 0.88, S), hz)
+    rim = m_inter(m_sub(hz, m_shift(hz, 0, 16)), hz)
+    cv.add(warm, m_blur(rim, 34), 1.0)
+    cv.over(rgb("#FFE7A3"), rim)
+    # orbit ring (back half behind the ball, front half in front)
+    tilt = -16
+    ring = m_sub(m_ellipse(bc[0], bc[1], 640, 150), m_ellipse(bc[0], bc[1], 622, 136))
+    ring = m_rotate(ring, tilt, *bc)
+    upper = m_rotate(m_poly([(0, 0), (S, 0), (S, bc[1]), (0, bc[1])]), tilt, *bc)
+    back, front = m_inter(ring, upper), m_sub(ring, upper)
+    cv.add(rgb("#FFD36B"), m_blur(back, 10), 0.6)
+    cv.over(rgb("#FFE7A3"), back, 0.55)
+    draw_golf_ball(cv, bc, br, warm, base_color2=pink, emissive=0.45, rim_color=(1.0, 0.9, 0.55),
+                   outline_color=rgb("#4A1030"), dimples=80)
+    cv.add(rgb("#FFD36B"), m_blur(front, 12), 0.9)
+    cv.over(rgb("#FFF6D8"), front)
+    a = math.radians(tilt)
+    for t, rr in ((0.30, 46), (2.45, 34), (1.25, 26)):
+        x0, y0 = 640 * math.cos(t), 150 * math.sin(t)
+        x, y = bc[0] + x0 * math.cos(a) - y0 * math.sin(a), bc[1] + x0 * math.sin(a) + y0 * math.cos(a)
+        sparkle(cv, x, y, rr * 2.2, glow_col=rgb("#FFD36B"))
+    sparkles(cv, [(430, 380, 70), (1650, 330, 58), (1720, 1180, 40), (330, 1120, 44)], glow_col=rgb("#FFD36B"))
     return cv
 
 

@@ -98,6 +98,16 @@ end
 -- Cards ---------------------------------------------------------------------------
 
 local function ctaFor(item: ShopCatalog.Item): (string, UIKit.ButtonVariant)
+	if item.Action == "celebration" then
+		local profile = State.Profile
+		if profile and profile.Celebration == item.A then
+			return "Equipped", "Disabled"
+		end
+		if item.A ~= "Default" and not player:GetAttribute("Pass_Celebrations") then
+			return "Needs pass", "Disabled"
+		end
+		return "Equip", "Primary"
+	end
 	if item.Action == "equip" then
 		if State.equipped(item.Category :: string) == item.ItemId then
 			return "Equipped", "Disabled"
@@ -301,8 +311,9 @@ local function build(parent: Instance, closable: (() -> ())?): View
 	filters.Parent = root
 	UIKit.list(filters, 6, true)
 	for i, f in ShopCatalog.LockerFilters do
-		local label = if f == "All" then "All" else Cosmetics.CategoryInfo[f].Name
-		local chip = UIKit.button(label, "Ghost", { Name = f, Size = UDim2.fromOffset(if f == "All" then 56 else 132, 28), TextSize = 13, LayoutOrder = i, Parent = filters }, function()
+		local info = Cosmetics.CategoryInfo[f]
+		local label = if info then info.Name elseif f == "All" then "All" else f
+		local chip = UIKit.button(label, "Ghost", { Name = f, Size = UDim2.fromOffset(if f == "All" then 56 else 128, 28), TextSize = 13, LayoutOrder = i, Parent = filters }, function()
 			lockerFilter = f
 			render()
 		end)

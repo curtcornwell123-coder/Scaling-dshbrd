@@ -44,6 +44,17 @@ CreatorCodes.start()
 Monetization.start()
 MatchService.start()
 
+-- Template leftovers would show outdoors or steal spawns: the world is code-built.
+for _, child in workspace:GetChildren() do
+	if child.Name == "Baseplate" or child:IsA("SpawnLocation") then
+		child:Destroy()
+	end
+end
+local terrain = workspace:FindFirstChildOfClass("Terrain")
+if terrain then
+	terrain:Clear()
+end
+
 local lobby = LobbyBuilder.build()
 Activity.setLobbySpawn(lobby.SpawnCFrame)
 Tags.apply(lobby)
