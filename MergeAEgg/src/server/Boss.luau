@@ -148,8 +148,12 @@ local function despawn(defeated: boolean)
 	else
 		say(Config.Boss.taunts.win)
 	end
-	b.align.Position = b.pos + Vector3.new(0, -b.rootHeight * 2.5, 0)
-	task.delay(2, function()
+	-- Sinks into the floor, then disappears.
+	task.spawn(function()
+		for i = 1, 30 do
+			b.model:PivotTo(CFrame.new(b.pos - Vector3.new(0, i * b.rootHeight * 0.15, 0)) * b.model:GetPivot().Rotation)
+			task.wait(1 / 15)
+		end
 		b.model:Destroy()
 	end)
 end
@@ -162,21 +166,9 @@ function Boss.spawn()
 	model.Name = "GolemKing"
 	local center = World.arena.center
 	local rootHeight = (model.PrimaryPart :: BasePart).Size.Y / 2
+	-- Stays anchored; the server moves it with PivotTo (its pivot is at its feet).
 	model:PivotTo(CFrame.new(center))
-	local root = Models.rigForPhysics(model)
-	local attachment = Instance.new("Attachment")
-	attachment.Parent = root
-	local align = Instance.new("AlignPosition")
-	align.Mode = Enum.PositionAlignmentMode.OneAttachment
-	align.Attachment0 = attachment
-	align.RigidityEnabled = true
-	align.Position = root.Position
-	align.Parent = root
-	local orient = Instance.new("AlignOrientation")
-	orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
-	orient.Attachment0 = attachment
-	orient.RigidityEnabled = true
-	orient.Parent = root
+	local root = model.PrimaryPart :: BasePart
 
 	-- Health bar.
 	local gui = Instance.new("BillboardGui")
@@ -212,15 +204,12 @@ function Boss.spawn()
 	textStroke.Parent = barText
 
 	model.Parent = workspace
-	root:SetNetworkOwner(nil)
 
 	local playerCount = #Players:GetPlayers()
 	local maxHealth = Config.Boss.baseHealth + math.max(0, playerCount - 1) * Config.Boss.healthPerPlayer
 	local b = {
 		model = model,
 		root = root,
-		align = align,
-		orient = orient,
 		pos = center,
 		rootHeight = rootHeight,
 		health = maxHealth,
@@ -270,8 +259,7 @@ function Boss.spawn()
 				b.facing = delta.Unit
 			end
 		end
-		b.align.Position = b.pos + Vector3.new(0, b.rootHeight, 0)
-		b.orient.CFrame = CFrame.lookAt(Vector3.zero, Vector3.new(b.facing.X, 0, b.facing.Z)).Rotation
+		b.model:PivotTo(CFrame.lookAt(b.pos, b.pos + Vector3.new(b.facing.X, 0, b.facing.Z)))
 
 		if now >= b.nextAttack and not b.attacking then
 			b.nextAttack = now + Config.Boss.attackInterval
@@ -291,6 +279,42 @@ function Boss.spawn()
 	end)
 end
 
+local function damage(player: Player, amount: number, point: Vector3)
+	local b = active
+	if not b or amount <= 0 then
+		return
+	end
+	b.health -= amount
+	b.contributors[player] = true
+	Net.fxAll("BossHit", point)
+	updateBar()
+	if not b.halfTaunted and b.health <= b.maxHealth / 2 then
+		b.halfTaunted = true
+		say(Config.Boss.taunts.half)
+	end
+	if b.health <= 0 then
+		despawn(true)
+	end
+end
+
+-- Battle pets of everyone near the arena attack on a timer.
+local function petAttackLoop()
+	while true do
+		task.wait(Config.PetAttackInterval)
+		local b = active
+		if b then
+			local target = b.pos + Vector3.new(0, b.rootHeight, 0)
+			for _, entry in playersNear(World.arena.center, Config.PetAttackRange) do
+				local amount = Economy.followerDamage(entry.player)
+				if amount > 0 and active == b then
+					Net.fxAll("PetAttack", entry.player, target)
+					damage(entry.player, amount, target)
+				end
+			end
+		end
+	end
+end
+
 -- Called by bat swings. Returns true if the boss was hit.
 function Boss.hit(player: Player, strikePoint: Vector3): boolean
 	local b = active
@@ -301,17 +325,7 @@ function Boss.hit(player: Player, strikePoint: Vector3): boolean
 	if (Vector3.new(strikePoint.X, center.Y, strikePoint.Z) - center).Magnitude > HIT_RADIUS then
 		return false
 	end
-	b.health -= Config.BatBossDamage
-	b.contributors[player] = true
-	Net.fxAll("BossHit", strikePoint)
-	updateBar()
-	if not b.halfTaunted and b.health <= b.maxHealth / 2 then
-		b.halfTaunted = true
-		say(Config.Boss.taunts.half)
-	end
-	if b.health <= 0 then
-		despawn(true)
-	end
+	damage(player, Config.BatBossDamage, strikePoint)
 	return true
 end
 
@@ -330,6 +344,7 @@ function Boss.init(context)
 end
 
 function Boss.start()
+	task.spawn(petAttackLoop)
 	nextSpawnAt = os.clock() + 120
 	workspace:SetAttribute("BossActive", false)
 	task.spawn(function()

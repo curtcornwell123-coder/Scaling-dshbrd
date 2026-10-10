@@ -19,7 +19,7 @@ local c = Color3.fromRGB
 local rad = math.rad
 
 World.CORRIDOR_START = 30 -- the SAFE ZONE line
-World.BIOME_LENGTH = 160
+World.BIOME_LENGTH = 240
 World.CORRIDOR_HALF = 75
 World.WALL_HEIGHT = 50
 World.LOBBY_MIN_Z = -205
@@ -330,12 +330,35 @@ local function buildPen(index: number, info, parent: Instance)
 	pen.fuseEjectPrompt.KeyboardKeyCode = Enum.KeyCode.F
 	pen.fuseEjectPrompt.UIOffset = Vector2.new(0, 80)
 
-	-- Upgrade sign on the front fence.
-	solid({ Name = "SignPost", Size = Vector3.new(0.6, 5, 0.6), CFrame = cf * CFrame.new(15, 2.5, -PEN_DEPTH / 2 - 0.5), Color = c(90, 60, 40), Material = Enum.Material.Wood, Parent = model })
-	local sign = solid({ Name = "UpgradeSign", Size = Vector3.new(7, 3.6, 0.4), CFrame = cf * CFrame.new(15, 5.6, -PEN_DEPTH / 2 - 0.5), Color = c(30, 30, 40), Parent = model })
-	part({ Name = "SignTrim", Size = Vector3.new(7.4, 4, 0.3), CFrame = sign.CFrame * CFrame.new(0, 0, 0.1), Color = c(255, 200, 60), Material = Enum.Material.Neon, Parent = model })
-	pen.upgradeLabel = surfaceText(sign, Enum.NormalId.Front, "Upgrade Pen", Color3.new(1, 1, 1), 40)
-	pen.upgradeLabel.RichText = true
+	-- Upgrade sign on the front fence, held by a post on each side.
+	local signZ = -PEN_DEPTH / 2 - 0.6
+	for i, x in { 11.1, 18.9 } do
+		solid({ Name = if i == 1 then "SignPost" else "SignPostRight", Size = Vector3.new(0.6, 7.8, 0.6), CFrame = cf * CFrame.new(x, 3.9, signZ), Color = c(90, 60, 40), Material = Enum.Material.Wood, Parent = model })
+	end
+	local sign = solid({ Name = "UpgradeSign", Size = Vector3.new(7, 3.6, 0.4), CFrame = cf * CFrame.new(15, 5.6, signZ), Color = c(30, 30, 40), Parent = model })
+	part({ Name = "SignTrim", Size = Vector3.new(7.3, 3.9, 0.3), CFrame = sign.CFrame * CFrame.new(0, 0, 0.12), Color = c(255, 200, 60), Material = Enum.Material.Neon, Parent = model })
+	local signGui = Instance.new("SurfaceGui")
+	signGui.Face = Enum.NormalId.Front
+	signGui.PixelsPerStud = 40
+	signGui.LightInfluence = 0
+	signGui.Parent = sign
+	local function signLine(y: number, height: number, color: Color3): TextLabel
+		local label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(0.9, height)
+		label.Position = UDim2.fromScale(0.05, y)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.FredokaOne
+		label.TextScaled = true
+		label.TextColor3 = color
+		label.Parent = signGui
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 3
+		stroke.Parent = label
+		return label
+	end
+	pen.upgradeTitle = signLine(0.06, 0.26, Color3.new(1, 1, 1))
+	pen.upgradeLevel = signLine(0.36, 0.3, c(255, 220, 90))
+	pen.upgradePrice = signLine(0.7, 0.24, c(120, 255, 100))
 	pen.upgradePrompt = prompt(model:FindFirstChild("SignPost") :: BasePart, "Upgrade", "Pen", 0, 12)
 
 	-- Owner name over the entrance and the steal shield.
@@ -401,12 +424,16 @@ function World.setPenLook(pen, level: number, treadmillKey: string)
 
 	local nextInfo = Config.PenLevels[level + 1]
 	if nextInfo then
-		pen.upgradeLabel.Text = `Upgrade Pen\n<font size="20">Level {level} ➜ {level + 1}</font>\n<font color="#ff5555">${Config.format(nextInfo.cost)}</font>`
+		pen.upgradeTitle.Text = "Upgrade Pen"
+		pen.upgradeLevel.Text = `Level {level} ➜ {level + 1}`
+		pen.upgradePrice.Text = `${Config.format(nextInfo.cost)}`
 		pen.upgradePrompt.Enabled = true
 		pen.upgradePrompt.ObjectText = `Pen ➜ Level {level + 1}`
 		pen.upgradePrompt.ActionText = `Upgrade ${Config.format(nextInfo.cost)}`
 	else
-		pen.upgradeLabel.Text = "Pen MAXED!"
+		pen.upgradeTitle.Text = "Upgrade Pen"
+		pen.upgradeLevel.Text = "MAXED!"
+		pen.upgradePrice.Text = ""
 		pen.upgradePrompt.Enabled = false
 	end
 
@@ -632,7 +659,7 @@ local function decorate(biome, parent, rng: Random, avoid: { Vector3 })
 	local tint = PROP_TINTS[biome.key]
 	local placed = 0
 	local tries = 0
-	while placed < 12 and tries < 150 do
+	while placed < 17 and tries < 200 do
 		tries += 1
 		local side = if rng:NextNumber() < 0.5 then -1 else 1
 		local x = side * rng:NextNumber(46, World.CORRIDOR_HALF - 8)
@@ -673,19 +700,18 @@ local function buildBiome(parent, biome, order: number)
 	if order > 1 then
 		part({ Name = "Divider", Size = Vector3.new(World.CORRIDOR_HALF * 2, 0.12, 1.2), CFrame = CFrame.new(0, 0.06, biome.zStart), Color = biome.def.wallAlt:Lerp(Color3.new(1, 1, 1), 0.3), Material = Enum.Material.Neon, Parent = bf })
 	end
-	local banner = part({ Name = "Banner", Size = Vector3.one, CFrame = CFrame.new(0, 22, biome.zStart + 8), Transparency = 1, Parent = bf })
-	Models.billboard(banner, `{biome.def.name} {biome.def.emoji}`, Color3.new(1, 1, 1), UDim2.fromScale(40, 8), Vector3.zero, 700)
 	biomeSign(bf, biome.def, biome.zStart)
 
 	local side = if order % 2 == 0 then 1 else -1
-	buildNest(biome, bf, Vector3.new(side * 26, 0, biome.zStart + 90), side)
+	buildNest(biome, bf, Vector3.new(side * 26, 0, biome.zStart + 140), side)
 	local avoid = {}
 	for _, cl in biome.clusters do
 		table.insert(avoid, cl.center)
 		table.insert(avoid, cl.home)
 	end
 	if biome.key == "Forest" then
-		table.insert(avoid, Vector3.new(-World.CORRIDOR_HALF + 8, 0, biome.zStart + 40))
+		table.insert(avoid, Vector3.new(-World.CORRIDOR_HALF + 8, 0, biome.zStart + 60))
+		table.insert(avoid, Vector3.new(-World.CORRIDOR_HALF + 28, 0, biome.zStart + 60))
 	end
 	if biome.key == "Halloween" then
 		local tent = Models.prop("clowntent", Random.new(1))
@@ -699,44 +725,92 @@ end
 -- The cave: a small entrance in the Forest wall, and the boss dungeon
 ---------------------------------------------------------------------------
 
+-- A rocky cave in the dirt wall with crystals, torches, a swirling portal, and a path
+-- of red arrows (the client pulses them) leading in.
 local function buildCaveEntrance(parent, z: number)
 	local cave = folder("CaveEntrance", parent)
 	local wallX = -World.CORRIDOR_HALF + 2
-	local rock, rockDark = c(110, 100, 95), c(80, 74, 72)
+	local rock, rockDark = c(78, 66, 88), c(54, 46, 62)
 	local rng = Random.new(7)
-	-- Rocky mound bulging out of the dirt wall around a dark opening.
-	for i = 0, 10 do
-		local angle = rad(-10 + i * 20)
-		local size = rng:NextNumber(5, 8)
+	local mouthHeight, mouthWidth = 14, 15
+
+	-- Rock mound arching around the mouth.
+	for i = 0, 14 do
+		local angle = rad(-15 + i * 15)
+		local size = rng:NextNumber(6, 10)
 		solid({
 			Name = "CaveRock",
 			Size = Vector3.new(size, size, size),
-			CFrame = CFrame.new(wallX + 4, 0, z) * CFrame.new(0, math.sin(angle) * 11, math.cos(angle) * 11) * CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 1), rng:NextNumber(0, 1)),
+			CFrame = CFrame.new(wallX + 4, 0, z) * CFrame.new(0, math.sin(angle) * 14, math.cos(angle) * 14) * CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 1), rng:NextNumber(0, 1)),
 			Color = if i % 2 == 0 then rock else rockDark,
 			Material = Enum.Material.Slate,
 			Parent = cave,
 		})
 	end
-	part({ Name = "CaveDark", Size = Vector3.new(4, 13, 13), CFrame = CFrame.new(wallX + 1, 6.5, z), Color = c(15, 12, 18), Parent = cave })
-	for _, dz in { -9, 9 } do
-		local torch = Models.ball(cave, "Torch", 1.2, Vector3.new(wallX + 6, 9, z + dz), c(255, 150, 40), { Material = Enum.Material.Neon })
-		part({ Name = "TorchStick", Size = Vector3.new(0.4, 2.5, 0.4), CFrame = CFrame.new(wallX + 6, 7.4, z + dz), Color = c(90, 60, 40), Parent = cave })
+	for i = 0, 5 do
+		local angle = rad(10 + i * 32)
+		Models.box(cave, "CaveCrystal", Vector3.new(1.4, rng:NextNumber(3, 5), 1.4), CFrame.new(wallX + 9, math.sin(angle) * 17, z + math.cos(angle) * 17) * CFrame.Angles(0, 0, rad(rng:NextNumber(-30, 30))), c(200, 110, 255), { Material = Enum.Material.Neon })
+	end
+	part({ Name = "CaveDark", Size = Vector3.new(4, mouthHeight, mouthWidth), CFrame = CFrame.new(wallX + 1, mouthHeight / 2, z), Color = c(12, 8, 16), Parent = cave })
+
+	-- Torches either side.
+	for _, dz in { -11, 11 } do
+		part({ Name = "TorchStick", Size = Vector3.new(0.5, 5, 0.5), CFrame = CFrame.new(wallX + 10, 2.5, z + dz), Color = c(90, 60, 40), Material = Enum.Material.Wood, Parent = cave })
+		local torch = Models.ball(cave, "Torch", 1.4, Vector3.new(wallX + 10, 5.5, z + dz), c(255, 150, 40), { Material = Enum.Material.Neon })
 		local fire = Instance.new("Fire")
-		fire.Size = 3
-		fire.Heat = 6
+		fire.Size = 4
+		fire.Heat = 7
 		fire.Parent = torch
 		local light = Instance.new("PointLight")
 		light.Color = c(255, 150, 60)
-		light.Range = 16
+		light.Range = 18
 		light.Parent = torch
 	end
-	local signAnchor = part({ Name = "CaveSign", Size = Vector3.one, CFrame = CFrame.new(wallX + 5, 17, z), Transparency = 1, Parent = cave })
-	Models.billboard(signAnchor, "⚔️ Golem King's Cave", c(255, 150, 70), UDim2.fromScale(16, 3), Vector3.zero, 300)
 
-	local outside = CFrame.lookAt(Vector3.new(wallX + 16, 4, z), Vector3.new(wallX + 30, 4, z))
+	-- Red arrows on the floor pointing into the cave.
+	for i = 0, 6 do
+		local x = wallX + 14 + i * 5
+		for _, sideDir in { -1, 1 } do
+			local arrow = part({
+				Name = "CaveArrow",
+				Size = Vector3.new(3, 0.12, 0.8),
+				CFrame = CFrame.new(x, 0.08, z + sideDir * 0.9) * CFrame.Angles(0, rad(sideDir * 40), 0),
+				Color = c(255, 50, 50),
+				Material = Enum.Material.Neon,
+				Parent = cave,
+			})
+			arrow:SetAttribute("Step", i)
+		end
+	end
+
+	-- Signs: name plus a call to action (the client makes these pulse).
+	local signAnchor = part({ Name = "CaveSign", Size = Vector3.one, CFrame = CFrame.new(wallX + 8, mouthHeight + 12, z), Transparency = 1, Parent = cave })
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "CaveCall"
+	gui.Size = UDim2.fromScale(26, 7)
+	gui.MaxDistance = 400
+	gui.LightInfluence = 0
+	gui.Parent = signAnchor
+	for i, info in { { "⚔️ GOLEM KING'S CAVE ⚔️", c(255, 150, 70) }, { "ENTER IF YOU DARE!", c(255, 70, 70) } } do
+		local label = Instance.new("TextLabel")
+		label.Name = if i == 1 then "Title" else "Call"
+		label.Size = UDim2.fromScale(1, 0.5)
+		label.Position = UDim2.fromScale(0, (i - 1) * 0.5)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.FredokaOne
+		label.TextScaled = true
+		label.Text = info[1]
+		label.TextColor3 = info[2]
+		label.Parent = gui
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 3
+		stroke.Parent = label
+	end
+
+	local outside = CFrame.lookAt(Vector3.new(wallX + 18, 4, z), Vector3.new(wallX + 30, 4, z))
 	World.dungeon = World.dungeon or {}
 	World.dungeon.outside = outside
-	teleporter(cave, CFrame.new(wallX + 3.6, 6.5, z) * CFrame.Angles(0, rad(90), 0), c(170, 90, 255), function()
+	teleporter(cave, CFrame.new(wallX + 3.6, mouthHeight / 2, z) * CFrame.Angles(0, rad(90), 0), c(170, 90, 255), function()
 		return World.dungeon.inside
 	end)
 end
@@ -745,7 +819,7 @@ local function buildDungeon(parent)
 	local d = folder("Dungeon", parent)
 	local o = DUNGEON_ORIGIN
 	local rock, rockDark = c(85, 80, 90), c(62, 58, 68)
-	part({ Name = "DungeonFloor", Shape = Enum.PartType.Cylinder, Size = Vector3.new(2, DUNGEON_RADIUS * 2 + 8, DUNGEON_RADIUS * 2 + 8), CFrame = CFrame.new(o + Vector3.new(0, -1, 0)) * CFrame.Angles(0, 0, rad(90)), Color = c(70, 64, 76), Material = Enum.Material.Slate, CanCollide = true, CanQuery = true, Parent = d })
+	part({ Name = "DungeonFloor", Shape = Enum.PartType.Cylinder, Size = Vector3.new(2, DUNGEON_RADIUS * 2 + 8, DUNGEON_RADIUS * 2 + 8), CFrame = CFrame.new(o + Vector3.new(0, -1, 0)) * CFrame.Angles(0, 0, rad(90)), Color = c(105, 96, 112), Material = Enum.Material.Slate, CanCollide = true, CanQuery = true, Parent = d })
 	part({ Name = "DungeonCeiling", Shape = Enum.PartType.Cylinder, Size = Vector3.new(4, DUNGEON_RADIUS * 2 + 8, DUNGEON_RADIUS * 2 + 8), CFrame = CFrame.new(o + Vector3.new(0, 36, 0)) * CFrame.Angles(0, 0, rad(90)), Color = rockDark, Material = Enum.Material.Slate, CanCollide = true, Parent = d })
 
 	-- Outer circular wall with torches.
@@ -754,7 +828,7 @@ local function buildDungeon(parent)
 		local angle = (i + 0.5) / segments * math.pi * 2
 		local pos = o + Vector3.new(math.cos(angle) * (DUNGEON_RADIUS + 2), 17, math.sin(angle) * (DUNGEON_RADIUS + 2))
 		solid({ Name = "DungeonWall", Size = Vector3.new(4, 36, DUNGEON_RADIUS * 2 * math.pi / segments + 1), CFrame = CFrame.new(pos) * CFrame.Angles(0, -angle, 0), Color = if i % 2 == 0 then rock else rockDark, Material = Enum.Material.Slate, Parent = d })
-		if i % 4 == 0 then
+		if i % 2 == 0 then
 			local torchPos = o + Vector3.new(math.cos(angle) * (DUNGEON_RADIUS - 0.5), 10, math.sin(angle) * (DUNGEON_RADIUS - 0.5))
 			local torch = Models.ball(d, "Torch", 1.4, torchPos, c(255, 150, 40), { Material = Enum.Material.Neon })
 			local fire = Instance.new("Fire")
@@ -768,6 +842,24 @@ local function buildDungeon(parent)
 			light.Parent = torch
 		end
 	end
+
+	-- Ceiling lamps so the whole room is readable.
+	for i = 0, 5 do
+		local angle = i / 6 * math.pi * 2
+		local lampPos = o + Vector3.new(math.cos(angle) * 30, 33, math.sin(angle) * 30)
+		local glow = Models.ball(d, "CeilingCrystal", 3, lampPos, c(190, 150, 255), { Material = Enum.Material.Neon })
+		local light = Instance.new("PointLight")
+		light.Color = c(220, 200, 255)
+		light.Range = 45
+		light.Brightness = 1.6
+		light.Parent = glow
+	end
+	local centerLight = Models.ball(d, "CeilingCore", 5, o + Vector3.new(0, 32, 0), c(255, 170, 90), { Material = Enum.Material.Neon })
+	local coreLight = Instance.new("PointLight")
+	coreLight.Color = c(255, 200, 150)
+	coreLight.Range = 60
+	coreLight.Brightness = 2
+	coreLight.Parent = centerLight
 
 	-- Boss arena in the middle: a glowing rune circle with a low rim and four openings.
 	local center = o
@@ -822,7 +914,7 @@ local function buildCorridor(parent)
 			table.insert(World.biomes, biome)
 			buildBiome(corridor, biome, order)
 			if def.key == "Forest" then
-				buildCaveEntrance(corridor, z + 40)
+				buildCaveEntrance(corridor, z + 60)
 			end
 			z += World.BIOME_LENGTH
 		end

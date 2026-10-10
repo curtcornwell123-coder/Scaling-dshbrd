@@ -94,7 +94,7 @@ Config.LeaderboardRefreshSeconds = 120
 Config.BatCooldown = 0.6
 Config.BatRange = 9
 Config.BatKnockback = 70
-Config.BatBossDamage = 1
+Config.BatBossDamage = 3
 Config.BatGuardianStun = 1.0
 Config.GuardianStunCooldown = 8
 Config.GuardianCatchDistance = 5
@@ -108,8 +108,8 @@ Config.Boss = {
 	name = "Golem King",
 	interval = 900, -- seconds between spawns
 	duration = 300, -- how long it stays if nobody beats it
-	baseHealth = 60, -- bat hits needed with one player
-	healthPerPlayer = 30,
+	baseHealth = 400, -- bat hits deal 3, battle pets add damage every attack
+	healthPerPlayer = 200,
 	attackInterval = 3.5,
 	slamRadius = 26,
 	telegraphTime = 1.2,
@@ -470,6 +470,12 @@ Config.PenLevels = {
 Config.MaxNests = 10
 
 Config.EquipSlotCosts = { 1e3, 1e4, 1e5, 1e6, 2.5e7, 5e8 } -- slot 2..7
+
+-- Battle pets: pets that follow you and fight bosses (never biome guardians).
+Config.FollowSlotCosts = { 5e4, 2e6, 1e8, 5e9 } -- slot 2..5
+Config.PetAttackInterval = 1.5
+Config.PetAttackRange = 70 -- studs from the boss arena centre
+Config.PetBossDamage = { 2, 4, 7, 12, 20, 35, 60 } -- per attack, by rarity
 Config.BaseEquipSlots = 1
 
 Config.RebirthCosts = { 1e6, 25e6, 5e8, 1e10 }

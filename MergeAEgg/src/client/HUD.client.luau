@@ -13,6 +13,7 @@ local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
+local Models = require(Shared:WaitForChild("Models"))
 local Panels = require(script.Parent:WaitForChild("Panels"))
 local UI = Panels.UI
 
@@ -24,6 +25,7 @@ local c = Color3.fromRGB
 local WHITE = c(255, 255, 255)
 
 local state: { [string]: any } = {}
+local followerSets: { [Player]: any } = {} -- battle pets drawn for every player
 local serverOffset = 0
 local displayedMoney = 0
 local rng = Random.new()
@@ -559,6 +561,20 @@ fxHandlers.GuardianRoar = function(position: Vector3)
 	end
 end
 
+fxHandlers.PetAttack = function(attacker: Player, target: Vector3)
+	local set = followerSets[attacker]
+	if not set then
+		return
+	end
+	for _, f in set.pets do
+		f.lungeUntil = os.clock() + 0.3
+		f.target = target
+		if f.pos then
+			burst(f.pos + Vector3.new(0, 1.5, 0), c(255, 220, 120), 4)
+		end
+	end
+end
+
 fxHandlers.BossDefeated = function()
 	confetti(70)
 end
@@ -830,16 +846,26 @@ local function animatePet(pet: Model, areaCf: CFrame, areaSize: Vector3, dt: num
 	pet:PivotTo(CFrame.new(base + Vector3.new(0, hop, 0)) * CFrame.Angles(0, ps.yaw, 0))
 end
 
--- Carriers keep their arms straight up (the server raised the shoulder joints).
-local ARM_JOINTS = { "RightShoulder", "LeftShoulder", "RightElbow", "LeftElbow", "Right Shoulder", "Left Shoulder" }
+-- Carriers hold their egg overhead with both arms straight up. This runs after the
+-- animation step every frame, so it wins over the walk/idle animations.
+local ARM_POSES = {
+	RightShoulder = CFrame.Angles(0, 0, math.rad(-14)) * CFrame.Angles(math.pi, 0, 0),
+	LeftShoulder = CFrame.Angles(0, 0, math.rad(14)) * CFrame.Angles(math.pi, 0, 0),
+	RightElbow = CFrame.identity,
+	LeftElbow = CFrame.identity,
+	RightWrist = CFrame.identity,
+	LeftWrist = CFrame.identity,
+	["Right Shoulder"] = CFrame.Angles(0, 0, math.pi),
+	["Left Shoulder"] = CFrame.Angles(0, 0, -math.pi),
+}
 RunService.Stepped:Connect(function()
 	for _, other in Players:GetPlayers() do
 		local character = other.Character
 		if character and other:GetAttribute("Carrying") then
-			for _, name in ARM_JOINTS do
+			for name, pose in ARM_POSES do
 				local motor = character:FindFirstChild(name, true)
 				if motor and motor:IsA("Motor6D") then
-					motor.Transform = CFrame.identity
+					motor.Transform = pose
 				end
 			end
 		end
@@ -896,9 +922,80 @@ local function animateSpinners(dt: number)
 	end
 end
 
+-- Battle pets: every player's followers trail behind them (drawn locally from the
+-- "Followers" attribute) and lunge at the boss when they attack.
+local followerFolder = Instance.new("Folder")
+followerFolder.Name = "Followers"
+followerFolder.Parent = workspace
+local function rebuildFollowers(other: Player)
+	local key = other:GetAttribute("Followers") or ""
+	local set = followerSets[other]
+	if set and set.key == key then
+		return
+	end
+	if set then
+		for _, f in set.pets do
+			f.model:Destroy()
+		end
+	end
+	local pets = {}
+	for entry in string.gmatch(key, "[^;]+") do
+		local name = entry:match("^(.-)|%d+$")
+		local def = name and Config.PetsByName[name]
+		if def then
+			local model = Models.pet(def, { scale = 0.7 })
+			for _, child in model:GetDescendants() do
+				if child:IsA("BasePart") then
+					child.CanCollide = false
+					child.CanQuery = false
+					child.CanTouch = false
+				end
+			end
+			model.Parent = followerFolder
+			table.insert(pets, { model = model, pos = nil, bob = rng:NextNumber(0, 6), lungeUntil = 0, target = nil })
+		end
+	end
+	followerSets[other] = { key = key, pets = pets }
+end
+
+Players.PlayerRemoving:Connect(function(other)
+	local set = followerSets[other]
+	if set then
+		for _, f in set.pets do
+			f.model:Destroy()
+		end
+		followerSets[other] = nil
+	end
+end)
+
+local function animateFollowers(dt: number)
+	local cameraPos = workspace.CurrentCamera.CFrame.Position
+	for other, set in followerSets do
+		local root = other.Character and other.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local count = #set.pets
+		for i, f in set.pets do
+			if not root or (root.Position - cameraPos).Magnitude > 250 then
+				f.model:PivotTo(CFrame.new(0, -1000, 0))
+				f.pos = nil
+			else
+				local slot = root.CFrame * CFrame.new((i - (count + 1) / 2) * 3.5, 0, 5 + (i % 2) * 1.5)
+				local ground = Vector3.new(slot.Position.X, root.Position.Y - 2.8, slot.Position.Z)
+				if os.clock() < f.lungeUntil and f.target then
+					ground = ground:Lerp(f.target - Vector3.new(0, 3, 0), 0.35)
+				end
+				f.pos = if f.pos then f.pos:Lerp(ground, math.min(1, dt * 8)) else ground
+				f.bob += dt * 8
+				local look = root.CFrame.LookVector
+				f.model:PivotTo(CFrame.lookAt(f.pos, f.pos + Vector3.new(look.X, 0, look.Z)) + Vector3.new(0, math.abs(math.sin(f.bob)) * 0.4, 0))
+			end
+		end
+	end
+end
+
 local stepTimer = 0
 RunService.RenderStepped:Connect(function(dt)
 	animateSpinners(dt)
+	animateFollowers(dt)
 	-- Money counts up smoothly.
 	local target = state.money or 0
 	displayedMoney += (target - displayedMoney) * math.min(1, dt * 8)
@@ -966,6 +1063,9 @@ task.spawn(function()
 	while true do
 		worldTick()
 		scanWorld()
+		for _, other in Players:GetPlayers() do
+			rebuildFollowers(other)
+		end
 		Panels.tick()
 		refreshHud()
 
@@ -1041,6 +1141,92 @@ task.spawn(function()
 			end
 		end
 		task.wait(1.5)
+	end
+end)
+
+---------------------------------------------------------------------------
+-- Biome pop-up: a big title when you walk into a new area
+---------------------------------------------------------------------------
+
+local zonePop = container("ZonePop", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.3), Vector2.new(800, 170))
+zonePop.ZIndex = 9
+local zoneTitle = UI.text(zonePop, { Text = "", Size = UDim2.new(1, 0, 0, 100), strokeThickness = 5, TextTransparency = 1 })
+local zoneSub = UI.text(zonePop, { Text = "", TextColor3 = c(255, 220, 90), Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(0, 104), TextTransparency = 1 })
+local zoneScale = UI.new("UIScale", {}, zoneTitle)
+local zonePopId = 0
+
+local function popZone(zone: string)
+	local title, sub, color
+	if zone == "Lobby" then
+		title, sub, color = "🛡️ Safe Zone", "Your base is safe here", c(150, 220, 255)
+	elseif zone == "Dungeon" then
+		title, sub, color = "⚔️ Golem King's Dungeon", "Defeat the boss for a Boss Egg!", c(255, 150, 70)
+	else
+		local biome = Config.Biomes[Config.BiomeIndex[zone]]
+		if not biome then
+			return
+		end
+		title = `{biome.emoji} {biome.name}`
+		sub = if biome.recommended > 0 then `⚡ {Config.format(biome.recommended)} speed recommended` else "Steal your first egg here!"
+		color = biome.floor:Lerp(WHITE, 0.45)
+	end
+	zonePopId += 1
+	local id = zonePopId
+	zoneTitle.Text = title
+	zoneTitle.TextColor3 = color
+	zoneSub.Text = sub
+	zoneScale.Scale = 0.5
+	for _, label in { zoneTitle, zoneSub } do
+		label.TextTransparency = 0
+		local stroke = label:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			stroke.Transparency = 0
+		end
+	end
+	TweenService:Create(zoneScale, TweenInfo.new(0.4, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+	sound("Notify")
+	task.delay(2.6, function()
+		if id ~= zonePopId then
+			return
+		end
+		for _, label in { zoneTitle, zoneSub } do
+			TweenService:Create(label, TweenInfo.new(0.6), { TextTransparency = 1 }):Play()
+			local stroke = label:FindFirstChildOfClass("UIStroke")
+			if stroke then
+				TweenService:Create(stroke, TweenInfo.new(0.6), { Transparency = 1 }):Play()
+			end
+		end
+	end)
+end
+
+player:GetAttributeChangedSignal("Zone"):Connect(function()
+	popZone(player:GetAttribute("Zone") or "Lobby")
+end)
+
+-- Cave entrance: arrows light up in a wave toward the cave and the sign pulses.
+task.spawn(function()
+	local wave = 0
+	while true do
+		wave = (wave + 1) % 7
+		local map = workspace:FindFirstChild("Map")
+		local cave = map and map:FindFirstChild("CaveEntrance", true)
+		if cave then
+			for _, child in cave:GetChildren() do
+				if child.Name == "CaveArrow" and child:IsA("BasePart") then
+					local step = child:GetAttribute("Step") or 0
+					child.Transparency = if (6 - step) == wave then 0 else 0.65
+				end
+			end
+			local sign = cave:FindFirstChild("CaveSign")
+			local gui = sign and sign:FindFirstChild("CaveCall")
+			local call = gui and gui:FindFirstChild("Call") :: TextLabel?
+			if call then
+				local bossAwake = workspace:GetAttribute("BossActive") == true
+				call.Text = if bossAwake then "🔥 THE BOSS IS AWAKE! 🔥" else "ENTER IF YOU DARE!"
+				call.TextColor3 = if wave % 2 == 0 then c(255, 70, 70) else c(255, 210, 90)
+			end
+		end
+		task.wait(0.15)
 	end
 end)
 

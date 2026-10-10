@@ -153,37 +153,11 @@ function Eggs.getCarriers()
 	return carries
 end
 
--- Raises both arms overhead while carrying (and puts them back). The shoulder joints'
--- C0 replicates to everyone; clients also hold the arms still against the walk animation.
-local SHOULDERS = { "RightShoulder", "LeftShoulder", "Right Shoulder", "Left Shoulder" }
-local function setArmsRaised(character: Model?, raised: boolean)
-	if not character then
-		return
-	end
-	for _, motor in character:GetDescendants() do
-		if motor:IsA("Motor6D") and table.find(SHOULDERS, motor.Name) then
-			local original = motor:GetAttribute("RestC0")
-			if raised then
-				if not original then
-					original = motor.C0
-					motor:SetAttribute("RestC0", original)
-				end
-				local side = if motor.Name:find("Right") then 1 else -1
-				local lift = CFrame.Angles(0, 0, math.rad(side * 12)) * CFrame.Angles(math.rad(180), 0, 0)
-				motor.C0 = CFrame.new(original.Position) * lift * original.Rotation
-			elseif original then
-				motor.C0 = original
-			end
-		end
-	end
-end
-
 local function clearCarryVisual(player: Player, carry)
 	if carry.model then
 		carry.model:Destroy()
 		carry.model = nil
 	end
-	setArmsRaised(player.Character, false)
 	player:SetAttribute("Carrying", nil)
 end
 
@@ -200,10 +174,10 @@ local function startCarry(player: Player, egg, origin): boolean
 		Net.notify(player, "You're already carrying an egg!", "error")
 		return false
 	end
-	-- The egg rests in the raised hands, just above the head.
+	-- The egg rests in the raised hands just above the head (clients raise the arms).
 	local model = buildEggModel(egg)
 	local headTop = root.CFrame:PointToObjectSpace(head.Position).Y + head.Size.Y / 2
-	model:PivotTo(root.CFrame * CFrame.new(0, headTop + 1.1, 0))
+	model:PivotTo(root.CFrame * CFrame.new(0, headTop + 0.35, 0))
 	Models.rigForPhysics(model)
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = root
@@ -211,7 +185,6 @@ local function startCarry(player: Player, egg, origin): boolean
 	weld.Parent = model.PrimaryPart
 	model.Name = "CarriedEgg"
 	model.Parent = character
-	setArmsRaised(character, true)
 
 	local pen = World.getPen(player)
 	carries[player] = {

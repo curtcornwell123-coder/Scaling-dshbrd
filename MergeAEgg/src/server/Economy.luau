@@ -180,6 +180,9 @@ local FIELDS = {
 	equipped = function(_, data)
 		return data.equipped
 	end,
+	followers = function(_, data)
+		return { list = data.followers, slots = data.followSlots }
+	end,
 	index = function(_, data)
 		return data.index
 	end,
@@ -555,6 +558,10 @@ function Economy.sell(player: Player, request)
 				if index then
 					table.remove(data.equipped, index)
 				end
+				local followIndex = table.find(data.followers, id)
+				if followIndex then
+					table.remove(data.followers, followIndex)
+				end
 				sold += 1
 			end
 		end
@@ -565,10 +572,89 @@ function Economy.sell(player: Player, request)
 	total = math.floor(total * Economy.moneyMultiplier(player, data))
 	data.money += total
 	Net.notify(player, `Sold {sold} for ${Config.format(total)}!`, "success")
+	Economy.publishFollowers(player)
 	Net.fx(player, "Cash", total)
 	Economy.renderPets(player)
 	Eggs.renderPen(player)
-	Economy.sync(player, "money", "eggs", "nests", "pets", "equipped", "income", "perStep", "slots")
+	Economy.sync(player, "money", "eggs", "nests", "pets", "equipped", "income", "perStep", "slots", "followers")
+end
+
+---------------------------------------------------------------------------
+-- Battle pets: follow you around and fight bosses
+---------------------------------------------------------------------------
+
+-- Clients draw every player's followers from this attribute: "Name|rarity;Name|rarity".
+local function publishFollowers(player: Player)
+	local data = Data.get(player)
+	if not data then
+		return
+	end
+	local parts = {}
+	for i = #data.followers, 1, -1 do
+		local p = data.pets[data.followers[i]]
+		if not p then
+			table.remove(data.followers, i)
+		end
+	end
+	for _, id in data.followers do
+		local p = data.pets[id]
+		table.insert(parts, `{p.name}|{p.rarity}`)
+	end
+	player:SetAttribute("Followers", table.concat(parts, ";"))
+end
+Economy.publishFollowers = publishFollowers
+
+function Economy.toggleFollow(player: Player, id)
+	local data = Data.get(player)
+	if not data or type(id) ~= "string" or not data.pets[id] then
+		return
+	end
+	local index = table.find(data.followers, id)
+	if index then
+		table.remove(data.followers, index)
+	elseif #data.followers >= data.followSlots then
+		Net.notify(player, "All battle slots are full! Buy another one.", "error")
+		return
+	else
+		table.insert(data.followers, id)
+	end
+	publishFollowers(player)
+	Economy.sync(player, "followers")
+end
+
+function Economy.buyFollowSlot(player: Player)
+	local data = Data.get(player)
+	if not data then
+		return
+	end
+	local cost = Config.FollowSlotCosts[data.followSlots]
+	if not cost then
+		Net.notify(player, "You have every battle slot!", "error")
+		return
+	end
+	if not Economy.spend(player, cost) then
+		Net.notify(player, `You need ${Config.format(cost)}!`, "error")
+		return
+	end
+	data.followSlots += 1
+	Net.notify(player, "+1 battle pet slot!", "success")
+	Economy.sync(player, "money", "followers")
+end
+
+-- Total boss damage your followers deal per attack.
+function Economy.followerDamage(player: Player): number
+	local data = Data.get(player)
+	if not data then
+		return 0
+	end
+	local total = 0
+	for _, id in data.followers do
+		local p = data.pets[id]
+		if p then
+			total += Config.PetBossDamage[p.rarity] or 0
+		end
+	end
+	return total
 end
 
 ---------------------------------------------------------------------------
@@ -1114,6 +1200,7 @@ function Economy.playerAdded(player: Player, data, pen)
 
 	World.setPenLook(pen, data.penLevel, data.equippedTreadmill)
 	Economy.renderPets(player)
+	publishFollowers(player)
 
 	player.CharacterAdded:Connect(function(character)
 		onCharacter(player, character)
@@ -1359,6 +1446,8 @@ function Economy.init(context)
 	Net.on("Equip", Economy.equip)
 	Net.on("Unequip", Economy.unequip)
 	Net.on("EquipBest", Economy.equipBest)
+	Net.on("ToggleFollow", Economy.toggleFollow)
+	Net.on("BuyFollowSlot", Economy.buyFollowSlot)
 	Net.on("BuySlot", Economy.buySlot)
 	Net.on("Sell", Economy.sell)
 	Net.on("Hatch", function(player, slot)

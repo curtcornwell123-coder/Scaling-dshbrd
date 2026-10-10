@@ -1079,7 +1079,7 @@ end
 
 local function buildActive()
 	local w = sidePanel("Active", "1/1 Placed", Vector2.new(420, 470))
-	w.keys = { "pets", "equipped", "slots" }
+	w.keys = { "pets", "equipped", "slots", "followers" }
 	local slotButton = UI.button(w.header, { text = "+1 EQUIP", color = GREEN, size = UDim2.fromOffset(190, 44), position = UDim2.new(1, -8, 0, 6), anchor = Vector2.new(1, 0), onClick = function()
 		env.request("BuySlot")
 	end })
@@ -1119,14 +1119,30 @@ local function buildActive()
 			end
 			return Config.petIncome(a) > Config.petIncome(b)
 		end)
+		-- Battle pets: follow you around and fight bosses.
+		local followers = state.followers or { list = {}, slots = 1 }
+		local battleBar = UI.new("Frame", { Size = UDim2.new(1, -6, 0, 56), BackgroundColor3 = c(120, 50, 50), LayoutOrder = -1 }, list)
+		UI.corner(battleBar, 8)
+		UI.gradient(battleBar, c(170, 70, 60), c(100, 40, 45))
+		UI.text(battleBar, { Text = `⚔️ Battle pets {#followers.list}/{followers.slots}\n<font size="13">They follow you and fight bosses (rarer = more damage)</font>`, Size = UDim2.new(1, -150, 1, -8), Position = UDim2.fromOffset(8, 4), TextXAlignment = Enum.TextXAlignment.Left })
+		local followCost = Config.FollowSlotCosts[followers.slots]
+		if followCost then
+			UI.button(battleBar, { text = `+1 ${Config.format(followCost)}`, color = c(230, 140, 40), size = UDim2.fromOffset(130, 44), position = UDim2.new(1, -6, 0.5, 0), anchor = Vector2.new(1, 0.5), onClick = function()
+				env.request("BuyFollowSlot")
+			end })
+		end
 		for order, p in pets do
 			local isEquipped = table.find(equipped, p.id) ~= nil
+			local isFollowing = table.find(followers.list, p.id) ~= nil
 			local rarity = Config.Rarities[p.rarity]
 			local row = UI.new("Frame", { Size = UDim2.new(1, -6, 0, 70), BackgroundColor3 = if isEquipped then c(70, 74, 92) else c(52, 54, 66), LayoutOrder = order }, list)
 			UI.corner(row, 6)
 			UI.stroke(row, 2, rarity.color)
 			UI.viewport(row, UI.petModel(p.name), { size = UDim2.fromOffset(60, 60), position = UDim2.fromOffset(5, 5) })
-			UI.text(row, { Text = `{p.name} <font color="#7dff6b">(${Config.format(Config.petIncome(p))}/s)</font>\n<font size="14" color="{rarityHex(p.rarity)}">{rarity.name} • {p.weight}kg</font>`, Size = UDim2.new(1, -200, 1, -12), Position = UDim2.fromOffset(70, 6), TextXAlignment = Enum.TextXAlignment.Left })
+			UI.text(row, { Text = `{p.name} <font color="#7dff6b">(${Config.format(Config.petIncome(p))}/s)</font>\n<font size="14" color="{rarityHex(p.rarity)}">{rarity.name} • {p.weight}kg</font>`, Size = UDim2.new(1, -262, 1, -12), Position = UDim2.fromOffset(70, 6), TextXAlignment = Enum.TextXAlignment.Left })
+			UI.button(row, { text = "⚔️", color = if isFollowing then c(230, 140, 40) else c(80, 84, 104), size = UDim2.fromOffset(50, 48), position = UDim2.new(1, -128, 0.5, 0), anchor = Vector2.new(1, 0.5), onClick = function()
+				env.request("ToggleFollow", p.id)
+			end })
 			UI.button(row, { text = if isEquipped then "Pick Up" else "Place", color = if isEquipped then RED else GREEN, size = UDim2.fromOffset(116, 48), position = UDim2.new(1, -6, 0.5, 0), anchor = Vector2.new(1, 0.5), onClick = function()
 				env.request(if isEquipped then "Unequip" else "Equip", p.id)
 			end })

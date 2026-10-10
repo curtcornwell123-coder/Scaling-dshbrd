@@ -30,6 +30,8 @@ Data.TEMPLATE = {
 	fuse = {}, -- array of eggs waiting in the Fuse Machine
 	pets = {}, -- [id] = { id, name, biome, rarity, weight }
 	equipped = {}, -- array of pet ids
+	followers = {}, -- array of pet ids that follow you and fight bosses
+	followSlots = 1,
 	index = {}, -- [pet name] = true
 	trails = {}, -- [trail key] = true
 	equippedTrail = "",
