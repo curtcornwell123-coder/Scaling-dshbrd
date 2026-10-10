@@ -18,6 +18,11 @@
           "$path": "src/client"
         }
       }
+    },
+    "ReplicatedFirst": {
+      "Loading": {
+        "$path": "src/first/Loading.client.luau"
+      }
     }
   }
 }

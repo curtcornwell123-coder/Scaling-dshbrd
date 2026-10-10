@@ -1438,7 +1438,11 @@ local function playIntro()
 end
 
 task.spawn(function()
-	-- Wait for the map and your pen so the flyover has somewhere to land.
+	-- Wait for the loading screen to slide away, then for your pen to exist.
+	local loadStarted = os.clock()
+	while not player:GetAttribute("Loaded") and os.clock() - loadStarted < 60 do
+		task.wait(0.1)
+	end
 	local started = os.clock()
 	while (not workspace:FindFirstChild("Map") or not myPen()) and os.clock() - started < 15 do
 		task.wait(0.25)
