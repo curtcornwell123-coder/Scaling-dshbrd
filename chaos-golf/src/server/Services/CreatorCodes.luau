@@ -24,6 +24,7 @@ end)
 type Pending = { Coins: number, Robux: number, Purchases: number, Supporters: number }
 local pending: { [string]: Pending } = {}
 local lastSubmit: { [Player]: number } = {}
+local warnedFlush = false
 
 local function normalize(code: string): string
 	return (string.upper(code):gsub("[^%w_]", ""))
@@ -61,7 +62,10 @@ local function flush()
 			end)
 		end)
 		if not ok then
-			warn("[ChaosGolf] creator sales flush failed:", err)
+			if not warnedFlush then
+				warnedFlush = true
+				warn("[ChaosGolf] creator sales flush failing (will keep retrying quietly):", err)
+			end
 			local again = pending[code] or { Coins = 0, Robux = 0, Purchases = 0, Supporters = 0 }
 			again.Coins += p.Coins
 			again.Robux += p.Robux

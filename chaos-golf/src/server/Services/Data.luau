@@ -400,11 +400,17 @@ local function save(session: Session, release: boolean): boolean
 	return true
 end
 
-function Data.saveNow(player: Player)
+-- Saves immediately. Returns true when the profile is safely stored (or the
+-- session is an offline Studio profile that never saves).
+function Data.saveNow(player: Player): boolean
 	local s = sessions[player]
-	if s then
-		save(s, false)
+	if not s then
+		return false
 	end
+	if s.Offline or not store then
+		return true
+	end
+	return save(s, false)
 end
 
 -- Public profile of any user (for leaderboard podiums).

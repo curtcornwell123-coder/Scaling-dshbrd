@@ -6,6 +6,7 @@
 local DataStoreService = game:GetService("DataStoreService")
 local MessagingService = game:GetService("MessagingService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
@@ -104,6 +105,18 @@ local function refresh()
 end
 
 function MythicStock.start()
+	-- Studio without API access hands out a DataStore whose calls all fail:
+	-- probe once and fall back to local (per-server) stock tracking.
+	if store and RunService:IsStudio() then
+		local ds = store :: DataStore
+		local ok = pcall(function()
+			ds:GetAsync(KEY)
+		end)
+		if not ok then
+			store = nil
+			warn("[ChaosGolf] Studio: Mythic stock is tracked locally (enable API access to test the global stock).")
+		end
+	end
 	pcall(function()
 		MessagingService:SubscribeAsync(TOPIC, function(message)
 			local n = message.Data

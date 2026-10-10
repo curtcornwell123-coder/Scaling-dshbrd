@@ -31,6 +31,7 @@ export type Entry = { UserId: number, Name: string, Value: number }
 local cache: { [string]: { [string]: { Entry } } } = {}
 local names: { [number]: string } = {}
 local podiumState: { [string]: string } = {}
+local warnedWrite = false
 
 local function periodKey(period: string): string
 	local day = math.floor(os.time() / 86400)
@@ -80,8 +81,9 @@ local function flushSession(session: Data.Session)
 							return (if type(old) == "number" then old else 0) + amount
 						end)
 					end)
-					if not ok then
-						warn("[ChaosGolf] leaderboard write failed:", err)
+					if not ok and not warnedWrite then
+						warnedWrite = true
+						warn("[ChaosGolf] leaderboard writes failing (further warnings suppressed):", err)
 					end
 				end
 			end

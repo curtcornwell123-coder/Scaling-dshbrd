@@ -88,9 +88,11 @@ local function processReceipt(info: any): Enum.ProductPurchaseDecision
 		if MythicStock.reserve() and opener then
 			opener(player)
 		else
-			-- Sold out between prompt and payment: pay the coin price instead.
+			-- Couldn't reserve a crate (sold out, or the stock service is unreachable):
+			-- pay the coin price instead so the purchase is never lost.
 			Data.addCoins(player, Config.Mythic.CoinPrice, "refund")
-			Net.event("Toast"):FireClient(player, "Sold out! You received " .. Config.Mythic.CoinPrice .. " coins instead.", Config.Colors.Gold)
+			local reason = if MythicStock.remaining() <= 0 then "The Mythic crate just sold out" else "Couldn't reserve a Mythic crate right now"
+			Net.event("Toast"):FireClient(player, reason .. ". You received " .. Config.Mythic.CoinPrice .. " coins instead.", Config.Colors.Gold)
 		end
 	elseif product.Coins then
 		Data.addCoins(player, product.Coins, "purchase")
@@ -98,7 +100,10 @@ local function processReceipt(info: any): Enum.ProductPurchaseDecision
 	end
 	CreatorCodes.record(player, 0, info.CurrencySpent or product.Robux or 0)
 	Data.addReceipt(player, purchaseId)
-	Data.saveNow(player)
+	if not Data.saveNow(player) then
+		-- Roblox retries later; the stored receipt id prevents a double grant.
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 

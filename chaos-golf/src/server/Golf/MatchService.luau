@@ -37,6 +37,8 @@ type PlayerState = {
 	FinishOrder: number?,
 	Left: boolean,
 	StartMMR: number,
+	Forfeited: boolean,
+	Timeouts: number, -- consecutive turn timeouts (Classic)
 }
 
 type Match = {
@@ -221,6 +223,7 @@ local function makeContext(match: Match, ps: PlayerState): BallService.Context
 			return match.TurnPlayer == ball.Player and not match.AwaitingRest and allAtRest(match)
 		end,
 		OnShot = function(_ball)
+			ps.Timeouts = 0
 			if not match.Mode.Simultaneous then
 				match.AwaitingRest = true
 				BallService.refreshAll()
@@ -403,12 +406,18 @@ local function playHole(match: Match, index: number)
 				end
 			elseif t > match.TurnDeadline then
 				local ball = BallService.get(turnPs.Player)
+				turnPs.Timeouts += 1
 				if ball then
 					ball.Strokes += 1
 					BallService.refresh(ball)
-					Net.event("Toast"):FireClient(turnPs.Player, "Turn timed out: +1 stroke", Config.Colors.Bad)
-					if ball.Strokes >= cap(match) then
+					if turnPs.Timeouts >= 2 then
+						Net.event("Toast"):FireClient(turnPs.Player, "Two missed turns: hole forfeited", Config.Colors.Bad)
 						finishPlayer(match, turnPs, cap(match), false)
+					else
+						Net.event("Toast"):FireClient(turnPs.Player, "Turn timed out: +1 stroke", Config.Colors.Bad)
+						if ball.Strokes >= cap(match) then
+							finishPlayer(match, turnPs, cap(match), false)
+						end
 					end
 				end
 				if not turnPs.Finished then
@@ -750,6 +759,8 @@ function MatchService.launch(modeId: string, players: { Player }, mapId: string)
 			FinishOrder = nil,
 			Left = false,
 			StartMMR = (Data.profile(p) :: Data.Profile).Ranked.MMR,
+			Forfeited = false,
+			Timeouts = 0,
 		}
 		table.insert(match.Players, ps)
 		match.ByPlayer[p] = ps
@@ -772,12 +783,29 @@ function MatchService.launch(modeId: string, players: { Player }, mapId: string)
 	return true
 end
 
-local function onLeave(player: Player)
+-- Ranked leavers take the loss. Called from both PlayerRemoving and the Data
+-- release hook (whichever runs first); applied once.
+local function forfeit(match: Match, ps: PlayerState, profile: Data.Profile?)
+	if ps.Forfeited or not profile or not match.Mode.Ranked or match.Ended or #match.Players ~= 2 then
+		return
+	end
+	ps.Forfeited = true
+	local other = if match.Players[1] == ps then match.Players[2] else match.Players[1]
+	local delta = Ranks.delta(profile.Ranked.MMR, other.StartMMR, 0, profile.Ranked.Played < Config.Ranked.PlacementMatches)
+	profile.Ranked.MMR = math.max(0, profile.Ranked.MMR + delta)
+	profile.Ranked.Played += 1
+	profile.Ranked.Losses += 1
+end
+
+local function onLeave(player: Player, profile: Data.Profile?)
 	local match = byPlayer[player]
 	if not match then
 		return
 	end
 	local ps = match.ByPlayer[player]
+	if ps then
+		forfeit(match, ps, profile or Data.profile(player))
+	end
 	if ps and not ps.Left then
 		ps.Left = true
 		ps.Finished = true
@@ -791,22 +819,12 @@ local function onLeave(player: Player)
 end
 
 function MatchService.start()
-	-- Ranked leavers take the loss before their profile is saved.
 	Data.onRelease(function(session)
-		local player = session.Player
-		local match = byPlayer[player]
-		if match and match.Mode.Ranked and not match.Ended and #match.Players == 2 then
-			local me = match.ByPlayer[player]
-			local other = if match.Players[1] == me then match.Players[2] else match.Players[1]
-			local profile = session.Profile
-			local delta = Ranks.delta(profile.Ranked.MMR, other.StartMMR, 0, profile.Ranked.Played < Config.Ranked.PlacementMatches)
-			profile.Ranked.MMR = math.max(0, profile.Ranked.MMR + delta)
-			profile.Ranked.Played += 1
-			profile.Ranked.Losses += 1
-		end
-		onLeave(player)
+		onLeave(session.Player, session.Profile)
 	end)
-	Players.PlayerRemoving:Connect(onLeave)
+	Players.PlayerRemoving:Connect(function(player)
+		onLeave(player, nil)
+	end)
 end
 
 return MatchService

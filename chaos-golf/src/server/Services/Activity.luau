@@ -54,7 +54,8 @@ function Activity.unpark(player: Player, cf: CFrame?)
 		root.AssemblyLinearVelocity = Vector3.zero
 		local target = cf
 		if not target then
-			local offset = Vector3.new(math.random(-6, 6), 0, math.random(-3, 3))
+			-- Spread arrivals on the west side of spawn, clear of the direction sign (east).
+			local offset = Vector3.new(math.random(-6, 0), 0, math.random(-3, 1))
 			target = lobbySpawn + offset
 		end
 		root.CFrame = target :: CFrame

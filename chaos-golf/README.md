@@ -36,6 +36,13 @@ luau-lsp analyze --sourcemap=sourcemap.json --definitions=globalTypes.d.luau src
 
 `globalTypes.d.luau` comes from the luau-lsp repo (`scripts/globalTypes.d.luau`). Every file is `--!strict` and type-checks clean.
 
+Tests (need the standalone `luau` binary from the Luau releases):
+
+```
+python3 tests/run.py path/to/luau                                  # shared logic: odds, pity, daily, ranks, maps, catalog
+tests/boot/run.sh path/to/luau path/to/globalTypes.d.luau forward  # boots the whole game headlessly and plays every flow
+```
+
 ### Where things live
 
 | Want to change… | Edit |
