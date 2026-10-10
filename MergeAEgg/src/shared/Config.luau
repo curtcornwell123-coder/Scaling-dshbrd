@@ -599,6 +599,14 @@ Config.PlaytimeGifts = {
 	{ minutes = 120, egg = 6 },
 }
 
+-- Background music: paste audio asset ids (e.g. "rbxassetid://1234567890").
+-- Lobby plays in the base area; Biomes plays out in the corridor ("" = keep lobby music).
+Config.Music = {
+	Lobby = "",
+	Biomes = "",
+	Volume = 0.35,
+}
+
 -- Shown when a player opens the Roblox menu (usually about to leave). Once per day.
 Config.LeaveReward = { egg = 3, money = 2000, incomeSeconds = 300 }
 

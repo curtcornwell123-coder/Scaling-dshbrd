@@ -992,6 +992,46 @@ task.spawn(function()
 end)
 
 ---------------------------------------------------------------------------
+-- Music: lobby track at the bases, optional biome track in the corridor, mute button
+---------------------------------------------------------------------------
+
+local musicMuted = false
+local tracks = {}
+for name, id in { Lobby = Config.Music.Lobby, Biomes = Config.Music.Biomes } do
+	if id ~= "" then
+		local track = Instance.new("Sound")
+		track.Name = "MAE_Music_" .. name
+		track.SoundId = id
+		track.Looped = true
+		track.Volume = 0
+		track.Parent = SoundService
+		track:Play()
+		tracks[name] = track
+	end
+end
+
+local muteButton, muteLabel = UI.button(stats, { text = "🔊", color = c(90, 95, 120), size = UDim2.fromOffset(56, 50), position = UDim2.fromOffset(0, -60), onClick = function() end })
+muteButton.Visible = next(tracks) ~= nil
+muteButton.Activated:Connect(function()
+	musicMuted = not musicMuted
+	muteLabel.Text = if musicMuted then "🔇" else "🔊"
+end)
+
+-- Cross-fades between tracks depending on where you are.
+task.spawn(function()
+	while true do
+		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local inLobby = not root or root.Position.Z < 30
+		local wanted = if inLobby or not tracks.Biomes then "Lobby" else "Biomes"
+		for name, track in tracks do
+			local target = if musicMuted or name ~= wanted then 0 else Config.Music.Volume
+			TweenService:Create(track, TweenInfo.new(1.5), { Volume = target }):Play()
+		end
+		task.wait(1)
+	end
+end)
+
+---------------------------------------------------------------------------
 -- Leaving? Alert sound + a free gift popup (once per day)
 ---------------------------------------------------------------------------
 
