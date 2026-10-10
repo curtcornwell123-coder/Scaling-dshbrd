@@ -63,7 +63,11 @@ function UI.stroke(parent: Instance, thickness: number?, color: Color3?, context
 	}, parent)
 end
 
+-- UIGradient multiplies with BackgroundColor3, so the parent goes white and the gradient owns the colour.
 function UI.gradient(parent: Instance, top: Color3, bottom: Color3, rotation: number?)
+	if parent:IsA("GuiObject") then
+		parent.BackgroundColor3 = WHITE
+	end
 	return UI.new("UIGradient", { Color = ColorSequence.new(top, bottom), Rotation = rotation or 90 }, parent)
 end
 
@@ -138,7 +142,6 @@ end
 function UI.setButton(button: TextButton, text: string, color: Color3)
 	local label = button:FindFirstChild("Label") :: TextLabel
 	label.Text = text
-	button.BackgroundColor3 = color
 	local stroke = button:FindFirstChildOfClass("UIStroke")
 	if stroke then
 		stroke.Color = color:Lerp(Color3.new(), 0.55)
@@ -573,7 +576,7 @@ local function buildShop()
 	-- PASSES
 	w.sections.Passes = section(list, "PASSES", YELLOW, 10)
 	local passGrid = UI.new("Frame", { Size = UDim2.new(1, -10, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = 11 }, list)
-	UI.new("UIGridLayout", { CellSize = UDim2.fromOffset(360, 180), CellPadding = UDim2.fromOffset(12, 12), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, passGrid)
+	UI.new("UIGridLayout", { CellSize = UDim2.fromOffset(355, 180), CellPadding = UDim2.fromOffset(12, 12), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }, passGrid)
 	local passStyles = {
 		Growth = { icon = "⏱️", a = c(255, 140, 200), b = c(120, 200, 255) },
 		Money = { icon = "💰", a = c(255, 230, 90), b = c(240, 170, 30) },
@@ -647,7 +650,8 @@ local function buildShop()
 		local target = sectionName and w.sections[sectionName]
 		task.defer(function()
 			if target then
-				list.CanvasPosition = Vector2.new(0, math.max(0, target.AbsolutePosition.Y - list.AbsolutePosition.Y + list.CanvasPosition.Y - 8))
+				local delta = (target.AbsolutePosition.Y - list.AbsolutePosition.Y) / w.scale.Scale
+				list.CanvasPosition = Vector2.new(0, math.max(0, delta + list.CanvasPosition.Y - 8))
 			else
 				list.CanvasPosition = Vector2.zero
 			end
@@ -753,7 +757,7 @@ local function buildSell()
 	UI.button(left, { text = "✅ Select All", color = GREEN, size = UDim2.new(1, -16, 0, 44), position = UDim2.fromOffset(8, 160), onClick = function()
 		local allSelected = true
 		for _, item in w.items do
-			if not w.selected[item.id] then
+			if not item.locked and not w.selected[item.id] then
 				allSelected = false
 			end
 		end
@@ -805,6 +809,16 @@ local function buildSell()
 	local sellButton = bottom:FindFirstChild("SellButton") :: TextButton
 
 	w.items = {}
+	local function updateTotal()
+		local total = 0
+		for _, item in w.items do
+			if w.selected[item.id] then
+				total += item.value
+			end
+		end
+		w.total.Text = `💵 <font color="#7dff6b">${Config.format(total)}</font>`
+		UI.setButton(sellButton, "Sell", if total > 0 then GREEN else c(90, 95, 110))
+	end
 	w.refresh = function()
 		local state = env.state
 		UI.setButton(weightButton, "⬇ Weight", if w.sort == "Weight" then GREEN else c(80, 85, 100))
@@ -835,16 +849,12 @@ local function buildSell()
 				child:Destroy()
 			end
 		end
-		local total = 0
 		for order, item in w.items do
 			local selected = w.selected[item.id] == true
-			if selected then
-				total += item.value
-			end
 			local rarity = Config.Rarities[item.data.rarity]
 			local cell = UI.new("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = if selected then c(60, 140, 60) else c(55, 58, 72), LayoutOrder = order }, grid)
 			UI.corner(cell, 8)
-			UI.stroke(cell, 3, if selected then GREEN else rarity.color)
+			local cellStroke = UI.stroke(cell, 3, if selected then GREEN else rarity.color)
 			local model = if item.kind == "pet" then UI.petModel(item.data.name) else UI.eggModel(item.data)
 			UI.viewport(cell, model, { size = UDim2.new(1, -8, 1, -54), position = UDim2.fromOffset(4, 4) })
 			UI.text(cell, { Text = if item.kind == "pet" then item.data.name else eggName(item.data), Size = UDim2.new(1, -6, 0, 20), Position = UDim2.new(0, 3, 1, -50), TextColor3 = rarity.color })
@@ -857,12 +867,14 @@ local function buildSell()
 					env.notify("Unequip this pet first (Pets panel).", "error")
 					return
 				end
-				w.selected[item.id] = if w.selected[item.id] then nil else true
-				w.refresh()
+				local nowSelected = not w.selected[item.id]
+				w.selected[item.id] = if nowSelected then true else nil
+				cell.BackgroundColor3 = if nowSelected then c(60, 140, 60) else c(55, 58, 72)
+				cellStroke.Color = if nowSelected then GREEN else rarity.color
+				updateTotal()
 			end)
 		end
-		w.total.Text = `💵 <font color="#7dff6b">${Config.format(total)}</font>`
-		UI.setButton(sellButton, "Sell", if total > 0 then GREEN else c(90, 95, 110))
+		updateTotal()
 	end
 end
 
@@ -913,7 +925,7 @@ local function shopCards(name: string, title: string, headerColor: Color3, items
 					local state = env.state[kind] or { owned = {} }
 					if state.owned[item.key] then
 						env.request(if kind == "trails" then "EquipTrail" else "EquipTreadmill", item.key)
-					elseif item.robux and Config.Products[item.robux] then
+					elseif item.robux and (env.state.money or 0) < item.cost then
 						buyProduct(item.robux)
 					elseif item.vip then
 						buyPass("VIP")
@@ -1044,7 +1056,7 @@ end
 
 local function buildActive()
 	local w = sidePanel("Active", "1/1 Active", Vector2.new(420, 470))
-	w.keys = { "pets", "equipped", "slots", "money" }
+	w.keys = { "pets", "equipped", "slots" }
 	local slotButton = UI.button(w.header, { text = "+1 EQUIP", color = GREEN, size = UDim2.fromOffset(190, 44), position = UDim2.new(1, -8, 0, 6), anchor = Vector2.new(1, 0), onClick = function()
 		env.request("BuySlot")
 	end })
@@ -1052,16 +1064,21 @@ local function buildActive()
 	UI.button(w.frame, { text = "Equip Best", color = GREEN, size = UDim2.fromOffset(190, 50), position = UDim2.new(1, -8, 1, 8), anchor = Vector2.new(1, 0), onClick = function()
 		env.request("EquipBest")
 	end })
+	-- Slot button follows money on the timer tick; the list only rebuilds when pets change.
+	w.tick = function()
+		local slots = env.state.slots or { used = 0, max = 1, bought = 1 }
+		local cost = Config.EquipSlotCosts[slots.bought]
+		slotButton.Visible = cost ~= nil
+		if cost then
+			UI.setButton(slotButton, `+1 EQUIP [${Config.format(cost)}]`, if (env.state.money or 0) >= cost then GREEN else c(200, 120, 40))
+		end
+	end
 	w.refresh = function()
 		local state = env.state
 		local slots = state.slots or { used = 0, max = 1, bought = 1 }
 		local title = w.header:FindFirstChild("Title") :: TextLabel
 		title.Text = `{slots.used}/{slots.max} Active`
-		local cost = Config.EquipSlotCosts[slots.bought]
-		slotButton.Visible = cost ~= nil
-		if cost then
-			UI.setButton(slotButton, `+1 EQUIP [${Config.format(cost)}]`, if (state.money or 0) >= cost then GREEN else c(200, 120, 40))
-		end
+		w.tick()
 		for _, child in list:GetChildren() do
 			if child:IsA("Frame") or child:IsA("TextLabel") then
 				child:Destroy()
@@ -1249,6 +1266,7 @@ end
 
 local function buildGiftPicker()
 	local w = window("GiftPicker", "🎁 Gift to...", c(200, 70, 230), Vector2.new(520, 460))
+	w.keys = {}
 	local list = UI.scroll(w.body, { gapPx = 8 })
 	local callback = nil
 	giftPicker = function(onPick)

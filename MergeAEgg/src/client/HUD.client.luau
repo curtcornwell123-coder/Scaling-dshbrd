@@ -150,6 +150,7 @@ local cycleLabel = UI.text(cycleBack, { Text = "", Size = UDim2.new(1, -16, 1, -
 
 -- Top-centre: hint / announcement banner and toasts.
 local top = container("Top", Vector2.new(0.5, 0), UDim2.new(0.5, 0, 0, 8), Vector2.new(900, 260))
+top.ZIndex = 10 -- toasts draw above open windows
 local banner = UI.text(top, { Text = "Upgrade your Pen!", Size = UDim2.new(1, 0, 0, 70), strokeThickness = 4 })
 local bossBanner = UI.text(top, { Text = "⚔️ The Golem King is awake in the Cave!", TextColor3 = c(255, 150, 70), Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 72), Visible = false })
 local toasts = UI.new("Frame", { Size = UDim2.new(0.8, 0, 0, 150), Position = UDim2.new(0.1, 0, 0, 104), BackgroundTransparency = 1 }, top)
@@ -157,6 +158,7 @@ UI.new("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.Ho
 
 -- Bottom-centre: what you're carrying.
 local carryFrame = container("Carry", Vector2.new(0.5, 1), UDim2.new(0.5, 0, 1, -96), Vector2.new(620, 52))
+carryFrame.ZIndex = 10
 local carryBack = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = c(255, 170, 40), Visible = false }, carryFrame)
 UI.corner(carryBack, 10)
 UI.stroke(carryBack, 3)
@@ -313,7 +315,11 @@ remotes:WaitForChild("Sync").OnClientEvent:Connect(function(patch)
 	if firstSync and state.daily then
 		firstSync = false
 		if state.daily.canClaim then
-			task.delay(1.5, function()
+			task.delay(2.5, function()
+				-- Let the "Welcome back" earnings screen finish first.
+				while Panels.isOpen("Welcome") do
+					task.wait(0.5)
+				end
 				Panels.open("Daily")
 			end)
 		end
@@ -472,16 +478,27 @@ if player.Character then
 	onCharacter(player.Character)
 end
 
-local function myPen(): Model?
-	local map = workspace:FindFirstChild("Map")
-	if not map then
-		return nil
-	end
-	for _, slot in map:GetChildren() do
-		for _, pen in slot:GetChildren() do
-			if pen:IsA("Model") and pen:GetAttribute("OwnerUserId") == player.UserId then
-				return pen
+-- The six pen models, cached once they have all replicated.
+local penModels: { Model } = {}
+local function getPens(): { Model }
+	if #penModels < 6 then
+		table.clear(penModels)
+		local map = workspace:FindFirstChild("Map")
+		for i = 1, 6 do
+			local slot = map and map:FindFirstChild("PenSlot" .. i)
+			local pen = slot and slot:FindFirstChild("Pen" .. i)
+			if pen and pen:IsA("Model") then
+				table.insert(penModels, pen)
 			end
+		end
+	end
+	return penModels
+end
+
+local function myPen(): Model?
+	for _, pen in getPens() do
+		if pen:GetAttribute("OwnerUserId") == player.UserId then
+			return pen
 		end
 	end
 	return nil
@@ -635,6 +652,40 @@ local function setPrompt(promptParent: Instance?, name: string, enabled: boolean
 	end
 end
 
+-- Owner sees Hatch/Pick Up/Fuse/Upgrade prompts; everyone else only sees Steal.
+local function updatePen(pen: Model, now: number, carrying: boolean)
+	local isMine = pen:GetAttribute("OwnerUserId") == player.UserId
+	local occupied = (pen:GetAttribute("OwnerUserId") or 0) ~= 0
+	if isMine then
+		homeMarker.Adornee = pen:FindFirstChild("PenFloor") :: BasePart?
+	end
+	local eggs = pen:FindFirstChild("Eggs")
+	if eggs then
+		for _, egg in eggs:GetChildren() do
+			local root = egg:IsA("Model") and egg.PrimaryPart
+			if root then
+				local growEnd = egg:GetAttribute("GrowEnd") or 0
+				local ready = growEnd <= now
+				setPrompt(root, "Hatch", isMine and ready)
+				setPrompt(root, "PickUp", isMine and not carrying)
+				setPrompt(root, "Steal", not isMine and occupied and not carrying)
+				local tag = root:FindFirstChild("EggTag")
+				local info = tag and tag:FindFirstChild("Info") :: TextLabel?
+				if info then
+					info.Text = if ready then "✅ READY!" else `⏳ {Config.formatTime(growEnd - now)}`
+					info.TextColor3 = if ready then c(120, 255, 100) else WHITE
+				end
+			end
+		end
+	end
+	local fuse = pen:FindFirstChild("FuseMachine")
+	if fuse then
+		setPrompt(fuse:FindFirstChild("Pod2"), "ProximityPrompt", isMine and carrying)
+		setPrompt(fuse.PrimaryPart, "ProximityPrompt", isMine and #(state.fuse or {}) > 0)
+	end
+	setPrompt(pen:FindFirstChild("SignPost"), "ProximityPrompt", isMine and Config.PenLevels[(state.penLevel or 1) + 1] ~= nil)
+end
+
 local function worldTick()
 	local map = workspace:FindFirstChild("Map")
 	if not map then
@@ -642,44 +693,8 @@ local function worldTick()
 	end
 	local now = serverNow()
 	local carrying = player:GetAttribute("Carrying") ~= nil
-	for _, slot in map:GetChildren() do
-		for _, pen in slot:GetChildren() do
-			if pen:IsA("Model") and pen:GetAttribute("PenIndex") then
-				local isMine = pen:GetAttribute("OwnerUserId") == player.UserId
-				local occupied = (pen:GetAttribute("OwnerUserId") or 0) ~= 0
-				if isMine then
-					local floor = pen:FindFirstChild("PenFloor") :: BasePart?
-					homeMarker.Adornee = floor
-				end
-				-- Pen eggs: owner sees Hatch/Pick Up, everyone else sees Steal.
-				local eggs = pen:FindFirstChild("Eggs")
-				if eggs then
-					for _, egg in eggs:GetChildren() do
-						local root = egg:IsA("Model") and egg.PrimaryPart
-						if root then
-							local growEnd = egg:GetAttribute("GrowEnd") or 0
-							local ready = growEnd <= now
-							setPrompt(root, "Hatch", isMine and ready)
-							setPrompt(root, "PickUp", isMine and not carrying)
-							setPrompt(root, "Steal", not isMine and occupied and not carrying)
-							local tag = root:FindFirstChild("EggTag")
-							local info = tag and tag:FindFirstChild("Info") :: TextLabel?
-							if info then
-								info.Text = if ready then "✅ READY!" else `⏳ {Config.formatTime(growEnd - now)}`
-								info.TextColor3 = if ready then c(120, 255, 100) else WHITE
-							end
-						end
-					end
-				end
-				local fuse = pen:FindFirstChild("FuseMachine")
-				if fuse then
-					setPrompt(fuse:FindFirstChild("Pod2"), "ProximityPrompt", isMine and carrying)
-					setPrompt(fuse.PrimaryPart, "ProximityPrompt", isMine and #(state.fuse or {}) > 0)
-				end
-				local post = pen:FindFirstChild("SignPost")
-				setPrompt(post, "ProximityPrompt", isMine and Config.PenLevels[(state.penLevel or 1) + 1] ~= nil)
-			end
-		end
+	for _, pen in getPens() do
+		updatePen(pen, now, carrying)
 	end
 
 	-- Rebirth machine chains fall away when you can afford it.
@@ -722,26 +737,18 @@ local function setupBelt(belt: BasePart)
 end
 
 local function scanWorld()
-	local map = workspace:FindFirstChild("Map")
-	if not map then
-		return
-	end
 	for belt, info in belts do
 		if not belt.Parent then
 			info.gui:Destroy()
 			belts[belt] = nil
 		end
 	end
-	for _, slot in map:GetChildren() do
-		for _, pen in slot:GetChildren() do
-			if pen:IsA("Model") and pen:GetAttribute("PenIndex") then
-				for _, child in pen:GetChildren() do
-					if child.Name:match("^Treadmill") then
-						local belt = child:FindFirstChild("Belt")
-						if belt and belt:IsA("BasePart") then
-							setupBelt(belt)
-						end
-					end
+	for _, pen in getPens() do
+		for _, child in pen:GetChildren() do
+			if child.Name:match("^Treadmill") then
+				local belt = child:FindFirstChild("Belt")
+				if belt and belt:IsA("BasePart") then
+					setupBelt(belt)
 				end
 			end
 		end
@@ -766,6 +773,40 @@ local function onOwnBelt(): boolean
 		end
 	end
 	return false
+end
+
+local PET_ANIMATE_DISTANCE = 200
+
+local function animatePet(pet: Model, areaCf: CFrame, areaSize: Vector3, dt: number)
+	local ps = petStates[pet]
+	if not ps then
+		ps = { pos = pet:GetPivot().Position, target = nil, wait = rng:NextNumber(0, 2), bob = rng:NextNumber(0, 6), yaw = 0 }
+		petStates[pet] = ps
+		pet.Destroying:Connect(function()
+			petStates[pet] = nil
+		end)
+	end
+	if ps.wait > 0 then
+		ps.wait -= dt
+	else
+		if not ps.target then
+			local half = areaSize / 2
+			ps.target = (areaCf * CFrame.new(rng:NextNumber(-half.X, half.X), 0, rng:NextNumber(-half.Z, half.Z))).Position
+		end
+		local delta = Vector3.new(ps.target.X - ps.pos.X, 0, ps.target.Z - ps.pos.Z)
+		if delta.Magnitude < 0.5 then
+			ps.target = nil
+			ps.wait = rng:NextNumber(1, 3.5)
+		else
+			ps.pos += delta.Unit * math.min(delta.Magnitude, 5 * dt)
+			ps.yaw = math.atan2(-delta.X, -delta.Z)
+			ps.bob += dt * 10
+		end
+	end
+	local hop = if ps.wait > 0 then 0 else math.abs(math.sin(ps.bob)) * 0.5
+	local base = Vector3.new(ps.pos.X, areaCf.Position.Y, ps.pos.Z)
+	local height = (pet.PrimaryPart :: BasePart).Size.Y / 2
+	pet:PivotTo(CFrame.new(base + Vector3.new(0, height + hop, 0)) * CFrame.Angles(0, ps.yaw, 0))
 end
 
 local stepTimer = 0
@@ -800,50 +841,16 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 	end
 
-	-- Pets wander inside their pen area.
-	local map = workspace:FindFirstChild("Map")
-	if map then
-		for _, slot in map:GetChildren() do
-			for _, pen in slot:GetChildren() do
-				local folder = pen:IsA("Model") and pen:FindFirstChild("Pets")
-				if folder then
-					local areaCf = folder:GetAttribute("AreaCF")
-					local areaSize = folder:GetAttribute("AreaSize")
-					if areaCf and areaSize then
-						for _, pet in folder:GetChildren() do
-							if pet:IsA("Model") and pet.PrimaryPart then
-								local ps = petStates[pet]
-								if not ps then
-									ps = { pos = pet:GetPivot().Position, target = nil, wait = rng:NextNumber(0, 2), bob = rng:NextNumber(0, 6), yaw = 0 }
-									petStates[pet] = ps
-									pet.Destroying:Connect(function()
-										petStates[pet] = nil
-									end)
-								end
-								if ps.wait > 0 then
-									ps.wait -= dt
-								else
-									if not ps.target then
-										local half = areaSize / 2
-										ps.target = (areaCf * CFrame.new(rng:NextNumber(-half.X, half.X), 0, rng:NextNumber(-half.Z, half.Z))).Position
-									end
-									local delta = Vector3.new(ps.target.X - ps.pos.X, 0, ps.target.Z - ps.pos.Z)
-									if delta.Magnitude < 0.5 then
-										ps.target = nil
-										ps.wait = rng:NextNumber(1, 3.5)
-									else
-										ps.pos += delta.Unit * math.min(delta.Magnitude, 5 * dt)
-										ps.yaw = math.atan2(-delta.X, -delta.Z)
-										ps.bob += dt * 10
-									end
-								end
-								local hop = if ps.wait > 0 then 0 else math.abs(math.sin(ps.bob)) * 0.5
-								local base = Vector3.new(ps.pos.X, areaCf.Position.Y, ps.pos.Z)
-								local height = pet.PrimaryPart.Size.Y / 2
-								pet:PivotTo(CFrame.new(base + Vector3.new(0, height + hop, 0)) * CFrame.Angles(0, ps.yaw, 0))
-							end
-						end
-					end
+	-- Pets wander inside their pen area (only near the camera).
+	local cameraPos = workspace.CurrentCamera.CFrame.Position
+	for _, pen in getPens() do
+		local folder = pen:FindFirstChild("Pets")
+		local areaCf = folder and folder:GetAttribute("AreaCF")
+		local areaSize = folder and folder:GetAttribute("AreaSize")
+		if areaCf and areaSize and (areaCf.Position - cameraPos).Magnitude < PET_ANIMATE_DISTANCE then
+			for _, pet in folder:GetChildren() do
+				if pet:IsA("Model") and pet.PrimaryPart then
+					animatePet(pet, areaCf, areaSize, dt)
 				end
 			end
 		end

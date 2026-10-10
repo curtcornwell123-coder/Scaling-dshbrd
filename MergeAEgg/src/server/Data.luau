@@ -50,6 +50,7 @@ local store: DataStore? = nil
 local boards: { [string]: OrderedDataStore } = {}
 local profiles: { [Player]: any } = {}
 local saving: { [Player]: boolean } = {}
+local releasing: { [Player]: boolean } = {}
 local enabled = false
 local jobId = if RunService:IsStudio() then "studio-" .. HttpService:GenerateGUID(false) else game.JobId
 
@@ -205,13 +206,10 @@ function Data.load(player: Player)
 	return loaded
 end
 
-function Data.save(player: Player, release: boolean?)
-	local data = profiles[player]
-	if not data or not enabled or not store then
-		return
-	end
-	if saving[player] and not release then
-		return
+-- Writes one profile. Waits for any write already in flight so saves never land out of order.
+local function write(player: Player, data, release: boolean): boolean
+	while saving[player] do
+		task.wait()
 	end
 	saving[player] = true
 	data.lastOnline = os.time()
@@ -230,13 +228,30 @@ function Data.save(player: Player, release: boolean?)
 		warn(`[Data] Could not save {player.Name}`)
 	end
 	saving[player] = nil
+	return ok
 end
 
-function Data.release(player: Player)
-	if profiles[player] then
-		Data.save(player, true)
-		profiles[player] = nil
+-- Returns true once the profile is safely stored (or saving is off).
+function Data.save(player: Player): boolean
+	local data = profiles[player]
+	if not enabled or not store or not data or releasing[player] then
+		return true
 	end
+	return write(player, data, false)
+end
+
+-- Final save that also unlocks the profile for the next server.
+function Data.release(player: Player)
+	local data = profiles[player]
+	if not data or releasing[player] then
+		return
+	end
+	releasing[player] = true
+	if enabled and store then
+		write(player, data, true)
+	end
+	profiles[player] = nil
+	releasing[player] = nil
 end
 
 function Data.startAutosave()
@@ -252,18 +267,14 @@ function Data.startAutosave()
 	end)
 
 	game:BindToClose(function()
-		local pending = 0
 		for _, player in Players:GetPlayers() do
 			if profiles[player] then
-				pending += 1
-				task.spawn(function()
-					Data.release(player)
-					pending -= 1
-				end)
+				task.spawn(Data.release, player)
 			end
 		end
+		-- Also waits for releases that started when the last players left.
 		local started = os.clock()
-		while pending > 0 and os.clock() - started < 25 do
+		while next(profiles) ~= nil and os.clock() - started < 25 do
 			task.wait(0.2)
 		end
 	end)

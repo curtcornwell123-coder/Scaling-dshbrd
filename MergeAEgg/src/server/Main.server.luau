@@ -159,11 +159,13 @@ local function findPlayer(query: string): Player?
 	return nil
 end
 
--- Accepts an online name, an offline username, or a numeric user id.
+-- Accepts an exact online name, an offline username, or a numeric user id.
+-- No prefix matching here: a ban must never land on the wrong person.
 local function resolveUserId(query: string): (number?, string)
-	local online = findPlayer(query)
-	if online then
-		return online.UserId, online.Name
+	for _, online in Players:GetPlayers() do
+		if online.Name:lower() == query:lower() then
+			return online.UserId, online.Name
+		end
 	end
 	local numeric = tonumber(query)
 	if numeric then
@@ -192,7 +194,8 @@ local function parseDuration(text: string?): number?
 		return nil
 	end
 	local multipliers = { s = 1, m = 60, h = 3600, d = 86400, [""] = 60 }
-	return tonumber(amount) * multipliers[unit]
+	local seconds = tonumber(amount) * multipliers[unit]
+	return if seconds > 0 then seconds else nil
 end
 
 local function describeDuration(seconds: number): string
@@ -228,7 +231,7 @@ end
 
 commands.ban = function(admin: Player, args)
 	if not args[1] then
-		return "Usage: /ban <player> <30m|12h|7d|perm> <reason>"
+		return "Usage: /ban <exact username or userId> <30m|12h|7d|perm> <reason>"
 	end
 	local duration = parseDuration(args[2])
 	if not duration then
@@ -355,7 +358,7 @@ commands.boss = function()
 	return "Boss spawned."
 end
 
-commands.help = function()
+commands.adminhelp = function()
 	return "Commands: /kick, /ban, /unban, /money, /speed, /egg, /night, /boss"
 end
 

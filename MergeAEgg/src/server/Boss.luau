@@ -105,6 +105,10 @@ local function throwRock()
 	}):Play()
 	task.wait(Config.Boss.telegraphTime)
 	ring:Destroy()
+	if active ~= b then
+		rock:Destroy()
+		return
+	end
 	Net.fxAll("BossSlam", landing, 8)
 	for _, entry in playersNear(landing, 8) do
 		local offset = Vector3.new(entry.root.Position.X - landing.X, 0, entry.root.Position.Z - landing.Z)

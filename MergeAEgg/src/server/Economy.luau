@@ -613,6 +613,14 @@ function Economy.rebirth(player: Player)
 	data.money = 0
 	data.speed = 0
 	data.penLevel = 1
+	local nestCount = Config.PenLevels[1].nests
+	for slot, egg in data.nests do
+		if tonumber(slot) > nestCount then
+			data.nests[slot] = nil
+			egg.growEnd = nil
+			data.eggs[egg.id] = egg
+		end
+	end
 	World.setPenLook(session.pen, 1, data.equippedTreadmill)
 	Economy.refreshWalkSpeed(player)
 	Economy.refreshTreadmillText(player)
@@ -798,18 +806,21 @@ function Economy.claimGroup(player: Player)
 	if not data or data.groupRewardClaimed then
 		return
 	end
+	-- Mark first so spammed requests can't all pass while the group check yields.
+	data.groupRewardClaimed = true
 	local ok, inGroup = pcall(function()
 		return player:IsInGroupAsync(Config.GroupId)
 	end)
 	if not ok then
+		data.groupRewardClaimed = false
 		Net.notify(player, "Couldn't check the group right now, try again!", "error")
 		return
 	end
 	if not inGroup then
+		data.groupRewardClaimed = false
 		Net.fx(player, "Popup", "You must join the group to claim this reward!")
 		return
 	end
-	data.groupRewardClaimed = true
 	Economy.addSpeed(player, Config.GroupRewardSpeed)
 	Net.notify(player, `Thanks for joining! +{Config.formatWithCommas(Config.GroupRewardSpeed)} Speed!`, "success")
 	Net.fx(player, "Celebrate")
@@ -898,7 +909,10 @@ local function processReceipt(receipt)
 	while #buyerData.purchases > 50 do
 		table.remove(buyerData.purchases, 1)
 	end
-	Data.save(buyer)
+	if not Data.save(buyer) then
+		-- Roblox retries later; the recorded PurchaseId stops a double grant.
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 

@@ -933,6 +933,15 @@ function features.eyes_many(model, a, def, s)
 	end)
 end
 
+function features.candy_corn(model, a, def, s)
+	eachHead(a, function(head)
+		local base = headTop(head, 0)
+		upCylinder(model, "CandyCorn", 0.9 * s, 0.3 * s, base * CFrame.new(0, 0.15 * s, 0), c(255, 210, 40))
+		upCylinder(model, "CandyCorn", 0.62 * s, 0.3 * s, base * CFrame.new(0, 0.45 * s, 0), c(255, 130, 30))
+		upCylinder(model, "CandyCorn", 0.34 * s, 0.3 * s, base * CFrame.new(0, 0.75 * s, 0), WHITE)
+	end)
+end
+
 function features.eyes_big() end -- handled while drawing eyes
 function features.long_neck() end -- handled by the quad template
 function features.two_heads() end -- handled by the quad template

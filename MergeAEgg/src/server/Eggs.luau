@@ -209,7 +209,8 @@ local function consumeCarry(player: Player)
 	local origin = carry.origin
 	local data = Data.get(player)
 	local egg = carry.egg
-	if data and not egg.id then
+	-- Ids are per-player counters, so an egg that changes hands gets a new one.
+	if data and (not egg.id or origin.ownerUserId ~= player.UserId) then
 		egg.id = Data.newId(data)
 	end
 	if origin.kind == "biome" then
@@ -614,9 +615,10 @@ local function runFuse(player: Player, pen)
 		fusing[player] = nil
 		return
 	end
-	local first = data.fuse[1]
+	local inputs = { data.fuse[1], data.fuse[2], data.fuse[3] }
+	local first = inputs[1]
 	local totalWeight, big = 0, false
-	for _, egg in data.fuse do
+	for _, egg in inputs do
 		totalWeight += egg.weight
 		big = big or egg.big == true
 	end
@@ -625,7 +627,11 @@ local function runFuse(player: Player, pen)
 		variant = first.variant,
 		weight = math.floor(math.min(totalWeight / 3 * 1.1, Config.EggWeightMax * Config.BigEggWeightMultiplier) * 10) / 10,
 	})
-	data.fuse = {}
+	local leftover = {}
+	for i = 4, #data.fuse do
+		table.insert(leftover, data.fuse[i])
+	end
+	data.fuse = leftover
 	data.stats.fused += 1
 	fusing[player] = nil
 	Eggs.renderFuse(player)
@@ -645,7 +651,7 @@ local function insertIntoFuse(player: Player, pen)
 		Net.notify(player, "Use the Fuse Machine in your own pen!", "error")
 		return
 	end
-	if fusing[player] then
+	if fusing[player] or #data.fuse >= 3 then
 		return
 	end
 	if not carry then
@@ -783,18 +789,29 @@ end
 ---------------------------------------------------------------------------
 
 function Eggs.playerAdded(player: Player)
-	player.CharacterAdded:Connect(function(character)
+	local function onCharacter(character: Model)
 		local humanoid = character:WaitForChild("Humanoid", 10) :: Humanoid?
 		if humanoid then
 			humanoid.Died:Connect(function()
 				Eggs.drop(player, "died")
 			end)
 		end
-	end)
+	end
+	player.CharacterAdded:Connect(onCharacter)
+	if player.Character then
+		task.spawn(onCharacter, player.Character)
+	end
 	player.CharacterRemoving:Connect(function()
 		Eggs.drop(player, "died")
 	end)
 	Eggs.renderPen(player)
+
+	-- A fuse interrupted by leaving finishes now.
+	local data = Data.get(player)
+	local pen = World.getPen(player)
+	if data and pen and #data.fuse >= 3 then
+		task.spawn(runFuse, player, pen)
+	end
 end
 
 -- Gives back any of this player's own eggs that are in flight before saving.

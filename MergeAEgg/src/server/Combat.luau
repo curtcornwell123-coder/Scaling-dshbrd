@@ -101,7 +101,17 @@ function Combat.start()
 			child:Destroy()
 		end
 	end
-	Models.bat().Parent = StarterPack
+	local template = Models.bat()
+	template.Parent = StarterPack
+	-- Characters that spawned before the bat existed get one now.
+	for _, player in Players:GetPlayers() do
+		local backpack = player:FindFirstChildOfClass("Backpack")
+		local character = player.Character
+		local hasBat = (backpack and backpack:FindFirstChild("Bat")) or (character and character:FindFirstChild("Bat"))
+		if backpack and not hasBat then
+			template:Clone().Parent = backpack
+		end
+	end
 	Players.PlayerRemoving:Connect(function(player)
 		lastSwing[player] = nil
 	end)
