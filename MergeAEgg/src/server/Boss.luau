@@ -34,7 +34,8 @@ local function playersNear(center: Vector3, radius: number)
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if root and humanoid and humanoid.Health > 0 then
+		-- Ignore anyone on a different level (the dungeon sits far below the biomes).
+		if root and humanoid and humanoid.Health > 0 and math.abs(root.Position.Y - center.Y) < 40 then
 			local flat = Vector3.new(root.Position.X - center.X, 0, root.Position.Z - center.Z)
 			if flat.Magnitude <= radius then
 				table.insert(list, { player = player, root = root, offset = flat })
@@ -62,7 +63,7 @@ local function telegraph(position: Vector3, radius: number, duration: number): B
 		Name = "Telegraph",
 		Shape = Enum.PartType.Cylinder,
 		Size = Vector3.new(0.2, 1, 1),
-		CFrame = CFrame.new(position.X, position.Y + 0.25, position.Z) * CFrame.Angles(0, 0, math.rad(90)),
+		CFrame = CFrame.new(position.X, position.Y + 0.45, position.Z) * CFrame.Angles(0, 0, math.rad(90)),
 		Color = Color3.fromRGB(255, 50, 50),
 		Material = Enum.Material.Neon,
 		Transparency = 0.35,

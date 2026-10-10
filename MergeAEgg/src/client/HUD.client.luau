@@ -1237,7 +1237,10 @@ end)
 
 -- A guardian noticed you: loud, unmissable warning.
 local spottedLabel = UI.text(zonePop, { Text = "", TextColor3 = c(255, 70, 70), Size = UDim2.new(1, 0, 0, 60), Position = UDim2.fromOffset(0, -70), strokeThickness = 4, TextTransparency = 1 })
+local spottedId = 0
 fxHandlers.Spotted = function(guardian: string)
+	spottedId += 1
+	local id = spottedId
 	spottedLabel.Text = `⚠️ The {guardian} spotted you! RUN! ⚠️`
 	spottedLabel.TextTransparency = 0
 	local stroke = spottedLabel:FindFirstChildOfClass("UIStroke")
@@ -1250,6 +1253,9 @@ fxHandlers.Spotted = function(guardian: string)
 		task.wait(0.18)
 	end
 	task.wait(1.6)
+	if id ~= spottedId then
+		return
+	end
 	TweenService:Create(spottedLabel, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
 	if stroke then
 		TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 1 }):Play()
@@ -1331,7 +1337,8 @@ local function playIntro()
 	introGui.ResetOnSpawn = false
 	introGui.DisplayOrder = 50
 	introGui.Parent = playerGui
-	UI.new("UIScale", { Scale = scaled[1] and scaled[1].Scale or 1 }, introGui)
+	table.insert(scaled, UI.new("UIScale", {}, introGui))
+	rescale()
 
 	local black = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(), BorderSizePixel = 0 }, introGui)
 	local skipped = false
@@ -1397,6 +1404,10 @@ local function playIntro()
 		for _, child in black:GetChildren() do
 			if child:IsA("TextLabel") then
 				TweenService:Create(child, TweenInfo.new(0.8), { TextTransparency = 1 }):Play()
+				local stroke = child:FindFirstChildOfClass("UIStroke")
+				if stroke then
+					TweenService:Create(stroke, TweenInfo.new(0.8), { Transparency = 1 }):Play()
+				end
 			end
 		end
 		local shots = {

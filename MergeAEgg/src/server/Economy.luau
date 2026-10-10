@@ -217,7 +217,7 @@ local FIELDS = {
 		return data.steals
 	end,
 	maxBiome = function(_, data)
-		return data.maxBiome
+		return data.maxBiomeKey
 	end,
 	leaveReward = function(_, data)
 		return data.leaveRewardDay < today()
@@ -858,7 +858,7 @@ end
 ---------------------------------------------------------------------------
 
 local function bestBiomeKey(data): string
-	local biome = World.getBiome(data.maxBiome) or World.biomes[1]
+	local biome = World.getBiome(Config.BiomeIndex[data.maxBiomeKey] or 1) or World.biomes[1]
 	return biome.key
 end
 
@@ -1314,8 +1314,8 @@ local function treadmillTick(dt: number)
 			if player:GetAttribute("Zone") ~= zone then
 				player:SetAttribute("Zone", zone)
 			end
-			if biome and biome.index > data.maxBiome then
-				data.maxBiome = biome.index
+			if biome and biome.index > (Config.BiomeIndex[data.maxBiomeKey] or 1) then
+				data.maxBiomeKey = biome.key
 				Net.notify(player, `New biome reached: {biome.def.name} {biome.def.emoji}`, "success")
 			end
 		end

@@ -23,7 +23,7 @@ Data.TEMPLATE = {
 	rebirths = 0,
 	penLevel = 1,
 	equipSlots = Config and Config.BaseEquipSlots or 1,
-	maxBiome = 1,
+	maxBiomeKey = "Forest", -- furthest biome reached (a key, so new biomes never shift it)
 	nextId = 1,
 	eggs = {}, -- [id] = { id, biome, rarity, weight, big, boss, variant }
 	nests = {}, -- [slot string] = egg + growEnd

@@ -175,7 +175,8 @@ local function update(g, dt: number, now: number)
 		end
 		if not g.target then
 			local awake = not night or now < g.awakeUntil
-			local range = Config.guardianAggroRange(g.biome.index) * (if awake then 1 else 0.3)
+			-- Asleep, they only notice a thief who bumps right into them.
+			local range = if awake then Config.guardianAggroRange(g.biome.index) else 5
 			local found = findTarget(g, range)
 			if found then
 				startChase(g, found, now)
