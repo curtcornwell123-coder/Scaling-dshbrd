@@ -3,6 +3,7 @@
 	PlaceholderModels
 	Builds every unit model. If a Model exists at ServerStorage/Assets/<modelPath> it is cloned;
 	otherwise a placeholder is generated from Parts so the game runs with zero external assets.
+	Robot placeholders come from the shared RobotModels module so the Troop Shop preview matches.
 	Robots are painted cyber machines with a glowing eye; towers and the enemy HQ use the military
 	palette. Glow is kept to small accents.
 
@@ -18,9 +19,9 @@ local ServerStorage = game:GetService("ServerStorage")
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local Theme = require(ReplicatedStorage.Shared.Theme)
 local Types = require(ReplicatedStorage.Shared.Types)
+local RobotModels = require(ReplicatedStorage.Shared.Visual.RobotModels)
 local PartFactory = require(script.Parent.PartFactory)
 
-local LEG_HEIGHT = Constants.World.ROBOT_LEG_HEIGHT
 local TOWER_PAD_HEIGHT = 0.8
 local TOWER_BODY_SIZE = 2.4
 local HEALTH_BAR_GAP = 1.2
@@ -64,80 +65,6 @@ local function shapeOf(visual: Types.UnitVisual): Enum.PartType
 	return if visual.shape == "Ball" then Enum.PartType.Ball else Enum.PartType.Block
 end
 
-local function buildRobot(def: Types.RobotDef): Model
-	local visual = def.visual
-	local size = visual.size
-	local model = Instance.new("Model")
-	model.Name = def.id
-
-	local body = PartFactory.part({
-		name = "Body",
-		size = if visual.shape == "Ball" then Vector3.one * size.X else size,
-		cframe = CFrame.identity,
-		color = visual.color,
-		material = Enum.Material.SmoothPlastic,
-		shape = shapeOf(visual),
-		canCollide = false,
-		parent = model,
-	})
-	model.PrimaryPart = body
-
-	-- Visor and eye strip on the front face (-Z is "forward" for CFrame.lookAt).
-	PartFactory.part({
-		name = "Visor",
-		size = Vector3.new(size.X * 0.72, size.Y * 0.3, 0.25),
-		cframe = CFrame.new(0, size.Y * 0.12, -size.Z * 0.5),
-		color = Theme.Colors.PanelDark,
-		canCollide = false,
-		parent = model,
-	})
-	PartFactory.neon(
-		"Eye",
-		Vector3.new(size.X * 0.5, size.Y * 0.08, 0.12),
-		CFrame.new(0, size.Y * 0.12, -size.Z * 0.5 - 0.12),
-		visual.accent,
-		model
-	)
-	-- Painted band; only the eye glows, so swarms stay readable without washing out the scene.
-	PartFactory.part({
-		name = "CoreRing",
-		size = Vector3.new(size.X * 1.05, size.Y * 0.12, size.Z * 1.05),
-		cframe = CFrame.new(0, -size.Y * 0.15, 0),
-		color = visual.accent,
-		material = Enum.Material.SmoothPlastic,
-		canCollide = false,
-		parent = model,
-	})
-
-	if def.flying then
-		PartFactory.part({
-			name = "Rotor",
-			size = Vector3.new(0.2, size.X * 1.5, size.Z * 1.5),
-			cframe = CFrame.new(0, size.Y * 0.5 + 0.25, 0) * CFrame.Angles(0, 0, math.rad(90)),
-			color = visual.accent,
-			material = Enum.Material.SmoothPlastic,
-			transparency = 0.35,
-			shape = Enum.PartType.Cylinder,
-			canCollide = false,
-			parent = model,
-		})
-	else
-		for _, side in { -1, 1 } do
-			PartFactory.part({
-				name = "Leg",
-				size = Vector3.new(size.X * 0.24, LEG_HEIGHT, size.Z * 0.34),
-				cframe = CFrame.new(side * size.X * 0.25, -size.Y * 0.5 - LEG_HEIGHT * 0.5, 0),
-				color = Theme.Colors.MetalDark,
-				material = Enum.Material.Metal,
-				canCollide = false,
-				parent = model,
-			})
-		end
-	end
-
-	return model
-end
-
 function PlaceholderModels.robot(def: Types.RobotDef): RobotModel
 	local model = loadAsset(def.modelPath)
 	if model == nil or model.PrimaryPart == nil then
@@ -145,7 +72,7 @@ function PlaceholderModels.robot(def: Types.RobotDef): RobotModel
 			warn(`[PlaceholderModels] Asset for robot "{def.id}" has no PrimaryPart; using the placeholder.`)
 			model:Destroy()
 		end
-		model = buildRobot(def)
+		model = RobotModels.build(def)
 	end
 	local robotModel = model :: Model
 	local root = robotModel.PrimaryPart :: BasePart

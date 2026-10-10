@@ -37,7 +37,11 @@ local TowerService = {}
 -- Reused by Shrapnel Rounds so chaining never allocates.
 local chainVisited: { [number]: boolean } = {}
 
-local function canTarget(tower: TowerUnit, robot: RobotUnit): boolean
+local function canTarget(tower: TowerUnit, robot: RobotUnit, now: number): boolean
+	-- Phantom stealth: invisible to every tower, including splash and chains.
+	if now < robot.stealthUntil then
+		return false
+	end
 	if robot.flying then
 		-- Flak Barrage drags flyers low enough for ground guns.
 		return tower.def.targetsAir or (tower.def.targetsGround and tower.stats.magnet > 0)
@@ -45,7 +49,7 @@ local function canTarget(tower: TowerUnit, robot: RobotUnit): boolean
 	return tower.def.targetsGround
 end
 
-local function findTarget(arena: Arena, tower: TowerUnit): RobotUnit?
+local function findTarget(arena: Arena, tower: TowerUnit, now: number): RobotUnit?
 	local rangeSquared = tower.stats.range * tower.stats.range
 	local best: RobotUnit? = nil
 	local bestProgress = -1
@@ -53,7 +57,7 @@ local function findTarget(arena: Arena, tower: TowerUnit): RobotUnit?
 		if
 			robot.alive
 			and robot.progress > bestProgress
-			and canTarget(tower, robot)
+			and canTarget(tower, robot, now)
 			and MathUtil.distanceSquared(tower.position, robot.position) <= rangeSquared
 		then
 			best = robot
@@ -94,7 +98,7 @@ local function chain(arena: Arena, tower: TowerUnit, first: RobotUnit, origin: V
 		local nextTarget: RobotUnit? = nil
 		local nearest = rangeSquared
 		for _, robot in arena.robots do
-			if robot.alive and not chainVisited[robot.uid] and canTarget(tower, robot) then
+			if robot.alive and not chainVisited[robot.uid] and canTarget(tower, robot, now) then
 				local distance = MathUtil.distanceSquared(from, robot.position)
 				if distance <= nearest then
 					nearest = distance
@@ -125,7 +129,7 @@ local function fire(arena: Arena, tower: TowerUnit, target: RobotUnit, now: numb
 		for _, robot in arena.robots do
 			if
 				robot.alive
-				and canTarget(tower, robot)
+				and canTarget(tower, robot, now)
 				and MathUtil.distanceSquared(impact, robot.position) <= splashSquared
 			then
 				hitRobot(arena, tower, robot, stats.damage, now)
@@ -205,7 +209,7 @@ function TowerService.attach(arena: Arena)
 	arena.maid:give(
 		arena.towerHitRequested:connect(
 			function(tower: TowerUnit, source: RobotUnit, damage: number, disableSeconds: number)
-				TowerService.applyHit(arena, tower, source, damage, disableSeconds, os.clock())
+				TowerService.applyHit(arena, tower, source, damage, disableSeconds, arena.clock)
 			end
 		)
 	)
@@ -323,7 +327,7 @@ function TowerService.step(arena: Arena, dt: number, now: number)
 			empPulse(arena, tower, now)
 		end
 		if now >= tower.nextFireAt then
-			local target = findTarget(arena, tower)
+			local target = findTarget(arena, tower, now)
 			if target ~= nil then
 				fire(arena, tower, target, now)
 			end

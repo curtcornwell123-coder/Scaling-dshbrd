@@ -18,7 +18,14 @@ local DataService = require(script.Parent.DataService)
 local EconomyService = {}
 
 function EconomyService.trySpend(matchPlayer: ServerTypes.MatchPlayer, amount: number): boolean
-	if amount < 0 or matchPlayer.coins < amount then
+	if amount < 0 then
+		return false
+	end
+	-- Test Realm: unlimited budget, and the balance shown never moves.
+	if matchPlayer.unlimitedCoins then
+		return true
+	end
+	if matchPlayer.coins < amount then
 		return false
 	end
 	matchPlayer.coins -= amount
@@ -51,14 +58,21 @@ function EconomyService.canAffordAnyRobot(matchPlayer: ServerTypes.MatchPlayer):
 end
 
 -- Grants persistent coins and records stats. Returns the coins awarded.
+-- Modes with rewards disabled and sandboxed players (Test Realm) get nothing and record nothing.
 function EconomyService.payoutMatch(player: Player, mode: Types.ModeDef, won: boolean, wavesCompleted: number): number
+	if not mode.rewardsEnabled or DataService.isSandboxed(player) then
+		return 0
+	end
 	local payout = WaveMath.matchPayout(won, wavesCompleted, mode.rewards)
 	local saved = DataService.update(player, function(data)
 		data.coins += payout
 		if won then
 			data.stats.wins += 1
+			data.stats.winStreak += 1
+			data.stats.bestWinStreak = math.max(data.stats.bestWinStreak, data.stats.winStreak)
 		else
 			data.stats.losses += 1
+			data.stats.winStreak = 0
 		end
 		data.stats.wavesSurvived += wavesCompleted
 		data.stats.highestWave = math.max(data.stats.highestWave, wavesCompleted)

@@ -7,9 +7,15 @@
 
 	States: Waiting -> Countdown -> Preparing -> WaveActive -> WaveResult -> (Preparing | MatchEnd)
 
-	Modes plug in through ModeConfig.sideLayout:
-		"Shared"    one arena for every player (Solo, Co-op)
-		"PerPlayer" one arena per player; first HQ destroyed wins (1v1)
+	Modes plug in through ModeConfig teams / teamSize:
+		teams = 1   one arena for every player (Solo, Co-op)
+		teams = 2+  one arena per team; the first team to destroy its HQ wins (1v1, 3v3)
+	QueueService may pass the exact teams (balanced by Matchmaker); otherwise players are dealt
+	round-robin. Test Realm matches pass a SandboxConfig: unlimited coins, a chosen start wave,
+	preset mutations, and a time scale.
+
+	Other services observe matches only through the signals below (quests, season XP, ranked
+	results), so MatchService never depends on them.
 
 	Gameplay callbacks only record what happened (dirty flags, pendingOutcome); phase transitions
 	run at the end of the match tick or from the phase timer, never in the middle of a system update.
@@ -48,7 +54,22 @@ type MatchPlayer = ServerTypes.MatchPlayer
 
 local ErrorCode = Constants.ErrorCode
 
+export type StartOptions = {
+	-- Players per team, in team order. Omit to deal players round-robin.
+	teams: { { Player } }?,
+	sandbox: Types.SandboxConfig?,
+}
+
 local MatchService = {}
+
+MatchService.matchStarted = Signal.new() :: Signal.Signal<Match>
+-- Fired once per match when a result exists (not on a cancelled or abandoned-by-all match).
+MatchService.matchEnded = Signal.new() :: Signal.Signal<Match, ServerTypes.Outcome>
+MatchService.matchClosed = Signal.new() :: Signal.Signal<Match>
+-- A player left (disconnect, kick) before the match ended.
+MatchService.playerAbandoned = Signal.new() :: Signal.Signal<Match, MatchPlayer>
+MatchService.waveCleared = Signal.new() :: Signal.Signal<Match, number>
+MatchService.robotQueued = Signal.new() :: Signal.Signal<Match, MatchPlayer>
 
 local matches: { [number]: Match } = {}
 local playerMatches: { [Player]: Match } = {}
@@ -105,17 +126,20 @@ local function placeInArena(match: Match, matchPlayer: MatchPlayer)
 	local index = table.find(arena.players, matchPlayer) or 1
 	local spawnCFrame = spawns[((index - 1) % #spawns) + 1]
 	LobbyService.teleport(matchPlayer.player, spawnCFrame + Vector3.new(0, Constants.World.PLAYER_SPAWN_LIFT, 0))
-	LobbyService.setMovementLocked(matchPlayer.player, true)
+	-- Test Realm players stay free to walk the deck (the RETURN pad is there).
+	LobbyService.setMovementLocked(matchPlayer.player, match.sandbox == nil)
 end
 
-local function createMatchPlayer(player: Player, arena: Arena): MatchPlayer
+local function createMatchPlayer(match: Match, player: Player, arena: Arena): MatchPlayer
 	-- The loadout is snapshotted at match start; editing it in the lobby later cannot affect this match.
 	local loadout: { string } = {}
 	local data = DataService.getData(player)
-	if data ~= nil then
-		for _, robotId in data.equippedLoadout do
+	local sandbox = match.sandbox
+	local source: { string }? = if sandbox ~= nil then sandbox.loadout elseif data ~= nil then data.equippedLoadout else nil
+	if source ~= nil then
+		for _, robotId in source do
 			local robot = RobotConfig.Robots[robotId]
-			if robot ~= nil and not robot.locked then
+			if robot ~= nil and not robot.locked and not table.find(loadout, robotId) and #loadout < Constants.MAX_LOADOUT then
 				table.insert(loadout, robotId)
 			end
 		end
@@ -134,6 +158,8 @@ local function createMatchPlayer(player: Player, arena: Arena): MatchPlayer
 		queuedThisWave = 0,
 		sentThisWave = 0,
 		connected = true,
+		unlimitedCoins = sandbox ~= nil,
+		team = arena.index,
 	}
 end
 
@@ -198,6 +224,7 @@ local function buildArena(match: Match, index: number, map: ServerTypes.LoadedMa
 		nextUid = 0,
 		eliminated = false,
 		nextBarFlushAt = 0,
+		clock = match.clock,
 		robotReachedBase = Signal.new(),
 		robotRemoved = Signal.new(),
 		towerHitRequested = Signal.new(),
@@ -213,7 +240,7 @@ local function buildArena(match: Match, index: number, map: ServerTypes.LoadedMa
 	end))
 
 	for _, player in group do
-		local matchPlayer = createMatchPlayer(player, arena)
+		local matchPlayer = createMatchPlayer(match, player, arena)
 		table.insert(arena.players, matchPlayer)
 		table.insert(arena.viewers, player)
 		match.players[player] = matchPlayer
@@ -223,10 +250,13 @@ end
 
 local function rivalName(arena: Arena): string
 	local first = arena.players[1]
-	if first ~= nil then
-		return first.player.DisplayName
+	if first == nil then
+		return "Rival"
 	end
-	return "Rival"
+	if #arena.players > 1 then
+		return `{first.player.DisplayName} +{#arena.players - 1}`
+	end
+	return first.player.DisplayName
 end
 
 local function snapshotFor(match: Match, matchPlayer: MatchPlayer): Types.MatchSnapshot
@@ -291,7 +321,14 @@ end
 local function beginPreparing(match: Match)
 	match.waveNumber += 1
 	WaveService.beginPreparing(match)
+	local catchUp = match.waveNumber == match.firstWave and match.firstWave > 1
 	for _, arena in activeArenas(match) do
+		if catchUp then
+			-- Test Realm starting past wave 1: deploy the defense earlier waves would have built.
+			for earlier = 1, match.waveNumber - 1 do
+				TowerService.prepareWave(arena, earlier)
+			end
+		end
 		local deployed = TowerService.prepareWave(arena, match.waveNumber)
 		local text = if #deployed > 0
 			then "Enemy deployed: " .. table.concat(deployed, ", ")
@@ -302,7 +339,7 @@ local function beginPreparing(match: Match)
 end
 
 local function beginWave(match: Match)
-	local now = os.clock()
+	local now = match.clock
 	for _, arena in activeArenas(match) do
 		local applied = MutationService.applyPending(arena.mutations)
 		if applied ~= nil then
@@ -348,7 +385,9 @@ local function endMatch(match: Match, outcome: ServerTypes.Outcome)
 			if mapped ~= nil then
 				reason = mapped
 			end
-			local coins = EconomyService.payoutMatch(player, match.mode, won, match.wavesCompleted)
+			local coins = if match.sandbox ~= nil
+				then 0
+				else EconomyService.payoutMatch(player, match.mode, won, match.wavesCompleted)
 			match.results[player] = {
 				won = won,
 				reason = reason,
@@ -364,6 +403,7 @@ local function endMatch(match: Match, outcome: ServerTypes.Outcome)
 		end
 	end
 	enterState(match, "MatchEnd", WaveConfig.matchEndDuration)
+	MatchService.matchEnded:fire(match, outcome)
 end
 
 local function finishWave(match: Match)
@@ -375,6 +415,7 @@ local function finishWave(match: Match)
 		WaveService.clearQueues(arena)
 	end
 	match.wavesCompleted = match.waveNumber
+	MatchService.waveCleared:fire(match, match.waveNumber)
 
 	for _, matchPlayer in match.players do
 		if matchPlayer.connected then
@@ -436,11 +477,17 @@ local function allArenasResolved(match: Match): boolean
 	return true
 end
 
-local function tick(match: Match, dt: number)
+local function tick(match: Match, realDt: number)
 	if match.closed then
 		return
 	end
-	local now = os.clock()
+	-- Systems run on the match clock so the Test Realm speed setting scales all of combat.
+	local dt = realDt * match.timeScale
+	match.clock += dt
+	local now = match.clock
+	for _, arena in match.arenas do
+		arena.clock = now
+	end
 
 	if match.state == "WaveActive" then
 		for _, arena in match.arenas do
@@ -499,12 +546,16 @@ closeMatch = function(match: Match)
 	end
 	match.closed = true
 	matches[match.id] = nil
+	MatchService.matchClosed:fire(match)
 	for player, matchPlayer in match.players do
 		if playerMatches[player] == match then
 			playerMatches[player] = nil
 		end
 		if matchPlayer.connected and player.Parent ~= nil then
-			LobbyService.returnToLobby(player)
+			-- Test Realm players stay in the yard; TestRealmService restarts or returns them.
+			if match.sandbox == nil then
+				LobbyService.returnToLobby(player)
+			end
 			Remotes.MatchClosed:fireClient(player, true)
 		end
 	end
@@ -520,6 +571,9 @@ local function removePlayer(match: Match, player: Player)
 	matchPlayer.connected = false
 	match.players[player] = nil
 	playerMatches[player] = nil
+	if match.state ~= "MatchEnd" and not match.closed then
+		MatchService.playerAbandoned:fire(match, matchPlayer)
+	end
 
 	local arena = matchPlayer.arena
 	local playerIndex = table.find(arena.players, matchPlayer)
@@ -560,24 +614,69 @@ function MatchService.getMatch(player: Player): (Match?, MatchPlayer?)
 	return match, match.players[player]
 end
 
--- Creates and starts a match. Returns false and an error code when it cannot start.
-function MatchService.startMatch(modeId: string, candidates: { Player }): (boolean, string?)
-	local mode = ModeConfig.Modes[modeId]
-	if mode == nil then
-		return false, ErrorCode.InvalidMode
+local function canJoin(player: Player): boolean
+	return player.Parent ~= nil and DataService.isLoaded(player) and playerMatches[player] == nil
+end
+
+-- Splits players into the mode's teams. Returns nil when the teams cannot be filled.
+local function buildGroups(mode: Types.ModeDef, candidates: { Player }, options: StartOptions?): { { Player } }?
+	local requested = if options ~= nil then options.teams else nil
+	if requested ~= nil then
+		local groups: { { Player } } = {}
+		local total = 0
+		for _, team in requested do
+			local group: { Player } = {}
+			for _, player in team do
+				if canJoin(player) then
+					table.insert(group, player)
+				end
+			end
+			-- Team modes need full teams; anyone missing means the match cannot start fairly.
+			if mode.teams > 1 and #group ~= mode.teamSize then
+				return nil
+			end
+			total += #group
+			table.insert(groups, group)
+		end
+		if #groups ~= mode.teams or total < mode.minPlayers or total > mode.maxPlayers then
+			return nil
+		end
+		return groups
 	end
 
 	local players: { Player } = {}
 	for _, player in candidates do
-		if player.Parent ~= nil and DataService.isLoaded(player) and playerMatches[player] == nil then
+		if canJoin(player) then
 			table.insert(players, player)
 		end
 	end
 	if #players < mode.minPlayers then
-		return false, ErrorCode.MatchFailed
+		return nil
 	end
 	while #players > mode.maxPlayers do
 		table.remove(players)
+	end
+	local groups: { { Player } } = {}
+	for team = 1, mode.teams do
+		groups[team] = {}
+	end
+	for index, player in players do
+		table.insert(groups[((index - 1) % mode.teams) + 1], player)
+	end
+	return groups
+end
+
+-- Creates and starts a match. Returns false and an error code when it cannot start; nothing is
+-- changed for any player in that case (the caller returns them to the lobby with no penalty).
+function MatchService.startMatch(modeId: string, candidates: { Player }, options: StartOptions?): (boolean, string?, Match?)
+	local mode = ModeConfig.Modes[modeId]
+	if mode == nil then
+		return false, ErrorCode.InvalidMode, nil
+	end
+
+	local groups = buildGroups(mode, candidates, options)
+	if groups == nil then
+		return false, ErrorCode.MatchFailed, nil
 	end
 
 	local rng = Random.new()
@@ -588,18 +687,9 @@ function MatchService.startMatch(modeId: string, candidates: { Player }): (boole
 		end
 	end
 	if #available == 0 then
-		return false, ErrorCode.NoMapAvailable
+		return false, ErrorCode.NoMapAvailable, nil
 	end
 	local mapId = available[rng:NextInteger(1, #available)]
-
-	local groups: { { Player } } = {}
-	if mode.sideLayout == "PerPlayer" then
-		for _, player in players do
-			table.insert(groups, { player })
-		end
-	else
-		table.insert(groups, players)
-	end
 
 	local maps: { ServerTypes.LoadedMap } = {}
 	for _ in groups do
@@ -608,12 +698,13 @@ function MatchService.startMatch(modeId: string, candidates: { Player }): (boole
 			for _, loaded in maps do
 				MapService.unload(loaded)
 			end
-			return false, ErrorCode.MatchFailed
+			return false, ErrorCode.MatchFailed, nil
 		end
 		table.insert(maps, map)
 	end
 
 	nextMatchId += 1
+	local sandbox = if options ~= nil then options.sandbox else nil
 	local match: Match = {
 		id = nextMatchId,
 		mode = mode,
@@ -632,9 +723,27 @@ function MatchService.startMatch(modeId: string, candidates: { Player }): (boole
 		pendingOutcome = nil,
 		results = {},
 		closed = false,
+		key = `{game.JobId}:{nextMatchId}`,
+		clock = 0,
+		timeScale = if sandbox ~= nil then sandbox.speed else 1,
+		sandbox = sandbox,
+		firstWave = if sandbox ~= nil then sandbox.wave else 1,
 	}
+	if sandbox ~= nil then
+		match.waveNumber = sandbox.wave - 1
+	end
 	for index, group in groups do
 		table.insert(match.arenas, buildArena(match, index, maps[index], group))
+	end
+	if sandbox ~= nil then
+		for _, arena in match.arenas do
+			for mutationId, stacks in sandbox.mutations do
+				for _ = 1, stacks do
+					MutationService.force(arena.mutations, mutationId)
+				end
+			end
+			TowerService.refreshStats(arena)
+		end
 	end
 
 	matches[match.id] = match
@@ -659,7 +768,21 @@ function MatchService.startMatch(modeId: string, candidates: { Player }): (boole
 		"Break through the defense and destroy the Command HQ!"
 	)
 	enterState(match, "Waiting", Constants.Match.WAITING_DURATION)
-	return true, nil
+	MatchService.matchStarted:fire(match)
+	return true, nil, match
+end
+
+-- Ends a match early with no result (Test Realm reset). Nothing is paid or rated.
+function MatchService.cancel(match: Match)
+	closeMatch(match)
+end
+
+function MatchService.playersOf(match: Match): { MatchPlayer }
+	local list: { MatchPlayer } = {}
+	for _, matchPlayer in match.players do
+		table.insert(list, matchPlayer)
+	end
+	return list
 end
 
 -- QA: jumps the match to the next phase.
@@ -712,7 +835,11 @@ end
 function MatchService.start()
 	Remotes.RequestSpawnRobot:connect(function(player: Player, robotId: unknown, laneIndex: unknown)
 		withMatchPlayer(player, function(match, matchPlayer)
-			return WaveService.requestSpawn(match, matchPlayer, robotId, laneIndex)
+			local errorCode = WaveService.requestSpawn(match, matchPlayer, robotId, laneIndex)
+			if errorCode == nil then
+				MatchService.robotQueued:fire(match, matchPlayer)
+			end
+			return errorCode
 		end)
 	end)
 
@@ -729,12 +856,16 @@ function MatchService.start()
 		end
 	end)
 
-	Players.PlayerRemoving:Connect(function(player: Player)
+	-- A leaving player is removed before their final save, so an abandon (a ranked loss) is
+	-- part of the data that gets saved. PlayerRemoving covers players whose data never loaded.
+	local function onLeaving(player: Player)
 		local match = playerMatches[player]
 		if match ~= nil then
 			removePlayer(match, player)
 		end
-	end)
+	end
+	DataService.beforeRelease:connect(onLeaving)
+	Players.PlayerRemoving:Connect(onLeaving)
 end
 
 return MatchService

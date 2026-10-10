@@ -14,6 +14,11 @@ local MutationConfig = require(script.Parent.Config.MutationConfig)
 local MapConfig = require(script.Parent.Config.MapConfig)
 local WaveConfig = require(script.Parent.Config.WaveConfig)
 local ModeConfig = require(script.Parent.Config.ModeConfig)
+local TroopConfig = require(script.Parent.Config.TroopConfig)
+local QuestConfig = require(script.Parent.Config.QuestConfig)
+local SeasonConfig = require(script.Parent.Config.SeasonConfig)
+local ShopConfig = require(script.Parent.Config.ShopConfig)
+local RankConfig = require(script.Parent.Config.RankConfig)
 local TableUtil = require(script.Parent.Util.TableUtil)
 
 -- Configs are typed loosely here on purpose: the validator must cope with malformed input.
@@ -33,6 +38,17 @@ export type ConfigSet = {
 	modes: { [string]: any },
 	modeOrder: { string },
 	defensePlan: { [any]: any },
+	troops: { [string]: any },
+	troopPermanent: { string },
+	troopRotatingPool: { string },
+	troopBuilders: { string },
+	quests: { [string]: any },
+	questPools: { { string } },
+	seasonTiers: { any },
+	seasonTierCount: number,
+	products: { [string]: any },
+	rankTiers: { any },
+	ratingKeys: { [string]: string },
 }
 
 local ConfigValidator = {}
@@ -93,6 +109,36 @@ local function checkIdMatchesKey(issues: Issues, path: string, key: string, entr
 	end
 end
 
+
+local UNLOCK_KINDS = { "None", "Wins", "HighestWave", "OwnsTroop", "LoadoutSize", "MatchesPlayed" }
+
+local function checkRequirement(issues: Issues, path: string, requirement: any, set: ConfigSet)
+	if not isTable(requirement) or not table.find(UNLOCK_KINDS, requirement.kind) then
+		table.insert(issues, `{path}.kind is not a known unlock kind`)
+		return
+	end
+	expectPositive(issues, path .. ".value", requirement.value)
+	local troopId: any = requirement.troopId
+	if requirement.kind == "OwnsTroop" and (typeof(troopId) ~= "string" or set.robots[troopId] == nil) then
+		table.insert(issues, `{path}.troopId "{tostring(troopId)}" is not a known troop`)
+	end
+end
+
+local function checkReward(issues: Issues, path: string, reward: any, set: ConfigSet)
+	if not isTable(reward) then
+		table.insert(issues, `{path} should be a reward table`)
+		return
+	end
+	for _, field in { "coins", "gems", "xp" } do
+		if reward[field] ~= nil then
+			expectPositive(issues, `{path}.{field}`, reward[field])
+		end
+	end
+	if reward.troopId ~= nil and set.robots[reward.troopId] == nil then
+		table.insert(issues, `{path}.troopId "{tostring(reward.troopId)}" is not a known troop`)
+	end
+end
+
 local function validateRobots(issues: Issues, set: ConfigSet)
 	for key, robot in set.robots do
 		local path = `RobotConfig.Robots.{key}`
@@ -106,7 +152,7 @@ local function validateRobots(issues: Issues, set: ConfigSet)
 		expect(issues, path .. ".modelPath", robot.modelPath, "string")
 		expect(issues, path .. ".flying", robot.flying, "boolean")
 		expect(issues, path .. ".locked", robot.locked, "boolean")
-		for _, field in { "cost", "health", "speed", "damage", "unlockCost" } do
+		for _, field in { "cost", "health", "speed", "damage" } do
 			expectPositive(issues, `{path}.{field}`, robot[field])
 		end
 		if typeof(robot.health) == "number" and robot.health <= 0 then
@@ -273,14 +319,41 @@ local function validateModes(issues: Issues, set: ConfigSet)
 		end
 		checkIdMatchesKey(issues, path, key, mode)
 		expect(issues, path .. ".displayName", mode.displayName, "string")
-		expect(issues, path .. ".padColor", mode.padColor, "Color3")
-		if mode.sideLayout ~= "Shared" and mode.sideLayout ~= "PerPlayer" then
-			table.insert(issues, `{path}.sideLayout must be "Shared" or "PerPlayer"`)
+		expect(issues, path .. ".description", mode.description, "string")
+		expect(issues, path .. ".signColor", mode.signColor, "Color3")
+		expect(issues, path .. ".ranked", mode.ranked, "boolean")
+		expect(issues, path .. ".requiresParty", mode.requiresParty, "boolean")
+		expect(issues, path .. ".rewardsEnabled", mode.rewardsEnabled, "boolean")
+		expect(issues, path .. ".sandbox", mode.sandbox, "boolean")
+		if not table.find({ "Casual", "Ranked", "Coop", "Limited" }, mode.category) then
+			table.insert(issues, `{path}.category must be Casual, Ranked, Coop, or Limited`)
 		end
 		if typeof(mode.minPlayers) ~= "number" or typeof(mode.maxPlayers) ~= "number" then
 			table.insert(issues, `{path} needs numeric minPlayers and maxPlayers`)
 		elseif mode.minPlayers < 1 or mode.maxPlayers < mode.minPlayers then
 			table.insert(issues, `{path} needs 1 <= minPlayers <= maxPlayers`)
+		end
+		if typeof(mode.teams) ~= "number" or typeof(mode.teamSize) ~= "number" or mode.teams < 1 or mode.teamSize < 1 then
+			table.insert(issues, `{path} needs teams and teamSize of at least 1`)
+		elseif mode.teams > 1 and mode.minPlayers ~= mode.teams * mode.teamSize then
+			table.insert(issues, `{path}: team modes need minPlayers = teams * teamSize`)
+		elseif mode.teams == 1 and typeof(mode.maxPlayers) == "number" and mode.maxPlayers > mode.teamSize then
+			table.insert(issues, `{path}: one-team modes need maxPlayers <= teamSize`)
+		end
+		if typeof(mode.queueCap) ~= "number" or typeof(mode.maxPlayers) ~= "number" or mode.queueCap < mode.maxPlayers then
+			table.insert(issues, `{path}.queueCap must be at least maxPlayers`)
+		end
+		expectPositive(issues, path .. ".bayOrder", mode.bayOrder)
+		expectPositive(issues, path .. ".estimatedWait", mode.estimatedWait)
+		if mode.ranked == true and set.ratingKeys[key] == nil then
+			table.insert(issues, `{path} is ranked but RankConfig.RatingKeys has no entry for it`)
+		end
+		if not isTable(mode.unlock) then
+			table.insert(issues, `{path}.unlock should be a list of requirements`)
+		else
+			for index, requirement in mode.unlock do
+				checkRequirement(issues, `{path}.unlock[{index}]`, requirement, set)
+			end
 		end
 		if typeof(mode.maxWaves) ~= "number" or mode.maxWaves < 1 then
 			table.insert(issues, `{path}.maxWaves must be at least 1`)
@@ -327,6 +400,121 @@ local function validateDefensePlan(issues: Issues, set: ConfigSet)
 	end
 end
 
+
+local function validateTroops(issues: Issues, set: ConfigSet)
+	for robotId in set.robots do
+		local troop = set.troops[robotId]
+		local path = `TroopConfig.Troops.{robotId}`
+		if not isTable(troop) then
+			table.insert(issues, `{path} is missing (every robot needs a Troop Depot entry)`)
+			continue
+		end
+		expect(issues, path .. ".role", troop.role, "string")
+		expectPositive(issues, path .. ".price", troop.price)
+		if troop.currency ~= "Coins" and troop.currency ~= "Gems" then
+			table.insert(issues, `{path}.currency must be "Coins" or "Gems"`)
+		end
+		if not table.find(set.troopBuilders, troop.builderId) then
+			table.insert(issues, `{path}.builderId "{tostring(troop.builderId)}" is not a known model builder`)
+		end
+		checkRequirement(issues, path .. ".unlock", troop.unlock, set)
+	end
+	local seen: { [string]: boolean } = {}
+	for _, list in { set.troopPermanent, set.troopRotatingPool } do
+		for _, troopId in list do
+			if set.troops[troopId] == nil then
+				table.insert(issues, `TroopConfig stock references unknown troop "{troopId}"`)
+			end
+			if seen[troopId] then
+				table.insert(issues, `TroopConfig lists "{troopId}" in stock more than once`)
+			end
+			seen[troopId] = true
+		end
+	end
+end
+
+local function validateQuests(issues: Issues, set: ConfigSet)
+	local kinds = { "PlayMatches", "WinMatches", "CompleteWaves", "DeployRobots", "TryTroops", "TestRealmWaves" }
+	for key, quest in set.quests do
+		local path = `QuestConfig.Quests.{key}`
+		if not isTable(quest) then
+			table.insert(issues, `{path} is not a table`)
+			continue
+		end
+		checkIdMatchesKey(issues, path, key, quest)
+		expect(issues, path .. ".description", quest.description, "string")
+		expect(issues, path .. ".testRealm", quest.testRealm, "boolean")
+		if not table.find(kinds, quest.kind) then
+			table.insert(issues, `{path}.kind is not a known quest kind`)
+		end
+		if typeof(quest.target) ~= "number" or quest.target < 1 then
+			table.insert(issues, `{path}.target must be at least 1`)
+		end
+		checkReward(issues, path .. ".reward", quest.reward, set)
+	end
+	for _, pool in set.questPools do
+		for _, questId in pool do
+			if set.quests[questId] == nil then
+				table.insert(issues, `QuestConfig pool references unknown quest "{questId}"`)
+			end
+		end
+	end
+end
+
+local function validateSeason(issues: Issues, set: ConfigSet)
+	if #set.seasonTiers ~= set.seasonTierCount then
+		table.insert(issues, `SeasonConfig.Tiers has {#set.seasonTiers} tiers but TierCount is {set.seasonTierCount}`)
+	end
+	for index, tier in set.seasonTiers do
+		local path = `SeasonConfig.Tiers[{index}]`
+		if not isTable(tier) or tier.tier ~= index then
+			table.insert(issues, `{path}.tier should equal {index}`)
+			continue
+		end
+		if tier.free ~= nil then
+			checkReward(issues, path .. ".free", tier.free, set)
+		end
+		if tier.premium ~= nil then
+			checkReward(issues, path .. ".premium", tier.premium, set)
+		end
+	end
+end
+
+local function validateProducts(issues: Issues, set: ConfigSet)
+	for key, product in set.products do
+		local path = `ShopConfig.Products.{key}`
+		if not isTable(product) then
+			table.insert(issues, `{path} is not a table`)
+			continue
+		end
+		checkIdMatchesKey(issues, path, key, product)
+		expectPositive(issues, path .. ".productId", product.productId)
+		checkReward(issues, path .. ".reward", product.reward, set)
+	end
+end
+
+local function validateRank(issues: Issues, set: ConfigSet)
+	local previous = -math.huge
+	for index, tier in set.rankTiers do
+		local path = `RankConfig.Tiers[{index}]`
+		if not isTable(tier) or typeof(tier.floor) ~= "number" or tier.floor <= previous then
+			table.insert(issues, `{path}.floor must be a number above the previous tier's floor`)
+			continue
+		end
+		previous = tier.floor
+		if typeof(tier.divisions) ~= "number" or tier.divisions < 1 then
+			table.insert(issues, `{path}.divisions must be at least 1`)
+		end
+		checkReward(issues, path .. ".seasonReward", tier.seasonReward, set)
+	end
+	for modeId in set.ratingKeys do
+		local mode = set.modes[modeId]
+		if mode == nil or not isTable(mode) or mode.ranked ~= true then
+			table.insert(issues, `RankConfig.RatingKeys.{modeId} must name a ranked mode`)
+		end
+	end
+end
+
 function ConfigValidator.validate(set: ConfigSet): { string }
 	local issues: Issues = {}
 	validateRobots(issues, set)
@@ -335,6 +523,11 @@ function ConfigValidator.validate(set: ConfigSet): { string }
 	validateMaps(issues, set)
 	validateModes(issues, set)
 	validateDefensePlan(issues, set)
+	validateTroops(issues, set)
+	validateQuests(issues, set)
+	validateSeason(issues, set)
+	validateProducts(issues, set)
+	validateRank(issues, set)
 	return issues
 end
 
@@ -356,11 +549,36 @@ function ConfigValidator.gameConfigSet(): ConfigSet
 		modes = ModeConfig.Modes,
 		modeOrder = ModeConfig.Order,
 		defensePlan = WaveConfig.DefensePlan,
+		troops = TroopConfig.Troops,
+		troopPermanent = TroopConfig.Permanent,
+		troopRotatingPool = TroopConfig.RotatingPool,
+		troopBuilders = TroopConfig.Builders,
+		quests = QuestConfig.Quests,
+		questPools = { QuestConfig.RegularPool, QuestConfig.TestRealmPool },
+		seasonTiers = SeasonConfig.Tiers,
+		seasonTierCount = SeasonConfig.TierCount,
+		products = ShopConfig.Products,
+		rankTiers = RankConfig.Tiers,
+		ratingKeys = RankConfig.RatingKeys,
 	}
 end
 
 function ConfigValidator.validateGame(): { string }
 	return ConfigValidator.validate(ConfigValidator.gameConfigSet())
+end
+
+-- Setup reminders that are not errors (e.g. Robux products not created yet).
+function ConfigValidator.setupWarnings(): { string }
+	local warnings: { string } = {}
+	for productKey, product in ShopConfig.Products do
+		if product.productId == 0 then
+			table.insert(warnings, `ShopConfig.Products.{productKey}.productId is 0; create the developer product and paste its id`)
+		end
+	end
+	if ShopConfig.PremiumGamePassId == 0 then
+		table.insert(warnings, "ShopConfig.PremiumGamePassId is 0; Season Premium is sold only as a developer product")
+	end
+	return warnings
 end
 
 return ConfigValidator

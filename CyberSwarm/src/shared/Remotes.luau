@@ -7,8 +7,9 @@
 	handlers receive `...unknown` so every argument must be type-checked before use, and each remote
 	has its own per-player token-bucket rate limiter applied before any handler runs.
 
-	There is deliberately no intent for joining or leaving a match queue: queues are decided only by
-	the server's pad detection (QueueService), so a client cannot queue itself by firing a remote.
+	There is deliberately no intent for joining or leaving a match queue, starting a match, or
+	changing a rating: queues are decided only by the server's pad detection (QueueService), matches
+	start only from QueueService, and ratings change only in RankService from verified results.
 
 	Server -> client remotes carry one typed payload table.
 
@@ -149,15 +150,29 @@ Remotes.RequestSync = intent("RequestSync", 3, 0.5) :: ClientIntent<()>
 Remotes.RequestSpawnRobot = intent("RequestSpawnRobot", 15, 10) :: ClientIntent<string, number>
 Remotes.RequestUpgradeRobot = intent("RequestUpgradeRobot", 5, 3) :: ClientIntent<string>
 Remotes.RequestSetLoadout = intent("RequestSetLoadout", 5, 2) :: ClientIntent<{ string }>
-Remotes.RequestUnlockRobot = intent("RequestUnlockRobot", 3, 1) :: ClientIntent<string>
+-- Lobby v2. Each sends ids only; prices, rewards, and eligibility are decided on the server.
+Remotes.RequestBuyTroop = intent("RequestBuyTroop", 3, 1) :: ClientIntent<string>
+Remotes.RequestClaimQuest = intent("RequestClaimQuest", 4, 1) :: ClientIntent<string>
+Remotes.RequestClaimSupply = intent("RequestClaimSupply", 3, 1) :: ClientIntent<()>
+Remotes.RequestRedeemCode = intent("RequestRedeemCode", 3, 0.5) :: ClientIntent<string>
+Remotes.RequestClaimPassReward = intent("RequestClaimPassReward", 6, 2) :: ClientIntent<number, string>
+-- Test Realm only (ignored on normal servers).
+Remotes.RequestSandboxConfig = intent("RequestSandboxConfig", 4, 1) :: ClientIntent<Types.SandboxConfig>
+Remotes.RequestSandboxReset = intent("RequestSandboxReset", 2, 0.5) :: ClientIntent<()>
 
 -- Server -> client events.
 Remotes.ProfileUpdated = serverEvent("ProfileUpdated", false) :: ServerEvent<Types.PlayerData>
 Remotes.QueueUpdated = serverEvent("QueueUpdated", false) :: ServerEvent<Types.QueueSnapshot>
 Remotes.QueueBoard = serverEvent("QueueBoard", false) :: ServerEvent<{ Types.QueueBoardEntry }>
+Remotes.QueueNotice = serverEvent("QueueNotice", false) :: ServerEvent<Types.QueueNotice>
 Remotes.MatchUpdated = serverEvent("MatchUpdated", false) :: ServerEvent<Types.MatchSnapshot>
 Remotes.MatchClosed = serverEvent("MatchClosed", false) :: ServerEvent<boolean>
 Remotes.Notify = serverEvent("Notify", false) :: ServerEvent<Types.NoticePayload>
+Remotes.ActionResult = serverEvent("ActionResult", false) :: ServerEvent<Types.ActionResult>
+Remotes.Leaderboard = serverEvent("Leaderboard", false) :: ServerEvent<Types.LeaderboardSnapshot>
+Remotes.PartyUpdated = serverEvent("PartyUpdated", false) :: ServerEvent<Types.PartySnapshot>
+Remotes.SandboxState = serverEvent("SandboxState", false) :: ServerEvent<Types.SandboxState>
+Remotes.RankResult = serverEvent("RankResult", false) :: ServerEvent<Types.RankResult>
 -- Cosmetic only; losing a packet just skips one tracer, so the cheaper unreliable channel fits.
 Remotes.Effect = serverEvent("Effect", true) :: ServerEvent<Types.EffectPayload>
 

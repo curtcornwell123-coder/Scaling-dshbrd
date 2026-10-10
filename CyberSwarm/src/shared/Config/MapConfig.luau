@@ -49,6 +49,15 @@ local maps: { [string]: Types.MapDef } = {
 		baseHealth = 1000,
 		builtIn = false,
 	},
+	TestYard = {
+		id = "TestYard",
+		displayName = "Test Yard",
+		description = "Open-air training yard used by the Test Realm sandbox.",
+		templateName = "TestYard",
+		laneCount = 1,
+		baseHealth = 1500,
+		builtIn = true,
+	},
 	VolcanoCore = {
 		id = "VolcanoCore",
 		displayName = "Volcano Core",
@@ -61,6 +70,6 @@ local maps: { [string]: Types.MapDef } = {
 }
 MapConfig.Maps = maps
 
-MapConfig.Order = { "Junkyard", "FactoryFloor", "NeonCity", "FrozenLab", "VolcanoCore" }
+MapConfig.Order = { "Junkyard", "FactoryFloor", "NeonCity", "FrozenLab", "VolcanoCore", "TestYard" }
 
 return TableUtil.deepFreeze(MapConfig)

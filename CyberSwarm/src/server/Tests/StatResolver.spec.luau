@@ -106,7 +106,6 @@ return function(t: TestRunner.TestApi)
 					accent = Color3.new(1, 1, 1),
 					shape = "Block",
 				},
-				unlockCost = 0,
 				locked = false,
 				upgradeCosts = {},
 			} :: Types.RobotDef

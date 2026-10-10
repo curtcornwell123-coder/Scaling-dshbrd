@@ -13,6 +13,9 @@
 	- A load that still fails after retries kicks the player instead of handing out defaults,
 	  because defaults saved later would overwrite their real progress.
 	- In Studio without API access it falls back to in-memory data with a warning.
+	- Sandbox (Test Realm): on a Test Realm server data is loaded read-only (no session lock) and
+	  never saved, and update() rejects every write, so nothing can be earned or lost there.
+	  setSandbox(player) applies the same write block to one player (Studio's local Test Realm).
 ]]
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -27,6 +30,7 @@ local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local TableUtil = require(ReplicatedStorage.Shared.Util.TableUtil)
 local RobotConfig = require(ReplicatedStorage.Shared.Config.RobotConfig)
 local ModeConfig = require(ReplicatedStorage.Shared.Config.ModeConfig)
+local SeasonConfig = require(ReplicatedStorage.Shared.Config.SeasonConfig)
 
 local DATA = Constants.Data
 
@@ -60,12 +64,18 @@ local DataService = {}
 
 -- Fires once a player's data is loaded and safe to read.
 DataService.profileLoaded = Signal.new() :: Signal.Signal<Player>
+-- Fires (synchronously) just before a leaving player's final save. Handlers must not yield;
+-- this is where a match abandon is turned into a loss so it is part of the saved data.
+DataService.beforeRelease = Signal.new() :: Signal.Signal<Player>
 
 local store: DataStore? = nil
 local memoryMode = false
 local profiles: { [Player]: Profile } = {}
 local loading: { [Player]: boolean } = {}
 local activeSaves = 0
+-- Test Realm server: read-only loads, no saves, every update rejected.
+local sandboxServer = false
+local sandboxPlayers: { [Player]: boolean } = {}
 
 local function defaultData(): Types.PlayerData
 	local defaults = ModeConfig.ProfileDefaults
@@ -79,12 +89,57 @@ local function defaultData(): Types.PlayerData
 			losses = 0,
 			wavesSurvived = 0,
 			highestWave = 0,
+			winStreak = 0,
+			bestWinStreak = 0,
 		},
 		settings = {
 			musicVolume = defaults.musicVolume,
 			sfxVolume = defaults.sfxVolume,
 		},
+		purchases = {},
+		season = {
+			seasonId = SeasonConfig.SeasonId,
+			xp = 0,
+			premium = false,
+			claimedFree = {},
+			claimedPremium = {},
+		},
+		quests = { day = 0, progress = {}, claimed = {}, tried = {} },
+		supply = { day = 0, claims = 0, lastClaimAt = 0 },
+		codes = {},
+		rank = {
+			seasonId = SeasonConfig.Ranked.seasonId,
+			ratings = {},
+			appliedMatches = {},
+			recentOpponents = {},
+			cooldownUntil = 0,
+			pendingReward = nil,
+		},
 	}
+end
+
+local function stringList(value: any, limit: number): { string }
+	local list: { string } = {}
+	if TableUtil.isTable(value) then
+		for _, item in value do
+			if type(item) == "string" and #list < limit and not table.find(list, item) then
+				table.insert(list, item)
+			end
+		end
+	end
+	return list
+end
+
+local function numberList(value: any, limit: number): { number }
+	local list: { number } = {}
+	if TableUtil.isTable(value) then
+		for _, item in value do
+			if type(item) == "number" and item == item and #list < limit and not table.find(list, item) then
+				table.insert(list, item)
+			end
+		end
+	end
+	return list
 end
 
 local function numberOr(value: any, fallback: number): number
@@ -92,6 +147,63 @@ local function numberOr(value: any, fallback: number): number
 		return value
 	end
 	return fallback
+end
+
+local function sanitizeReward(raw: any): Types.Reward?
+	if not TableUtil.isTable(raw) then
+		return nil
+	end
+	local troopId = raw.troopId
+	return {
+		coins = if type(raw.coins) == "number" then math.max(0, math.floor(raw.coins)) else nil,
+		gems = if type(raw.gems) == "number" then math.max(0, math.floor(raw.gems)) else nil,
+		xp = if type(raw.xp) == "number" then math.max(0, math.floor(raw.xp)) else nil,
+		troopId = if type(troopId) == "string" and RobotConfig.Robots[troopId] ~= nil then troopId else nil,
+	}
+end
+
+local function sanitizeRank(raw: any, defaults: Types.RankData): Types.RankData
+	if not TableUtil.isTable(raw) then
+		return defaults
+	end
+	local ratings: { [string]: Types.RatingData } = {}
+	if TableUtil.isTable(raw.ratings) then
+		for key, entry in raw.ratings do
+			if type(key) == "string" and TableUtil.isTable(entry) and type(entry.rating) == "number" then
+				ratings[key] = {
+					rating = math.max(0, numberOr(entry.rating, 0)),
+					played = math.max(0, math.floor(numberOr(entry.played, 0))),
+					wins = math.max(0, math.floor(numberOr(entry.wins, 0))),
+					losses = math.max(0, math.floor(numberOr(entry.losses, 0))),
+					peak = numberOr(entry.peak, entry.rating),
+				}
+			end
+		end
+	end
+	local opponents: { { userId: number, at: number } } = {}
+	if TableUtil.isTable(raw.recentOpponents) then
+		for _, entry in raw.recentOpponents do
+			if TableUtil.isTable(entry) and type(entry.userId) == "number" and type(entry.at) == "number" then
+				table.insert(opponents, { userId = entry.userId, at = entry.at })
+			end
+		end
+	end
+	local pending: Types.RankedReward? = nil
+	local rawPending: any = raw.pendingReward
+	if TableUtil.isTable(rawPending) and type(rawPending.seasonId) == "string" and type(rawPending.tier) == "string" then
+		local reward = sanitizeReward(rawPending.reward)
+		if reward ~= nil then
+			pending = { seasonId = rawPending.seasonId, tier = rawPending.tier, reward = reward }
+		end
+	end
+	return {
+		seasonId = if type(raw.seasonId) == "string" then raw.seasonId else defaults.seasonId,
+		ratings = ratings,
+		appliedMatches = stringList(raw.appliedMatches, 200),
+		recentOpponents = opponents,
+		cooldownUntil = numberOr(raw.cooldownUntil, 0),
+		pendingReward = pending,
+	}
 end
 
 -- Rebuilds a well-formed PlayerData from anything stored, dropping ids that no longer exist so a
@@ -145,6 +257,18 @@ local function sanitize(raw: any): Types.PlayerData
 
 	local stats: any = if TableUtil.isTable(stored.stats) then stored.stats else {}
 	local settings: any = if TableUtil.isTable(stored.settings) then stored.settings else {}
+	local season: any = if TableUtil.isTable(stored.season) then stored.season else {}
+	local quests: any = if TableUtil.isTable(stored.quests) then stored.quests else {}
+	local supply: any = if TableUtil.isTable(stored.supply) then stored.supply else {}
+
+	local questProgress: { [string]: number } = {}
+	if TableUtil.isTable(quests.progress) then
+		for questId, value in quests.progress do
+			if type(questId) == "string" and type(value) == "number" then
+				questProgress[questId] = math.max(0, math.floor(value))
+			end
+		end
+	end
 
 	return {
 		coins = math.max(0, math.floor(numberOr(stored.coins, defaults.coins))),
@@ -156,11 +280,34 @@ local function sanitize(raw: any): Types.PlayerData
 			losses = numberOr(stats.losses, 0),
 			wavesSurvived = numberOr(stats.wavesSurvived, 0),
 			highestWave = numberOr(stats.highestWave, 0),
+			winStreak = math.max(0, numberOr(stats.winStreak, 0)),
+			bestWinStreak = math.max(0, numberOr(stats.bestWinStreak, 0)),
 		},
 		settings = {
 			musicVolume = math.clamp(numberOr(settings.musicVolume, defaults.settings.musicVolume), 0, 1),
 			sfxVolume = math.clamp(numberOr(settings.sfxVolume, defaults.settings.sfxVolume), 0, 1),
 		},
+		purchases = stringList(stored.purchases, DATA.PURCHASE_HISTORY),
+		season = {
+			seasonId = if type(season.seasonId) == "string" then season.seasonId else defaults.season.seasonId,
+			xp = math.max(0, math.floor(numberOr(season.xp, 0))),
+			premium = season.premium == true,
+			claimedFree = numberList(season.claimedFree, 200),
+			claimedPremium = numberList(season.claimedPremium, 200),
+		},
+		quests = {
+			day = numberOr(quests.day, 0),
+			progress = questProgress,
+			claimed = stringList(quests.claimed, 50),
+			tried = stringList(quests.tried, 50),
+		},
+		supply = {
+			day = numberOr(supply.day, 0),
+			claims = math.max(0, math.floor(numberOr(supply.claims, 0))),
+			lastClaimAt = numberOr(supply.lastClaimAt, 0),
+		},
+		codes = stringList(stored.codes, 200),
+		rank = sanitizeRank(stored.rank, defaults.rank),
 	}
 end
 
@@ -169,6 +316,11 @@ end
 local MIGRATIONS: { [number]: (any) -> any } = {
 	[0] = function(old: any): any
 		return { schemaVersion = 1, data = old, lock = nil }
+	end,
+	-- v2 (Lobby v2): adds purchases, season, quests, supply, codes, rank, and win streak stats.
+	-- New fields start from defaults (sanitize fills them); existing progress is kept as is.
+	[1] = function(old: any): any
+		return { schemaVersion = 2, data = old.data, lock = old.lock }
 	end,
 }
 
@@ -225,6 +377,27 @@ local function loadData(player: Player): (Types.PlayerData?, LoadFailure?)
 	end
 
 	local key = keyFor(player)
+	if sandboxServer then
+		-- Read-only: the Test Realm never takes the session lock, so returning to the main game is
+		-- never blocked by this server, and nothing here can be saved anyway.
+		for attempt = 1, DATA.MAX_ATTEMPTS do
+			local ok, result = pcall(function(): any
+				return activeStore:GetAsync(key)
+			end)
+			if ok then
+				local record, newer = migrate(result)
+				if newer then
+					return nil, "newer"
+				end
+				return record.data, nil
+			end
+			warn(`[DataService] Sandbox read {attempt} for {player.Name} failed: {result}`)
+			if attempt < DATA.MAX_ATTEMPTS then
+				backoff(attempt)
+			end
+		end
+		return nil, "error"
+	end
 	local lastFailure: LoadFailure = "error"
 	for attempt = 1, DATA.MAX_ATTEMPTS do
 		local outcome: LoadFailure | "ok" = "error"
@@ -272,6 +445,9 @@ local function writeProfile(player: Player, profile: Profile, release: boolean):
 	if memoryMode then
 		return true
 	end
+	if sandboxServer then
+		return false
+	end
 	local activeStore = store
 	if activeStore == nil then
 		return false
@@ -310,7 +486,7 @@ local function writeProfile(player: Player, profile: Profile, release: boolean):
 	return false
 end
 
-local function saveProfile(player: Player, profile: Profile, release: boolean)
+local function saveProfile(player: Player, profile: Profile, release: boolean): boolean
 	-- Saves for one profile run one at a time so a releasing save can never land before an
 	-- in-flight autosave (which would re-acquire the lock with older data).
 	local waited = 0
@@ -318,17 +494,18 @@ local function saveProfile(player: Player, profile: Profile, release: boolean)
 		waited += task.wait()
 	end
 	if profile.released then
-		return
+		return false
 	end
 
 	activeSaves += 1
 	profile.saving = true
-	writeProfile(player, profile, release)
+	local written = writeProfile(player, profile, release)
 	profile.saving = false
 	if release then
 		profile.released = true
 	end
 	activeSaves -= 1
+	return written
 end
 
 function DataService.pushProfile(player: Player)
@@ -348,10 +525,43 @@ function DataService.isLoaded(player: Player): boolean
 	return profiles[player] ~= nil
 end
 
+function DataService.isSandboxed(player: Player): boolean
+	return sandboxServer or sandboxPlayers[player] == true
+end
+
+function DataService.isSandboxServer(): boolean
+	return sandboxServer
+end
+
+-- Called by Bootstrap before start() on a Test Realm server.
+function DataService.setSandboxServer(enabled: boolean)
+	sandboxServer = enabled
+end
+
+-- Blocks (or unblocks) every write for one player while they are in a local Test Realm.
+function DataService.setSandbox(player: Player, enabled: boolean)
+	if enabled then
+		sandboxPlayers[player] = true
+	else
+		sandboxPlayers[player] = nil
+	end
+end
+
+-- Writes the profile now (keeping the lock). Used where a grant must be durable before the
+-- caller answers, e.g. ProcessReceipt. Returns true once the data store accepted it.
+function DataService.saveNow(player: Player): boolean
+	local profile = profiles[player]
+	if profile == nil or profile.released or DataService.isSandboxed(player) then
+		return false
+	end
+	return saveProfile(player, profile, false)
+end
+
 -- Applies a change to a loaded profile and pushes the result to the client.
+-- Always rejected while the player is sandboxed (Test Realm).
 function DataService.update(player: Player, mutator: (data: Types.PlayerData) -> ()): boolean
 	local profile = profiles[player]
-	if profile == nil or profile.released then
+	if profile == nil or profile.released or DataService.isSandboxed(player) then
 		return false
 	end
 	mutator(profile.data)
@@ -386,10 +596,13 @@ local function onPlayerAdded(player: Player)
 end
 
 local function onPlayerRemoving(player: Player)
+	sandboxPlayers[player] = nil
 	local profile = profiles[player]
 	if profile == nil then
 		return
 	end
+	-- Last chance for other services to record what leaving means (e.g. a ranked abandon).
+	DataService.beforeRelease:fire(player)
 	profiles[player] = nil
 	saveProfile(player, profile, true)
 end
@@ -415,6 +628,8 @@ local function onClose()
 		return
 	end
 	for player, profile in profiles do
+		-- A shutdown is not the player's fault: services must not treat this as an abandon,
+		-- so beforeRelease is not fired here.
 		profiles[player] = nil
 		task.spawn(saveProfile, player, profile, true)
 	end

@@ -22,12 +22,14 @@ local Constants = require(ReplicatedStorage.Shared.Constants)
 local MapConfig = require(ReplicatedStorage.Shared.Config.MapConfig)
 local ServerTypes = require(script.Parent.Parent.ServerTypes)
 local JunkyardBuilder = require(script.Parent.Parent.World.JunkyardBuilder)
+local TestYardBuilder = require(script.Parent.Parent.World.TestYardBuilder)
 
 local Layout = Constants.MapLayout
 
 -- Generators for builtIn maps, keyed by map id.
 local GENERATORS: { [string]: () -> Model } = {
 	Junkyard = JunkyardBuilder.build,
+	TestYard = TestYardBuilder.build,
 }
 
 local MapService = {}

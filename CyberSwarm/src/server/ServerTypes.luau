@@ -63,6 +63,15 @@ export type RobotUnit = {
 	stunnedUntil: number,
 	slowedUntil: number,
 	slowMultiplier: number,
+	-- Sentinel aura: damage taken is reduced by guardReduction until guardedUntil.
+	guardedUntil: number,
+	guardReduction: number,
+	-- Relay aura: speed is raised by boostAmount until boostedUntil.
+	boostedUntil: number,
+	boostAmount: number,
+	-- Phantom: towers cannot target the robot until stealthUntil.
+	stealthUntil: number,
+	stealthShown: boolean,
 	abilityReadyAt: { number },
 	alive: boolean,
 	barFill: Frame,
@@ -117,6 +126,8 @@ export type Arena = {
 	nextUid: number,
 	eliminated: boolean,
 	nextBarFlushAt: number,
+	-- Match clock (seconds, scaled by the match's time scale). Systems read this, never os.clock().
+	clock: number,
 	robotReachedBase: Signal.Signal<RobotUnit>,
 	robotRemoved: Signal.Signal<RobotUnit, RemovalReason>,
 	-- tower, attacking robot, damage, disable seconds
@@ -134,6 +145,9 @@ export type MatchPlayer = {
 	queuedThisWave: number,
 	sentThisWave: number,
 	connected: boolean,
+	-- Test Realm: spending never fails and nothing is paid out.
+	unlimitedCoins: boolean,
+	team: number,
 }
 
 export type Outcome = {
@@ -160,6 +174,14 @@ export type Match = {
 	pendingOutcome: Outcome?,
 	results: { [Player]: Types.MatchResult },
 	closed: boolean,
+	-- Unique across servers (JobId + local id); rating results are keyed by it.
+	key: string,
+	-- Scaled match clock and its speed (Test Realm speed setting; 1 everywhere else).
+	clock: number,
+	timeScale: number,
+	sandbox: Types.SandboxConfig?,
+	-- Wave the match starts on (Test Realm can start later than wave 1).
+	firstWave: number,
 }
 
 return {}

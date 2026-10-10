@@ -5,8 +5,10 @@
 	stuns, and slows. Movement is plain CFrame math along the waypoint polyline (no Humanoids, no
 	pathfinding): each match tick moves every robot root in one workspace:BulkMoveTo call.
 
-	Robots never call into TowerService. Hostile effects on towers (Glitch, Bomber) are requested
-	through arena.towerHitRequested, which TowerService handles, so the dependency stays one-way.
+	Robots never call into TowerService. Hostile effects on towers (Glitch, Bomber, Striker, Mortar)
+	are requested through arena.towerHitRequested, which TowerService handles, so the dependency
+	stays one-way. Auras (Sentinel guard, Relay boost) are marks on nearby robots with an expiry,
+	and Phantom's stealth is a time stamp TowerService checks when picking targets.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -27,6 +29,10 @@ type RobotUnit = ServerTypes.RobotUnit
 type TowerUnit = ServerTypes.TowerUnit
 
 local FLAT_EPSILON = 1e-3
+-- Aura marks outlive one tick slightly so a robot at the edge never flickers in and out.
+local AURA_REFRESH = 0.3
+local STEALTH_TRANSPARENCY = 0.75
+local BASE_TRANSPARENCY_ATTRIBUTE = "BaseTransparency"
 local World = Constants.World
 
 local RobotService = {}
@@ -118,10 +124,18 @@ function RobotService.kill(arena: Arena, robot: RobotUnit, reason: ServerTypes.R
 	arena.robotRemoved:fire(robot, reason)
 end
 
+local function isImmune(robot: RobotUnit, effect: Types.Immunity): boolean
+	local immunities = robot.def.immunities
+	return immunities ~= nil and table.find(immunities, effect) ~= nil
+end
+
 -- Returns true if this damage destroyed the robot.
 function RobotService.damage(arena: Arena, robot: RobotUnit, amount: number): boolean
 	if not robot.alive or amount <= 0 then
 		return false
+	end
+	if arena.clock < robot.guardedUntil then
+		amount *= 1 - robot.guardReduction
 	end
 	robot.health -= amount
 	robot.barDirty = true
@@ -133,11 +147,17 @@ function RobotService.damage(arena: Arena, robot: RobotUnit, amount: number): bo
 end
 
 function RobotService.stun(robot: RobotUnit, untilTime: number)
+	if isImmune(robot, "Stun") then
+		return
+	end
 	robot.stunnedUntil = math.max(robot.stunnedUntil, untilTime)
 end
 
 -- The strongest active slow wins; a weaker slow can only extend nothing.
 function RobotService.slow(robot: RobotUnit, multiplier: number, untilTime: number, now: number)
+	if isImmune(robot, "Slow") then
+		return
+	end
 	if now >= robot.slowedUntil then
 		robot.slowMultiplier = multiplier
 	else
@@ -196,19 +216,103 @@ local function runExplode(arena: Arena, robot: RobotUnit, ability: Types.Ability
 	return true
 end
 
+-- Sentinel: allies in range (itself included) take less damage while the mark lasts.
+local function runGuard(arena: Arena, robot: RobotUnit, ability: Types.AbilityDef, now: number)
+	local radius = ability.radius or 0
+	local radiusSquared = radius * radius
+	local reduction = math.clamp(ability.reduction or 0, 0, 0.9)
+	for _, ally in arena.robots do
+		if ally.alive and MathUtil.distanceSquared(ally.position, robot.position) <= radiusSquared then
+			if now >= ally.guardedUntil or reduction > ally.guardReduction then
+				ally.guardReduction = reduction
+			end
+			ally.guardedUntil = now + AURA_REFRESH
+		end
+	end
+end
+
+-- Relay: pulses a speed boost onto nearby allies (not itself).
+local function runBoost(arena: Arena, robot: RobotUnit, ability: Types.AbilityDef, index: number, now: number)
+	local radius = ability.radius or 0
+	local radiusSquared = radius * radius
+	local amount = ability.amount or 0
+	local boosted = false
+	for _, ally in arena.robots do
+		if ally ~= robot and ally.alive and MathUtil.distanceSquared(ally.position, robot.position) <= radiusSquared then
+			if now >= ally.boostedUntil or amount > ally.boostAmount then
+				ally.boostAmount = amount
+			end
+			ally.boostedUntil = math.max(ally.boostedUntil, now + (ability.duration or 0))
+			boosted = true
+		end
+	end
+	robot.abilityReadyAt[index] = now + (ability.interval or 0)
+	if boosted then
+		Effects.send(arena.viewers, "Pulse", robot.position, robot.position, robot.def.visual.accent, radius)
+	end
+end
+
+-- Striker (short range) and Mortar (long range): hit the nearest standing tower and keep going.
+local function runTowerAttack(arena: Arena, robot: RobotUnit, ability: Types.AbilityDef, index: number, now: number)
+	local tower = nearestTower(arena, robot.position, ability.radius or 0, now, false)
+	if tower == nil then
+		return
+	end
+	robot.abilityReadyAt[index] = now + (ability.cooldown or 0)
+	local kind: Types.EffectKind = if ability.kind == "Bombard" then "Explosion" else "Shot"
+	Effects.send(arena.viewers, kind, robot.position, tower.position, robot.def.visual.accent, if kind == "Explosion" then 3 else 0)
+	arena.towerHitRequested:fire(tower, robot, ability.damage or 0, 0)
+end
+
+local function setStealthVisual(robot: RobotUnit, hidden: boolean)
+	robot.stealthShown = hidden
+	for _, descendant in robot.model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			local base = descendant:GetAttribute(BASE_TRANSPARENCY_ATTRIBUTE)
+			if base == nil then
+				base = descendant.Transparency
+				descendant:SetAttribute(BASE_TRANSPARENCY_ATTRIBUTE, base)
+			end
+			local baseValue = if type(base) == "number" then base else 0
+			descendant.Transparency = if hidden then math.max(baseValue, STEALTH_TRANSPARENCY) else baseValue
+		end
+	end
+end
+
+-- Phantom: cycles between a stealth window and its cooldown.
+local function runStealth(robot: RobotUnit, ability: Types.AbilityDef, index: number, now: number)
+	local duration = ability.duration or 0
+	robot.stealthUntil = now + duration
+	robot.abilityReadyAt[index] = now + duration + (ability.cooldown or 0)
+end
+
 local function runAbilities(arena: Arena, robot: RobotUnit, now: number)
 	for index, ability in robot.def.abilities do
-		if now >= robot.abilityReadyAt[index] then
-			if ability.kind == "Heal" then
+		local kind = ability.kind
+		if kind == "Guard" then
+			-- Passive aura: refreshed every tick, no cooldown.
+			runGuard(arena, robot, ability, now)
+		elseif now >= robot.abilityReadyAt[index] then
+			if kind == "Heal" then
 				runHeal(arena, robot, ability, index, now)
-			elseif ability.kind == "Disable" then
+			elseif kind == "Disable" then
 				runDisable(arena, robot, ability, index, now)
-			elseif ability.kind == "Explode" then
+			elseif kind == "Explode" then
 				if runExplode(arena, robot, ability, now) then
 					return
 				end
+			elseif kind == "Strike" or kind == "Bombard" then
+				runTowerAttack(arena, robot, ability, index, now)
+			elseif kind == "Boost" then
+				runBoost(arena, robot, ability, index, now)
+			elseif kind == "Stealth" then
+				runStealth(robot, ability, index, now)
 			end
 		end
+	end
+	local hidden = now < robot.stealthUntil
+	if hidden ~= robot.stealthShown then
+		setStealthVisual(robot, hidden)
 	end
 end
 
@@ -259,6 +363,12 @@ function RobotService.spawn(
 		stunnedUntil = 0,
 		slowedUntil = 0,
 		slowMultiplier = 1,
+		guardedUntil = 0,
+		guardReduction = 0,
+		boostedUntil = 0,
+		boostAmount = 0,
+		stealthUntil = 0,
+		stealthShown = false,
 		abilityReadyAt = abilityReadyAt,
 		alive = true,
 		barFill = built.barFill,
@@ -284,6 +394,9 @@ function RobotService.step(arena: Arena, dt: number, now: number)
 			local speed = robot.speed
 			if now < robot.slowedUntil then
 				speed *= robot.slowMultiplier
+			end
+			if now < robot.boostedUntil then
+				speed *= 1 + robot.boostAmount
 			end
 			if advance(robot, speed * dt) then
 				arena.robotReachedBase:fire(robot)

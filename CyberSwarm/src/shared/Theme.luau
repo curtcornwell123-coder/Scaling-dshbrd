@@ -26,18 +26,39 @@ Theme.Colors = {
 	Ground = Color3.fromRGB(18, 20, 30),
 }
 
--- Lobby hall: solid surfaces lit by the scene, not by glow.
+-- Lobby facility: stylized low-poly concrete and steel. Glow lives in signs and trim only.
 Theme.World = {
-	Floor = Color3.fromRGB(62, 66, 76),
-	FloorSeam = Color3.fromRGB(48, 52, 60),
-	Wall = Color3.fromRGB(92, 98, 110),
-	WallPanel = Color3.fromRGB(116, 122, 136),
-	Pillar = Color3.fromRGB(58, 62, 72),
-	Trim = Color3.fromRGB(40, 44, 52),
-	Beam = Color3.fromRGB(70, 74, 84),
-	Stencil = Color3.fromRGB(226, 220, 200),
-	RingUnlit = Color3.fromRGB(44, 48, 56),
-	Screen = Color3.fromRGB(20, 24, 34),
+	Concrete = Color3.fromRGB(180, 176, 166), -- warm light grey #B4B0A6
+	ConcreteMid = Color3.fromRGB(140, 138, 132), -- mid grey #8C8A84
+	Steel = Color3.fromRGB(42, 44, 47), -- dark steel #2A2C2F
+	SteelLight = Color3.fromRGB(70, 73, 78),
+	Hazard = Color3.fromRGB(242, 193, 0), -- hazard yellow #F2C100
+	HazardBlack = Color3.fromRGB(24, 24, 26),
+	Floor = Color3.fromRGB(150, 147, 139),
+	FloorSeam = Color3.fromRGB(122, 120, 114),
+	Screen = Color3.fromRGB(18, 21, 28),
+	RingUnlit = Color3.fromRGB(60, 62, 66),
+	RingLocked = Color3.fromRGB(214, 52, 52),
+	Glass = Color3.fromRGB(120, 200, 230),
+	Stencil = Color3.fromRGB(46, 48, 52),
+	Curtain = Color3.fromRGB(150, 24, 34),
+	GreenScreen = Color3.fromRGB(40, 178, 72),
+	EmblemRed = Color3.fromRGB(196, 40, 40),
+	EmblemWhite = Color3.fromRGB(236, 232, 224),
+}
+
+-- Neon accent per lobby area.
+Theme.Areas = {
+	HubRing = Color3.fromRGB(242, 193, 0),
+	HubRingAccent = Color3.fromRGB(64, 196, 226),
+	Duels = Color3.fromRGB(236, 240, 246),
+	DuelsGold = Color3.fromRGB(242, 193, 0),
+	DuelsPurple = Color3.fromRGB(150, 84, 230),
+	Troops = Color3.fromRGB(150, 84, 230),
+	TestRealm = Color3.fromRGB(64, 210, 236),
+	Market = Color3.fromRGB(242, 178, 40),
+	Party = Color3.fromRGB(86, 214, 146),
+	Armory = Color3.fromRGB(242, 193, 0),
 }
 
 -- Military palette for towers, the enemy HQ, and battlefield props.
@@ -55,6 +76,7 @@ Theme.Military = {
 
 Theme.RarityColors = {
 	Common = Color3.fromRGB(150, 170, 200),
+	Uncommon = Color3.fromRGB(86, 214, 146),
 	Rare = Color3.fromRGB(64, 196, 226),
 	Epic = Color3.fromRGB(176, 92, 255),
 	Legendary = Color3.fromRGB(255, 202, 64),
@@ -79,9 +101,10 @@ Theme.StrokeThickness = 2
 
 Theme.Tween = {
 	Fast = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	Normal = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-	Slow = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-	Pop = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+	Normal = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	Slow = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+	-- UI motion is 0.2 s ease-out everywhere, never a bounce.
+	Pop = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 }
 
 function Theme.rarityColor(rarity: string): Color3
