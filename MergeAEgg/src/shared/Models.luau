@@ -130,6 +130,8 @@ local function setRoot(model: Model, size: Vector3, cf: CFrame?): BasePart
 		Transparency = 1,
 		Parent = model,
 	})
+	-- Pivot at the model's base so PivotTo(ground) stands it on the ground.
+	root.PivotOffset = CFrame.new(0, -size.Y / 2, 0)
 	model.PrimaryPart = root
 	return root
 end
@@ -168,6 +170,25 @@ local function billboard(parent, text, color, size, offset, maxDistance)
 end
 Models.billboard = billboard
 
+local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
+
+local function particles(parent: Instance, color: Color3, rate: number, size: number, speed: number)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = SPARKLE_TEXTURE
+	emitter.Color = ColorSequence.new(color)
+	emitter.LightEmission = 1
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, size), NumberSequenceKeypoint.new(1, 0) })
+	emitter.Transparency = NumberSequence.new(0.1, 1)
+	emitter.Rate = rate
+	emitter.Lifetime = NumberRange.new(0.8, 1.6)
+	emitter.Speed = NumberRange.new(speed * 0.5, speed)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Acceleration = Vector3.new(0, 2, 0)
+	emitter.Parent = parent
+	return emitter
+end
+Models.particles = particles
+
 ---------------------------------------------------------------------------
 -- Pets: templates
 ---------------------------------------------------------------------------
@@ -175,15 +196,21 @@ Models.billboard = billboard
 -- Each template builds the body and returns anchors that features attach to.
 -- heads: list of { cf = CFrame, size = Vector3 } (empty when headless).
 
+-- Big friendly eyes (white, pupil, two shines), blush and a little mouth.
+local BLUSH = c(255, 140, 160)
 local function addEyes(model, head, s, opts)
 	local front = head.cf * CFrame.new(0, 0, -head.size.Z / 2 - 0.02 * s)
-	local eyeSize = if opts.big then Vector3.new(0.38, 0.46, 0.06) else Vector3.new(0.24, 0.32, 0.06)
-	local spread = head.size.X * 0.24
+	local scale = if opts.big then 1.3 else 1
+	local spread = head.size.X * 0.25
 	for _, side in { -1, 1 } do
-		local eyeCf = front * CFrame.new(side * spread, head.size.Y * 0.12, 0)
-		box(model, "Eye", eyeSize * s, eyeCf, opts.color or BLACK, opts.neon and { Material = Enum.Material.Neon } or nil)
-		box(model, "EyeShine", Vector3.new(0.09, 0.11, 0.02) * s, eyeCf * CFrame.new(-0.05 * s, 0.07 * s, -0.04 * s), WHITE)
+		local eyeCf = front * CFrame.new(side * spread, head.size.Y * 0.1, 0)
+		box(model, "EyeWhite", Vector3.new(0.4, 0.48, 0.05) * s * scale, eyeCf, WHITE)
+		box(model, "Eye", Vector3.new(0.28, 0.36, 0.06) * s * scale, eyeCf * CFrame.new(side * -0.03 * s, -0.04 * s, -0.01 * s), opts.color or BLACK)
+		box(model, "EyeShine", Vector3.new(0.1, 0.12, 0.02) * s * scale, eyeCf * CFrame.new(side * -0.08 * s, 0.06 * s, -0.05 * s), WHITE)
+		box(model, "EyeShine", Vector3.new(0.05, 0.05, 0.02) * s * scale, eyeCf * CFrame.new(side * 0.03 * s, -0.1 * s, -0.05 * s), WHITE)
+		box(model, "Blush", Vector3.new(0.3, 0.12, 0.03) * s, front * CFrame.new(side * spread * 1.35, -head.size.Y * 0.16, 0), BLUSH, { Transparency = 0.15 })
 	end
+	box(model, "Mouth", Vector3.new(0.22, 0.07, 0.03) * s, front * CFrame.new(0, -head.size.Y * 0.22, -0.01 * s), c(70, 35, 40))
 end
 
 local function legs4(model, s, color, paw, spreadX, spreadZ, height)
@@ -201,6 +228,7 @@ function templates.quad(model, def, s, flags)
 	local primary, secondary = def.primary, def.secondary
 	legs4(model, s, primary, darken(secondary, 0.1), 0.72, 1.05, 1)
 	local body = box(model, "Body", Vector3.new(2.2, 1.5, 3) * s, Vector3.new(0, 1.75 * s, 0), primary)
+	box(model, "Back", Vector3.new(1.9, 0.12, 2.7) * s, Vector3.new(0, 2.53 * s, 0), lighten(primary, 0.12))
 	box(model, "Belly", Vector3.new(1.7, 0.1, 2.3) * s, Vector3.new(0, 1.0 * s, 0), secondary)
 	local heads = {}
 	if not flags.headless then
@@ -212,8 +240,9 @@ function templates.quad(model, def, s, flags)
 		local xs = if flags.two_heads then { -0.75, 0.75 } else { 0 }
 		for _, x in xs do
 			local cf = CFrame.new(x * s, headY * s, headZ * s)
-			local size = Vector3.new(1.5, 1.4, 1.4) * s
+			local size = Vector3.new(1.75, 1.6, 1.55) * s
 			box(model, "Head", size, cf, flags.headColor or primary)
+			box(model, "HeadTop", Vector3.new(1.55, 0.12, 1.35) * s, cf * CFrame.new(0, size.Y / 2 + 0.03 * s, 0), lighten(flags.headColor or primary, 0.12))
 			local snout = box(model, "Snout", Vector3.new(0.8, 0.5, 0.35) * s, cf * CFrame.new(0, -0.32 * s, -0.85 * s), secondary)
 			box(model, "Nose", Vector3.new(0.3, 0.18, 0.06) * s, snout.CFrame * CFrame.new(0, 0.12 * s, -0.19 * s), BLACK)
 			table.insert(heads, { cf = cf, size = size })
@@ -239,9 +268,9 @@ function templates.bird(model, def, s, flags)
 	ball(model, "Chest", 1.5 * s, Vector3.new(0, 1.5 * s, -0.42 * s), lighten(primary, 0.25))
 	local heads = {}
 	if not flags.headless then
-		local cf = CFrame.new(0, 2.85 * s, -0.55 * s)
-		ball(model, "Head", 1.4 * s, cf.Position, flags.headColor or primary)
-		table.insert(heads, { cf = cf, size = Vector3.one * 1.4 * s })
+		local cf = CFrame.new(0, 2.95 * s, -0.55 * s)
+		ball(model, "Head", 1.65 * s, cf.Position, flags.headColor or primary)
+		table.insert(heads, { cf = cf, size = Vector3.one * 1.65 * s })
 	end
 	return {
 		heads = heads,
@@ -268,8 +297,8 @@ function templates.biped(model, def, s, flags)
 	end
 	local heads = {}
 	if not flags.headless then
-		local cf = CFrame.new(0, 3.85 * s, 0)
-		local size = Vector3.new(1.55, 1.45, 1.4) * s
+		local cf = CFrame.new(0, 3.95 * s, 0)
+		local size = Vector3.new(1.85, 1.7, 1.6) * s
 		box(model, "Head", size, cf, flags.headColor or primary)
 		table.insert(heads, { cf = cf, size = size })
 	end
@@ -758,7 +787,7 @@ end
 
 function features.ghost(model, a, def, s)
 	for _, child in model:GetChildren() do
-		if child:IsA("BasePart") and child.Name ~= "Root" and child.Name ~= "Eye" and child.Name ~= "EyeShine" then
+		if child:IsA("BasePart") and child.Name ~= "Root" and child.Name ~= "Eye" and child.Name ~= "EyeShine" and child.Name ~= "EyeWhite" then
 			child.Transparency = 0.35
 			child.Material = Enum.Material.Glass
 		end
@@ -775,7 +804,7 @@ end
 
 function features.translucent(model, a, def, s)
 	for _, child in model:GetChildren() do
-		if child:IsA("BasePart") and child.Name ~= "Root" and child.Name ~= "Eye" and child.Name ~= "EyeShine" then
+		if child:IsA("BasePart") and child.Name ~= "Root" and child.Name ~= "Eye" and child.Name ~= "EyeShine" and child.Name ~= "EyeWhite" then
 			child.Material = Enum.Material.Glass
 			child.Transparency = 0.2
 		end
@@ -989,6 +1018,15 @@ function Models.pet(def, opts): Model
 		end
 	end
 
+	if opts.aura and rarity >= 4 then
+		local color = Config.Rarities[rarity].color
+		upCylinder(model, "Aura", 4.2 * s, 0.08, CFrame.new(0, 0.05, 0), color, { Material = Enum.Material.Neon, Transparency = 0.45 })
+		upCylinder(model, "AuraRim", 4.6 * s, 0.06, CFrame.new(0, 0.04, 0), color, { Material = Enum.Material.Neon, Transparency = 0.7 })
+		if rarity >= 5 then
+			particles(anchors.body, color, 4 + rarity, 0.3 * s, 1.2)
+		end
+	end
+
 	local height = (anchors.top + 0.5) * s
 	setRoot(model, Vector3.new(2.5 * s, height, 3 * s))
 	model:SetAttribute("Height", height)
@@ -999,11 +1037,20 @@ end
 -- Eggs and nests
 ---------------------------------------------------------------------------
 
+
+-- Egg size grows with weight so heavy eggs are easy to spot; BIG eggs grow again.
+function Models.eggScale(weight: number?, big: boolean?): number
+	local scale = if weight then math.clamp(0.75 + (weight - 1) * 0.11, 0.75, 1.6) else 1
+	return scale * (if big then 1.25 else 1)
+end
+
 -- variant: nil | "clown" | "pumpkin" | "boss"
+-- opts: { big, weight, variant, scale, display } (display = no beams, for UI previews)
+-- The model's pivot is the bottom of the egg, so PivotTo(ground) seats it correctly.
 function Models.egg(biomeKey: string, rarity: number, opts): Model
 	opts = opts or {}
 	local biome = Config.Biomes[Config.BiomeIndex[biomeKey]]
-	local s = (opts.big and 1.6 or 1) * (opts.scale or 1)
+	local s = Models.eggScale(opts.weight, opts.big) * (opts.scale or 1)
 	local model = newModel("Egg")
 	local shellColor, spotColor = biome.egg, biome.eggSpots
 	if opts.variant == "clown" then
@@ -1011,6 +1058,7 @@ function Models.egg(biomeKey: string, rarity: number, opts): Model
 	elseif opts.variant == "boss" then
 		shellColor, spotColor = c(80, 50, 120), GOLD
 	end
+	local rarityColor = Config.Rarities[rarity].color
 
 	local size = Vector3.new(1.6, 2.05, 1.6) * s
 	local shell = part({
@@ -1018,6 +1066,7 @@ function Models.egg(biomeKey: string, rarity: number, opts): Model
 		Size = size,
 		CFrame = CFrame.new(0, size.Y / 2, 0),
 		Color = shellColor,
+		Reflectance = if rarity >= 4 then 0.12 else 0.04,
 		Parent = model,
 	})
 	local mesh = Instance.new("SpecialMesh")
@@ -1025,21 +1074,21 @@ function Models.egg(biomeKey: string, rarity: number, opts): Model
 	mesh.Parent = shell
 
 	-- Spots sit on the ellipsoid surface.
-	local spotCount = if opts.variant == "clown" then 9 else 6
+	local spotCount = if opts.variant == "clown" then 9 else 7
 	local clownColors = { c(230, 30, 40), c(60, 140, 255), c(255, 210, 40) }
 	for i = 1, spotCount do
 		local theta = (i / spotCount) * math.pi * 2 + (i % 2) * 0.6
 		local phi = 0.45 + (i % 3) * 0.55
 		local dir = Vector3.new(math.sin(phi) * math.cos(theta), math.cos(phi), math.sin(phi) * math.sin(theta))
 		local pos = Vector3.new(dir.X * size.X / 2, size.Y / 2 + dir.Y * size.Y / 2, dir.Z * size.Z / 2) * 0.97
-		local color = if opts.variant == "clown" then clownColors[i % 3 + 1] else spotColor
-		ball(model, "Spot", 0.38 * s, pos, color)
+		local color = if opts.variant == "clown" then clownColors[i % 3 + 1] elseif rarity >= 3 and i % 3 == 0 then rarityColor else spotColor
+		ball(model, "Spot", (0.32 + (i % 2) * 0.12) * s, pos, color, if rarity >= 5 and i % 3 == 0 then { Material = Enum.Material.Neon } else nil)
 	end
 
 	if opts.variant == "pumpkin" then
 		for i = 0, 5 do
 			local angle = i / 6 * math.pi * 2
-			box(model, "Ridge", Vector3.new(0.12, size.Y * 0.8, 0.12) * Vector3.new(s, 1, s), CFrame.new(math.cos(angle) * size.X * 0.47, size.Y / 2, math.sin(angle) * size.Z * 0.47), darken(shellColor, 0.2))
+			box(model, "Ridge", Vector3.new(0.12 * s, size.Y * 0.8, 0.12 * s), CFrame.new(math.cos(angle) * size.X * 0.47, size.Y / 2, math.sin(angle) * size.Z * 0.47), darken(shellColor, 0.2))
 		end
 		box(model, "Stem", Vector3.new(0.25, 0.45, 0.25) * s, CFrame.new(0, size.Y + 0.15 * s, 0) * CFrame.Angles(0, 0, rad(12)), c(80, 140, 40))
 		box(model, "Face", Vector3.new(0.7, 0.18, 0.05) * s, CFrame.new(0, size.Y * 0.4, -size.Z / 2 - 0.02), c(255, 230, 60), { Material = Enum.Material.Neon })
@@ -1047,14 +1096,24 @@ function Models.egg(biomeKey: string, rarity: number, opts): Model
 		features.crown(model, { heads = { { cf = CFrame.new(0, size.Y * 0.8, 0), size = Vector3.new(1.2, 0.6, 1.2) * s } } }, {}, s)
 	end
 
+	-- BIG eggs: gold trim, a soft halo and sparkles so they look like a prize.
+	if opts.big then
+		upCylinder(model, "BigTrim", size.X * 0.92, 0.14 * s, CFrame.new(0, size.Y * 0.22, 0), GOLD, { Material = Enum.Material.Neon })
+		upCylinder(model, "BigTrim", size.X * 0.8, 0.12 * s, CFrame.new(0, size.Y * 0.78, 0), GOLD, { Material = Enum.Material.Neon })
+		particles(shell, c(255, 230, 120), 6, 0.35 * s, 2)
+	end
+
 	-- Rarity effects get stronger as rarity rises.
-	local rarityColor = Config.Rarities[rarity].color
+	if rarity >= 2 then
+		upCylinder(model, "GlowRing", size.X * 1.5, 0.08, CFrame.new(0, 0.05, 0), rarityColor, { Material = Enum.Material.Neon, Transparency = 0.55 })
+	end
 	if rarity >= 3 then
 		local light = Instance.new("PointLight")
 		light.Color = rarityColor
-		light.Range = 6 + rarity * 1.5
+		light.Range = 6 + rarity * 2
 		light.Brightness = 1 + rarity * 0.3
 		light.Parent = shell
+		particles(shell, rarityColor, 2 + rarity * 2, 0.25 * s + rarity * 0.04, 1.5)
 	end
 	if rarity >= 4 then
 		upCylinder(model, "Band", size.X * 1.02, 0.18 * s, CFrame.new(0, size.Y * 0.5, 0), rarityColor, { Material = Enum.Material.Neon })
@@ -1063,9 +1122,27 @@ function Models.egg(biomeKey: string, rarity: number, opts): Model
 		local sparkles = Instance.new("Sparkles")
 		sparkles.SparkleColor = rarityColor
 		sparkles.Parent = shell
+		if not opts.display then
+			-- A light pillar so rare eggs can be spotted from far away.
+			local beam = upCylinder(model, "Beam", size.X * 0.7, 40, CFrame.new(0, 20, 0), rarityColor, { Material = Enum.Material.Neon, Transparency = 0.82, CastShadow = false })
+			if rarity >= 7 then
+				beam:SetAttribute("Rainbow", true)
+			end
+		end
+	end
+	if rarity >= 6 then
+		-- Orbiting gems (the client spins this model).
+		local orbit = newModel("Orbit")
+		for i = 0, 5 do
+			local angle = i / 6 * math.pi * 2
+			ball(orbit, "OrbitGem", 0.32 * s, Vector3.new(math.cos(angle) * size.X * 0.85, size.Y * 0.5, math.sin(angle) * size.X * 0.85), if i % 2 == 0 then rarityColor else WHITE, { Material = Enum.Material.Neon })
+		end
+		orbit.Parent = model
 	end
 	if rarity >= 7 then
 		shell.Material = Enum.Material.Neon
+		shell:SetAttribute("Rainbow", true)
+		particles(shell, WHITE, 18, 0.5 * s, 3)
 	end
 
 	setRoot(model, size, CFrame.new(0, size.Y / 2, 0))
@@ -1485,42 +1562,97 @@ function Models.chest(): (Model, BasePart)
 	return model, prompt
 end
 
--- The chained rebirth machine. Parts named "Chain" let the client hide them when affordable.
+-- The rebirth reactor: a stepped hex base, four crystal pylons, a glass core with a
+-- swirling energy column and a floating halo (the client spins "Halo" and "Swirl").
+-- Parts tagged with the "Chain" attribute wrap the lock; the client hides them when
+-- the player can afford to rebirth.
 function Models.rebirthMachine(): (Model, BasePart)
 	local model = newModel("RebirthMachine")
-	local stone = c(55, 58, 65)
-	local green = c(120, 255, 90)
-	box(model, "Base", Vector3.new(16, 2, 12), Vector3.new(0, 1, 0), stone, { Material = Enum.Material.Slate, CanCollide = true })
+	local stone = c(48, 52, 62)
+	local stoneLight = c(78, 84, 98)
+	local green = c(120, 255, 110)
+	local mint = c(180, 255, 200)
+
+	-- Stepped base with glowing trim.
+	upCylinder(model, "Base", 22, 1.2, CFrame.new(0, 0.6, 0), stone, { Material = Enum.Material.Slate, CanCollide = true })
+	upCylinder(model, "BaseTrim", 22.4, 0.2, CFrame.new(0, 1.15, 0), green, { Material = Enum.Material.Neon })
+	upCylinder(model, "Tier", 16, 1.2, CFrame.new(0, 1.8, 0), stoneLight, { Material = Enum.Material.Slate, CanCollide = true })
+	upCylinder(model, "TierTrim", 16.3, 0.2, CFrame.new(0, 2.35, 0), green, { Material = Enum.Material.Neon })
 	for i = 0, 3 do
-		box(model, "Step", Vector3.new(4, 0.5, 1.2), Vector3.new(0, 0.25 + i * 0.5, -6.6 + i * 0.6), if i % 2 == 0 then c(250, 210, 40) else BLACK, { CanCollide = true })
+		box(model, "Step", Vector3.new(6, 0.6, 1.4), Vector3.new(0, 0.3 + i * 0.6, -11.5 + i * 1.2), if i % 2 == 0 then c(250, 210, 40) else c(30, 30, 35), { CanCollide = true })
 	end
-	box(model, "Body", Vector3.new(9, 7, 7), Vector3.new(0, 5.5, 1), stone, { Material = Enum.Material.Slate, CanCollide = true })
-	for _, x in { -6, 6 } do
-		upCylinder(model, "TankBase", 3.6, 1.2, CFrame.new(x, 2.6, 1), c(35, 38, 45), { Material = Enum.Material.Metal })
-		upCylinder(model, "Tank", 3, 6, CFrame.new(x, 6.2, 1), c(170, 255, 150), { Material = Enum.Material.Glass, Transparency = 0.5 })
-		upCylinder(model, "Liquid", 2.6, 5, CFrame.new(x, 5.8, 1), green, { Material = Enum.Material.Neon, Transparency = 0.15 })
-		upCylinder(model, "TankCap", 3.6, 1, CFrame.new(x, 9.6, 1), c(35, 38, 45), { Material = Enum.Material.Metal })
+
+	-- Glass core with an energy column.
+	upCylinder(model, "CoreBase", 7, 1.5, CFrame.new(0, 3.2, 0), stone, { Material = Enum.Material.Metal })
+	upCylinder(model, "CoreGlass", 5.2, 10, CFrame.new(0, 8.9, 0), c(190, 255, 210), { Material = Enum.Material.Glass, Transparency = 0.55, CanCollide = true })
+	local column = upCylinder(model, "CoreColumn", 2.2, 9.6, CFrame.new(0, 8.9, 0), green, { Material = Enum.Material.Neon, Transparency = 0.1 })
+	local swirl = newModel("Swirl")
+	for i = 0, 11 do
+		local angle = i / 12 * math.pi * 4
+		ball(swirl, "SwirlOrb", 0.5, Vector3.new(math.cos(angle) * 1.8, 4.6 + i * 0.75, math.sin(angle) * 1.8), mint, { Material = Enum.Material.Neon })
 	end
-	upCylinder(model, "TopTank", 5, 3, CFrame.new(0, 10.5, 1), c(170, 255, 150), { Material = Enum.Material.Glass, Transparency = 0.5 })
-	upCylinder(model, "TopLiquid", 4.4, 2.4, CFrame.new(0, 10.4, 1), green, { Material = Enum.Material.Neon, Transparency = 0.15 })
-	upCylinder(model, "TopCap", 5.6, 0.8, CFrame.new(0, 12.3, 1), c(35, 38, 45), { Material = Enum.Material.Metal })
-	local lock = box(model, "Lock", Vector3.new(3.2, 3.6, 0.6), Vector3.new(0, 5.4, -2.7), c(40, 44, 50), { Material = Enum.Material.Metal })
-	box(model, "Keyhole", Vector3.new(0.7, 1.4, 0.1), Vector3.new(0, 5.2, -3.05), green, { Material = Enum.Material.Neon })
-	ball(model, "KeyholeTop", 1.0, Vector3.new(0, 6.0, -3.0), green, { Material = Enum.Material.Neon })
+	swirl.Parent = model
+	upCylinder(model, "CoreCap", 6.4, 1.2, CFrame.new(0, 14.4, 0), stone, { Material = Enum.Material.Metal })
+	ball(model, "CoreTop", 2.2, Vector3.new(0, 15.4, 0), green, { Material = Enum.Material.Neon })
+	local light = Instance.new("PointLight")
+	light.Color = green
+	light.Range = 28
+	light.Brightness = 2.5
+	light.Parent = column
+	particles(column, mint, 14, 0.5, 4)
+
+	-- Four pylons with floating crystals.
+	for i = 0, 3 do
+		local angle = i / 4 * math.pi * 2 + math.pi / 4
+		local pos = Vector3.new(math.cos(angle) * 8.5, 0, math.sin(angle) * 8.5)
+		box(model, "Pylon", Vector3.new(1.6, 7, 1.6), CFrame.new(pos + Vector3.new(0, 5.6, 0)) * CFrame.Angles(0, -angle, 0), stoneLight, { Material = Enum.Material.Metal, CanCollide = true })
+		box(model, "PylonStripe", Vector3.new(1.7, 0.3, 1.7), CFrame.new(pos + Vector3.new(0, 7.5, 0)) * CFrame.Angles(0, -angle, 0), green, { Material = Enum.Material.Neon })
+		box(model, "PylonCrystal", Vector3.new(1, 2.4, 1), CFrame.new(pos + Vector3.new(0, 10.8, 0)) * CFrame.Angles(0, rad(45), 0), green, { Material = Enum.Material.Neon, Transparency = 0.1 })
+		local to = Vector3.new(0, 11, 0)
+		local from = pos + Vector3.new(0, 10.8, 0)
+		part({
+			Name = "EnergyLink",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new((to - from).Magnitude, 0.18, 0.18),
+			CFrame = CFrame.lookAt((from + to) / 2, to) * CFrame.Angles(0, rad(90), 0),
+			Color = mint,
+			Material = Enum.Material.Neon,
+			Transparency = 0.3,
+			Parent = model,
+		})
+	end
+
+	-- Floating halo above the core.
+	local halo = newModel("Halo")
+	for i = 0, 15 do
+		local angle = i / 16 * math.pi * 2
+		box(halo, "HaloSegment", Vector3.new(0.6, 0.35, 2.2), CFrame.new(math.cos(angle) * 6, 17.5, math.sin(angle) * 6) * CFrame.Angles(0, -angle, 0), if i % 2 == 0 then green else mint, { Material = Enum.Material.Neon })
+	end
+	halo.Parent = model
+
+	-- Lock and chains on the front (hidden by the client once affordable).
+	local lock = box(model, "Lock", Vector3.new(3, 3.4, 0.8), Vector3.new(0, 5.2, -3.4), c(40, 44, 50), { Material = Enum.Material.Metal })
+	box(model, "Keyhole", Vector3.new(0.6, 1.2, 0.1), Vector3.new(0, 4.9, -3.85), green, { Material = Enum.Material.Neon })
+	ball(model, "KeyholeTop", 0.9, Vector3.new(0, 5.6, -3.8), green, { Material = Enum.Material.Neon })
+	lock:SetAttribute("Chain", true)
+	for _, child in { model:FindFirstChild("Keyhole"), model:FindFirstChild("KeyholeTop") } do
+		(child :: BasePart):SetAttribute("Chain", true)
+	end
 	for _, dir in { -1, 1 } do
 		for i = -5, 5 do
-			local link = box(model, "Chain", Vector3.new(0.9, 0.35, 0.2), CFrame.new(i * 0.85, 5.4 + i * 0.55 * dir, -3.0) * CFrame.Angles(0, 0, rad(dir * 33 + (i % 2) * 90)), c(150, 155, 165), { Material = Enum.Material.Metal })
+			local link = box(model, "Chain", Vector3.new(0.9, 0.35, 0.2), CFrame.new(i * 0.6, 8.9 + i * 0.6 * dir, -2.75) * CFrame.Angles(0, 0, rad(dir * 45 + (i % 2) * 90)), c(170, 175, 185), { Material = Enum.Material.Metal })
 			link:SetAttribute("Chain", true)
 		end
 	end
-	local light = Instance.new("PointLight")
-	light.Color = green
-	light.Range = 18
-	light.Parent = lock
-	local sign = part({ Name = "Sign", Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(0, 14.5, 1), Transparency = 1, Parent = model })
-	billboard(sign, "REBIRTH", green, UDim2.fromScale(12, 3), Vector3.new(0, 1, 0), 260)
-	local prompt = part({ Name = "PromptPart", Size = Vector3.new(4, 4, 4), CFrame = CFrame.new(0, 3, -5), Transparency = 1, Parent = model })
-	setRoot(model, Vector3.new(16, 1, 12))
+
+	local sign = part({ Name = "Sign", Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(0, 21, 0), Transparency = 1, Parent = model })
+	local _, label = billboard(sign, "♻️ REBIRTH", green, UDim2.fromScale(14, 3.4), Vector3.zero, 260)
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(c(200, 255, 200), c(60, 220, 90))
+	gradient.Rotation = 90
+	gradient.Parent = label
+	local prompt = part({ Name = "PromptPart", Size = Vector3.new(4, 4, 4), CFrame = CFrame.new(0, 3, -9), Transparency = 1, Parent = model })
+	setRoot(model, Vector3.new(22, 1, 22))
 	return model, prompt
 end
 

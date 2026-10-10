@@ -321,7 +321,7 @@ function Economy.renderPets(player: Player)
 		local p = data.pets[id]
 		local def = p and Config.PetsByName[p.name]
 		if def then
-			local model = Models.pet(def, { scale = if p.big then 1.25 else 1 })
+			local model = Models.pet(def, { scale = if p.big then 1.25 else 1, aura = true })
 			local half = pen.petArea.size / 2
 			local offset = Vector3.new(rng:NextNumber(-half.X, half.X), 0, rng:NextNumber(-half.Z, half.Z))
 			model:PivotTo(pen.petArea.cf * CFrame.new(offset) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))

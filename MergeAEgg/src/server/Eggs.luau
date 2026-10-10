@@ -82,8 +82,8 @@ local function eggTitle(egg): string
 end
 Eggs.title = eggTitle
 
-local function buildEggModel(egg): Model
-	local model = Models.egg(egg.biome, egg.rarity, { big = egg.big, variant = if egg.boss then "boss" else egg.variant })
+local function buildEggModel(egg, display: boolean?): Model
+	local model = Models.egg(egg.biome, egg.rarity, { big = egg.big, weight = egg.weight, variant = if egg.boss then "boss" else egg.variant, display = display })
 	model:SetAttribute("Rarity", egg.rarity)
 	model:SetAttribute("Weight", egg.weight)
 	return model
@@ -153,11 +153,37 @@ function Eggs.getCarriers()
 	return carries
 end
 
+-- Raises both arms overhead while carrying (and puts them back). The shoulder joints'
+-- C0 replicates to everyone; clients also hold the arms still against the walk animation.
+local SHOULDERS = { "RightShoulder", "LeftShoulder", "Right Shoulder", "Left Shoulder" }
+local function setArmsRaised(character: Model?, raised: boolean)
+	if not character then
+		return
+	end
+	for _, motor in character:GetDescendants() do
+		if motor:IsA("Motor6D") and table.find(SHOULDERS, motor.Name) then
+			local original = motor:GetAttribute("RestC0")
+			if raised then
+				if not original then
+					original = motor.C0
+					motor:SetAttribute("RestC0", original)
+				end
+				local side = if motor.Name:find("Right") then 1 else -1
+				local lift = CFrame.Angles(0, 0, math.rad(side * 12)) * CFrame.Angles(math.rad(180), 0, 0)
+				motor.C0 = CFrame.new(original.Position) * lift * original.Rotation
+			elseif original then
+				motor.C0 = original
+			end
+		end
+	end
+end
+
 local function clearCarryVisual(player: Player, carry)
 	if carry.model then
 		carry.model:Destroy()
 		carry.model = nil
 	end
+	setArmsRaised(player.Character, false)
 	player:SetAttribute("Carrying", nil)
 end
 
@@ -165,23 +191,27 @@ end
 local function startCarry(player: Player, egg, origin): boolean
 	local character = player.Character
 	local head = character and character:FindFirstChild("Head") :: BasePart?
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not head or not humanoid or humanoid.Health <= 0 then
+	if not head or not root or not humanoid or humanoid.Health <= 0 then
 		return false
 	end
 	if carries[player] then
 		Net.notify(player, "You're already carrying an egg!", "error")
 		return false
 	end
+	-- The egg rests in the raised hands, just above the head.
 	local model = buildEggModel(egg)
-	model:PivotTo(head.CFrame * CFrame.new(0, 1.2 + (model:GetAttribute("Height") or 2) / 2, 0))
+	local headTop = root.CFrame:PointToObjectSpace(head.Position).Y + head.Size.Y / 2
+	model:PivotTo(root.CFrame * CFrame.new(0, headTop + 1.1, 0))
 	Models.rigForPhysics(model)
 	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = head
+	weld.Part0 = root
 	weld.Part1 = model.PrimaryPart
 	weld.Parent = model.PrimaryPart
 	model.Name = "CarriedEgg"
 	model.Parent = character
+	setArmsRaised(character, true)
 
 	local pen = World.getPen(player)
 	carries[player] = {
@@ -370,7 +400,7 @@ function Eggs.fillNest(state, egg)
 	state.respawnAt = nil
 	local model = buildEggModel(egg)
 	model.Name = "NestEgg"
-	model:PivotTo(state.cf * CFrame.new(0, 0.5, 0) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0))
+	model:PivotTo(state.cf * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0))
 	model.Parent = worldFolder
 	addLabel(model, egg)
 	local p = addPrompt(model.PrimaryPart, "Steal", "Steal", eggTitle(egg), 0.5)
@@ -583,7 +613,7 @@ function Eggs.renderFuse(player: Player)
 	for i, egg in data.fuse do
 		local slotPart = pen.fuse:FindFirstChild("Pod" .. i) :: BasePart?
 		if slotPart then
-			local model = buildEggModel(egg)
+			local model = buildEggModel(egg, true)
 			model:ScaleTo(0.8)
 			model:PivotTo(slotPart.CFrame)
 			model.Parent = pen.fuse

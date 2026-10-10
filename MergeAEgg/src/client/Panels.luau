@@ -111,9 +111,19 @@ function UI.button(parent: Instance, props)
 		Text = "",
 		LayoutOrder = props.order or 0,
 	}, parent)
-	UI.corner(button, props.radius or 8)
+	UI.corner(button, props.radius or 10)
 	UI.stroke(button, 3, color:Lerp(Color3.new(), 0.55))
-	UI.gradient(button, color:Lerp(WHITE, 0.25), color:Lerp(Color3.new(), 0.1))
+	UI.gradient(button, color:Lerp(WHITE, 0.3), color:Lerp(Color3.new(), 0.12))
+	-- Glossy highlight across the top half.
+	local shine = UI.new("Frame", {
+		Name = "Shine",
+		Size = UDim2.new(1, -8, 0.42, 0),
+		Position = UDim2.fromOffset(4, 3),
+		BackgroundColor3 = WHITE,
+		BackgroundTransparency = 0.8,
+		BorderSizePixel = 0,
+	}, button)
+	UI.corner(shine, 8)
 	local label = UI.text(button, {
 		Name = "Label",
 		Text = props.text or "",
@@ -130,6 +140,9 @@ function UI.button(parent: Instance, props)
 	end
 	button.MouseButton1Up:Connect(release)
 	button.MouseLeave:Connect(release)
+	button.MouseEnter:Connect(function()
+		TweenService:Create(scale, TweenInfo.new(0.12), { Scale = 1.04 }):Play()
+	end)
 	if props.onClick then
 		button.Activated:Connect(function()
 			env.sound("Click")
@@ -224,7 +237,7 @@ end
 function UI.eggModel(egg): Model
 	local key = `egg:{egg.biome}:{egg.rarity}:{egg.variant or ""}:{egg.boss and 1 or 0}`
 	if not modelCache[key] then
-		modelCache[key] = Models.egg(egg.biome, egg.rarity, { variant = if egg.boss then "boss" else egg.variant })
+		modelCache[key] = Models.egg(egg.biome, egg.rarity, { variant = if egg.boss then "boss" else egg.variant, display = true })
 	end
 	return modelCache[key]
 end
@@ -304,15 +317,15 @@ local function window(name: string, title: string, headerColor: Color3, size: Ve
 		Visible = false,
 		ZIndex = 5,
 	}, env.gui)
-	UI.corner(frame, 10)
-	UI.stroke(frame, 4, c(20, 20, 26))
-	UI.gradient(frame, c(48, 50, 62), DARKER)
+	UI.corner(frame, 16)
+	UI.stroke(frame, 5, c(16, 17, 24))
+	UI.gradient(frame, c(62, 66, 86), c(34, 36, 48))
 	local header = UI.new("Frame", {
 		Name = "Header",
 		Size = UDim2.new(1, 0, 0, 64),
 		BackgroundColor3 = headerColor,
 	}, frame)
-	UI.corner(header, 10)
+	UI.corner(header, 16)
 	UI.gradient(header, headerColor:Lerp(WHITE, 0.2), headerColor:Lerp(Color3.new(), 0.08), 20)
 	UI.new("Frame", { Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 1, -12), BackgroundColor3 = headerColor:Lerp(Color3.new(), 0.08), BorderSizePixel = 0 }, header)
 	UI.text(header, { Name = "Title", Text = title, Size = UDim2.new(1, -110, 0, 46), Position = UDim2.fromOffset(18, 9), TextXAlignment = Enum.TextXAlignment.Left, strokeThickness = 3 })
@@ -349,11 +362,11 @@ local function sidePanel(name: string, title: string, size: Vector2)
 		Visible = false,
 		ZIndex = 4,
 	}, env.gui)
-	UI.corner(frame, 8)
-	UI.stroke(frame, 4, c(20, 20, 26))
-	UI.gradient(frame, c(48, 50, 62), DARKER)
+	UI.corner(frame, 14)
+	UI.stroke(frame, 5, c(16, 17, 24))
+	UI.gradient(frame, c(62, 66, 86), c(34, 36, 48))
 	local header = UI.new("Frame", { Name = "Header", Size = UDim2.new(1, 0, 0, 56), BackgroundColor3 = c(210, 175, 120) }, frame)
-	UI.corner(header, 8)
+	UI.corner(header, 14)
 	UI.gradient(header, c(240, 210, 160), c(195, 155, 100))
 	UI.text(header, { Name = "Title", Text = title, Size = UDim2.new(0.6, -10, 0, 40), Position = UDim2.fromOffset(12, 8), TextXAlignment = Enum.TextXAlignment.Left, strokeThickness = 3 })
 	UI.button(frame, {
@@ -378,6 +391,14 @@ local function section(parent: Instance, text: string, color: Color3, order: num
 	return label
 end
 
+local backdrop: TextButton
+
+local function updateBackdrop()
+	if backdrop then
+		backdrop.Visible = openCenter ~= nil
+	end
+end
+
 function Panels.isOpen(name: string): boolean
 	local w = windows[name]
 	return w ~= nil and w.frame.Visible
@@ -393,6 +414,7 @@ function Panels.open(name: string, arg)
 			windows[openCenter].frame.Visible = false
 		end
 		openCenter = name
+		updateBackdrop()
 		w.frame.Visible = true
 		w.frame.Position = UDim2.fromScale(0.5, 0.56)
 		TweenService:Create(w.frame, TweenInfo.new(0.22, Enum.EasingStyle.Back), { Position = UDim2.fromScale(0.5, 0.52) }):Play()
@@ -419,6 +441,7 @@ function Panels.close(name: string)
 		w.frame.Visible = false
 		if openCenter == name then
 			openCenter = nil
+			updateBackdrop()
 		end
 		if openSide == name then
 			openSide = nil
@@ -1055,13 +1078,13 @@ local function buildGrowing()
 end
 
 local function buildActive()
-	local w = sidePanel("Active", "1/1 Active", Vector2.new(420, 470))
+	local w = sidePanel("Active", "1/1 Placed", Vector2.new(420, 470))
 	w.keys = { "pets", "equipped", "slots" }
 	local slotButton = UI.button(w.header, { text = "+1 EQUIP", color = GREEN, size = UDim2.fromOffset(190, 44), position = UDim2.new(1, -8, 0, 6), anchor = Vector2.new(1, 0), onClick = function()
 		env.request("BuySlot")
 	end })
 	local list = UI.scroll(w.body, { size = UDim2.new(1, 0, 1, -62), gapPx = 8 })
-	UI.button(w.frame, { text = "Equip Best", color = GREEN, size = UDim2.fromOffset(190, 50), position = UDim2.new(1, -8, 1, 8), anchor = Vector2.new(1, 0), onClick = function()
+	UI.button(w.frame, { text = "Place Best", color = GREEN, size = UDim2.fromOffset(190, 50), position = UDim2.new(1, -8, 1, 8), anchor = Vector2.new(1, 0), onClick = function()
 		env.request("EquipBest")
 	end })
 	-- Slot button follows money on the timer tick; the list only rebuilds when pets change.
@@ -1070,14 +1093,14 @@ local function buildActive()
 		local cost = Config.EquipSlotCosts[slots.bought]
 		slotButton.Visible = cost ~= nil
 		if cost then
-			UI.setButton(slotButton, `+1 EQUIP [${Config.format(cost)}]`, if (env.state.money or 0) >= cost then GREEN else c(200, 120, 40))
+			UI.setButton(slotButton, `+1 SLOT [${Config.format(cost)}]`, if (env.state.money or 0) >= cost then GREEN else c(200, 120, 40))
 		end
 	end
 	w.refresh = function()
 		local state = env.state
 		local slots = state.slots or { used = 0, max = 1, bought = 1 }
 		local title = w.header:FindFirstChild("Title") :: TextLabel
-		title.Text = `{slots.used}/{slots.max} Active`
+		title.Text = `{slots.used}/{slots.max} Placed`
 		w.tick()
 		for _, child in list:GetChildren() do
 			if child:IsA("Frame") or child:IsA("TextLabel") then
@@ -1104,12 +1127,12 @@ local function buildActive()
 			UI.stroke(row, 2, rarity.color)
 			UI.viewport(row, UI.petModel(p.name), { size = UDim2.fromOffset(60, 60), position = UDim2.fromOffset(5, 5) })
 			UI.text(row, { Text = `{p.name} <font color="#7dff6b">(${Config.format(Config.petIncome(p))}/s)</font>\n<font size="14" color="{rarityHex(p.rarity)}">{rarity.name} • {p.weight}kg</font>`, Size = UDim2.new(1, -200, 1, -12), Position = UDim2.fromOffset(70, 6), TextXAlignment = Enum.TextXAlignment.Left })
-			UI.button(row, { text = if isEquipped then "Unequip" else "Equip", color = if isEquipped then RED else GREEN, size = UDim2.fromOffset(116, 48), position = UDim2.new(1, -6, 0.5, 0), anchor = Vector2.new(1, 0.5), onClick = function()
+			UI.button(row, { text = if isEquipped then "Pick Up" else "Place", color = if isEquipped then RED else GREEN, size = UDim2.fromOffset(116, 48), position = UDim2.new(1, -6, 0.5, 0), anchor = Vector2.new(1, 0.5), onClick = function()
 				env.request(if isEquipped then "Unequip" else "Equip", p.id)
 			end })
 		end
 		if #pets == 0 then
-			UI.text(list, { Text = "No pets yet!\nHatch eggs in your pen to get pets.", Size = UDim2.new(1, -20, 0, 80), LayoutOrder = 1, TextColor3 = c(200, 200, 210) })
+			UI.text(list, { Text = "No pets yet!\nHatch eggs in your pen, then place them down here.", Size = UDim2.new(1, -20, 0, 80), LayoutOrder = 1, TextColor3 = c(200, 200, 210) })
 		end
 	end
 end
@@ -1186,17 +1209,20 @@ local function buildDaily()
 end
 
 local function buildPlaytime()
-	local w = window("Playtime", "Playtime Gifts", c(200, 80, 230), Vector2.new(700, 330))
+	local w = window("Playtime", "⏰ Playtime Gifts", c(200, 80, 230), Vector2.new(860, 380))
 	w.keys = { "playtime" }
-	local row = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, w.body)
-	UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 10), HorizontalAlignment = Enum.HorizontalAlignment.Center, VerticalAlignment = Enum.VerticalAlignment.Center }, row)
+	UI.text(w.body, { Text = "Play to unlock gifts! They reset every day.", TextColor3 = c(210, 210, 225), Size = UDim2.new(1, 0, 0, 26) })
+	local row = UI.scroll(w.body, { horizontal = true, gapPx = 10, size = UDim2.new(1, 0, 1, -32), position = UDim2.fromOffset(0, 32) })
 	w.tiles = {}
 	for i, gift in Config.PlaytimeGifts do
-		local tile = UI.new("Frame", { Size = UDim2.fromOffset(150, 220), BackgroundColor3 = c(60, 62, 78), LayoutOrder = i }, row)
-		UI.corner(tile, 8)
-		UI.stroke(tile, 3)
-		UI.text(tile, { Text = `{gift.minutes} min`, Size = UDim2.new(1, -8, 0, 30), Position = UDim2.fromOffset(4, 6) })
-		UI.text(tile, { Text = if gift.egg then "🥚" elseif gift.speed then "👟" else "💵", Size = UDim2.new(1, 0, 0, 70), Position = UDim2.fromOffset(0, 40) })
+		local tint = if gift.egg then Config.Rarities[gift.egg].color elseif gift.speed then c(80, 180, 255) else c(110, 220, 90)
+		local tile = UI.new("Frame", { Size = UDim2.fromOffset(150, 250), BackgroundColor3 = tint, LayoutOrder = i }, row)
+		UI.corner(tile, 12)
+		UI.stroke(tile, 3, tint:Lerp(Color3.new(), 0.6))
+		UI.gradient(tile, tint:Lerp(c(60, 62, 78), 0.55), c(40, 42, 54))
+		UI.text(tile, { Text = if gift.minutes >= 60 then `{gift.minutes // 60}h{if gift.minutes % 60 > 0 then ` {gift.minutes % 60}m` else ""}` else `{gift.minutes} min`, Size = UDim2.new(1, -8, 0, 30), Position = UDim2.fromOffset(4, 8) })
+		UI.text(tile, { Text = if gift.egg then "🥚" elseif gift.speed then "👟" else "💵", Size = UDim2.new(1, 0, 0, 70), Position = UDim2.fromOffset(0, 44) })
+		UI.text(tile, { Text = if gift.egg then `{Config.Rarities[gift.egg].name} Egg` elseif gift.speed then "Speed" else "Cash", TextColor3 = tint:Lerp(WHITE, 0.4), Size = UDim2.new(1, -8, 0, 24), Position = UDim2.fromOffset(4, 120) })
 		local button = UI.button(tile, { text = "", color = GREEN, size = UDim2.new(1, -16, 0, 50), position = UDim2.new(0, 8, 1, -58), onClick = function()
 			env.request("ClaimPlaytime", i)
 		end })
@@ -1465,13 +1491,23 @@ local function buildWelcome()
 	end })
 	w.onOpen = function(arg)
 		if arg then
-			text.Text = `Your pets earned\n<font color="#7dff6b">${Config.format(arg.amount)}</font>\nwhile you were away ({Config.formatTime(arg.seconds)})!`
+			local lines = { `You were away for {Config.formatTime(arg.seconds)}.` }
+			if arg.amount > 0 then
+				table.insert(lines, `💵 Your pets earned <font color="#7dff6b">${Config.format(arg.amount)}</font>{if arg.capped then " (2h max)" else ""}`)
+			end
+			if arg.grown > 0 then
+				table.insert(lines, `🥚 <font color="#ffd23c">{arg.grown} egg{if arg.grown > 1 then "s" else ""}</font> finished growing — go hatch!`)
+			end
+			if arg.growing > 0 then
+				table.insert(lines, `⏳ {arg.growing} egg{if arg.growing > 1 then "s are" else " is"} still growing.`)
+			end
+			text.Text = table.concat(lines, "\n")
 		end
 	end
 end
 
 -- Full-screen hatch reveal: egg shakes, cracks with a flash, the pet spins in.
-function Panels.hatchReveal(p, isNew: boolean, egg)
+function Panels.hatchReveal(p, isNew: boolean, egg, canPlace: boolean?)
 	local overlay = UI.new("Frame", { Name = "Hatch", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(), BackgroundTransparency = 0.45, ZIndex = 30 }, env.gui)
 	local holder = UI.new("Frame", { Size = UDim2.fromOffset(360, 360), Position = UDim2.fromScale(0.5, 0.45), AnchorPoint = Vector2.new(0.5, 0.5), BackgroundTransparency = 1, ZIndex = 31 }, overlay)
 	UI.new("UIScale", { Scale = windows.Shop and windows.Shop.scale.Scale or 1 }, holder)
@@ -1516,12 +1552,25 @@ function Panels.hatchReveal(p, isNew: boolean, egg)
 		task.wait(0.25)
 		overlay:Destroy()
 	end
+	-- New pets go to your inventory; offer to place it in the pen right away.
+	local buttons = UI.new("Frame", { Size = UDim2.fromOffset(460, 64), Position = UDim2.new(0.5, 0, 0.45, 310), AnchorPoint = Vector2.new(0.5, 0), BackgroundTransparency = 1, ZIndex = 35 }, overlay)
+	UI.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 12), HorizontalAlignment = Enum.HorizontalAlignment.Center }, buttons)
+	UI.new("UIScale", { Scale = windows.Shop and windows.Shop.scale.Scale or 1 }, buttons)
+	if canPlace then
+		UI.button(buttons, { text = "🐾 Place Down", color = GREEN, size = UDim2.fromOffset(220, 60), order = 1, onClick = function()
+			env.request("Equip", p.id)
+			close()
+		end })
+	end
+	UI.button(buttons, { text = if canPlace then "Keep in Bag" else "OK (slots full)", color = c(90, 95, 115), size = UDim2.fromOffset(220, 60), order = 2, onClick = close })
 	overlay.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			close()
+			if not canPlace then
+				close()
+			end
 		end
 	end)
-	task.delay(3.2, close)
+	task.delay(if canPlace then 12 else 3.5, close)
 end
 
 ---------------------------------------------------------------------------
@@ -1530,6 +1579,21 @@ end
 
 function Panels.init(environment)
 	env = environment
+	backdrop = UI.new("TextButton", {
+		Name = "Backdrop",
+		Text = "",
+		AutoButtonColor = false,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.new(),
+		BackgroundTransparency = 0.55,
+		Visible = false,
+		ZIndex = 3,
+	}, env.gui)
+	backdrop.Activated:Connect(function()
+		if openCenter then
+			Panels.close(openCenter)
+		end
+	end)
 	buildShop()
 	buildIndex()
 	buildSell()

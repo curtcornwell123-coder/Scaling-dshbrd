@@ -36,8 +36,7 @@ local function createGuardian(biome, clusterIndex: number, cluster)
 	model.Name = `{biome.def.guardian}Guardian`
 	local height = model:GetAttribute("Height") or 6
 	local home = cluster.home
-	local lift = (model.PrimaryPart :: BasePart).Size.Y / 2
-	model:PivotTo(CFrame.lookAt(home, cluster.center) + Vector3.new(0, lift, 0))
+	model:PivotTo(CFrame.lookAt(home, cluster.center))
 	local root = Models.rigForPhysics(model)
 
 	local attachment = Instance.new("Attachment")

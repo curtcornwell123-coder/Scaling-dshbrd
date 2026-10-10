@@ -38,6 +38,7 @@ These work for user ID `469657246` and for group `187537803` rank 255. Type them
 | `/speed <player> <amount>` | Gives speed |
 | `/egg <player> <biome> <rarity>` | Gives an egg, for example `/egg corny desert legendary` |
 | `/night` | Starts night right away |
+| `/treadmill <name>` | Switches your own pen to any treadmill design (also in the 🛠️ Admin panel) |
 | `/boss` | Spawns the Golem King |
 
 ## Files

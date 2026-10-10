@@ -162,7 +162,7 @@ function Boss.spawn()
 	model.Name = "GolemKing"
 	local center = World.arena.center
 	local rootHeight = (model.PrimaryPart :: BasePart).Size.Y / 2
-	model:PivotTo(CFrame.new(center + Vector3.new(0, rootHeight, 0)))
+	model:PivotTo(CFrame.new(center))
 	local root = Models.rigForPhysics(model)
 	local attachment = Instance.new("Attachment")
 	attachment.Parent = root

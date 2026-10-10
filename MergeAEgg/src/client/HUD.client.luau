@@ -140,6 +140,7 @@ end })
 local speedLabel = UI.text(stats, { Text = "0", Size = UDim2.fromOffset(340, 60), Position = UDim2.fromOffset(80, 0), TextXAlignment = Enum.TextXAlignment.Left, strokeThickness = 4 })
 UI.text(stats, { Text = "💵", Size = UDim2.fromOffset(70, 62), Position = UDim2.fromOffset(0, 66) })
 local moneyLabel = UI.text(stats, { Text = "$0", TextColor3 = c(110, 255, 80), Size = UDim2.fromOffset(340, 62), Position = UDim2.fromOffset(80, 66), TextXAlignment = Enum.TextXAlignment.Left, strokeThickness = 4 })
+local friendLabel = UI.text(stats, { Text = "", TextColor3 = c(255, 210, 90), Size = UDim2.fromOffset(300, 24), Position = UDim2.fromOffset(84, -28), TextXAlignment = Enum.TextXAlignment.Left })
 local incomeLabel = UI.text(stats, { Text = "", TextColor3 = c(180, 255, 160), Size = UDim2.fromOffset(300, 24), Position = UDim2.fromOffset(84, 126), TextXAlignment = Enum.TextXAlignment.Left })
 
 -- Bottom-right: day/night timer.
@@ -271,6 +272,7 @@ end
 local function refreshHud()
 	speedLabel.Text = Config.formatWithCommas(math.floor(state.speed or 0))
 	incomeLabel.Text = if (state.income or 0) > 0 then `+${Config.format(state.income)}/s` else ""
+	friendLabel.Text = if (state.friends or 0) > 0 then `👥 Friend Boost x{Config.FriendBoost} cash!` else ""
 	local daily = state.daily
 	dailyBadge.Visible = daily ~= nil and daily.canClaim
 	local playtime = state.playtime
@@ -560,8 +562,8 @@ fxHandlers.BossDefeated = function()
 	confetti(70)
 end
 
-fxHandlers.Hatch = function(p, isNew: boolean, egg)
-	task.spawn(Panels.hatchReveal, p, isNew, egg)
+fxHandlers.Hatch = function(p, isNew: boolean, egg, canPlace: boolean)
+	task.spawn(Panels.hatchReveal, p, isNew, egg, canPlace)
 	if p.rarity >= 5 then
 		task.delay(1, confetti, 60)
 	end
@@ -591,10 +593,15 @@ fxHandlers.Popup = function(text: string)
 	Panels.popup(text)
 end
 
-fxHandlers.WelcomeBack = function(amount: number, seconds: number)
+fxHandlers.WelcomeBack = function(summary)
 	task.delay(1, function()
-		Panels.open("Welcome", { amount = amount, seconds = seconds })
+		Panels.open("Welcome", summary)
 	end)
+end
+
+fxHandlers.Teleport = function()
+	flash(c(200, 150, 255))
+	sound("Notify")
 end
 
 fxHandlers.FuseInsert = function(count: number)
@@ -819,12 +826,78 @@ local function animatePet(pet: Model, areaCf: CFrame, areaSize: Vector3, dt: num
 	end
 	local hop = if ps.wait > 0 then 0 else math.abs(math.sin(ps.bob)) * 0.5
 	local base = Vector3.new(ps.pos.X, areaCf.Position.Y, ps.pos.Z)
-	local height = (pet.PrimaryPart :: BasePart).Size.Y / 2
-	pet:PivotTo(CFrame.new(base + Vector3.new(0, height + hop, 0)) * CFrame.Angles(0, ps.yaw, 0))
+	pet:PivotTo(CFrame.new(base + Vector3.new(0, hop, 0)) * CFrame.Angles(0, ps.yaw, 0))
+end
+
+-- Carriers keep their arms straight up (the server raised the shoulder joints).
+local ARM_JOINTS = { "RightShoulder", "LeftShoulder", "RightElbow", "LeftElbow", "Right Shoulder", "Left Shoulder" }
+RunService.Stepped:Connect(function()
+	for _, other in Players:GetPlayers() do
+		local character = other.Character
+		if character and other:GetAttribute("Carrying") then
+			for _, name in ARM_JOINTS do
+				local motor = character:FindFirstChild(name, true)
+				if motor and motor:IsA("Motor6D") then
+					motor.Transform = CFrame.identity
+				end
+			end
+		end
+	end
+end)
+
+-- Spinning orbit gems on Mythic+ eggs, rainbow Secret eggs and the rebirth reactor.
+local spinTime = 0
+
+-- Turns a model around a vertical axis through `center`.
+local function spinAround(model: Model, center: Vector3, angle: number)
+	local pivot = model:GetPivot()
+	local offset = pivot.Position - center
+	local turn = CFrame.Angles(0, angle, 0)
+	model:PivotTo(CFrame.new(center + turn * Vector3.new(offset.X, 0, offset.Z) + Vector3.new(0, offset.Y, 0)) * turn * pivot.Rotation)
+end
+
+local function animateSpinners(dt: number)
+	spinTime += dt
+	local rainbow = Color3.fromHSV((spinTime * 0.15) % 1, 0.7, 1)
+	local cameraPos = workspace.CurrentCamera.CFrame.Position
+	local containers = { workspace:FindFirstChild("WorldEggs") }
+	for _, pen in getPens() do
+		table.insert(containers, pen:FindFirstChild("Eggs"))
+	end
+	for _, container in containers do
+		for _, egg in container:GetChildren() do
+			local root = egg:IsA("Model") and egg.PrimaryPart
+			if root and (root.Position - cameraPos).Magnitude < 180 then
+				local orbit = egg:FindFirstChild("Orbit")
+				if orbit and orbit:IsA("Model") then
+					spinAround(orbit, root.Position, dt * 2)
+				end
+				for _, name in { "Shell", "Beam" } do
+					local glowing = egg:FindFirstChild(name)
+					if glowing and glowing:IsA("BasePart") and glowing:GetAttribute("Rainbow") then
+						glowing.Color = rainbow
+					end
+				end
+			end
+		end
+	end
+	local map = workspace:FindFirstChild("Map")
+	local lobby = map and map:FindFirstChild("Lobby")
+	local machine = lobby and lobby:FindFirstChild("RebirthMachine")
+	if machine and machine.PrimaryPart and (machine.PrimaryPart.Position - cameraPos).Magnitude < 250 then
+		local center = machine.PrimaryPart.Position
+		for name, speed in { Halo = 0.8, Swirl = -1.6 } do
+			local spinner = machine:FindFirstChild(name)
+			if spinner and spinner:IsA("Model") then
+				spinAround(spinner, center, speed * dt)
+			end
+		end
+	end
 end
 
 local stepTimer = 0
 RunService.RenderStepped:Connect(function(dt)
+	animateSpinners(dt)
 	-- Money counts up smoothly.
 	local target = state.money or 0
 	displayedMoney += (target - displayedMoney) * math.min(1, dt * 8)
