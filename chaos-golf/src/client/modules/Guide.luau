@@ -113,7 +113,7 @@ function Guide.start()
 		local from = root.Position
 		local flat = Vector3.new(goal.X - from.X, 0, goal.Z - from.Z)
 		local dist = flat.Magnitude
-		if dist < 6 then
+		if dist < 3.5 then
 			if not claimed then
 				claimed = true
 				Net.event("ClaimDirectory"):FireServer()
