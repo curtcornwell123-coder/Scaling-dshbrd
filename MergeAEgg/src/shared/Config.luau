@@ -599,20 +599,20 @@ Config.PlaytimeGifts = {
 	{ minutes = 120, egg = 6 },
 }
 
--- Background music: paste audio asset ids, e.g. "rbxassetid://1234567890".
--- Each area cross-fades to its own track; an empty "" falls back to the Lobby track.
--- Find free tracks in Studio: Toolbox > Audio > filter Music (Roblox's licensed library).
+-- Background music. Each area cross-fades to its own track.
+-- When an id is "", the server picks a licensed track from Roblox's music library by
+-- searching the keywords below. Paste an id (e.g. "rbxassetid://1234567890") to lock one in.
+Config.MusicVolume = 0.35
 Config.Music = {
-	Volume = 0.35,
-	Lobby = "", -- search: "happy upbeat", "cheerful game"
-	Dungeon = "", -- search: "boss battle", "epic battle"
-	Forest = "", -- search: "forest adventure", "peaceful nature"
-	Desert = "", -- search: "desert", "arabian"
-	Toxic = "", -- search: "industrial", "dark synth"
-	Farmlands = "", -- search: "country", "banjo"
-	Enchanted = "", -- search: "magical", "fantasy"
-	Candylands = "", -- search: "bubbly", "sweet pop"
-	Halloween = "", -- search: "halloween", "spooky"
+	Lobby = { id = "", search = { "happy upbeat", "cheerful", "fun game" } },
+	Dungeon = { id = "", search = { "boss battle", "epic battle", "intense" } },
+	Forest = { id = "", search = { "forest", "peaceful nature", "adventure" } },
+	Desert = { id = "", search = { "desert", "arabian", "egypt" } },
+	Toxic = { id = "", search = { "industrial", "dark synth", "toxic" } },
+	Farmlands = { id = "", search = { "country", "banjo", "farm" } },
+	Enchanted = { id = "", search = { "magical", "fantasy", "enchanted" } },
+	Candylands = { id = "", search = { "candy", "bubbly", "sweet" } },
+	Halloween = { id = "", search = { "halloween", "spooky", "haunted" } },
 }
 
 -- Shown when a player opens the Roblox menu (usually about to leave). Once per day.

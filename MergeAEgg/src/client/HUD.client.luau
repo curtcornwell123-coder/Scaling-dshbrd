@@ -997,25 +997,37 @@ end)
 
 local musicMuted = false
 local tracks: { [string]: Sound } = {}
-for zone, id in Config.Music do
-	if type(id) == "string" and id ~= "" then
-		local track = Instance.new("Sound")
-		track.Name = "MAE_Music_" .. zone
-		track.SoundId = id
-		track.Looped = true
-		track.Volume = 0
-		track.Parent = SoundService
-		track:Play()
-		tracks[zone] = track
-	end
-end
 
 local muteButton, muteLabel = UI.button(stats, { text = "🔊", color = c(90, 95, 120), size = UDim2.fromOffset(56, 50), position = UDim2.fromOffset(0, -60) })
-muteButton.Visible = next(tracks) ~= nil
+muteButton.Visible = false
 muteButton.Activated:Connect(function()
 	musicMuted = not musicMuted
 	muteLabel.Text = if musicMuted then "🔇" else "🔊"
 end)
+
+-- The server publishes one track per zone as workspace attributes ("Music_Forest", ...).
+local function loadTrack(zone: string)
+	local id = workspace:GetAttribute("Music_" .. zone)
+	if type(id) ~= "string" or (tracks[zone] and tracks[zone].SoundId == id) then
+		return
+	end
+	local track = tracks[zone] or Instance.new("Sound")
+	track.Name = "MAE_Music_" .. zone
+	track.SoundId = id
+	track.Looped = true
+	track.Volume = 0
+	track.Parent = SoundService
+	track:Play()
+	tracks[zone] = track
+	muteButton.Visible = true
+end
+
+for zone in Config.Music do
+	loadTrack(zone)
+	workspace:GetAttributeChangedSignal("Music_" .. zone):Connect(function()
+		loadTrack(zone)
+	end)
+end
 
 -- Cross-fades to the current zone's track (set by the server), falling back to Lobby.
 task.spawn(function()
@@ -1023,12 +1035,12 @@ task.spawn(function()
 		local zone = player:GetAttribute("Zone") or "Lobby"
 		local wanted = if tracks[zone] then zone else "Lobby"
 		for name, track in tracks do
-			local target = if musicMuted or name ~= wanted then 0 else Config.Music.Volume
-			if track.Volume ~= target then
+			local target = if musicMuted or name ~= wanted then 0 else Config.MusicVolume
+			if math.abs(track.Volume - target) > 0.01 then
 				TweenService:Create(track, TweenInfo.new(1.5), { Volume = target }):Play()
 			end
 		end
-		task.wait(1)
+		task.wait(1.5)
 	end
 end)
 

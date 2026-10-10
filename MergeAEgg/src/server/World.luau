@@ -4,6 +4,7 @@
 -- follow one after another. A small cave in the Forest's dirt wall teleports you
 -- into the Golem King's circular dungeon.
 
+local AssetService = game:GetService("AssetService")
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -936,8 +937,46 @@ function World.build()
 	buildCorridor(mapFolder)
 end
 
+---------------------------------------------------------------------------
+-- Music: fixed ids from Config, otherwise searched in Roblox's licensed library
+---------------------------------------------------------------------------
+
+local function searchTrack(keywords: { string }): string?
+	for _, keyword in keywords do
+		local params = Instance.new("AudioSearchParams")
+		params.SearchKeyword = keyword
+		params.AudioSubType = Enum.AudioSubType.Music
+		params.MinDuration = 60
+		local ok, pages = pcall(function()
+			return AssetService:SearchAudioAsync(params)
+		end)
+		params:Destroy()
+		if ok and pages then
+			local results = (pages :: AudioPages):GetCurrentPage()
+			local first = results and results[1]
+			if first and first.Id then
+				return "rbxassetid://" .. tostring(first.Id)
+			end
+		end
+	end
+	return nil
+end
+
+-- Publishes each zone's track as a workspace attribute ("Music_Forest", ...).
+local function setupMusic()
+	for zone, entry in Config.Music do
+		local id = if entry.id ~= "" then entry.id else searchTrack(entry.search)
+		if id then
+			workspace:SetAttribute("Music_" .. zone, id)
+		else
+			warn(`[World] No music found for {zone}; it will use the lobby track.`)
+		end
+	end
+end
+
 function World.start()
 	task.spawn(runCycle)
+	task.spawn(setupMusic)
 	Players.PlayerRemoving:Connect(function(player)
 		teleportCooldown[player] = nil
 	end)
