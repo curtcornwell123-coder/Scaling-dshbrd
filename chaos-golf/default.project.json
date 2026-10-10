@@ -1,10 +1,15 @@
 {
-  "name": "ChaosGolf",
+  "name": "UltimateGolf",
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
+      }
+    },
+    "ReplicatedFirst": {
+      "CornyLoadingScreen": {
+        "$path": "../studio-loading-screen/LoadingScreen.client.luau"
       }
     },
     "ServerScriptService": {

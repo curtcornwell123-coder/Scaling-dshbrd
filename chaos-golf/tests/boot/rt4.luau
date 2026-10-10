@@ -241,7 +241,7 @@ function Sim.asSide(side, fn, ...)
 	Sim.resume(Sim.newThread(fn, side), ...)
 end
 function Sim.fireServerAs(player, name, ...)
-	local folder = Sim.game:GetService("ReplicatedStorage"):FindFirstChild("ChaosGolfRemotes")
+	local folder = Sim.game:GetService("ReplicatedStorage"):FindFirstChild("UltimateGolfRemotes")
 	local remote = folder and folder:FindFirstChild(name)
 	if not remote then
 		Sim.report("harness", "no remote " .. name, "")

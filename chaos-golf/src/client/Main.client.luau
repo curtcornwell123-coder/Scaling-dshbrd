@@ -1,5 +1,5 @@
 --!strict
--- Chaos Golf client bootstrap.
+-- Ultimate Golf client bootstrap.
 
 local modules = script.Parent:WaitForChild("modules")
 
@@ -22,6 +22,6 @@ for _, name in order do
 		m.start()
 	end)
 	if not ok then
-		warn("[ChaosGolf] client module", name, "failed:", err)
+		warn("[UltimateGolf] client module", name, "failed:", err)
 	end
 end

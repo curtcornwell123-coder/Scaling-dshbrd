@@ -59,7 +59,7 @@ do
 		publicStore = DataStoreService:GetDataStore(Config.DataStoreName .. "_Public")
 	end)
 	if not ok then
-		warn("[ChaosGolf] DataStores unavailable; progress will not save:", err)
+		warn("[UltimateGolf] DataStores unavailable; progress will not save:", err)
 	end
 end
 
@@ -384,7 +384,7 @@ local function save(session: Session, release: boolean): boolean
 		end)
 	end)
 	if not ok then
-		warn("[ChaosGolf] save failed for", session.Player.Name, err)
+		warn("[UltimateGolf] save failed for", session.Player.Name, err)
 		return false
 	end
 	session.Dirty = false
@@ -468,9 +468,9 @@ local function load(player: Player)
 				break
 			end
 			if not ok then
-				warn("[ChaosGolf] load attempt", attempt, "failed for", player.Name, result)
+				warn("[UltimateGolf] load attempt", attempt, "failed for", player.Name, result)
 				if RunService:IsStudio() then
-					warn("[ChaosGolf] Studio: enable Game Settings > Security > Studio Access to API Services to test saving. Using a temporary profile.")
+					warn("[UltimateGolf] Studio: enable Game Settings > Security > Studio Access to API Services to test saving. Using a temporary profile.")
 					session.Offline = true
 					break
 				end
@@ -485,7 +485,7 @@ local function load(player: Player)
 		end
 		if not profile then
 			-- Never play on a blank profile that could overwrite real progress.
-			player:Kick("Couldn't load your Chaos Golf data. Please rejoin in a minute.")
+			player:Kick("Couldn't load your Ultimate Golf data. Please rejoin in a minute.")
 			sessions[player] = nil
 			return
 		end
@@ -524,7 +524,7 @@ local function release(player: Player)
 			hook(s)
 		end)
 		if not ok then
-			warn("[ChaosGolf] release hook error:", err)
+			warn("[UltimateGolf] release hook error:", err)
 		end
 	end
 	save(s, true)

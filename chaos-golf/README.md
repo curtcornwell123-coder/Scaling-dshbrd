@@ -1,4 +1,4 @@
-# Chaos Golf ⛳
+# Ultimate Golf ⛳
 
 Multiplayer chaos mini-golf for Roblox, where **you are the ball**. A fully enclosed, Rivals-style lobby you navigate on foot (no menus), 12 procedurally built courses, Ranked 1v1 / Classic / 8-player Race, chaos abilities and knockouts, four cosmetic crates, a 14-day login calendar, rotating practice minigames and live leaderboards.
 
@@ -10,7 +10,7 @@ Multiplayer chaos mini-golf for Roblox, where **you are the ball**. A fully encl
 
 1. Install [Rojo](https://rojo.space) 7.4+ and its Studio plugin.
 2. In this folder run `rojo serve`. In Studio, open a new **Baseplate**, delete the `Baseplate` part, and click **Connect** in the Rojo plugin.
-   - Or build a place file: `rojo build default.project.json -o ChaosGolf.rbxlx`, then open it.
+   - Or build a place file: `rojo build default.project.json -o UltimateGolf.rbxlx`, then open it.
 3. **Game Settings → Security → Enable Studio Access to API Services** (saving, leaderboards, global Mythic stock). Without it the game still runs on a temporary profile and prints a warning.
 4. Press **Play**. In Studio a single player can start any mode alone (`Config.StudioSoloMatches`), so you can test matches solo.
 

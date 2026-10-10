@@ -619,7 +619,7 @@ function BallService.start()
 				step(ball, dt)
 			end)
 			if not ok then
-				warn("[ChaosGolf] ball step error:", err)
+				warn("[UltimateGolf] ball step error:", err)
 			end
 		end
 	end)

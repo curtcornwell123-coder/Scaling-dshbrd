@@ -64,7 +64,7 @@ end
 
 local function buildCounter()
 	local gui = Instance.new("ScreenGui")
-	gui.Name = "ChaosGolfHud"
+	gui.Name = "UltimateGolfHud"
 	gui.ResetOnSpawn = false
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.DisplayOrder = 5

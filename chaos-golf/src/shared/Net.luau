@@ -52,7 +52,7 @@ Net.Functions = {
 	"GetProfile",
 }
 
-local FOLDER = "ChaosGolfRemotes"
+local FOLDER = "UltimateGolfRemotes"
 
 function Net.setup()
 	assert(RunService:IsServer(), "Net.setup is server-only")

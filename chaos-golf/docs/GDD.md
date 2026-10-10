@@ -1,4 +1,4 @@
-# Chaos Golf — Game Design Document
+# Ultimate Golf — Game Design Document
 
 Multiplayer chaos mini-golf for Roblox. **You are the ball.** Short, readable holes, physical sabotage, and a lobby you navigate entirely on foot: no menus, only in-world kiosks, pads and portals.
 
@@ -157,7 +157,7 @@ Adding a map is one line in `src/shared/Maps.luau`.
 
 ## 9. Data
 
-`ChaosGolf_v1` DataStore, one key per user (`u_<userId>`), saved with UpdateAsync, retries and a soft session lock (prevents two servers overwriting each other):
+`UltimateGolf_v1` DataStore, one key per user (`u_<userId>`), saved with UpdateAsync, retries and a soft session lock (prevents two servers overwriting each other):
 
 ```
 Coins, Tokens{Target,Drive,Hazard},

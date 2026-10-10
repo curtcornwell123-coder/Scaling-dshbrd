@@ -128,7 +128,7 @@ local function launch(q: Queue, players: { Player })
 		end
 	end
 	if not MatchService.launch(q.Mode.Id, players, mapId) then
-		warn("[ChaosGolf] failed to launch", q.Mode.Id)
+		warn("[UltimateGolf] failed to launch", q.Mode.Id)
 	end
 	render(q)
 end

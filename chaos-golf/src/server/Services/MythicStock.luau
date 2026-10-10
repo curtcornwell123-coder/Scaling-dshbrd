@@ -13,7 +13,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Co
 local MythicStock = {}
 
 local KEY = "MythicSold_" .. Config.Mythic.Season
-local TOPIC = "ChaosGolfMythic"
+local TOPIC = "UltimateGolfMythic"
 
 local store: DataStore? = nil
 pcall(function()
@@ -59,7 +59,7 @@ function MythicStock.reserve(): boolean
 		end)
 	end)
 	if not ok then
-		warn("[ChaosGolf] mythic reserve failed:", result)
+		warn("[UltimateGolf] mythic reserve failed:", result)
 		return false
 	end
 	if type(result) == "number" then
@@ -114,7 +114,7 @@ function MythicStock.start()
 		end)
 		if not ok then
 			store = nil
-			warn("[ChaosGolf] Studio: Mythic stock is tracked locally (enable API access to test the global stock).")
+			warn("[UltimateGolf] Studio: Mythic stock is tracked locally (enable API access to test the global stock).")
 		end
 	end
 	pcall(function()

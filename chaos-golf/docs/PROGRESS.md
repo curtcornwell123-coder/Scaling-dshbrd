@@ -1,4 +1,4 @@
-# Chaos Golf — build status
+# Ultimate Golf — build status
 
 ## Complete
 - Shared configs, server services, client/UI, lobby (LobbyBuilder), 12 procedural courses + tutorial (CourseBuilder), ball mesh + full icon set, docs.

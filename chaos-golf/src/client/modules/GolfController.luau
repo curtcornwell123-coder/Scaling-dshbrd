@@ -40,10 +40,10 @@ local strip: BillboardGui? = nil
 local stripLabel: TextLabel? = nil
 local spectating: BasePart? = nil
 
-local ACTION_CHARGE = "ChaosGolfCharge"
-local ACTION_ABILITY1 = "ChaosGolfAbility1"
-local ACTION_ABILITY2 = "ChaosGolfAbility2"
-local ACTION_LEAVE = "ChaosGolfLeave"
+local ACTION_CHARGE = "UltimateGolfCharge"
+local ACTION_ABILITY1 = "UltimateGolfAbility1"
+local ACTION_ABILITY2 = "UltimateGolfAbility2"
+local ACTION_LEAVE = "UltimateGolfLeave"
 
 -- Aim guide (equipped Arrow Skin) -------------------------------------------------
 

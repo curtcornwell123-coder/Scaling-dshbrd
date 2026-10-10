@@ -241,7 +241,7 @@ end
 
 function MatchUi.start()
 	gui = Instance.new("ScreenGui")
-	gui.Name = "ChaosGolfMatch"
+	gui.Name = "UltimateGolfMatch"
 	gui.ResetOnSpawn = false
 	gui.DisplayOrder = 8
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling

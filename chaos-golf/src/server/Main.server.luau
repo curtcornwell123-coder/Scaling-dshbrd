@@ -1,5 +1,5 @@
 --!strict
--- Chaos Golf server bootstrap. Order matters: remotes first, then services,
+-- Ultimate Golf server bootstrap. Order matters: remotes first, then services,
 -- then the lobby world and the systems that live in it, and player data last
 -- so every Data.Loaded listener is connected before the first profile loads.
 

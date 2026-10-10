@@ -79,7 +79,7 @@ local function processReceipt(info: any): Enum.ProductPurchaseDecision
 	end
 	local key, product = productByAsset(info.ProductId)
 	if not key then
-		warn("[ChaosGolf] unknown product", info.ProductId)
+		warn("[UltimateGolf] unknown product", info.ProductId)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 
@@ -117,7 +117,7 @@ function Monetization.start()
 			if pass.Id == passId then
 				applyPass(player, key)
 				CreatorCodes.record(player, 0, pass.Robux)
-				Net.event("Toast"):FireClient(player, "Thanks for supporting Chaos Golf! " .. pass.Name .. " unlocked.", Config.Colors.Gold)
+				Net.event("Toast"):FireClient(player, "Thanks for supporting Ultimate Golf! " .. pass.Name .. " unlocked.", Config.Colors.Gold)
 			end
 		end
 	end)

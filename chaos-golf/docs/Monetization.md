@@ -1,4 +1,4 @@
-# Chaos Golf — Economy & Price Sheet
+# Ultimate Golf — Economy & Price Sheet
 
 Design rule: **nothing you can buy wins a match.** Stat upgrades (the only power) are coin-only and switched off in Ranked 1v1. Robux buys cosmetics, convenience and support. Every crate shows its odds in-world, has a pity guarantee, and refunds part of the price on duplicates.
 
@@ -70,7 +70,7 @@ Why these prices: passes sit at the common Roblox price points (99–399) for th
 
 ## Creator codes
 
-Codes live in `Config.CreatorCodes` (`CODE = { Name, UserId }`). While a player has a code cached, every coin spend and Robux purchase is added to the `ChaosGolf_v1_CreatorSales` DataStore under that code (`Coins`, `Robux`, `Purchases`, `Supporters`). Roblox can't split Robux automatically, so pay creators from those totals (for example, 10–20% of attributed Robux, paid with group payouts).
+Codes live in `Config.CreatorCodes` (`CODE = { Name, UserId }`). While a player has a code cached, every coin spend and Robux purchase is added to the `UltimateGolf_v1_CreatorSales` DataStore under that code (`Coins`, `Robux`, `Purchases`, `Supporters`). Roblox can't split Robux automatically, so pay creators from those totals (for example, 10–20% of attributed Robux, paid with group payouts).
 
 ## Fairness checklist
 

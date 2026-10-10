@@ -1,4 +1,4 @@
-# Chaos Golf: art assets
+# Ultimate Golf: art assets
 
 Everything here is generated procedurally by the scripts in `tools/` and is original art. There are no external images, no Robux logo and no Roblox trademarks. Icons are 512x512 PNGs, drawn at 2048 px and downsampled with LANCZOS. They share one house style: gradient + ray backgrounds, bold outlined shapes, soft drop shadows, glossy highlights and Inter Black type. Key content stays inside the central circle with an 8% margin, because Roblox crops game-pass icons to a circle.
 
@@ -68,7 +68,7 @@ Upload these in Studio **Asset Manager → Images** (or Creator Dashboard → De
 
 | File | Use |
 |---|---|
-| `icons/game_icon.png` | Creator Dashboard → your experience → **Configure → Basic Info → Icon** (512x512). The title "CHAOS GOLF" is drawn in the image. |
+| `icons/game_icon.png` | Creator Dashboard → your experience → **Configure → Basic Info → Icon** (512x512). The title "ULTIMATE GOLF" is drawn in the image. |
 
 ## Review
 

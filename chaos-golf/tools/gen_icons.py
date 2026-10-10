@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Chaos Golf - icon generator (game passes, dev products, crates, game icon).
+"""Ultimate Golf - icon generator (game passes, dev products, crates, game icon).
 
 All art is procedural and original. Every icon is drawn at 2048x2048 and downsampled
 to 512x512 with LANCZOS. Important content stays inside the central circle with an
@@ -1838,8 +1838,8 @@ def game_icon():
     glow(cv, m_circle(*ball, br * 1.1), 70, rgb("#00E5FF"), 0.5)
     draw_golf_ball(cv, ball, br, rgb("#F7F9FF"), dimples=72, rim_color=(0.2, 0.95, 1.0))
     # title
-    draw_text(cv, "CHAOS", C, S * 0.155, 450, top=rgb("#FFF36B"), bottom=rgb("#FF8A00"),
-              outline=rgb("#1A0636"), ow=56, rotate=4, extrude=38)
+    draw_text(cv, "ULTIMATE", C, S * 0.15, 300, top=rgb("#FFF36B"), bottom=rgb("#FF8A00"),
+              outline=rgb("#1A0636"), ow=44, rotate=4, extrude=30)
     draw_text(cv, "GOLF", C, S * 0.365, 450, top=WHITE, bottom=rgb("#7FEFFF"), outline=rgb("#1A0636"),
               ow=56, rotate=4, extrude=38)
     sparkles(cv, [(1850, 520, 58), (210, 640, 48), (1840, 1120, 36)], glow_col=rgb("#FF8BD1"))
@@ -1898,7 +1898,7 @@ def contact_sheet(names, path, cell=300, cols=4):
     H = head + rows * (cell + label_h) + (rows + 1) * pad
     sheet = Image.new("RGB", (W, H), (14, 16, 30))
     d = ImageDraw.Draw(sheet)
-    d.text((pad, 28), "Chaos Golf - icon contact sheet", font=get_font(36, "black"), fill=(245, 247, 255))
+    d.text((pad, 28), "Ultimate Golf - icon contact sheet", font=get_font(36, "black"), fill=(245, 247, 255))
     d.text((W - pad, 40), "game passes shown with Roblox circle crop", font=get_font(22, "semibold"),
            fill=(150, 158, 190), anchor="ra")
     for i, name in enumerate(names):

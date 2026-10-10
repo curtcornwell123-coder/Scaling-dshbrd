@@ -436,7 +436,7 @@ end
 
 function WorldFx.start()
 	fxFolder = Instance.new("Folder")
-	fxFolder.Name = "ChaosGolfFx"
+	fxFolder.Name = "UltimateGolfFx"
 	fxFolder.Parent = workspace
 
 	for _, p in CollectionService:GetTagged("Spin") do

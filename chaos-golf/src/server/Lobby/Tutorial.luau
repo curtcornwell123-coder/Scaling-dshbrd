@@ -187,7 +187,7 @@ function Tutorial.begin(player: Player)
 		run.Course = CourseBuilder.buildTutorial(Vector3.new(-4000 - slot * 900, 0, 4000))
 	end)
 	if not ok or not run.Course then
-		warn("[ChaosGolf] tutorial build failed:", err)
+		warn("[UltimateGolf] tutorial build failed:", err)
 		finish(run, false)
 		return
 	end
@@ -202,7 +202,7 @@ function Tutorial.begin(player: Player)
 	Net.event("MatchEvent"):FireClient(player, "intro", {
 		Mode = "Tutorial",
 		ModeName = "TUTORIAL",
-		Map = "Welcome to Chaos Golf",
+		Map = "Welcome to Ultimate Golf",
 		Theme = "You are the ball. Skip anytime with the Skip button (or X).",
 		Holes = #course.Holes,
 		Players = { player.DisplayName },

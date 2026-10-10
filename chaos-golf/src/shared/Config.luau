@@ -1,10 +1,10 @@
 --!strict
--- Chaos Golf: every tunable number in the game lives here.
+-- Ultimate Golf: every tunable number in the game lives here.
 -- Economy rationale and the Robux price sheet are in docs/Monetization.md.
 
 local Config = {}
 
-Config.DataStoreName = "ChaosGolf_v1"
+Config.DataStoreName = "UltimateGolf_v1"
 Config.StartingCoins = 250
 
 -- Ball -------------------------------------------------------------------
@@ -230,7 +230,7 @@ Config.VIPBoost = 0.10
 -- Creator codes. Sales made while a code is active are logged to the
 -- CreatorSales DataStore so you can pay creators out manually.
 Config.CreatorCodes = {
-	CHAOS = { Name = "Chaos Golf Team", UserId = 0 },
+	GOLF = { Name = "Ultimate Golf Team", UserId = 0 },
 } :: { [string]: { Name: string, UserId: number } }
 Config.CreatorFanSkin = "creator_fan"
 

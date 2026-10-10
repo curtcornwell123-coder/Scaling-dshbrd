@@ -22,16 +22,16 @@ local function find(root, pred)
 	return out
 end
 local function shoot(p, dir, power)
-	if p == p1 and Sim.actions["ChaosGolfCharge"] then
-		local fn = Sim.actions["ChaosGolfCharge"]
+	if p == p1 and Sim.actions["UltimateGolfCharge"] then
+		local fn = Sim.actions["UltimateGolfCharge"]
 		Sim.asSide("client", function()
-			fn("ChaosGolfCharge", Enum.UserInputState.Begin, nil)
+			fn("UltimateGolfCharge", Enum.UserInputState.Begin, nil)
 			Sim.task.wait(0.3)
-			fn("ChaosGolfCharge", Enum.UserInputState.End, nil)
+			fn("UltimateGolfCharge", Enum.UserInputState.End, nil)
 		end)
 	elseif p == p1 then
 		Sim.asSide("client", function()
-			RSt.ChaosGolfRemotes.Shoot:FireServer(dir or V(1, 0, 0), power or 0.5)
+			RSt.UltimateGolfRemotes.Shoot:FireServer(dir or V(1, 0, 0), power or 0.5)
 		end)
 	else
 		Sim.fireServerAs(p, "Shoot", dir or V(1, 0, 0), power or 0.5)
@@ -40,7 +40,7 @@ end
 local function useAbility(p, slot)
 	if p == p1 then
 		Sim.asSide("client", function()
-			RSt.ChaosGolfRemotes.UseAbility:FireServer(slot)
+			RSt.UltimateGolfRemotes.UseAbility:FireServer(slot)
 		end)
 	else
 		Sim.fireServerAs(p, "UseAbility", slot)
@@ -272,7 +272,7 @@ local function practiceRun(sinkIt)
 			break
 		end
 		Sim.asSide("client", function()
-			RSt.ChaosGolfRemotes.Shoot:FireServer(V(0, 0, 1), 0.7)
+			RSt.UltimateGolfRemotes.Shoot:FireServer(V(0, 0, 1), 0.7)
 		end)
 		Sim.run(0.5)
 		if sinkIt then
@@ -286,7 +286,7 @@ local function practiceRun(sinkIt)
 	end
 	if Activity.get(p1) == "Practice" then
 		Sim.asSide("client", function()
-			RSt.ChaosGolfRemotes.LeaveActivity:FireServer()
+			RSt.UltimateGolfRemotes.LeaveActivity:FireServer()
 		end)
 		Sim.run(1)
 	end
@@ -311,7 +311,7 @@ Sim.run(0.4)
 local act = function(...)
 	local a = table.pack(...)
 	Sim.asSide("client", function()
-		RSt.ChaosGolfRemotes.ShopAction:FireServer(table.unpack(a, 1, a.n))
+		RSt.UltimateGolfRemotes.ShopAction:FireServer(table.unpack(a, 1, a.n))
 	end)
 	Sim.run(0.5)
 end

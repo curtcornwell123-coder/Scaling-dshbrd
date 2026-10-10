@@ -774,7 +774,7 @@ function MatchService.launch(modeId: string, players: { Player }, mapId: string)
 			run(match)
 		end)
 		if not ok then
-			warn("[ChaosGolf] match", match.Id, "crashed:", err)
+			warn("[UltimateGolf] match", match.Id, "crashed:", err)
 			if not match.Ended then
 				teardown(match)
 			end

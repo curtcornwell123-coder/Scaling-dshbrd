@@ -15,7 +15,7 @@ end
 local function act(...)
 	local a = table.pack(...)
 	Sim.asSide("client", function()
-		RSt.ChaosGolfRemotes.ShopAction:FireServer(table.unpack(a, 1, a.n))
+		RSt.UltimateGolfRemotes.ShopAction:FireServer(table.unpack(a, 1, a.n))
 	end)
 	Sim.run(0.5)
 end
@@ -125,7 +125,7 @@ local ended = Sim.run(120, function()
 			if not shotAt[ball] or Sim.now - shotAt[ball] > 0.8 then
 				shotAt[ball] = Sim.now
 				Sim.asSide("client", function()
-					RSt.ChaosGolfRemotes.Shoot:FireServer(V(1, 0, 0), 0.5)
+					RSt.UltimateGolfRemotes.Shoot:FireServer(V(1, 0, 0), 0.5)
 				end)
 			end
 		elseif not ball.AtRest and shotAt[ball] and Sim.now - shotAt[ball] > 0.5 then

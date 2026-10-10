@@ -64,7 +64,7 @@ local function flush()
 		if not ok then
 			if not warnedFlush then
 				warnedFlush = true
-				warn("[ChaosGolf] creator sales flush failing (will keep retrying quietly):", err)
+				warn("[UltimateGolf] creator sales flush failing (will keep retrying quietly):", err)
 			end
 			local again = pending[code] or { Coins = 0, Robux = 0, Purchases = 0, Supporters = 0 }
 			again.Coins += p.Coins

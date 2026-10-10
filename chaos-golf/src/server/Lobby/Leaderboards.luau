@@ -83,7 +83,7 @@ local function flushSession(session: Data.Session)
 					end)
 					if not ok and not warnedWrite then
 						warnedWrite = true
-						warn("[ChaosGolf] leaderboard writes failing (further warnings suppressed):", err)
+						warn("[UltimateGolf] leaderboard writes failing (further warnings suppressed):", err)
 					end
 				end
 			end
