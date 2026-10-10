@@ -509,7 +509,13 @@ CF.__tostring = function(a)
 	return tostring(a.p)
 end
 function CF.Inverse(c)
-	local inv = cf(v3(0, 0, 0), v3(c.rx.X, c.ry.X, c.rz.X), v3(c.rx.Y, c.ry.Y, c.rz.Y), v3(c.rx.Z, c.ry.Z, c.rz.Z))
+	-- Exact 3x3 inverse (a transpose would let rounding error grow without bound
+	-- under repeated PivotTo, which Roblox avoids by orthonormalizing).
+	local a, b, z = c.rx, c.ry, c.rz
+	local r1, r2, r3 = b:Cross(z), z:Cross(a), a:Cross(b)
+	local det = a:Dot(r1)
+	r1, r2, r3 = r1 / det, r2 / det, r3 / det
+	local inv = cf(v3(0, 0, 0), v3(r1.X, r2.X, r3.X), v3(r1.Y, r2.Y, r3.Y), v3(r1.Z, r2.Z, r3.Z))
 	return cf(-rot(inv, c.p), inv.rx, inv.ry, inv.rz)
 end
 function CF.ToObjectSpace(a, b)
