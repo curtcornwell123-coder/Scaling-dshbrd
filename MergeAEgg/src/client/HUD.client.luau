@@ -996,36 +996,37 @@ end)
 ---------------------------------------------------------------------------
 
 local musicMuted = false
-local tracks = {}
-for name, id in { Lobby = Config.Music.Lobby, Biomes = Config.Music.Biomes } do
-	if id ~= "" then
+local tracks: { [string]: Sound } = {}
+for zone, id in Config.Music do
+	if type(id) == "string" and id ~= "" then
 		local track = Instance.new("Sound")
-		track.Name = "MAE_Music_" .. name
+		track.Name = "MAE_Music_" .. zone
 		track.SoundId = id
 		track.Looped = true
 		track.Volume = 0
 		track.Parent = SoundService
 		track:Play()
-		tracks[name] = track
+		tracks[zone] = track
 	end
 end
 
-local muteButton, muteLabel = UI.button(stats, { text = "🔊", color = c(90, 95, 120), size = UDim2.fromOffset(56, 50), position = UDim2.fromOffset(0, -60), onClick = function() end })
+local muteButton, muteLabel = UI.button(stats, { text = "🔊", color = c(90, 95, 120), size = UDim2.fromOffset(56, 50), position = UDim2.fromOffset(0, -60) })
 muteButton.Visible = next(tracks) ~= nil
 muteButton.Activated:Connect(function()
 	musicMuted = not musicMuted
 	muteLabel.Text = if musicMuted then "🔇" else "🔊"
 end)
 
--- Cross-fades between tracks depending on where you are.
+-- Cross-fades to the current zone's track (set by the server), falling back to Lobby.
 task.spawn(function()
 	while true do
-		local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-		local inLobby = not root or root.Position.Z < 30
-		local wanted = if inLobby or not tracks.Biomes then "Lobby" else "Biomes"
+		local zone = player:GetAttribute("Zone") or "Lobby"
+		local wanted = if tracks[zone] then zone else "Lobby"
 		for name, track in tracks do
 			local target = if musicMuted or name ~= wanted then 0 else Config.Music.Volume
-			TweenService:Create(track, TweenInfo.new(1.5), { Volume = target }):Play()
+			if track.Volume ~= target then
+				TweenService:Create(track, TweenInfo.new(1.5), { Volume = target }):Play()
+			end
 		end
 		task.wait(1)
 	end

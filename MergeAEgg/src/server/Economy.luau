@@ -1220,8 +1220,12 @@ local function treadmillTick(dt: number)
 			end
 			session.lastPos = position
 
-			-- Track the furthest biome reached (used for reward eggs).
+			-- Where the player is (drives music) and the furthest biome reached.
 			local biome = World.biomeAt(position)
+			local zone = if biome then biome.key elseif position.Y < -100 then "Dungeon" else "Lobby"
+			if player:GetAttribute("Zone") ~= zone then
+				player:SetAttribute("Zone", zone)
+			end
 			if biome and biome.index > data.maxBiome then
 				data.maxBiome = biome.index
 				Net.notify(player, `New biome reached: {biome.def.name} {biome.def.emoji}`, "success")

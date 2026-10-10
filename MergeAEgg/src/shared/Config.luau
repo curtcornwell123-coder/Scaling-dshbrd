@@ -599,12 +599,20 @@ Config.PlaytimeGifts = {
 	{ minutes = 120, egg = 6 },
 }
 
--- Background music: paste audio asset ids (e.g. "rbxassetid://1234567890").
--- Lobby plays in the base area; Biomes plays out in the corridor ("" = keep lobby music).
+-- Background music: paste audio asset ids, e.g. "rbxassetid://1234567890".
+-- Each area cross-fades to its own track; an empty "" falls back to the Lobby track.
+-- Find free tracks in Studio: Toolbox > Audio > filter Music (Roblox's licensed library).
 Config.Music = {
-	Lobby = "",
-	Biomes = "",
 	Volume = 0.35,
+	Lobby = "", -- search: "happy upbeat", "cheerful game"
+	Dungeon = "", -- search: "boss battle", "epic battle"
+	Forest = "", -- search: "forest adventure", "peaceful nature"
+	Desert = "", -- search: "desert", "arabian"
+	Toxic = "", -- search: "industrial", "dark synth"
+	Farmlands = "", -- search: "country", "banjo"
+	Enchanted = "", -- search: "magical", "fantasy"
+	Candylands = "", -- search: "bubbly", "sweet pop"
+	Halloween = "", -- search: "halloween", "spooky"
 }
 
 -- Shown when a player opens the Roblox menu (usually about to leave). Once per day.
