@@ -113,6 +113,7 @@ end
 -- In-world toasts -----------------------------------------------------------------
 
 local toastGui: BillboardGui? = nil
+local toastCount = 0
 local toastStack: Frame? = nil
 
 local function toastAnchor(): BasePart?
@@ -161,11 +162,12 @@ function Hud.toast(text: string, color: Color3?)
 	if #items >= 3 then
 		items[1]:Destroy()
 	end
+	toastCount += 1
 	local card = UIKit.panel({
 		AutomaticSize = Enum.AutomaticSize.XY,
 		Size = UDim2.fromOffset(0, 0),
 		BackgroundTransparency = 0.05,
-		LayoutOrder = os.clock() * 1000 // 1,
+		LayoutOrder = toastCount,
 		Parent = stack,
 	})
 	UIKit.padding(card, 8, 12)
