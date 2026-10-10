@@ -358,8 +358,25 @@ commands.boss = function()
 	return "Boss spawned."
 end
 
+-- Switches your own pen to any treadmill design (Corny's Top Hat stays owner-only).
+commands.treadmill = function(admin: Player, args)
+	if not args[1] then
+		return "Usage: /treadmill <name>, e.g. /treadmill CornyTopHat"
+	end
+	return Economy.adminSetTreadmill(admin, args[1])
+end
+
 commands.adminhelp = function()
-	return "Commands: /kick, /ban, /unban, /money, /speed, /egg, /night, /boss"
+	return "Commands: /kick, /ban, /unban, /money, /speed, /egg, /night, /boss, /treadmill"
+end
+
+local function execute(admin: Player, name: string, args: { string })
+	local command = commands[name]
+	if not command then
+		return
+	end
+	local ok, result = pcall(command, admin, args)
+	Net.notify(admin, if ok then tostring(result) else `Command error: {result}`, if ok then "info" else "error")
 end
 
 local function runCommand(admin: Player, message: string)
@@ -375,13 +392,25 @@ local function runCommand(admin: Player, message: string)
 			table.insert(cleaned, a)
 		end
 	end
-	local command = commands[name]
-	if not command then
+	execute(admin, name, cleaned)
+end
+
+-- The admin panel sends the same commands with arguments already split.
+Net.on("Admin", function(player: Player, name, args)
+	if not player:GetAttribute("Admin") or type(name) ~= "string" or type(args) ~= "table" then
 		return
 	end
-	local ok, result = pcall(command, admin, cleaned)
-	Net.notify(admin, if ok then tostring(result) else `Command error: {result}`, if ok then "info" else "error")
-end
+	local cleaned = {}
+	for _, a in args do
+		if type(a) == "string" or type(a) == "number" then
+			local text = tostring(a)
+			if text ~= "" then
+				table.insert(cleaned, text)
+			end
+		end
+	end
+	execute(player, name:lower(), cleaned)
+end)
 
 -- "/command" through TextChatService commands (hidden from public chat).
 local commandFolder = Instance.new("Folder")

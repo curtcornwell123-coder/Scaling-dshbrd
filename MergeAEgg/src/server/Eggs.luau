@@ -728,7 +728,7 @@ function Eggs.spawnBossEgg(position: Vector3, eligible, lifetime: number)
 			Net.notify(player, "You already claimed today's Boss Egg! Come back tomorrow.", "error")
 			return
 		end
-		local egg = Eggs.makeEgg(data, "Cave", 5, { boss = true, weight = 2 })
+		local egg = Eggs.makeEgg(data, "Cave", rollRarity(Config.Boss.eggRarityWeights), { boss = true })
 		if startCarry(player, egg, { kind = "boss", ownerUserId = player.UserId }) then
 			data.bossEggDay = Data.today()
 			Net.notify(player, "You got the Boss Egg! Get it home before the cave animals catch you!", "success")

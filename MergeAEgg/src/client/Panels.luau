@@ -1242,6 +1242,166 @@ local function buildRebirth()
 end
 
 ---------------------------------------------------------------------------
+-- Admin panel (only shown to admins; the server re-checks every command)
+---------------------------------------------------------------------------
+
+local function input(parent: Instance, placeholder: string, props)
+	local box = UI.new("TextBox", {
+		PlaceholderText = placeholder,
+		Text = props.text or "",
+		Size = props.size or UDim2.new(1, 0, 0, 44),
+		Position = props.position or UDim2.new(),
+		BackgroundColor3 = c(24, 25, 32),
+		TextColor3 = WHITE,
+		PlaceholderColor3 = c(130, 130, 145),
+		Font = Enum.Font.FredokaOne,
+		TextScaled = true,
+		ClearTextOnFocus = false,
+		LayoutOrder = props.order or 0,
+	}, parent)
+	UI.corner(box, 6)
+	UI.stroke(box, 2, c(80, 85, 100))
+	UI.new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }, box)
+	return box
+end
+
+local function buildAdmin()
+	local w = window("Admin", "🛠️ Admin Panel", c(220, 60, 60), Vector2.new(980, 540))
+	w.keys = { "treadmills" }
+	w.target = nil
+	w.biome = 1
+	w.rarity = 1
+
+	-- Players
+	local playersFrame = UI.new("Frame", { Size = UDim2.new(0, 230, 1, 0), BackgroundColor3 = DARKER, BackgroundTransparency = 0.3 }, w.body)
+	UI.corner(playersFrame, 6)
+	UI.text(playersFrame, { Text = "Players", Size = UDim2.new(1, 0, 0, 32), Position = UDim2.fromOffset(0, 4) })
+	local playerList = UI.scroll(playersFrame, { size = UDim2.new(1, 0, 1, -40), position = UDim2.fromOffset(0, 38), gapPx = 6, padding = 6 })
+
+	-- Actions
+	local actions = UI.new("Frame", { Size = UDim2.new(0, 400, 1, 0), Position = UDim2.fromOffset(240, 0), BackgroundTransparency = 1 }, w.body)
+	local targetLabel = UI.text(actions, { Text = "Target: (pick a player)", Size = UDim2.new(1, 0, 0, 32), TextXAlignment = Enum.TextXAlignment.Left })
+	local amountBox = input(actions, "Amount (e.g. 1000000)", { size = UDim2.new(0.5, -4, 0, 42), position = UDim2.fromOffset(0, 38) })
+	local durationBox = input(actions, "Ban time: 30m / 12h / 7d / perm", { text = "1d", size = UDim2.new(0.5, -4, 0, 42), position = UDim2.new(0.5, 4, 0, 38) })
+	local reasonBox = input(actions, "Reason (kick / ban)", { size = UDim2.new(1, 0, 0, 42), position = UDim2.fromOffset(0, 86) })
+	local biomeButton = UI.button(actions, { text = "", color = c(70, 75, 95), size = UDim2.new(0.5, -4, 0, 42), position = UDim2.fromOffset(0, 134), onClick = function()
+		w.biome = w.biome % #Config.Biomes + 1
+		w.refreshLabels()
+	end })
+	local rarityButton = UI.button(actions, { text = "", color = c(70, 75, 95), size = UDim2.new(0.5, -4, 0, 42), position = UDim2.new(0.5, 4, 0, 134), onClick = function()
+		w.rarity = w.rarity % #Config.Rarities + 1
+		w.refreshLabels()
+	end })
+
+	local grid = UI.new("Frame", { Size = UDim2.new(1, 0, 1, -186), Position = UDim2.fromOffset(0, 186), BackgroundTransparency = 1 }, actions)
+	UI.new("UIGridLayout", { CellSize = UDim2.new(0.5, -4, 0, 50), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }, grid)
+
+	local function needTarget(): string?
+		if not w.target then
+			env.notify("Pick a player first!", "error")
+			return nil
+		end
+		return w.target
+	end
+	local function send(name: string, args)
+		env.request("Admin", name, args)
+	end
+	local actionList = {
+		{ "💵 Give Money", GREEN, function()
+			local target = needTarget()
+			if target then
+				send("money", { target, amountBox.Text })
+			end
+		end },
+		{ "👟 Give Speed", BLUE, function()
+			local target = needTarget()
+			if target then
+				send("speed", { target, amountBox.Text })
+			end
+		end },
+		{ "🥚 Give Egg", c(255, 170, 40), function()
+			local target = needTarget()
+			if target then
+				send("egg", { target, Config.Biomes[w.biome].key, tostring(w.rarity) })
+			end
+		end },
+		{ "👢 Kick", c(230, 120, 40), function()
+			local target = needTarget()
+			if target then
+				send("kick", { target, reasonBox.Text })
+			end
+		end },
+		{ "🔨 Ban", RED, function()
+			local target = needTarget()
+			if target then
+				send("ban", { target, durationBox.Text, reasonBox.Text })
+			end
+		end },
+		{ "♻️ Unban (name/ID in Amount)", c(120, 120, 140), function()
+			send("unban", { amountBox.Text })
+		end },
+		{ "🌙 Start Night", c(90, 90, 200), function()
+			send("night", {})
+		end },
+		{ "⚔️ Spawn Boss", c(150, 60, 200), function()
+			send("boss", {})
+		end },
+	}
+	for i, action in actionList do
+		UI.button(grid, { text = action[1], color = action[2], order = i, onClick = action[3] })
+	end
+
+	-- My Treadmill
+	local mills = UI.new("Frame", { Size = UDim2.new(1, -650, 1, 0), Position = UDim2.fromOffset(650, 0), BackgroundColor3 = DARKER, BackgroundTransparency = 0.3 }, w.body)
+	UI.corner(mills, 6)
+	UI.text(mills, { Text = "My Treadmill", TextColor3 = YELLOW, Size = UDim2.new(1, 0, 0, 32), Position = UDim2.fromOffset(0, 4) })
+	local millGrid = UI.scroll(mills, { size = UDim2.new(1, 0, 1, -40), position = UDim2.fromOffset(0, 38), grid = UDim2.fromOffset(140, 150), gap = UDim2.fromOffset(8, 8), padding = 6 })
+	w.millCards = {}
+	for i, mill in Config.Treadmills do
+		if not mill.ownerOnly or player.UserId == Config.OwnerUserId then
+			local card = UI.new("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = c(55, 58, 72), LayoutOrder = i }, millGrid)
+			UI.corner(card, 8)
+			local stroke = UI.stroke(card, 3, c(80, 85, 100))
+			UI.viewport(card, UI.cachedModel("mill:" .. mill.key, function()
+				return Models.treadmill(mill.theme, "Wood")
+			end), { size = UDim2.new(1, -8, 1, -44), position = UDim2.fromOffset(4, 4), angle = math.rad(-40) })
+			UI.text(card, { Text = `{mill.name}\n<font size="13" color="#7dff6b">x{Config.format(mill.mult)}</font>`, Size = UDim2.new(1, -6, 0, 38), Position = UDim2.new(0, 3, 1, -40) })
+			card.Activated:Connect(function()
+				env.sound("Click")
+				send("treadmill", { mill.key })
+			end)
+			w.millCards[mill.key] = stroke
+		end
+	end
+
+	w.refreshLabels = function()
+		local biome = Config.Biomes[w.biome]
+		UI.setButton(biomeButton, `{biome.emoji} {biome.name}`, c(70, 75, 95))
+		local rarity = Config.Rarities[w.rarity]
+		UI.setButton(rarityButton, rarity.name, rarity.color:Lerp(Color3.new(), 0.35))
+		targetLabel.Text = if w.target then `Target: <font color="#ffd23c">{w.target}</font>` else "Target: (pick a player)"
+	end
+	w.refresh = function()
+		for _, child in playerList:GetChildren() do
+			if child:IsA("TextButton") then
+				child:Destroy()
+			end
+		end
+		for i, other in Players:GetPlayers() do
+			UI.button(playerList, { text = other.Name, color = if w.target == other.Name then c(220, 160, 40) else PURPLE, size = UDim2.new(1, -8, 0, 46), order = i, onClick = function()
+				w.target = other.Name
+				w.refresh()
+			end })
+		end
+		local equipped = env.state.treadmills and env.state.treadmills.equipped
+		for key, stroke in w.millCards do
+			stroke.Color = if key == equipped then YELLOW else c(80, 85, 100)
+		end
+		w.refreshLabels()
+	end
+end
+
+---------------------------------------------------------------------------
 -- Popups, gift picker, welcome back, hatch reveal
 ---------------------------------------------------------------------------
 
@@ -1384,6 +1544,7 @@ function Panels.init(environment)
 	buildPopup()
 	buildGiftPicker()
 	buildWelcome()
+	buildAdmin()
 
 	MarketplaceService.PromptProductPurchaseFinished:Connect(function(userId, _, purchased)
 		if userId == player.UserId and not purchased then

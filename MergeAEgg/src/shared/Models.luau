@@ -1209,7 +1209,11 @@ function Models.treadmill(themeName: string, penStyle: string): Model
 		box(model, "Handle", Vector3.new(0.3, 0.3, 3.5), Vector3.new(x, 4.1, -3.9), theme.accent)
 	end
 	box(model, "Console", Vector3.new(6, 2.2, 0.6), CFrame.new(0, 4.5, -5.5) * CFrame.Angles(rad(-20), 0, 0), theme.frame, { Material = theme.material, CanCollide = true })
-	box(model, "Barrier", Vector3.new(5.6, 3.2, 0.4), Vector3.new(0, 2.9, -5.7), theme.accent, { CanCollide = true, Transparency = 0.6 })
+	-- Invisible walls keep the runner on the belt: you can only step on or off at the back.
+	box(model, "Barrier", Vector3.new(6.2, 8, 0.4), Vector3.new(0, 5.4, -5.85), theme.accent, { CanCollide = true, Transparency = 1 })
+	for _, x in { -2.65, 2.65 } do
+		box(model, "SideWall", Vector3.new(0.3, 8, 12.6), Vector3.new(x, 5.4, 0.5), theme.accent, { CanCollide = true, Transparency = 1 })
+	end
 	local screen = box(model, "Screen", Vector3.new(4.6, 1.4, 0.1), CFrame.new(0, 4.6, -5.18) * CFrame.Angles(rad(-20), 0, 0), BLACK)
 	local gui = Instance.new("SurfaceGui")
 	gui.Name = "ScreenGui"

@@ -104,6 +104,11 @@ local playtimeButton, playtimeLabel = UI.button(smallRow, { text = "⏰", color 
 	Panels.toggle("Playtime")
 end })
 
+local adminButton = UI.button(left, { text = "🛠️ Admin", color = c(220, 60, 60), size = UDim2.fromOffset(190, 56), order = 4, onClick = function()
+	Panels.toggle("Admin")
+end })
+adminButton.Visible = false
+
 local function badge(parent: GuiObject): Frame
 	local b = UI.new("Frame", { Name = "Badge", Size = UDim2.fromOffset(30, 30), Position = UDim2.new(1, -14, 0, -12), BackgroundColor3 = c(230, 30, 40), Visible = false, ZIndex = 3 }, parent)
 	UI.corner(b, 99)
@@ -117,7 +122,7 @@ local dailyBadge = badge(dailyButton)
 local playtimeBadge = badge(playtimeButton)
 
 -- Right: Eggs and Pets buttons plus shop shortcuts.
-local right = container("Right", Vector2.new(1, 0.5), UDim2.new(1, -12, 0.45, 0), Vector2.new(90, 470))
+local right = container("Right", Vector2.new(1, 0.5), UDim2.new(1, -12, 0.45, 0), Vector2.new(90, 190))
 UI.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right }, right)
 local eggsButton = UI.button(right, { text = "🥚", color = c(230, 40, 40), size = UDim2.fromOffset(84, 84), order = 1, onClick = function()
 	Panels.toggle("Growing")
@@ -125,11 +130,6 @@ end })
 UI.button(right, { text = "🐾", color = c(255, 130, 40), size = UDim2.fromOffset(84, 84), order = 2, onClick = function()
 	Panels.toggle("Active")
 end })
-for i, info in { { "%", "Featured", c(255, 80, 60) }, { "👟", "Speed", c(60, 170, 255) }, { "💵", "Money", c(70, 190, 60) } } do
-	UI.button(right, { text = info[1], color = info[3], size = UDim2.fromOffset(64, 60), order = 2 + i, onClick = function()
-		Panels.open("Shop", info[2])
-	end })
-end
 local readyBadge = badge(eggsButton)
 
 -- Bottom-left: speed and money.
@@ -298,6 +298,7 @@ local function refreshHud()
 		end
 	end
 	readyBadge.Visible = ready
+	adminButton.Visible = state.isAdmin == true
 end
 
 local firstSync = true
@@ -717,29 +718,42 @@ end
 local petStates = {}
 local belts = {}
 
+local SLAT_COUNT = 10
+local SLAT_SPEED = 7 -- studs per second the slats travel toward the runner's feet
+local BELT_ANIMATE_DISTANCE = 160
+local slatFolder = Instance.new("Folder")
+slatFolder.Name = "BeltSlats"
+slatFolder.Parent = workspace
+
+-- Local slats that ride along each belt, from the screen end toward the back.
 local function setupBelt(belt: BasePart)
 	if belts[belt] then
 		return
 	end
-	local surface = Instance.new("SurfaceGui")
-	surface.Face = Enum.NormalId.Top
-	surface.PixelsPerStud = 20
-	surface.LightInfluence = 1
-	surface.Adornee = belt
-	surface.Parent = playerGui
-	local holder = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ClipsDescendants = true }, surface)
-	local stripes = {}
-	for i = 0, 7 do
-		local stripe = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 6), Position = UDim2.fromScale(0, i / 8), BackgroundColor3 = c(90, 90, 100), BackgroundTransparency = 0.4, BorderSizePixel = 0 }, holder)
-		table.insert(stripes, stripe)
+	local slats = {}
+	for _ = 1, SLAT_COUNT do
+		local slat = Instance.new("Part")
+		slat.Name = "Slat"
+		slat.Anchored = true
+		slat.CanCollide = false
+		slat.CanQuery = false
+		slat.CanTouch = false
+		slat.CastShadow = false
+		slat.Material = Enum.Material.SmoothPlastic
+		slat.Color = belt.Color:Lerp(WHITE, 0.18)
+		slat.Size = Vector3.new(belt.Size.X - 0.3, 0.05, 0.3)
+		slat.Parent = slatFolder
+		table.insert(slats, slat)
 	end
-	belts[belt] = { gui = surface, stripes = stripes, offset = 0 }
+	belts[belt] = { slats = slats, offset = 0 }
 end
 
 local function scanWorld()
 	for belt, info in belts do
 		if not belt.Parent then
-			info.gui:Destroy()
+			for _, slat in info.slats do
+				slat:Destroy()
+			end
 			belts[belt] = nil
 		end
 	end
@@ -819,11 +833,24 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 	moneyLabel.Text = "$" .. Config.formatWithCommas(math.floor(displayedMoney))
 
-	-- Belts scroll.
-	for _, info in belts do
-		info.offset = (info.offset + dt * 0.6) % (1 / 8)
-		for i, stripe in info.stripes do
-			stripe.Position = UDim2.fromScale(0, (i - 1) / 8 + info.offset)
+	-- Belts: slats scroll toward the back, and the belt pushes you back at your own
+	-- walk speed so you run in place facing the screen (a real treadmill).
+	local camPos = workspace.CurrentCamera.CFrame.Position
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	local push = if humanoid then humanoid.WalkSpeed * 0.95 else 16
+	for belt, info in belts do
+		belt.AssemblyLinearVelocity = -belt.CFrame.LookVector * push
+		local near = (belt.Position - camPos).Magnitude < BELT_ANIMATE_DISTANCE
+		local length = belt.Size.Z
+		info.offset = (info.offset + dt * SLAT_SPEED) % length
+		for i, slat in info.slats do
+			if near then
+				local z = ((i - 1) / SLAT_COUNT * length + info.offset) % length - length / 2
+				slat.CFrame = belt.CFrame * CFrame.new(0, belt.Size.Y / 2 + 0.03, z)
+				slat.Transparency = 0
+			else
+				slat.Transparency = 1
+			end
 		end
 	end
 

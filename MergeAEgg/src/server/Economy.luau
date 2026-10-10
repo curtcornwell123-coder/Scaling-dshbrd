@@ -79,6 +79,10 @@ function Economy.moneyMultiplier(player: Player, data): number
 	if Economy.hasPass(player, "VIP") then
 		mult *= 1.25
 	end
+	local session = sessions[player]
+	if session and session.friendsHere > 0 then
+		mult *= Config.FriendBoost
+	end
 	return mult
 end
 
@@ -211,6 +215,10 @@ local FIELDS = {
 	end,
 	maxBiome = function(_, data)
 		return data.maxBiome
+	end,
+	friends = function(player)
+		local session = sessions[player]
+		return if session then session.friendsHere else 0
 	end,
 }
 
@@ -349,13 +357,6 @@ end
 
 function Economy.rollPet(player: Player, egg)
 	local biome = Config.Biomes[Config.BiomeIndex[egg.biome]]
-	if egg.boss then
-		for _, p in biome.pets do
-			if biome.bossOnly and biome.bossOnly[p.name] then
-				return p
-			end
-		end
-	end
 	local luck = (1 + math.max(egg.weight - 1, 0) * Config.WeightLuckPerKg) * (if egg.big then Config.BigEggLuck else 1) * Economy.hatchLuck(player)
 	local chances = Config.HatchTierChances
 	local offset = weightedPick({ chances[1], chances[2] * luck, chances[3] * luck }) - 1
@@ -363,7 +364,8 @@ function Economy.rollPet(player: Player, egg)
 	while rarity >= 1 do
 		local candidates = {}
 		for _, p in biome.pets do
-			if p.rarityIndex == rarity and not (biome.bossOnly and biome.bossOnly[p.name]) then
+			local bossOnly = biome.bossOnly and biome.bossOnly[p.name]
+			if p.rarityIndex == rarity and (egg.boss or not bossOnly) then
 				table.insert(candidates, p)
 			end
 		end
@@ -404,12 +406,7 @@ function Economy.hatch(player: Player, slot: string)
 	data.index[def.name] = true
 	data.stats.hatched += 1
 
-	-- Auto-equip when there's a free slot.
-	if #data.equipped < Economy.maxEquipSlots(player, data) then
-		table.insert(data.equipped, p.id)
-		Economy.renderPets(player)
-	end
-
+	-- New pets go to the inventory; the hatch screen offers to place them down.
 	if def.biome == "Halloween" then
 		if not data.trails.Pumpkin and rng:NextNumber() < Config.PumpkinTrailDropChance then
 			data.trails.Pumpkin = true
@@ -421,7 +418,7 @@ function Economy.hatch(player: Player, slot: string)
 		end
 	end
 
-	Net.fx(player, "Hatch", p, isNew, egg)
+	Net.fx(player, "Hatch", p, isNew, egg, #data.equipped < Economy.maxEquipSlots(player, data))
 	if p.rarity >= 6 then
 		local rarity = Config.Rarities[p.rarity]
 		Net.announce(`🎉 {player.DisplayName} hatched a {rarity.name:upper()} {p.name}!`, rarity.color)
@@ -733,6 +730,32 @@ function Economy.equipTreadmill(player: Player, key: string)
 	Economy.sync(player, "treadmills", "perStep")
 end
 
+-- Admin: equip any treadmill design on your own pen.
+function Economy.adminSetTreadmill(player: Player, query: string): string
+	local data = Data.get(player)
+	if not data then
+		return "Your data hasn't loaded yet."
+	end
+	local mill = Config.TreadmillsByKey[query]
+	if not mill then
+		for _, candidate in Config.Treadmills do
+			if candidate.key:lower() == query:lower() or candidate.name:lower() == query:lower() then
+				mill = candidate
+				break
+			end
+		end
+	end
+	if not mill then
+		return `Unknown treadmill "{query}".`
+	end
+	if mill.ownerOnly and not Economy.isOwner(player) then
+		return `{mill.name} is exclusive to its owner.`
+	end
+	data.treadmills[mill.key] = true
+	Economy.equipTreadmill(player, mill.key)
+	return `Your pen now uses the {mill.name}!`
+end
+
 function Economy.refreshTreadmillText(player: Player)
 	local session = sessions[player]
 	if session and session.pen then
@@ -956,6 +979,59 @@ local function loadPasses(player: Player)
 end
 
 ---------------------------------------------------------------------------
+-- Friends: x2 cash while a Roblox friend is in your server
+---------------------------------------------------------------------------
+
+local function isFriend(player: Player, other: Player): boolean
+	local session = sessions[player]
+	if not session then
+		return false
+	end
+	local cached = session.friendCache[other.UserId]
+	if cached == nil then
+		local ok, result = pcall(function()
+			return player:IsFriendsWithAsync(other.UserId)
+		end)
+		cached = ok and result == true
+		session.friendCache[other.UserId] = cached
+	end
+	return cached
+end
+
+-- Recounts friends for everyone and tells players when their boost turns on.
+function Economy.refreshFriends()
+	-- Snapshot first: friend checks yield and players may join or leave meanwhile.
+	local list = {}
+	for player in sessions do
+		table.insert(list, player)
+	end
+	for _, player in list do
+		local session = sessions[player]
+		if not session then
+			continue
+		end
+		local count = 0
+		local newest = nil
+		for _, other in Players:GetPlayers() do
+			if other ~= player and sessions[other] and isFriend(player, other) then
+				count += 1
+				newest = other
+			end
+		end
+		if count ~= session.friendsHere and sessions[player] then
+			local wasBoosted = session.friendsHere > 0
+			session.friendsHere = count
+			if count > 0 and not wasBoosted and newest then
+				Net.notify(player, `👥 {newest.DisplayName} is here! Friend Boost: x{Config.FriendBoost} cash!`, "success")
+			elseif count == 0 and wasBoosted then
+				Net.notify(player, "Your friend left — Friend Boost ended.", "info")
+			end
+			Economy.sync(player, "friends", "income")
+		end
+	end
+end
+
+---------------------------------------------------------------------------
 -- Player lifecycle
 ---------------------------------------------------------------------------
 
@@ -1004,6 +1080,8 @@ function Economy.playerAdded(player: Player, data, pen)
 		graceUntil = 0,
 		lastPos = nil,
 		violations = 0,
+		friendsHere = 0,
+		friendCache = {},
 	}
 	sessions[player] = session
 	session.incomeValue, session.speedValue = setupLeaderstats(player)
@@ -1030,17 +1108,28 @@ function Economy.playerAdded(player: Player, data, pen)
 		task.spawn(onCharacter, player, player.Character)
 	end
 
-	-- Offline income, capped.
+	-- Offline income (capped) and eggs that kept growing while you were away.
 	if data.lastOnline > 0 then
-		local away = math.min(os.time() - data.lastOnline, Config.OfflineIncomeCapSeconds)
+		local now = os.time()
+		local awayTotal = now - data.lastOnline
+		local away = math.min(awayTotal, Config.OfflineIncomeCapSeconds)
 		local earned = math.floor(Economy.incomePerSecond(player) * away)
-		if away >= 60 and earned > 0 then
+		local grown, growing = 0, 0
+		for _, egg in data.nests do
+			if egg.growEnd > now then
+				growing += 1
+			elseif egg.growEnd > data.lastOnline then
+				grown += 1
+			end
+		end
+		if awayTotal >= 60 and (earned > 0 or grown > 0 or growing > 0) then
 			data.money += earned
-			Net.fx(player, "WelcomeBack", earned, away)
+			Net.fx(player, "WelcomeBack", { amount = earned, seconds = awayTotal, capped = awayTotal > away, grown = grown, growing = growing })
 		end
 	end
 	data.lastOnline = os.time()
 
+	task.spawn(Economy.refreshFriends)
 	task.spawn(function()
 		loadPasses(player)
 		if Economy.hasPass(player, "VIP") and data.vipEggDay < today() then
@@ -1062,6 +1151,7 @@ function Economy.playerRemoving(player: Player)
 		data.lastOnline = os.time()
 	end
 	sessions[player] = nil
+	task.spawn(Economy.refreshFriends)
 end
 
 ---------------------------------------------------------------------------

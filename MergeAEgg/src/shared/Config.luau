@@ -20,12 +20,12 @@ Config.DataStoreName = "MergeAEgg_v1"
 -- grow: grow time multiplier for an egg of this rarity.
 Config.Rarities = {
 	{ name = "Common", color = Color3.fromRGB(200, 200, 205), income = 1, treadmill = 0.02, grow = 1 },
-	{ name = "Uncommon", color = Color3.fromRGB(85, 220, 95), income = 2, treadmill = 0.04, grow = 1.25 },
-	{ name = "Rare", color = Color3.fromRGB(60, 150, 255), income = 4, treadmill = 0.08, grow = 1.5 },
-	{ name = "Epic", color = Color3.fromRGB(175, 80, 255), income = 10, treadmill = 0.15, grow = 2 },
-	{ name = "Legendary", color = Color3.fromRGB(255, 200, 40), income = 25, treadmill = 0.30, grow = 2.5 },
-	{ name = "Mythic", color = Color3.fromRGB(255, 60, 70), income = 75, treadmill = 0.60, grow = 3 },
-	{ name = "Secret", color = Color3.fromRGB(255, 255, 255), income = 250, treadmill = 1.20, grow = 4 },
+	{ name = "Uncommon", color = Color3.fromRGB(85, 220, 95), income = 2, treadmill = 0.04, grow = 1.5 },
+	{ name = "Rare", color = Color3.fromRGB(60, 150, 255), income = 4, treadmill = 0.08, grow = 2.5 },
+	{ name = "Epic", color = Color3.fromRGB(175, 80, 255), income = 10, treadmill = 0.15, grow = 4 },
+	{ name = "Legendary", color = Color3.fromRGB(255, 200, 40), income = 25, treadmill = 0.30, grow = 6 },
+	{ name = "Mythic", color = Color3.fromRGB(255, 60, 70), income = 75, treadmill = 0.60, grow = 9 },
+	{ name = "Secret", color = Color3.fromRGB(255, 255, 255), income = 250, treadmill = 1.20, grow = 14 },
 }
 
 Config.RarityIndex = {}
@@ -35,6 +35,7 @@ end
 
 -- Chance (weights) of each egg rarity spawning in a biome nest.
 Config.NestRarityWeights = { 60, 25, 10, 4, 0.9, 0.1, 0 }
+Config.EggsPerNest = 3 -- each biome has one nest holding this many eggs
 -- Luck events only roll these rarities: Legendary, Mythic, Secret.
 Config.LuckEventWeights = { [5] = 70, [6] = 25, [7] = 5 }
 
@@ -113,6 +114,8 @@ Config.Boss = {
 	slamRadius = 26,
 	telegraphTime = 1.2,
 	eggLifetime = 300,
+	-- Boss Egg rarity (Cave pets only come from here; the Cave King only from Secret rolls).
+	eggRarityWeights = { 30, 25, 20, 13, 8, 3.5, 0.5 },
 	taunts = {
 		spawn = "Who dares enter MY cave? Come and face me!",
 		half = "Grr... you hit harder than you look!",
@@ -178,9 +181,10 @@ Config.Biomes = {
 		key = "Cave",
 		name = "Cave",
 		emoji = "🦇",
-		recommended = 1e3,
-		baseIncome = 25,
-		growSeconds = 30,
+		recommended = 0,
+		dungeon = true, -- not in the corridor: eggs come from the Golem King's dungeon
+		baseIncome = 20000,
+		growSeconds = 60,
 		floor = c(95, 90, 100),
 		floorAlt = c(80, 76, 86),
 		wall = c(70, 66, 76),
@@ -210,9 +214,9 @@ Config.Biomes = {
 		key = "Desert",
 		name = "Desert",
 		emoji = "🏜️",
-		recommended = 1e4,
-		baseIncome = 200,
-		growSeconds = 45,
+		recommended = 1e3,
+		baseIncome = 25,
+		growSeconds = 30,
 		floor = c(240, 215, 140),
 		floorAlt = c(230, 200, 125),
 		wall = c(215, 160, 95),
@@ -241,9 +245,9 @@ Config.Biomes = {
 		key = "Toxic",
 		name = "Toxic Wastelands",
 		emoji = "☢️",
-		recommended = 5e4,
-		baseIncome = 1500,
-		growSeconds = 60,
+		recommended = 1e4,
+		baseIncome = 200,
+		growSeconds = 45,
 		floor = c(85, 95, 70),
 		floorAlt = c(75, 85, 62),
 		wall = c(70, 75, 60),
@@ -272,9 +276,9 @@ Config.Biomes = {
 		key = "Farmlands",
 		name = "Farmlands",
 		emoji = "🌾",
-		recommended = 2.5e5,
-		baseIncome = 12000,
-		growSeconds = 80,
+		recommended = 5e4,
+		baseIncome = 1500,
+		growSeconds = 60,
 		floor = c(120, 190, 70),
 		floorAlt = c(150, 120, 70),
 		wall = c(200, 70, 60),
@@ -303,9 +307,9 @@ Config.Biomes = {
 		key = "Enchanted",
 		name = "Enchanted Forest",
 		emoji = "✨",
-		recommended = 1e6,
-		baseIncome = 100000,
-		growSeconds = 100,
+		recommended = 2.5e5,
+		baseIncome = 12000,
+		growSeconds = 80,
 		floor = c(110, 80, 170),
 		floorAlt = c(95, 70, 150),
 		wall = c(70, 50, 120),
@@ -334,9 +338,9 @@ Config.Biomes = {
 		key = "Candylands",
 		name = "Candylands",
 		emoji = "🍭",
-		recommended = 5e6,
-		baseIncome = 800000,
-		growSeconds = 120,
+		recommended = 1e6,
+		baseIncome = 100000,
+		growSeconds = 100,
 		floor = c(255, 190, 225),
 		floorAlt = c(255, 170, 210),
 		wall = c(255, 120, 180),
@@ -365,9 +369,9 @@ Config.Biomes = {
 		key = "Halloween",
 		name = "Halloween",
 		emoji = "🎃",
-		recommended = 2.5e7,
-		baseIncome = 5000000,
-		growSeconds = 150,
+		recommended = 5e6,
+		baseIncome = 800000,
+		growSeconds = 120,
 		seasonal = true,
 		floor = c(55, 40, 70),
 		floorAlt = c(45, 32, 58),
@@ -420,7 +424,7 @@ end
 function Config.activeBiomeCount(): number
 	local count = 0
 	for _, biome in Config.Biomes do
-		if not biome.seasonal or Config.HalloweenEnabled then
+		if not biome.dungeon and (not biome.seasonal or Config.HalloweenEnabled) then
 			count += 1
 		end
 	end
@@ -581,12 +585,21 @@ Config.DailyRewards = {
 	{ egg = 3, money = 0 }, -- day 7: Rare egg from the best biome you've reached
 }
 
+-- Playtime gifts reset every day. egg = rarity of a free egg from your best biome.
 Config.PlaytimeGifts = {
-	{ minutes = 5, money = 1000, incomeSeconds = 120 },
-	{ minutes = 15, speed = 2500, speedSteps = 600 },
-	{ minutes = 30, money = 10000, incomeSeconds = 600 },
-	{ minutes = 60, egg = 3 },
+	{ minutes = 2, money = 500, incomeSeconds = 60 },
+	{ minutes = 5, speed = 1000, speedSteps = 300 },
+	{ minutes = 10, egg = 2 },
+	{ minutes = 15, money = 2500, incomeSeconds = 240 },
+	{ minutes = 20, egg = 3 },
+	{ minutes = 30, speed = 5000, speedSteps = 900 },
+	{ minutes = 45, egg = 4 },
+	{ minutes = 60, money = 10000, incomeSeconds = 900 },
+	{ minutes = 90, egg = 5 },
+	{ minutes = 120, egg = 6 },
 }
+
+Config.FriendBoost = 2 -- money multiplier while a Roblox friend is in your server
 
 Config.IndexSetBonus = 0.02 -- +2% money per completed biome set
 
