@@ -327,7 +327,7 @@ function Economy.renderPets(player: Player)
 		local p = data.pets[id]
 		local def = p and Config.PetsByName[p.name]
 		if def then
-			local model = Models.pet(def, { scale = if p.big then 1.25 else 1, aura = true })
+			local model = Models.pet(def, { scale = p.size or 1, aura = true })
 			local half = pen.petArea.size / 2
 			local offset = Vector3.new(rng:NextNumber(-half.X, half.X), 0, rng:NextNumber(-half.Z, half.Z))
 			model:PivotTo(pen.petArea.cf * CFrame.new(offset) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0))
@@ -335,7 +335,7 @@ function Economy.renderPets(player: Player)
 			local gui, label = Models.billboard(model.PrimaryPart, "", rarity.color, UDim2.fromScale(7, 2.4), Vector3.new(0, model:GetAttribute("Height") + 1.2, 0), 90)
 			gui.Name = "PetTag"
 			label.RichText = true
-			label.Text = `<font size="14">{rarity.name}</font>\n{p.name}\n<font color="#7dff6b">${Config.format(Config.petIncome(p))}/s</font>`
+			label.Text = `<font size="14">{rarity.name}</font>\n{Config.petDisplayName(p)}\n<font color="#7dff6b">${Config.format(Config.petIncome(p))}/s</font>`
 			model.Name = "Pet" .. i
 			model.Parent = pen.petFolder
 		end
@@ -406,6 +406,7 @@ function Economy.hatch(player: Player, slot: string)
 		rarity = def.rarityIndex,
 		weight = egg.weight,
 		big = egg.big or nil,
+		size = Config.rollPetSize(egg.weight, egg.big, rng:NextNumber(), rng:NextNumber(), rng:NextNumber()),
 	}
 	data.pets[p.id] = p
 	local isNew = not data.index[def.name]
@@ -425,9 +426,9 @@ function Economy.hatch(player: Player, slot: string)
 	end
 
 	Net.fx(player, "Hatch", p, isNew, egg, #data.equipped < Economy.maxEquipSlots(player, data))
-	if p.rarity >= 6 then
+	if p.rarity >= 6 or Config.sizeName(p.size) == "Giant" then
 		local rarity = Config.Rarities[p.rarity]
-		Net.announce(`🎉 {player.DisplayName} hatched a {rarity.name:upper()} {p.name}!`, rarity.color)
+		Net.announce(`🎉 {player.DisplayName} hatched a {rarity.name:upper()} {Config.petDisplayName(p)}!`, rarity.color)
 	end
 	Eggs.renderPen(player)
 	Economy.sync(player, "nests", "pets", "equipped", "index", "income", "perStep", "slots", "trails", "treadmills")
@@ -598,7 +599,7 @@ local function publishFollowers(player: Player)
 	end
 	for _, id in data.followers do
 		local p = data.pets[id]
-		table.insert(parts, `{p.name}|{p.rarity}`)
+		table.insert(parts, `{p.name}|{p.rarity}|{p.size or 1}`)
 	end
 	player:SetAttribute("Followers", table.concat(parts, ";"))
 end
@@ -651,7 +652,7 @@ function Economy.followerDamage(player: Player): number
 	for _, id in data.followers do
 		local p = data.pets[id]
 		if p then
-			total += Config.PetBossDamage[p.rarity] or 0
+			total += (Config.PetBossDamage[p.rarity] or 0) * Config.sizeMultiplier(p.size)
 		end
 	end
 	return total

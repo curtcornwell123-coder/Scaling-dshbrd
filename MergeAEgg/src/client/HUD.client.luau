@@ -26,6 +26,7 @@ local WHITE = c(255, 255, 255)
 
 local state: { [string]: any } = {}
 local followerSets: { [Player]: any } = {} -- battle pets drawn for every player
+local currentZone = "Lobby" -- Lobby, Dungeon or a biome key; drives music and pop-ups
 local serverOffset = 0
 local displayedMoney = 0
 local rng = Random.new()
@@ -940,10 +941,10 @@ local function rebuildFollowers(other: Player)
 	end
 	local pets = {}
 	for entry in string.gmatch(key, "[^;]+") do
-		local name = entry:match("^(.-)|%d+$")
+		local name, size = entry:match("^(.-)|%d+|([%d%.]+)$")
 		local def = name and Config.PetsByName[name]
 		if def then
-			local model = Models.pet(def, { scale = 0.7 })
+			local model = Models.pet(def, { scale = 0.7 * (tonumber(size) or 1) })
 			for _, child in model:GetDescendants() do
 				if child:IsA("BasePart") then
 					child.CanCollide = false
@@ -1132,7 +1133,7 @@ end
 -- Cross-fades to the current zone's track (set by the server), falling back to Lobby.
 task.spawn(function()
 	while true do
-		local zone = player:GetAttribute("Zone") or "Lobby"
+		local zone = currentZone
 		local wanted = if tracks[zone] then zone else "Lobby"
 		for name, track in tracks do
 			local target = if musicMuted or name ~= wanted then 0 else Config.MusicVolume
@@ -1199,24 +1200,70 @@ local function popZone(zone: string)
 	end)
 end
 
-player:GetAttributeChangedSignal("Zone"):Connect(function()
-	popZone(player:GetAttribute("Zone") or "Lobby")
+-- Zone is worked out on the client every frame so the pop-up and music react instantly.
+local biomeRanges = nil
+local function zoneAt(position: Vector3): string
+	if position.Y < -100 then
+		return "Dungeon"
+	end
+	if not biomeRanges then
+		local layout = workspace:GetAttribute("BiomeLayout")
+		if type(layout) ~= "string" then
+			return "Lobby"
+		end
+		biomeRanges = {}
+		for key, zStart, zEnd in string.gmatch(layout, "(%w+):(%-?[%d%.]+):(%-?[%d%.]+)") do
+			table.insert(biomeRanges, { key = key, zStart = tonumber(zStart), zEnd = tonumber(zEnd) })
+		end
+	end
+	for _, range in biomeRanges do
+		if position.Z >= range.zStart and position.Z < range.zEnd then
+			return range.key
+		end
+	end
+	return "Lobby"
+end
+
+RunService.Heartbeat:Connect(function()
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if root then
+		local zone = zoneAt(root.Position)
+		if zone ~= currentZone then
+			currentZone = zone
+			popZone(zone)
+		end
+	end
 end)
 
--- Cave entrance: arrows light up in a wave toward the cave and the sign pulses.
+-- A guardian noticed you: loud, unmissable warning.
+local spottedLabel = UI.text(zonePop, { Text = "", TextColor3 = c(255, 70, 70), Size = UDim2.new(1, 0, 0, 60), Position = UDim2.fromOffset(0, -70), strokeThickness = 4, TextTransparency = 1 })
+fxHandlers.Spotted = function(guardian: string)
+	spottedLabel.Text = `⚠️ The {guardian} spotted you! RUN! ⚠️`
+	spottedLabel.TextTransparency = 0
+	local stroke = spottedLabel:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Transparency = 0
+	end
+	flash(c(255, 40, 40))
+	for _ = 1, 2 do
+		sound("Alert")
+		task.wait(0.18)
+	end
+	task.wait(1.6)
+	TweenService:Create(spottedLabel, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
+	if stroke then
+		TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 1 }):Play()
+	end
+end
+
+-- Cave entrance sign pulses, and says when the boss is awake.
 task.spawn(function()
 	local wave = 0
 	while true do
-		wave = (wave + 1) % 7
+		wave = (wave + 1) % 2
 		local map = workspace:FindFirstChild("Map")
 		local cave = map and map:FindFirstChild("CaveEntrance", true)
 		if cave then
-			for _, child in cave:GetChildren() do
-				if child.Name == "CaveArrow" and child:IsA("BasePart") then
-					local step = child:GetAttribute("Step") or 0
-					child.Transparency = if (6 - step) == wave then 0 else 0.65
-				end
-			end
 			local sign = cave:FindFirstChild("CaveSign")
 			local gui = sign and sign:FindFirstChild("CaveCall")
 			local call = gui and gui:FindFirstChild("Call") :: TextLabel?
@@ -1226,7 +1273,7 @@ task.spawn(function()
 				call.TextColor3 = if wave % 2 == 0 then c(255, 70, 70) else c(255, 210, 90)
 			end
 		end
-		task.wait(0.15)
+		task.wait(0.4)
 	end
 end)
 
@@ -1271,4 +1318,120 @@ end
 ---------------------------------------------------------------------------
 
 gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
+
+---------------------------------------------------------------------------
+-- Intro: "corny presents" -> MERGE A EGG logo -> camera flyover to your pen
+---------------------------------------------------------------------------
+
+local function playIntro()
+	local camera = workspace.CurrentCamera
+	local introGui = Instance.new("ScreenGui")
+	introGui.Name = "MergeAEggIntro"
+	introGui.IgnoreGuiInset = true
+	introGui.ResetOnSpawn = false
+	introGui.DisplayOrder = 50
+	introGui.Parent = playerGui
+	UI.new("UIScale", { Scale = scaled[1] and scaled[1].Scale or 1 }, introGui)
+
+	local black = UI.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(), BorderSizePixel = 0 }, introGui)
+	local skipped = false
+	local skip = UI.button(introGui, { text = "Skip ⏭", color = c(70, 75, 95), size = UDim2.fromOffset(150, 50), position = UDim2.new(1, -20, 1, -20), anchor = Vector2.new(1, 1), onClick = function()
+		skipped = true
+	end })
+	skip.ZIndex = 5
+
+	local function waitOrSkip(seconds: number): boolean
+		local started = os.clock()
+		while os.clock() - started < seconds do
+			if skipped then
+				return false
+			end
+			task.wait()
+		end
+		return not skipped
+	end
+
+	-- 1. corny presents
+	local hat = UI.text(black, { Text = "🎩", Size = UDim2.fromOffset(160, 160), Position = UDim2.new(0.5, 0, 0.32, 0), AnchorPoint = Vector2.new(0.5, 0.5), TextTransparency = 1 })
+	local presents = UI.text(black, { Text = "", TextColor3 = c(255, 215, 80), Size = UDim2.fromOffset(700, 70), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), strokeThickness = 3 })
+	TweenService:Create(hat, TweenInfo.new(0.6, Enum.EasingStyle.Bounce), { TextTransparency = 0, Position = UDim2.new(0.5, 0, 0.38, 0) }):Play()
+	sound("Notify")
+	local line = "corny presents..."
+	for i = 1, #line do
+		if skipped then
+			break
+		end
+		presents.Text = line:sub(1, i)
+		task.wait(0.06)
+	end
+
+	-- 2. Logo
+	if waitOrSkip(0.8) then
+		hat.Visible = false
+		presents.Visible = false
+		local logo = UI.text(black, { Text = "🥚 MERGE A EGG 🥚", Size = UDim2.fromOffset(900, 130), Position = UDim2.new(0.5, 0, 0.42, 0), AnchorPoint = Vector2.new(0.5, 0.5), strokeThickness = 6 })
+		UI.gradient(logo, c(255, 240, 140), c(255, 150, 40))
+		local logoScale = UI.new("UIScale", { Scale = 0.2 }, logo)
+		local tagline = UI.text(black, { Text = "Steal • Merge • Hatch", TextColor3 = c(200, 230, 255), Size = UDim2.fromOffset(600, 50), Position = UDim2.new(0.5, 0, 0.56, 0), AnchorPoint = Vector2.new(0.5, 0.5), TextTransparency = 1 })
+		TweenService:Create(logoScale, TweenInfo.new(0.7, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+		sound("Notify")
+		task.delay(0.5, function()
+			TweenService:Create(tagline, TweenInfo.new(0.5), { TextTransparency = 0 }):Play()
+		end)
+	end
+
+	-- 3. Flyover: from the far end of the biomes back to your pen.
+	if waitOrSkip(1.8) then
+		local layout = workspace:GetAttribute("BiomeLayout")
+		local farZ = 600
+		if type(layout) == "string" then
+			for _, zEnd in string.gmatch(layout, "%w+:%-?[%d%.]+:(%-?[%d%.]+)") do
+				farZ = math.max(farZ, tonumber(zEnd) or farZ)
+			end
+		end
+		local pen = myPen()
+		local penPos = if pen and pen:FindFirstChild("PenFloor") then (pen:FindFirstChild("PenFloor") :: BasePart).Position else Vector3.new(0, 0, -100)
+		camera.CameraType = Enum.CameraType.Scriptable
+		camera.CFrame = CFrame.lookAt(Vector3.new(0, 140, farZ), Vector3.new(0, 0, farZ - 300))
+		TweenService:Create(black, TweenInfo.new(0.8), { BackgroundTransparency = 1 }):Play()
+		for _, child in black:GetChildren() do
+			if child:IsA("TextLabel") then
+				TweenService:Create(child, TweenInfo.new(0.8), { TextTransparency = 1 }):Play()
+			end
+		end
+		local shots = {
+			{ CFrame.lookAt(Vector3.new(0, 90, farZ * 0.45), Vector3.new(0, 0, farZ * 0.25)), 3.2 },
+			{ CFrame.lookAt(Vector3.new(0, 70, 60), Vector3.new(0, 0, -80)), 2.6 },
+			{ CFrame.lookAt(penPos + Vector3.new(0, 45, 55), penPos), 2 },
+		}
+		for _, shot in shots do
+			if skipped then
+				break
+			end
+			local tween = TweenService:Create(camera, TweenInfo.new(shot[2], Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), { CFrame = shot[1] })
+			tween:Play()
+			waitOrSkip(shot[2])
+			tween:Cancel()
+		end
+	end
+
+	-- Hand the camera back.
+	camera.CameraType = Enum.CameraType.Custom
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		camera.CameraSubject = humanoid
+	end
+	TweenService:Create(black, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
+	task.wait(0.4)
+	introGui:Destroy()
+end
+
+task.spawn(function()
+	-- Wait for the map and your pen so the flyover has somewhere to land.
+	local started = os.clock()
+	while (not workspace:FindFirstChild("Map") or not myPen()) and os.clock() - started < 15 do
+		task.wait(0.25)
+	end
+	playIntro()
+end)
 rescale()

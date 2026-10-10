@@ -1,5 +1,6 @@
 -- Merge A Egg: biome guardians. One giant animal per nest cluster.
--- Day: asleep until an egg is stolen nearby. Night: awake and wandering near the nest.
+-- Day: awake, alert and wandering near the nest. Night: fast asleep and vulnerable
+-- (they only notice a thief who walks right up to them).
 -- Further biomes have faster guardians with bigger aggro ranges.
 -- Catching a carrier inside its biome makes them drop the egg.
 
@@ -89,11 +90,17 @@ local function inZone(g, position: Vector3): boolean
 end
 
 local function speedOf(g): number
-	local speed = Config.guardianSpeed(g.biome.index)
-	if World.isNight() then
-		speed *= 1 + Config.NightGuardianSpeedBonus
+	return Config.guardianSpeed(g.biome.index)
+end
+
+local function startChase(g, player: Player, now: number)
+	local isNew = g.target ~= player
+	g.target = player
+	g.state = "chase"
+	g.awakeUntil = now + WAKE_SECONDS
+	if isNew then
+		Net.fx(player, "Spotted", g.biome.def.guardian)
 	end
-	return speed
 end
 
 local function carrierRoot(player: Player): BasePart?
@@ -167,13 +174,11 @@ local function update(g, dt: number, now: number)
 			end
 		end
 		if not g.target then
-			local awake = night or now < g.awakeUntil
-			local range = Config.guardianAggroRange(g.biome.index) * (if awake then 1 else 0.5)
+			local awake = not night or now < g.awakeUntil
+			local range = Config.guardianAggroRange(g.biome.index) * (if awake then 1 else 0.3)
 			local found = findTarget(g, range)
 			if found then
-				g.target = found
-				g.state = "chase"
-				g.awakeUntil = now + WAKE_SECONDS
+				startChase(g, found, now)
 			end
 		end
 
@@ -192,10 +197,10 @@ local function update(g, dt: number, now: number)
 			local dist = moveToward(g, g.home, speedOf(g) * 0.6, dt)
 			moving = true
 			if dist <= ARRIVE_DISTANCE then
-				g.state = if night then "wander" else "sleep"
+				g.state = if night then "sleep" else "wander"
 				g.facing = (g.lookAt - g.home).Unit
 			end
-		elseif night then
+		elseif not night then
 			g.state = "wander"
 			setStatus(g, "👀")
 			if not g.wanderTarget or now >= g.nextWander then
@@ -232,14 +237,16 @@ end
 ---------------------------------------------------------------------------
 
 -- Called when an egg is stolen from a cluster: that guardian wakes and chases.
+-- Called when an egg is stolen from a nest. By day the guardian gives chase at once;
+-- at night it sleeps through it.
 function Guardians.alert(biomeIndex: number, clusterIndex: number, player: Player)
+	if World.isNight() then
+		return
+	end
+	local now = os.clock()
 	for _, g in guardians do
-		if g.biome.index == biomeIndex and g.cluster == clusterIndex then
-			g.awakeUntil = os.clock() + WAKE_SECONDS
-			if os.clock() >= g.stunnedUntil then
-				g.target = player
-				g.state = "chase"
-			end
+		if g.biome.index == biomeIndex and g.cluster == clusterIndex and now >= g.stunnedUntil then
+			startChase(g, player, now)
 		end
 	end
 end

@@ -445,7 +445,7 @@ end
 
 local function onNight(isNight: boolean)
 	if isNight then
-		Net.announce("🌙 Night has fallen! Animals are awake and BIG eggs are spawning!", Color3.fromRGB(150, 170, 255))
+		Net.announce("🌙 Night! The animals are fast asleep — sneak in and steal! BIG eggs are spawning!", Color3.fromRGB(150, 170, 255))
 		eachNest(function(state)
 			if state.egg and not state.egg.big and rng:NextNumber() < Config.NightBigEggChance then
 				local egg = state.egg
@@ -455,7 +455,7 @@ local function onNight(isNight: boolean)
 			end
 		end)
 	else
-		Net.announce("☀️ The sun is up! Animals are sleeping again.", Color3.fromRGB(255, 220, 120))
+		Net.announce("☀️ Daytime: the animals are awake and on guard!", Color3.fromRGB(255, 220, 120))
 	end
 end
 

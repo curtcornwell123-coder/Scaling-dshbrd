@@ -1251,6 +1251,13 @@ end
 
 local TREADMILL_THEMES = {
 	Wood = { frame = c(150, 100, 58), accent = c(95, 65, 35), belt = c(45, 40, 38), neon = c(255, 200, 90), material = Enum.Material.Wood },
+	Grass = { frame = c(110, 190, 80), accent = c(80, 140, 55), belt = c(40, 45, 38), neon = c(200, 255, 140), material = Enum.Material.Grass },
+	Ice = { frame = c(190, 230, 255), accent = c(120, 180, 230), belt = c(50, 70, 90), neon = c(160, 240, 255), material = Enum.Material.Ice },
+	Jungle = { frame = c(70, 120, 50), accent = c(110, 80, 45), belt = c(35, 40, 30), neon = c(255, 200, 60), material = Enum.Material.Wood },
+	Lava = { frame = c(50, 40, 40), accent = c(90, 60, 50), belt = c(25, 20, 20), neon = c(255, 100, 30), material = Enum.Material.Basalt },
+	Coral = { frame = c(255, 150, 140), accent = c(60, 160, 200), belt = c(30, 60, 80), neon = c(120, 240, 255), material = Enum.Material.SmoothPlastic },
+	Fossil = { frame = c(225, 205, 160), accent = c(150, 120, 85), belt = c(70, 55, 40), neon = c(255, 220, 140), material = Enum.Material.Limestone },
+	Cosmic = { frame = c(40, 25, 80), accent = c(90, 60, 170), belt = c(15, 10, 30), neon = c(200, 140, 255), material = Enum.Material.Glass },
 	Stone = { frame = c(125, 125, 130), accent = c(85, 85, 92), belt = c(40, 40, 45), neon = c(90, 220, 255), material = Enum.Material.Slate },
 	Sand = { frame = c(235, 205, 145), accent = c(200, 145, 75), belt = c(70, 55, 40), neon = c(255, 160, 60), material = Enum.Material.Sandstone },
 	Toxic = { frame = c(60, 66, 60), accent = c(250, 210, 40), belt = c(30, 32, 30), neon = c(130, 255, 80), material = Enum.Material.DiamondPlate },
@@ -1313,6 +1320,52 @@ function Models.treadmill(themeName: string, penStyle: string): Model
 		for _, x in { -3.3, 3.3 } do
 			ball(model, "Leaves", 1.4, Vector3.new(x, 5.2, -5.4), c(90, 175, 60), { Material = Enum.Material.Grass })
 		end
+	elseif themeName == "Grass" then
+		for _, x in { -3.6, 3.6 } do
+			for i = 0, 2 do
+				box(model, "GrassTuft", Vector3.new(0.3, 1 + i * 0.3, 0.3), CFrame.new(x, 1.3 + i * 0.15, 5 + i * 0.6) * CFrame.Angles(0, 0, rad(i * 10 - 10)), c(90, 200, 70), { Material = Enum.Material.Grass })
+			end
+		end
+		ball(model, "Flower", 0.6, Vector3.new(3.6, 2.4, 5.6), c(255, 130, 170))
+	elseif themeName == "Ice" then
+		for i, x in { -3.4, 3.4 } do
+			box(model, "IceSpike", Vector3.new(0.7, 2.4, 0.7), CFrame.new(x, 2.4, 6.2) * CFrame.Angles(rad(i * 8), rad(45), 0), theme.neon, { Material = Enum.Material.Glass, Transparency = 0.2 })
+		end
+		box(model, "SnowCap", Vector3.new(6.2, 0.4, 1), CFrame.new(0, 5.75, -5.5) * CFrame.Angles(rad(-20), 0, 0), c(250, 250, 255), { Material = Enum.Material.Snow })
+	elseif themeName == "Jungle" then
+		for _, x in { -2.8, 2.8 } do
+			for i = 0, 3 do
+				box(model, "Vine", Vector3.new(0.25, 0.9, 0.25), CFrame.new(x, 4.6 - i * 0.8, -5.4) * CFrame.Angles(0, 0, rad(i % 2 == 0 and 12 or -12)), c(60, 160, 60), { Material = Enum.Material.Grass })
+			end
+			ball(model, "Leaf", 1.4, Vector3.new(x, 5.4, -5.4), c(70, 170, 60), { Material = Enum.Material.Grass })
+		end
+	elseif themeName == "Lava" then
+		for _, x in { -3.55, 3.55 } do
+			box(model, "LavaEdge", Vector3.new(0.15, 0.15, 15), Vector3.new(x, 0.55, 0.5), theme.neon, { Material = Enum.Material.Neon })
+		end
+		local fire = Instance.new("Fire")
+		fire.Size = 3
+		fire.Heat = 5
+		fire.Color = theme.neon
+		fire.Parent = box(model, "Ember", Vector3.new(0.8, 0.8, 0.8), Vector3.new(0, 6, -5.6), theme.neon, { Material = Enum.Material.Neon })
+	elseif themeName == "Coral" then
+		for i, x in { -3.7, 3.7 } do
+			for j = 0, 2 do
+				box(model, "Coral", Vector3.new(0.35, 1.2 + j * 0.4, 0.35), CFrame.new(x, 1.5 + j * 0.25, 5.4 + j * 0.5) * CFrame.Angles(0, 0, rad((j - 1) * 25)), if (i + j) % 2 == 0 then c(255, 120, 150) else c(255, 180, 90))
+			end
+		end
+		ball(model, "Bubble", 0.7, Vector3.new(0, 6.2, -5.6), theme.neon, { Material = Enum.Material.Glass, Transparency = 0.3 })
+	elseif themeName == "Fossil" then
+		for i = 0, 4 do
+			box(model, "Rib", Vector3.new(7.4, 0.3, 0.3), CFrame.new(0, 3.4, -3 + i * 2) * CFrame.Angles(0, 0, 0), c(240, 230, 205), { Material = Enum.Material.Limestone })
+		end
+		ball(model, "Skull", 1.6, Vector3.new(0, 6.2, -5.6), c(240, 230, 205), { Material = Enum.Material.Limestone })
+	elseif themeName == "Cosmic" then
+		for i = 0, 3 do
+			ball(model, "Star", 0.4, Vector3.new(math.cos(i * 1.57) * 4.4, 3.5 + (i % 2), 0.5 + math.sin(i * 1.57) * 6), c(255, 255, 200), { Material = Enum.Material.Neon })
+		end
+		part({ Name = "Ring", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 4, 4), CFrame = CFrame.new(0, 6.6, -5.6) * CFrame.Angles(0, rad(90), rad(20)), Color = theme.neon, Material = Enum.Material.Neon, Transparency = 0.3, Parent = model })
+		ball(model, "Planet", 2, Vector3.new(0, 6.6, -5.6), c(130, 90, 230))
 	elseif themeName == "Stone" then
 		for i, x in { -3.4, 3.4 } do
 			box(model, "Crystal", Vector3.new(0.6, 1.8, 0.6), CFrame.new(x, 2.2, 6.3) * CFrame.Angles(rad(i * 10), rad(45), 0), theme.neon, { Material = Enum.Material.Neon })
@@ -1947,6 +2000,146 @@ function props.clowntent(model, rng)
 	end
 	box(model, "Flag", Vector3.new(0.3, 5, 0.3), Vector3.new(0, 22, 0), c(80, 80, 85))
 	box(model, "FlagCloth", Vector3.new(0.1, 1.6, 2.4), Vector3.new(0, 23.6, 1.2), c(255, 210, 40))
+end
+
+function props.pond(model, rng)
+	local d = rng:NextNumber(12, 18)
+	upCylinder(model, "Water", d, 0.2, CFrame.new(0, 0.1, 0), c(80, 170, 230), { Material = Enum.Material.Glass, Transparency = 0.2 })
+	upCylinder(model, "Shore", d + 2, 0.12, CFrame.new(0, 0.06, 0), c(200, 180, 130), { Material = Enum.Material.Sand })
+	for i = 1, 4 do
+		local angle = rng:NextNumber(0, math.pi * 2)
+		local r = rng:NextNumber(1, d / 2 - 2)
+		upCylinder(model, "LilyPad", rng:NextNumber(1.6, 2.4), 0.1, CFrame.new(math.cos(angle) * r, 0.25, math.sin(angle) * r), c(70, 160, 60))
+		if i == 1 then
+			ball(model, "Lily", 0.6, Vector3.new(math.cos(angle) * r, 0.5, math.sin(angle) * r), c(255, 170, 210))
+		end
+	end
+end
+
+function props.pine(model, rng)
+	local h = rng:NextNumber(10, 15)
+	box(model, "Trunk", Vector3.new(1.4, h * 0.4, 1.4), Vector3.new(0, h * 0.2, 0), c(100, 70, 45), { Material = Enum.Material.Wood, CanCollide = true })
+	for i = 0, 3 do
+		local size = 8 - i * 1.8
+		local y = h * 0.35 + i * 2.4
+		box(model, "Needles", Vector3.new(size, 2.4, size), CFrame.new(0, y, 0) * CFrame.Angles(0, rad(i * 22), 0), c(40, 110, 70), { Material = Enum.Material.Grass })
+		box(model, "Snow", Vector3.new(size * 0.85, 0.4, size * 0.85), CFrame.new(0, y + 1.3, 0) * CFrame.Angles(0, rad(i * 22), 0), c(250, 250, 255), { Material = Enum.Material.Snow })
+	end
+end
+
+function props.snowman(model, rng)
+	local white = c(250, 250, 255)
+	ball(model, "Base", 4, Vector3.new(0, 2, 0), white, { Material = Enum.Material.Snow, CanCollide = true })
+	ball(model, "Middle", 3, Vector3.new(0, 4.8, 0), white, { Material = Enum.Material.Snow })
+	ball(model, "Head", 2.2, Vector3.new(0, 6.9, 0), white, { Material = Enum.Material.Snow })
+	box(model, "Nose", Vector3.new(0.3, 0.3, 1), Vector3.new(0, 6.9, -1.4), c(255, 140, 40))
+	upCylinder(model, "HatBrim", 2.4, 0.2, CFrame.new(0, 7.9, 0), c(30, 30, 35))
+	upCylinder(model, "Hat", 1.5, 1.4, CFrame.new(0, 8.6, 0), c(30, 30, 35))
+	box(model, "Scarf", Vector3.new(2.6, 0.5, 2.6), Vector3.new(0, 6, 0), c(220, 40, 50))
+end
+
+function props.palm(model, rng)
+	local h = rng:NextNumber(10, 14)
+	for i = 0, 5 do
+		box(model, "Trunk", Vector3.new(1.2, h / 6 + 0.2, 1.2), CFrame.new(math.sin(i * 0.25) * 1.2, h / 12 + i * h / 6, 0) * CFrame.Angles(0, 0, rad(-i * 3)), if i % 2 == 0 then c(150, 110, 70) else c(130, 95, 60), { Material = Enum.Material.Wood, CanCollide = i == 0 })
+	end
+	local top = Vector3.new(math.sin(1.25) * 1.2, h, 0)
+	for i = 0, 5 do
+		local angle = i / 6 * math.pi * 2
+		box(model, "Frond", Vector3.new(1.4, 0.3, 6), CFrame.new(top) * CFrame.Angles(0, angle, 0) * CFrame.new(0, -0.6, 2.8) * CFrame.Angles(rad(20), 0, 0), c(60, 160, 60), { Material = Enum.Material.Grass })
+	end
+	ball(model, "Coconut", 0.8, top + Vector3.new(0.6, -0.8, 0), c(110, 75, 45))
+end
+
+function props.fern(model, rng)
+	for i = 0, 6 do
+		local angle = i / 7 * math.pi * 2
+		box(model, "Leaf", Vector3.new(1, 0.2, 5), CFrame.Angles(0, angle, 0) * CFrame.new(0, 1.4, 2) * CFrame.Angles(rad(-35), 0, 0), if i % 2 == 0 then c(60, 150, 50) else c(80, 175, 60), { Material = Enum.Material.Grass })
+	end
+end
+
+function props.sakura(model, rng)
+	local h = rng:NextNumber(9, 13)
+	box(model, "Trunk", Vector3.new(1.6, h, 1.6), CFrame.new(0, h / 2, 0) * CFrame.Angles(0, 0, rad(rng:NextNumber(-6, 6))), c(90, 60, 55), { Material = Enum.Material.Wood, CanCollide = true })
+	for i = 0, 3 do
+		ball(model, "Blossom", rng:NextNumber(5, 7), Vector3.new(rng:NextNumber(-2.5, 2.5), h + rng:NextNumber(-1, 2), rng:NextNumber(-2.5, 2.5)), if i % 2 == 0 then c(255, 180, 210) else c(255, 205, 225), { Material = Enum.Material.Grass })
+	end
+end
+
+function props.lantern(model, rng)
+	box(model, "Post", Vector3.new(0.5, 6, 0.5), Vector3.new(0, 3, 0), c(60, 40, 35), { Material = Enum.Material.Wood })
+	local lamp = box(model, "Lantern", Vector3.new(1.4, 1.8, 1.4), Vector3.new(0, 6.5, 0), c(230, 50, 50), { Material = Enum.Material.Neon })
+	box(model, "Cap", Vector3.new(1.8, 0.3, 1.8), Vector3.new(0, 7.5, 0), c(40, 30, 30))
+	local light = Instance.new("PointLight")
+	light.Color = c(255, 150, 100)
+	light.Range = 14
+	light.Parent = lamp
+end
+
+function props.coral(model, rng)
+	local colors = { c(255, 110, 140), c(255, 170, 80), c(170, 110, 255), c(90, 220, 200) }
+	for i = 0, 5 do
+		local h = rng:NextNumber(2, 5)
+		box(model, "Branch", Vector3.new(0.7, h, 0.7), CFrame.new(rng:NextNumber(-1.5, 1.5), h / 2, rng:NextNumber(-1.5, 1.5)) * CFrame.Angles(0, 0, rad(rng:NextNumber(-25, 25))), colors[i % #colors + 1])
+	end
+	ball(model, "Bubble", 0.6, Vector3.new(0, 6, 0), c(200, 240, 255), { Material = Enum.Material.Glass, Transparency = 0.4 })
+end
+
+function props.seaweed(model, rng)
+	for i = 0, 2 do
+		local x = rng:NextNumber(-1.5, 1.5)
+		for j = 0, 5 do
+			box(model, "Weed", Vector3.new(0.5, 1.4, 0.3), CFrame.new(x + math.sin(j * 0.9) * 0.4, 0.7 + j * 1.3, i * 0.8) * CFrame.Angles(0, 0, rad(math.sin(j) * 15)), c(50, 150 + j * 10, 80))
+		end
+	end
+end
+
+function props.lavapool(model, rng)
+	local d = rng:NextNumber(8, 14)
+	upCylinder(model, "Rim", d + 1.5, 0.3, CFrame.new(0, 0.15, 0), c(50, 40, 40), { Material = Enum.Material.Basalt })
+	local lava = upCylinder(model, "Lava", d, 0.35, CFrame.new(0, 0.2, 0), c(255, 110, 30), { Material = Enum.Material.Neon })
+	local light = Instance.new("PointLight")
+	light.Color = c(255, 120, 40)
+	light.Range = 18
+	light.Parent = lava
+end
+
+function props.volcano(model, rng)
+	local rock = c(70, 55, 50)
+	for i = 0, 4 do
+		upCylinder(model, "Slope", 18 - i * 3.4, 3, CFrame.new(0, 1.5 + i * 3, 0), if i % 2 == 0 then rock else c(85, 65, 58), { Material = Enum.Material.Basalt, CanCollide = true })
+	end
+	local top = upCylinder(model, "Crater", 3.5, 0.4, CFrame.new(0, 15.2, 0), c(255, 110, 30), { Material = Enum.Material.Neon })
+	local fire = Instance.new("Fire")
+	fire.Size = 8
+	fire.Heat = 12
+	fire.Parent = top
+end
+
+function props.bones(model, rng)
+	local bone = c(240, 232, 210)
+	box(model, "Spine", Vector3.new(0.6, 0.6, 9), Vector3.new(0, 0.6, 0), bone)
+	for i = -3, 3 do
+		for _, side in { -1, 1 } do
+			box(model, "Rib", Vector3.new(0.35, 3.2, 0.35), CFrame.new(side * 1.1, 1.8, i * 1.2) * CFrame.Angles(0, 0, rad(side * -28)), bone)
+		end
+	end
+	ball(model, "Skull", 2.2, Vector3.new(0, 1.2, -5.6), bone)
+end
+
+function props.planet(model, rng)
+	local colors = { c(240, 180, 90), c(120, 170, 255), c(220, 110, 200), c(130, 220, 160) }
+	local y = rng:NextNumber(10, 22)
+	local size = rng:NextNumber(4, 8)
+	ball(model, "Planet", size, Vector3.new(0, y, 0), colors[rng:NextInteger(1, #colors)])
+	part({ Name = "Ring", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, size * 1.8, size * 1.8), CFrame = CFrame.new(0, y, 0) * CFrame.Angles(rad(20), 0, rad(90)), Color = c(230, 220, 255), Material = Enum.Material.Neon, Transparency = 0.5, Parent = model })
+end
+
+function props.stars(model, rng)
+	for _ = 1, 6 do
+		local star = ball(model, "Star", rng:NextNumber(0.4, 1), Vector3.new(rng:NextNumber(-6, 6), rng:NextNumber(4, 18), rng:NextNumber(-6, 6)), c(255, 250, 200), { Material = Enum.Material.Neon })
+		star.CastShadow = false
+	end
 end
 
 -- kind: a key of props. color: optional tint for props that take one.

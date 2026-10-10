@@ -47,6 +47,10 @@ end
 local function knock(entry, power: number)
 	local dir = if entry.offset.Magnitude > 0.1 then entry.offset.Unit else Vector3.new(0, 0, 1)
 	Economy.grantGrace(entry.player, 2)
+	local humanoid = entry.root.Parent and entry.root.Parent:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid:TakeDamage(Config.Boss.hitDamage)
+	end
 	Net.fx(entry.player, "Knockback", dir * power + Vector3.new(0, 50, 0))
 	if Eggs.getCarry(entry.player) then
 		Eggs.drop(entry.player, "bonked")
@@ -58,7 +62,7 @@ local function telegraph(position: Vector3, radius: number, duration: number): B
 		Name = "Telegraph",
 		Shape = Enum.PartType.Cylinder,
 		Size = Vector3.new(0.2, 1, 1),
-		CFrame = CFrame.new(position.X, 0.25, position.Z) * CFrame.Angles(0, 0, math.rad(90)),
+		CFrame = CFrame.new(position.X, position.Y + 0.25, position.Z) * CFrame.Angles(0, 0, math.rad(90)),
 		Color = Color3.fromRGB(255, 50, 50),
 		Material = Enum.Material.Neon,
 		Transparency = 0.35,
@@ -90,7 +94,7 @@ local function throwRock()
 		return
 	end
 	local pick = targets[rng:NextInteger(1, #targets)]
-	local landing = Vector3.new(pick.root.Position.X, 0, pick.root.Position.Z)
+	local landing = Vector3.new(pick.root.Position.X, World.arena.center.Y, pick.root.Position.Z)
 	local ring = telegraph(landing, 8, Config.Boss.telegraphTime)
 	local rock = Models.part({
 		Name = "Rock",
@@ -246,12 +250,13 @@ function Boss.spawn()
 					closest = entry
 				end
 			end
-			local goal = Vector3.new(closest.root.Position.X, 0, closest.root.Position.Z)
+			-- Stay on the dungeon floor: only move across X/Z.
+			local goal = Vector3.new(closest.root.Position.X, b.pos.Y, closest.root.Position.Z)
 			local delta = goal - b.pos
 			if delta.Magnitude > 9 then
 				b.pos += delta.Unit * math.min(delta.Magnitude - 9, WALK_SPEED * dt)
 			end
-			local fromCenter = b.pos - World.arena.center
+			local fromCenter = (b.pos - World.arena.center) * Vector3.new(1, 0, 1)
 			if fromCenter.Magnitude > World.arena.radius - 8 then
 				b.pos = World.arena.center + fromCenter.Unit * (World.arena.radius - 8)
 			end

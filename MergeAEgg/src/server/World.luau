@@ -18,7 +18,7 @@ local Models
 local c = Color3.fromRGB
 local rad = math.rad
 
-World.CORRIDOR_START = 30 -- the SAFE ZONE line
+World.CORRIDOR_START = 15 -- the SAFE ZONE line, right in front of the bases
 World.BIOME_LENGTH = 240
 World.CORRIDOR_HALF = 75
 World.WALL_HEIGHT = 50
@@ -318,8 +318,8 @@ local function buildPen(index: number, info, parent: Instance)
 	eggFolder.Parent = model
 	pen.eggFolder = eggFolder
 
-	-- Treadmill spots (models are swapped in by World.setPenLook).
-	pen.treadmillCfs = { cf * CFrame.new(-19, 0.4, -14), cf * CFrame.new(-10.5, 0.4, -14) }
+	-- One treadmill, just outside the pen's gate (swapped in by World.setPenLook).
+	pen.treadmillCfs = { cf * CFrame.new(-13, 0.1, -PEN_DEPTH / 2 - 5.5) * CFrame.Angles(0, rad(-90), 0) }
 
 	-- Fuse Machine.
 	pen.fuseCf = cf * CFrame.new(15.5, 0.4, -15)
@@ -565,30 +565,30 @@ local function buildLobby(parent: Instance)
 	end
 
 	local sell, sellPrompt = Models.stall("SELL", c(230, 35, 45), c(255, 60, 60))
-	place(sell, face(Vector3.new(-50, 0, 12)), lobby)
+	place(sell, face(Vector3.new(-50, 0, -2)), lobby)
 	World.stalls.Sell = prompt(sellPrompt, "Sell", "Egg Stall", 0, 14)
 
 	local trails, trailsPrompt = Models.stall("TRAILS SHOP", c(255, 210, 50), c(255, 220, 60))
-	place(trails, face(Vector3.new(50, 0, 12)), lobby)
+	place(trails, face(Vector3.new(50, 0, -2)), lobby)
 	World.stalls.Trails = prompt(trailsPrompt, "Browse", "Trails Shop", 0, 14)
 
 	local mills, millsPrompt = Models.stall("TREADMILL SHOP", c(60, 160, 255), c(110, 200, 255))
-	place(mills, face(Vector3.new(50, 0, -22)), lobby)
+	place(mills, face(Vector3.new(50, 0, -27)), lobby)
 	World.stalls.Treadmills = prompt(millsPrompt, "Browse", "Treadmill Shop", 0, 14)
 
 	local chest, chestPrompt = Models.chest()
-	place(chest, face(Vector3.new(-50, 0, -22)), lobby)
+	place(chest, face(Vector3.new(-50, 0, -27)), lobby)
 	World.stalls.Gift = prompt(chestPrompt, "Open", "Free Gift", 0, 12)
 
 	local rebirth, rebirthPrompt = Models.rebirthMachine()
-	place(rebirth, CFrame.lookAt(Vector3.new(0, 0, 2), Vector3.new(0, 0, -60)), lobby)
+	place(rebirth, CFrame.lookAt(Vector3.new(0, 0, -16), Vector3.new(0, 0, -60)), lobby)
 	World.stalls.Rebirth = prompt(rebirthPrompt, "Rebirth", "Rebirth Machine", 0, 14)
 	World.rebirthModel = rebirth
 
 	local boardInfo = {
 		{ key = "MoneyPerSec", title = "MOST MONEY/s", color = c(120, 255, 120), cf = CFrame.lookAt(Vector3.new(0, 0, minZ + 4), Vector3.new(0, 0, 0)) },
-		{ key = "Speed", title = "FASTEST", color = c(120, 220, 255), cf = CFrame.lookAt(Vector3.new(-half + 5, 0, -6), Vector3.new(0, 0, -6)) },
-		{ key = "Steals", title = "MOST STEALS", color = c(255, 120, 120), cf = CFrame.lookAt(Vector3.new(half - 5, 0, -6), Vector3.new(0, 0, -6)) },
+		{ key = "Speed", title = "FASTEST", color = c(120, 220, 255), cf = CFrame.lookAt(Vector3.new(-half + 5, 0, -14), Vector3.new(0, 0, -14)) },
+		{ key = "Steals", title = "MOST STEALS", color = c(255, 120, 120), cf = CFrame.lookAt(Vector3.new(half - 5, 0, -14), Vector3.new(0, 0, -14)) },
 	}
 	for _, info in boardInfo do
 		local board, list = Models.leaderboard(info.title, info.color)
@@ -597,15 +597,16 @@ local function buildLobby(parent: Instance)
 	end
 
 	-- Lamps along the aisle and flower beds around the shops.
-	for z = minZ + 20, -40, 30 do
-		lamp(lobby, Vector3.new(-9, 0, z))
-		lamp(lobby, Vector3.new(9, 0, z))
+	-- Lamps sit in the gaps between pens so they never block the treadmills.
+	for _, z in { -147.5, -92.5, -36 } do
+		lamp(lobby, Vector3.new(-5, 0, z))
+		lamp(lobby, Vector3.new(5, 0, z))
 	end
 	local rng = Random.new(42)
-	for _, pos in { Vector3.new(-30, 0, 22), Vector3.new(30, 0, 22), Vector3.new(-25, 0, -30), Vector3.new(25, 0, -30) } do
+	for _, pos in { Vector3.new(-28, 0, 6), Vector3.new(28, 0, 6), Vector3.new(-25, 0, -33), Vector3.new(25, 0, -33) } do
 		flowers(lobby, rng, pos, 10)
 	end
-	for _, pos in { Vector3.new(-68, 0, 22), Vector3.new(68, 0, 22) } do
+	for _, pos in { Vector3.new(-68, 0, 6), Vector3.new(68, 0, 6) } do
 		place(Models.prop("tree", rng), CFrame.new(pos), lobby)
 	end
 
@@ -626,11 +627,23 @@ local PROPS = {
 	Enchanted = { "mushroom", "fairytree", "crystal", "mushroom" },
 	Candylands = { "candycane", "lollipop", "gumdrop", "lollipop", "gumdrop" },
 	Halloween = { "pumpkin", "grave", "deadtree", "pumpkin", "grave" },
+	Lake = { "pond", "reeds", "tree", "bush", "reeds", "rock" },
+	Jungle = { "palm", "fern", "bush", "palm", "tree", "fern" },
+	Snow = { "pine", "snowman", "crystal", "pine", "rock" },
+	CherryBlossom = { "sakura", "lantern", "sakura", "rock", "pond" },
+	Volcano = { "volcano", "lavapool", "rock", "deadtree", "lavapool" },
+	Abyss = { "coral", "seaweed", "rock", "coral", "seaweed" },
+	Prehistoric = { "fern", "bones", "palm", "rock", "volcano" },
+	Cosmic = { "planet", "stars", "crystal", "planet" },
 }
 
 local PROP_TINTS = {
 	Enchanted = c(200, 120, 255),
 	Halloween = c(60, 50, 60),
+	Snow = c(170, 225, 255),
+	Volcano = c(60, 48, 45),
+	Abyss = c(60, 80, 110),
+	Cosmic = c(190, 130, 255),
 }
 
 -- One big nest per biome holding Config.EggsPerNest eggs, with its guardian asleep beside it.
@@ -686,7 +699,7 @@ end
 
 local function biomeSign(parent, biome, zStart: number)
 	solid({ Name = "SignPost", Size = Vector3.new(0.8, 6, 0.8), CFrame = CFrame.new(-58, 3, zStart + 12), Color = c(110, 70, 40), Material = Enum.Material.Wood, Parent = parent })
-	local board = solid({ Name = "Sign", Size = Vector3.new(6, 3.4, 0.4), CFrame = CFrame.new(-58, 6.5, zStart + 12) * CFrame.Angles(0, rad(180), 0), Color = c(235, 130, 40), Material = Enum.Material.Wood, Parent = parent })
+	local board = solid({ Name = "Sign", Size = Vector3.new(6, 3.4, 0.4), CFrame = CFrame.new(-58, 6.5, zStart + 12), Color = c(235, 130, 40), Material = Enum.Material.Wood, Parent = parent })
 	local text = if biome.recommended > 0 then `⚡ {Config.format(biome.recommended)}\nrecommended` else "⚡ Start here!"
 	surfaceText(board, Enum.NormalId.Front, text, Color3.new(1, 1, 1), 40)
 end
@@ -725,8 +738,7 @@ end
 -- The cave: a small entrance in the Forest wall, and the boss dungeon
 ---------------------------------------------------------------------------
 
--- A rocky cave in the dirt wall with crystals, torches, a swirling portal, and a path
--- of red arrows (the client pulses them) leading in.
+-- A rocky cave in the dirt wall with crystals, torches and a swirling portal.
 local function buildCaveEntrance(parent, z: number)
 	local cave = folder("CaveEntrance", parent)
 	local wallX = -World.CORRIDOR_HALF + 2
@@ -765,22 +777,6 @@ local function buildCaveEntrance(parent, z: number)
 		light.Color = c(255, 150, 60)
 		light.Range = 18
 		light.Parent = torch
-	end
-
-	-- Red arrows on the floor pointing into the cave.
-	for i = 0, 6 do
-		local x = wallX + 14 + i * 5
-		for _, sideDir in { -1, 1 } do
-			local arrow = part({
-				Name = "CaveArrow",
-				Size = Vector3.new(3, 0.12, 0.8),
-				CFrame = CFrame.new(x, 0.08, z + sideDir * 0.9) * CFrame.Angles(0, rad(sideDir * 40), 0),
-				Color = c(255, 50, 50),
-				Material = Enum.Material.Neon,
-				Parent = cave,
-			})
-			arrow:SetAttribute("Step", i)
-		end
 	end
 
 	-- Signs: name plus a call to action (the client makes these pulse).
@@ -920,6 +916,13 @@ local function buildCorridor(parent)
 		end
 	end
 	World.corridorEnd = z
+	-- Clients work out which biome they're in from this, instantly: "Forest:15:255;...".
+	local layout = {}
+	for _, biome in World.biomes do
+		table.insert(layout, `{biome.key}:{biome.zStart}:{biome.zEnd}`)
+	end
+	workspace:SetAttribute("BiomeLayout", table.concat(layout, ";"))
+	workspace:SetAttribute("SafeLineZ", World.CORRIDOR_START)
 	checkerWall(corridor, Vector3.new(-World.CORRIDOR_HALF, 0, z), Vector3.new(World.CORRIDOR_HALF, 0, z), World.WALL_HEIGHT, c(40, 30, 50), c(255, 120, 20))
 	buildDungeon(parent)
 end

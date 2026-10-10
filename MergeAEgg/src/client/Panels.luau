@@ -165,35 +165,65 @@ function UI.setButton(button: TextButton, text: string, color: Color3)
 	end
 end
 
+-- Product of every UIScale above an instance (phones shrink the UI, big screens grow it).
+local function totalScale(instance: Instance): number
+	local scale = 1
+	local current = instance.Parent
+	while current do
+		local uiScale = current:FindFirstChildOfClass("UIScale")
+		if uiScale then
+			scale *= uiScale.Scale
+		end
+		current = current.Parent
+	end
+	return scale
+end
+
+-- Scrolling list or grid. The canvas is sized from the real content (plus padding),
+-- generous enough at any UI scale that the last item can always be scrolled into view.
 function UI.scroll(parent: Instance, props)
+	local horizontal = props.horizontal == true
+	local pad = props.padding or 8
 	local frame = UI.new("ScrollingFrame", {
 		Name = props.name or "Scroll",
 		Size = props.size or UDim2.fromScale(1, 1),
 		Position = props.position or UDim2.new(),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ScrollBarThickness = 8,
-		ScrollBarImageColor3 = c(120, 125, 140),
+		ScrollBarThickness = 10,
+		ScrollBarImageColor3 = c(150, 155, 175),
 		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = props.horizontal and Enum.AutomaticSize.X or Enum.AutomaticSize.Y,
-		ScrollingDirection = props.horizontal and Enum.ScrollingDirection.X or Enum.ScrollingDirection.Y,
+		AutomaticCanvasSize = Enum.AutomaticSize.None,
+		ScrollingDirection = if horizontal then Enum.ScrollingDirection.X else Enum.ScrollingDirection.Y,
+		ElasticBehavior = Enum.ElasticBehavior.Always,
 	}, parent)
+	local layout
 	if props.grid then
-		UI.new("UIGridLayout", {
+		layout = UI.new("UIGridLayout", {
 			CellSize = props.grid,
 			CellPadding = props.gap or UDim2.fromOffset(10, 10),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		}, frame)
 	else
-		UI.new("UIListLayout", {
+		layout = UI.new("UIListLayout", {
 			Padding = UDim.new(0, props.gapPx or 10),
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			FillDirection = props.horizontal and Enum.FillDirection.Horizontal or Enum.FillDirection.Vertical,
+			FillDirection = if horizontal then Enum.FillDirection.Horizontal else Enum.FillDirection.Vertical,
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
 		}, frame)
 	end
-	UI.padding(frame, props.padding or 8)
+	UI.padding(frame, pad)
+	local function resize()
+		local scale = math.max(totalScale(frame), 0.01)
+		local content = layout.AbsoluteContentSize
+		local size = if horizontal then content.X else content.Y
+		local length = math.max(size, size / scale) + pad * 2 + 24
+		frame.CanvasSize = if horizontal then UDim2.fromOffset(length, 0) else UDim2.fromOffset(0, length)
+	end
+	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(resize)
+	frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(resize)
+	task.defer(resize)
 	return frame
 end
 
@@ -880,7 +910,7 @@ local function buildSell()
 			local cellStroke = UI.stroke(cell, 3, if selected then GREEN else rarity.color)
 			local model = if item.kind == "pet" then UI.petModel(item.data.name) else UI.eggModel(item.data)
 			UI.viewport(cell, model, { size = UDim2.new(1, -8, 1, -54), position = UDim2.fromOffset(4, 4) })
-			UI.text(cell, { Text = if item.kind == "pet" then item.data.name else eggName(item.data), Size = UDim2.new(1, -6, 0, 20), Position = UDim2.new(0, 3, 1, -50), TextColor3 = rarity.color })
+			UI.text(cell, { Text = if item.kind == "pet" then Config.petDisplayName(item.data) else eggName(item.data), Size = UDim2.new(1, -6, 0, 20), Position = UDim2.new(0, 3, 1, -50), TextColor3 = rarity.color })
 			UI.text(cell, { Text = `{item.weight}kg • ${Config.format(item.value)}`, Size = UDim2.new(1, -6, 0, 18), Position = UDim2.new(0, 3, 1, -28) })
 			if item.locked then
 				UI.text(cell, { Text = "EQUIPPED", Size = UDim2.new(1, 0, 0, 18), Position = UDim2.fromOffset(0, 4), TextColor3 = YELLOW })
@@ -1139,7 +1169,7 @@ local function buildActive()
 			UI.corner(row, 6)
 			UI.stroke(row, 2, rarity.color)
 			UI.viewport(row, UI.petModel(p.name), { size = UDim2.fromOffset(60, 60), position = UDim2.fromOffset(5, 5) })
-			UI.text(row, { Text = `{p.name} <font color="#7dff6b">(${Config.format(Config.petIncome(p))}/s)</font>\n<font size="14" color="{rarityHex(p.rarity)}">{rarity.name} • {p.weight}kg</font>`, Size = UDim2.new(1, -262, 1, -12), Position = UDim2.fromOffset(70, 6), TextXAlignment = Enum.TextXAlignment.Left })
+			UI.text(row, { Text = `{Config.petDisplayName(p)} <font color="#7dff6b">(${Config.format(Config.petIncome(p))}/s)</font>\n<font size="14" color="{rarityHex(p.rarity)}">{rarity.name} • size {p.size or 1}x</font>`, Size = UDim2.new(1, -262, 1, -12), Position = UDim2.fromOffset(70, 6), TextXAlignment = Enum.TextXAlignment.Left })
 			UI.button(row, { text = "⚔️", color = if isFollowing then c(230, 140, 40) else c(80, 84, 104), size = UDim2.fromOffset(50, 48), position = UDim2.new(1, -128, 0.5, 0), anchor = Vector2.new(1, 0.5), onClick = function()
 				env.request("ToggleFollow", p.id)
 			end })
@@ -1566,7 +1596,7 @@ function Panels.hatchReveal(p, isNew: boolean, egg, canPlace: boolean?)
 	local petView = UI.viewport(holder, UI.petModel(p.name), { size = UDim2.fromScale(0.1, 0.1), position = UDim2.fromScale(0.5, 0.5), anchor = Vector2.new(0.5, 0.5) })
 	petView.ZIndex = 33
 	TweenService:Create(petView, TweenInfo.new(0.45, Enum.EasingStyle.Back), { Size = UDim2.fromScale(0.95, 0.95) }):Play()
-	UI.text(overlay, { Text = `<font color="{rarityHex(p.rarity)}">{rarity.name:upper()}</font>\n{p.name}`, Size = UDim2.fromOffset(600, 110), Position = UDim2.new(0.5, 0, 0.45, 190), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 34, strokeThickness = 4 })
+	UI.text(overlay, { Text = `<font color="{rarityHex(p.rarity)}">{rarity.name:upper()}</font>\n{Config.petDisplayName(p)} <font size="30">({p.size or 1}x size)</font>`, Size = UDim2.fromOffset(600, 110), Position = UDim2.new(0.5, 0, 0.45, 190), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 34, strokeThickness = 4 })
 	if isNew then
 		UI.text(overlay, { Text = "NEW!", TextColor3 = YELLOW, Size = UDim2.fromOffset(200, 60), Position = UDim2.new(0.5, 0, 0.45, -230), AnchorPoint = Vector2.new(0.5, 0), ZIndex = 34, strokeThickness = 4 })
 	end
