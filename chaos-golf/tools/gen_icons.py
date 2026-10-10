@@ -477,8 +477,7 @@ def draw_text(cv, text, cx, cy, size, top=WHITE, bottom=None, outline=NAVY, ow=N
     cv.over(vgrad(top, bottom, bb[1], bb[3]), core)
     if gloss:
         mid = bb[1] + (bb[3] - bb[1]) * 0.46
-        upper = m_poly([(0, 0), (S, 0), (S, mid - (S / 2) * math.tan(math.radians(rotate)) * 0),
-                        (0, mid)])
+        upper = m_poly([(0, 0), (S, 0), (S, mid), (0, mid)])
         if rotate:
             upper = m_rotate(upper, rotate, cx, cy)
         cv.over(WHITE, m_inter(core, upper), gloss)
@@ -642,10 +641,10 @@ def stamp_array(kind="flag", res=512):
         return (k + x * k, k + y * k)
 
     if kind == "flag":
-        d.rounded_rectangle((*P(-0.24, -0.66), *P(-0.10, 0.42)), radius=int(0.06 * k), fill=255)
-        flag = [P(-0.14, -0.70), P(0.56, -0.42), P(-0.14, -0.12)]
+        d.rounded_rectangle((*P(-0.22, -0.68), *P(-0.08, 0.44)), radius=int(0.06 * k), fill=255)
+        flag = [P(-0.12, -0.72), P(0.58, -0.44), P(-0.12, -0.16)]
         d.polygon(round_poly(flag, 0.05 * k), fill=255)
-        d.ellipse((*P(-0.62, 0.30), *P(0.46, 0.62)), fill=255)
+        d.ellipse((*P(-0.48, 0.36), *P(0.18, 0.58)), fill=255)
     elif kind == "ball":
         d.ellipse((*P(-0.48, -0.48), *P(0.48, 0.48)), fill=255)
         for ang in range(0, 360, 60):
@@ -831,7 +830,6 @@ def emblem_image(kind, accent, metal="steel", size=S):
         im = np.asarray(inner, np.float32) / 255.0
         cv.over_arr(rgb("#1A1712"), stripes * im)
         cv.over_arr(rgb("#FFB703"), (1 - stripes) * im)
-        cv.over(SHADOW, m_inter(m_sub(inner, m_shift(inner, 0, R * 0.08)), inner), 0.0)
         draw_hazard_triangle(cv, c, c + R * 0.02, R * 0.40)
     elif kind == "skin":
         # two-tone ball: one ball, two paint jobs split on a diagonal
@@ -851,13 +849,13 @@ def emblem_image(kind, accent, metal="steel", size=S):
     elif kind == "trail":
         # ball trailing a tapered multi-colour ribbon
         def bez(t):
-            p0, p1, p2 = np.array([c - R * 0.70, c + R * 0.42]), np.array([c - R * 0.05, c + R * 0.62]), \
-                np.array([c + R * 0.30, c - R * 0.22])
+            p0, p1, p2 = np.array([c - R * 0.72, c + R * 0.30]), np.array([c - R * 0.10, c + R * 0.62]), \
+                np.array([c + R * 0.32, c - R * 0.20])
             return p0 * (1 - t) ** 2 + 2 * p1 * t * (1 - t) + p2 * t * t
         ts = np.linspace(0, 1, 60)
         cols = [rgb("#B04DFF"), rgb("#0066FF"), rgb("#00E5FF"), WHITE]
         for k, col in enumerate(cols):
-            wmax = R * (0.34 - 0.075 * k)
+            wmax = R * (0.44 - 0.10 * k)
             left, right = [], []
             for t in ts:
                 pnt = bez(t)
@@ -873,7 +871,7 @@ def emblem_image(kind, accent, metal="steel", size=S):
         for t, rr in ((0.22, 0.035), (0.45, 0.05), (0.62, 0.03)):
             pnt = bez(t) + np.array([R * 0.06, -R * 0.20])
             sparkle(cv, pnt[0], pnt[1], R * rr * 2.2)
-        draw_golf_ball(cv, (c + R * 0.30, c - R * 0.22), R * 0.34, rgb("#F7F9FF"), dimples=56,
+        draw_golf_ball(cv, (c + R * 0.32, c - R * 0.20), R * 0.29, rgb("#F7F9FF"), dimples=56,
                        ow=R * 0.035, shadow=False, rim_color=rgb("#00E5FF"))
     elif kind == "burst":
         # comic impact burst with a ball smashing into it
@@ -1119,7 +1117,6 @@ def draw_crate(cv, cx, cy, scale, col, *, metal="steel", emblem=None, seam=None,
         P0 = P(-mr, my_ + mr, zf)
         P1 = P(mr, my_ + mr, zf)
         P2 = P(-mr, my_ - mr, zf)
-        sh = m_poly([P0, P1, (P1[0] + P2[0] - P0[0], P1[1] + P2[1] - P0[1]), P2])
         e_c = ((P1[0] + P2[0]) / 2, (P1[1] + P2[1]) / 2)
         rx = math.hypot(P1[0] - P0[0], P1[1] - P0[1]) / 2
         ry = math.hypot(P2[0] - P0[0], P2[1] - P0[1]) / 2
@@ -1247,7 +1244,7 @@ def draw_flag(cv, bx, by, height, flag_col, *, pole_w=None, flag_w=None, wave=1.
         t = k / n
         x = bx + pole_w * 0.3 + flag_w * t
         yw = math.sin(t * math.pi * 1.6) * height * 0.035 * wave * t
-        tops.append((x, top + height * 0.03 + yw + fh * 0.5 * t * t * 0.0 + (fh * 0.5) * t))
+        tops.append((x, top + height * 0.03 + yw + (fh * 0.5) * t))
         bots.append((x, top + height * 0.03 + fh + yw - (fh * 0.5) * t))
     flag = m_poly(tops + bots[::-1], height * 0.012)
     pole = m_rrect(bx - pole_w / 2, top, bx + pole_w / 2, by, pole_w / 2)
@@ -1260,7 +1257,6 @@ def draw_flag(cv, bx, by, height, flag_col, *, pole_w=None, flag_w=None, wave=1.
     cv.over(vgrad(light(flag_col, 0.25), dark(flag_col, 0.2), top, top + fh * 1.1), flag)
     cv.over(WHITE, m_inter(m_blur(m_sub(flag, m_shift(flag, 0, height * 0.02)), 3), flag), 0.4)
     ca = math.radians(angle)
-    cx_, cy_ = bx + math.sin(-ca) * -height, by - math.cos(ca) * height
     cx_, cy_ = bx - math.sin(ca) * height, by - math.cos(ca) * height
     cv.over(oc, m_circle(cx_, cy_, pole_w * 1.25))
     cv.over(rad(GOLD_L, GOLD_D, (cx_ - pole_w * 0.3, cy_ - pole_w * 0.3), pole_w * 1.2), m_circle(cx_, cy_, pole_w * 0.95))
@@ -1309,7 +1305,6 @@ def draw_confetti(cv, rng, n, cx, cy, spread_x, spread_y, size, colors, bias_up=
             m = m_inter(m, mask)
         cv.over(dark(col, 0.55), m_shift(m, 0, size * 0.12), 0.5)
         cv.over(col, m)
-        cv.over(WHITE, m_inter(m, m_shift(m, -size * 0.06, -size * 0.06)), 0.0)
 
 
 def draw_firework(cv, x, y, r, col, rays=14, dots=True, rot=0.0):
@@ -1604,7 +1599,7 @@ def crate_arrows():
                       sparkle_spots=[(430, 470, 60), (1660, 560, 46)])
 
 
-def mythic_crate(cv_extra=None):
+def mythic_crate():
     red = rgb("#FF2D55")
 
     def bg(cv):
@@ -1683,8 +1678,8 @@ def pass_double_coins():
     cv = Canvas(color=NAVY)
     background(cv, rgb("#1FD17A"), rgb("#032B1F"), rays=(16, rgb("#E9FFB0"), 0.12))
     glow(cv, m_circle(C, C * 0.80, S * 0.25), S * 0.10, GOLD, 0.5)
-    draw_coin(cv, C + 50, C * 0.92, 390, tilt=0.42, angle=-6)
-    draw_coin(cv, C - 40, C * 0.92 - 165, 390, tilt=0.42, angle=-13)
+    draw_coin(cv, C + 45, C * 0.90, 380, tilt=0.60, angle=-5)
+    draw_coin(cv, C - 35, C * 0.90 - 175, 380, tilt=0.60, angle=-11)
     draw_text(cv, "2X", C, S * 0.695, 540, top=WHITE, bottom=rgb("#FFE36B"), outline=rgb("#06301F"),
               ow=60, rotate=6, extrude=34)
     sparkles(cv, [(420, 520, 66), (1640, 560, 54), (430, 1380, 38), (1620, 1360, 34)], glow_col=GOLD)
@@ -1752,7 +1747,6 @@ def coins_icon(bg_in, bg_out, rays_col, draw_fn, sparkle_spots, glow_col=GOLD, r
 @icon("product_coins_1", "Dev product: Coin Pouch (1,000 Coins)")
 def product_coins_1():
     def art(cv):
-        rng = np.random.default_rng(1)
         draw_sack(cv, C, C * 0.98, 420, rgb("#E39A4F"), emblem=True)
         draw_coin(cv, C - 380, C * 1.48, 170, tilt=0.45, angle=12)
         draw_coin(cv, C + 360, C * 1.50, 190, tilt=0.40, angle=-16)
