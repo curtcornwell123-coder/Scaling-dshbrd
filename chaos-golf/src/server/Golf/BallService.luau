@@ -438,6 +438,11 @@ local function step(ball: Ball, dt: number)
 		else
 			part.AssemblyLinearVelocity = Vector3.zero
 			part.AssemblyAngularVelocity = Vector3.zero
+			-- A resting ball inside the cup (e.g. Tiny Cup just wore off) drops in.
+			local cup = ball.Cup
+			if cup and Vector2.new(cup.X - pos.X, cup.Z - pos.Z).Magnitude < Config.Physics.CupRadius * ball.CupScale then
+				sink(ball)
+			end
 			return
 		end
 	end

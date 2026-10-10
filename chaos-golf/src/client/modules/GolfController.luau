@@ -339,17 +339,13 @@ end
 local function bindControls(context: string)
 	ContextActionService:BindActionAtPriority(ACTION_CHARGE, chargeAction, true, 2000, Enum.UserInputType.MouseButton1, Enum.KeyCode.Space, Enum.KeyCode.ButtonR2)
 	ContextActionService:SetTitle(ACTION_CHARGE, "PUTT")
-	ContextActionService:SetPosition(ACTION_CHARGE, UDim2.new(1, -150, 1, -150))
 	if context ~= "Practice" then
 		ContextActionService:BindAction(ACTION_ABILITY1, abilityAction, true, Enum.KeyCode.One, Enum.KeyCode.ButtonX)
 		ContextActionService:BindAction(ACTION_ABILITY2, abilityAction, true, Enum.KeyCode.Two, Enum.KeyCode.ButtonY)
-		ContextActionService:SetPosition(ACTION_ABILITY1, UDim2.new(1, -230, 1, -110))
-		ContextActionService:SetPosition(ACTION_ABILITY2, UDim2.new(1, -230, 1, -190))
 	end
 	if context == "Tutorial" or context == "Practice" then
 		ContextActionService:BindAction(ACTION_LEAVE, leaveAction, true, Enum.KeyCode.X, Enum.KeyCode.ButtonB)
 		ContextActionService:SetTitle(ACTION_LEAVE, if context == "Tutorial" then "SKIP" else "EXIT")
-		ContextActionService:SetPosition(ACTION_LEAVE, UDim2.new(0, 20, 0, 20))
 	end
 	refreshAbilityButtons()
 end
