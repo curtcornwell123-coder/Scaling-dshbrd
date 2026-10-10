@@ -67,8 +67,22 @@ local function buildShell(model: Model, center: CFrame)
 			continue
 		end
 		local frame = center * Layout.facingCenter(Vector3.zero, degrees, radius + 1.5)
-		Kit.block(model, "HallWall", Vector3.new(arc * 1.06, WALL_HEIGHT, Layout.WALL_THICKNESS), frame * CFrame.new(0, WALL_HEIGHT * 0.5, 0), World.ConcreteMid, Enum.Material.Concrete)
-		Kit.block(model, "WallCap", Vector3.new(arc * 1.06, 1, Layout.WALL_THICKNESS + 1), frame * CFrame.new(0, WALL_HEIGHT + 0.5, 0), World.Steel, Enum.Material.Metal)
+		Kit.block(
+			model,
+			"HallWall",
+			Vector3.new(arc * 1.06, WALL_HEIGHT, Layout.WALL_THICKNESS),
+			frame * CFrame.new(0, WALL_HEIGHT * 0.5, 0),
+			World.ConcreteMid,
+			Enum.Material.Concrete
+		)
+		Kit.block(
+			model,
+			"WallCap",
+			Vector3.new(arc * 1.06, 1, Layout.WALL_THICKNESS + 1),
+			frame * CFrame.new(0, WALL_HEIGHT + 0.5, 0),
+			World.Steel,
+			Enum.Material.Metal
+		)
 	end
 	-- Grated ceiling truss: a ring and spokes with spotlights over the bays.
 	local trussHeight = WALL_HEIGHT - 3
@@ -82,14 +96,31 @@ local function buildShell(model: Model, center: CFrame)
 end
 
 local function buildPad(model: Model, padFrame: CFrame, mode: Types.ModeDef): BasePart
-	local pad = Kit.disc(model, "QueuePad_" .. mode.id, PAD_RADIUS, 0.6, padFrame * CFrame.new(0, 0.3, 0), World.SteelLight, Enum.Material.DiamondPlate)
+	local pad = Kit.disc(
+		model,
+		"QueuePad_" .. mode.id,
+		PAD_RADIUS,
+		0.6,
+		padFrame * CFrame.new(0, 0.3, 0),
+		World.SteelLight,
+		Enum.Material.DiamondPlate
+	)
 	pad:SetAttribute(Constants.Attributes.ModeId, mode.id)
 	pad:SetAttribute(Constants.Attributes.QueueRadius, PAD_RADIUS + 0.5)
 	CollectionService:AddTag(pad, Constants.Tags.QueuePad)
 	-- Ring segments live in a folder under the pad; each client colours them for its own player.
 	local ringFolder = Instance.new("Folder")
 	ringFolder.Name = "Ring"
-	local segments = Kit.ring(ringFolder, "Segment", padFrame * CFrame.new(0, 0.08, 0), RING_RADIUS, 0.9, 0.12, Constants.Queue.RING_SEGMENTS, World.RingUnlit)
+	local segments = Kit.ring(
+		ringFolder,
+		"Segment",
+		padFrame * CFrame.new(0, 0.08, 0),
+		RING_RADIUS,
+		0.9,
+		0.12,
+		Constants.Queue.RING_SEGMENTS,
+		World.RingUnlit
+	)
 	for index, segment in segments do
 		segment.Name = `Segment_{index}`
 		segment.CanQuery = false
@@ -107,28 +138,79 @@ local function buildBay(model: Model, center: CFrame, degrees: number, mode: Typ
 	local color = if mode ~= nil then mode.signColor else ModeConfig.CategoryColors.Limited
 
 	-- Blast door recess and door.
-	Kit.block(bay, "DoorFrame", Vector3.new(DOOR_WIDTH + 2.4, DOOR_HEIGHT + 1.2, 1.2), wallFrame * CFrame.new(0, (DOOR_HEIGHT + 1.2) * 0.5, -0.4), World.Steel, Enum.Material.Metal)
+	Kit.block(
+		bay,
+		"DoorFrame",
+		Vector3.new(DOOR_WIDTH + 2.4, DOOR_HEIGHT + 1.2, 1.2),
+		wallFrame * CFrame.new(0, (DOOR_HEIGHT + 1.2) * 0.5, -0.4),
+		World.Steel,
+		Enum.Material.Metal
+	)
 	local closed = wallFrame * CFrame.new(0, DOOR_HEIGHT * 0.5, -1.1)
-	local door: BasePart = Kit.block(bay, "BlastDoor", Vector3.new(DOOR_WIDTH, DOOR_HEIGHT, 0.6), closed, World.SteelLight, Enum.Material.DiamondPlate)
+	local door: BasePart = Kit.block(
+		bay,
+		"BlastDoor",
+		Vector3.new(DOOR_WIDTH, DOOR_HEIGHT, 0.6),
+		closed,
+		World.SteelLight,
+		Enum.Material.DiamondPlate
+	)
 	Kit.hazardStripe(bay, closed * CFrame.new(0, -DOOR_HEIGHT * 0.5 + 0.8, -0.35), DOOR_WIDTH, 0.1, 1.2)
 	-- Category sign over the door.
 	local title = if mode ~= nil then string.upper(mode.displayName) else "LIMITED TIME"
-	Kit.sign(bay, "BaySign", wallFrame * CFrame.new(0, DOOR_HEIGHT + 3.2, -0.9), Vector2.new(DOOR_WIDTH + 2, 2.4), title, color, World.Steel, color, Theme.Fonts.Title)
-	Kit.glow(bay, "SignUnderline", Vector3.new(DOOR_WIDTH + 2, 0.15, 0.15), wallFrame * CFrame.new(0, DOOR_HEIGHT + 1.85, -1.15), color)
+	Kit.sign(
+		bay,
+		"BaySign",
+		wallFrame * CFrame.new(0, DOOR_HEIGHT + 3.2, -0.9),
+		Vector2.new(DOOR_WIDTH + 2, 2.4),
+		title,
+		color,
+		World.Steel,
+		color,
+		Theme.Fonts.Title
+	)
+	Kit.glow(
+		bay,
+		"SignUnderline",
+		Vector3.new(DOOR_WIDTH + 2, 0.15, 0.15),
+		wallFrame * CFrame.new(0, DOOR_HEIGHT + 1.85, -1.15),
+		color
+	)
 
 	-- Wall screen beside the door with mode name, team size, queued, wait, countdown.
 	local screenFrame = wallFrame * CFrame.new(0, DOOR_HEIGHT + 8, -0.9)
 	local attributes: { [string]: any } = { [Constants.Attributes.ModeId] = if mode ~= nil then mode.id else "" }
-	Kit.screen(bay, "BayScreen", screenFrame, Vector2.new(DOOR_WIDTH + 2, 5.5), if mode ~= nil then Screen.Bay else Screen.LimitedBay, attributes)
+	Kit.screen(
+		bay,
+		"BayScreen",
+		screenFrame,
+		Vector2.new(DOOR_WIDTH + 2, 5.5),
+		if mode ~= nil then Screen.Bay else Screen.LimitedBay,
+		attributes
+	)
 
 	local padFrame = center * Layout.facingCenter(Vector3.zero, degrees, PAD_DISTANCE)
 	if mode ~= nil then
 		buildPad(bay, padFrame, mode)
 		-- Hazard guide from the entrance to this pad.
 		local entry = (center * CFrame.new(0, 0, -(radius - 8))).Position
-		Kit.floorLine(bay, entry, padFrame.Position + (entry - padFrame.Position).Unit * (RING_RADIUS + 1), 0.6, World.Hazard)
+		Kit.floorLine(
+			bay,
+			entry,
+			padFrame.Position + (entry - padFrame.Position).Unit * (RING_RADIUS + 1),
+			0.6,
+			World.Hazard
+		)
 	else
-		Kit.disc(bay, "ClosedPad", PAD_RADIUS, 0.3, padFrame * CFrame.new(0, 0.15, 0), World.ConcreteMid, Enum.Material.Concrete)
+		Kit.disc(
+			bay,
+			"ClosedPad",
+			PAD_RADIUS,
+			0.3,
+			padFrame * CFrame.new(0, 0.15, 0),
+			World.ConcreteMid,
+			Enum.Material.Concrete
+		)
 	end
 	bay:SetAttribute("BayOrder", order)
 	bay.Parent = model
@@ -184,10 +266,27 @@ function DuelsHall.build(parent: Instance, origin: CFrame): DuelsResult
 				break
 			end
 			local frame = center * Layout.facingCenter(Vector3.zero, degrees, Layout.DUELS_RADIUS - 0.6)
-			Kit.screen(model, "RankedBoard_" .. ratingKey, frame * CFrame.new(0, 10, 0), Vector2.new(14, 12), Screen.Leaderboard, {
-				[Constants.Attributes.Board] = "Rank_" .. ratingKey,
-			})
-			Kit.sign(model, "RankedBoardTitle", frame * CFrame.new(0, 17.6, 0), Vector2.new(14, 1.8), `{RankConfig.RatingKeyNames[ratingKey]} RANKED`, Theme.Areas.DuelsGold, World.Steel, Theme.Areas.DuelsGold, Theme.Fonts.Title)
+			Kit.screen(
+				model,
+				"RankedBoard_" .. ratingKey,
+				frame * CFrame.new(0, 10, 0),
+				Vector2.new(14, 12),
+				Screen.Leaderboard,
+				{
+					[Constants.Attributes.Board] = "Rank_" .. ratingKey,
+				}
+			)
+			Kit.sign(
+				model,
+				"RankedBoardTitle",
+				frame * CFrame.new(0, 17.6, 0),
+				Vector2.new(14, 1.8),
+				`{RankConfig.RatingKeyNames[ratingKey]} RANKED`,
+				Theme.Areas.DuelsGold,
+				World.Steel,
+				Theme.Areas.DuelsGold,
+				Theme.Fonts.Title
+			)
 		end
 	end
 	-- Rank card (each player sees their own) beside the entrance.

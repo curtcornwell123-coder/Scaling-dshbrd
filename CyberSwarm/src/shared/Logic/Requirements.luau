@@ -66,7 +66,11 @@ end
 
 -- Returns (true, "") or (false, reason) for the first unmet requirement.
 -- `purpose` finishes the sentence, e.g. "to play ranked" -> "Equip 5 troops to play ranked".
-function Requirements.check(requirements: { Types.UnlockRequirement }, progress: Progress, purpose: string): (boolean, string)
+function Requirements.check(
+	requirements: { Types.UnlockRequirement },
+	progress: Progress,
+	purpose: string
+): (boolean, string)
 	for _, requirement in requirements do
 		if not Requirements.isMet(requirement, progress) then
 			return false, describe(requirement, progress, purpose)

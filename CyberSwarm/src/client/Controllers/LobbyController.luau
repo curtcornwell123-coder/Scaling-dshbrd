@@ -144,10 +144,7 @@ local function refreshProfile(profile: Types.PlayerData)
 			card.stroke.Thickness = 1.5
 			card.button.BackgroundColor3 = Theme.Colors.Panel
 		else
-			UIKit.setText(
-				card.status,
-				if robot.locked then "COMING SOON" else `LOCKED  {MathUtil.formatCount(robot.unlockCost)}`
-			)
+			UIKit.setText(card.status, if robot.locked then "COMING SOON" else "BUY IN TROOP DEPOT")
 			card.status.TextColor3 = Theme.Colors.Secondary
 			card.stroke.Color = Theme.Colors.PanelLight
 			card.stroke.Thickness = 1.5
@@ -171,8 +168,8 @@ local function renderBoard(board: { Types.QueueBoardEntry })
 				card.shownSeconds = seconds
 				card.shownCount = entry.count
 				card.live.Text = if seconds >= 0
-					then `ON PAD {entry.count}/{entry.capacity}  -  STARTING IN {seconds}`
-					else `ON PAD {entry.count}/{entry.capacity}`
+					then `ON PAD {entry.count}/{entry.matchSize}  -  STARTING IN {seconds}`
+					else `ON PAD {entry.count}/{entry.matchSize}`
 				card.live.TextColor3 = if seconds >= 0 then Theme.Colors.Success else Theme.Colors.TextDim
 			end
 		end
@@ -196,13 +193,13 @@ local function updateQueueStatus(queue: Types.QueueSnapshot, force: boolean)
 	local endsAt = queue.countdownEndsAt
 	if endsAt == nil then
 		shownQueueSeconds = -1
-		UIKit.setText(queueStatus, `{queue.count}/{queue.capacity} ON PAD  -  NEED {queue.required}`)
+		UIKit.setText(queueStatus, `{queue.count}/{queue.matchSize} QUEUED{if queue.viaParty then " (PARTY)" else ""}`)
 		return
 	end
 	local remaining = secondsUntil(endsAt)
 	if remaining ~= shownQueueSeconds or force then
 		shownQueueSeconds = remaining
-		UIKit.setText(queueStatus, `{queue.count}/{queue.capacity} ON PAD  -  LAUNCHING IN {remaining}`)
+		UIKit.setText(queueStatus, `{queue.count}/{queue.matchSize} QUEUED  -  LAUNCHING IN {remaining}`)
 	end
 end
 
@@ -215,7 +212,7 @@ local function refreshQueue(queue: Types.QueueSnapshot)
 	end
 	local mode = ModeConfig.Modes[modeId]
 	UIKit.setText(queueTitle, `QUEUED: {string.upper(mode.displayName)}`)
-	queueTitle.TextColor3 = mode.padColor
+	queueTitle.TextColor3 = mode.signColor
 	queuePanel.Visible = true
 	updateQueueStatus(queue, true)
 	if queue.countdownEndsAt ~= nil then
@@ -294,6 +291,13 @@ local function buildTopBar(layer: Frame)
 	topBarChip(bar, 1, 0.3, Theme.Colors.Text, Players.LocalPlayer.DisplayName)
 	coinsLabel = topBarChip(bar, 2, 0.22, Theme.Colors.Warning, "COINS 0")
 	gemsLabel = topBarChip(bar, 3, 0.18, Theme.Colors.Primary, "GEMS 0")
+	-- Coins and gems are shown top-centre with "+" buttons (NavController); these stay hidden.
+	for _, label in { coinsLabel, gemsLabel } do
+		local chip = label.Parent
+		if chip ~= nil and chip:IsA("GuiObject") then
+			chip.Visible = false
+		end
+	end
 
 	armoryButton = UIKit.button({
 		Name = "Armory",
@@ -397,25 +401,26 @@ local function buildDeployPanel(layer: Frame)
 		BackgroundTransparency = 1,
 		Parent = panel,
 	})
-	UIKit.list(list, Enum.FillDirection.Vertical, UDim.new(0.03, 0))
+	UIKit.list(list, Enum.FillDirection.Vertical, UDim.new(0.01, 0))
 
-	for order, modeId in ModeConfig.Order do
-		local mode = ModeConfig.Modes[modeId]
+	-- Info only: the Duels Hall bays, in bay order. Joining happens on the pads, never here.
+	for order, mode in ModeConfig.bayModes() do
+		local modeId = mode.id
 		local card = UIKit.frame({
 			Name = modeId,
 			LayoutOrder = order,
-			Size = UDim2.fromScale(1, 0.31),
+			Size = UDim2.fromScale(1, 0.155),
 			BackgroundColor3 = Theme.Colors.PanelLight,
 			Parent = list,
 		})
 		UIKit.corner(card)
-		UIKit.stroke(card, mode.padColor, 1.5, 0.35)
+		UIKit.stroke(card, mode.signColor, 1.5, 0.35)
 		UIKit.label({
 			Size = UDim2.fromScale(0.6, 0.34),
 			Position = UDim2.fromScale(0.05, 0.08),
 			Font = Theme.Fonts.Title,
 			Text = string.upper(mode.displayName),
-			TextColor3 = mode.padColor,
+			TextColor3 = mode.signColor,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = card,
 		}, Theme.Text.HEADER_MAX)
@@ -579,6 +584,10 @@ function LobbyController.init()
 	maid:give(ClientState.profileChanged:connect(refreshProfile))
 	maid:give(ClientState.queueChanged:connect(refreshQueue))
 	maid:give(ClientState.queueBoardChanged:connect(renderBoard))
+	-- After buying a troop the Loadout panel opens as the equip slot picker.
+	maid:give(ShopController.purchased:connect(function()
+		setPanel("Loadout")
+	end))
 	maid:give(ShopController.closed:connect(function()
 		if openPanel == "Armory" then
 			setPanel(nil)
@@ -600,6 +609,11 @@ function LobbyController.init()
 		refreshProfile(profile)
 	end
 	renderBoard(ClientState.queueBoard)
+end
+
+-- Used by in-world terminals (Armory loadout terminal, Troop Shop terminal).
+function LobbyController.openPanel(name: PanelName)
+	setPanel(name)
 end
 
 return LobbyController

@@ -49,7 +49,12 @@ local defensePlan: { [number]: { string } } = {
 	[5] = { "AntiAir" },
 	[7] = { "BasicTurret" },
 	[9] = { "RapidTurret" },
+	[6] = { "Flamethrower" },
+	[8] = { "Railgun" },
+	[10] = { "MissilePod" },
 	[11] = { "Cannon" },
+	[13] = { "Flamethrower" },
+	[15] = { "MissilePod" },
 }
 WaveConfig.DefensePlan = defensePlan
 

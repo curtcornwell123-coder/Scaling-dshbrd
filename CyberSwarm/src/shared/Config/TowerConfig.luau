@@ -101,9 +101,58 @@ local Towers: { [string]: Types.TowerDef } = {
 		modelPath = "Towers/FreezeTower",
 		visual = { size = Vector3.new(2.8, 2.8, 2.8), color = KHAKI, accent = ICE_BLUE, shape = "Ball" },
 	},
+	Railgun = {
+		id = "Railgun",
+		displayName = "Railgun Battery",
+		description = "Slow, long-range slug that punches through heavy armour.",
+		damage = 60,
+		fireRate = 0.35,
+		range = 34,
+		maxHealth = 220,
+		splashRadius = 0,
+		targetsGround = true,
+		targetsAir = false,
+		slowMultiplier = 1,
+		slowDuration = 0,
+		modelPath = "Towers/Railgun",
+		visual = { size = Vector3.new(3.2, 1.8, 3.2), color = GUNMETAL, accent = ICE_BLUE, shape = "Block" },
+	},
+	Flamethrower = {
+		id = "Flamethrower",
+		displayName = "Flame Bunker",
+		description = "Short-range fire that scorches every robot in a small cone.",
+		damage = 6,
+		fireRate = 3,
+		range = 12,
+		maxHealth = 260,
+		splashRadius = 5,
+		targetsGround = true,
+		targetsAir = false,
+		slowMultiplier = 1,
+		slowDuration = 0,
+		modelPath = "Towers/Flamethrower",
+		visual = { size = Vector3.new(3.4, 1.6, 3.4), color = OLIVE, accent = AMBER, shape = "Block" },
+	},
+	MissilePod = {
+		id = "MissilePod",
+		displayName = "Missile Pod",
+		description = "Guided missiles with splash. Hits ground and air.",
+		damage = 16,
+		fireRate = 0.8,
+		range = 28,
+		maxHealth = 200,
+		splashRadius = 4,
+		targetsGround = true,
+		targetsAir = true,
+		slowMultiplier = 1,
+		slowDuration = 0,
+		modelPath = "Towers/MissilePod",
+		visual = { size = Vector3.new(3, 2, 3), color = KHAKI, accent = ALERT_RED, shape = "Block" },
+	},
 }
 TowerConfig.Towers = Towers
 
-TowerConfig.Order = { "BasicTurret", "RapidTurret", "Cannon", "AntiAir", "FreezeTower" }
+TowerConfig.Order =
+	{ "BasicTurret", "RapidTurret", "Cannon", "AntiAir", "FreezeTower", "Railgun", "Flamethrower", "MissilePod" }
 
 return TableUtil.deepFreeze(TowerConfig)

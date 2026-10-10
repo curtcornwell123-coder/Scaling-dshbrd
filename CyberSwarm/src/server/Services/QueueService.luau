@@ -158,7 +158,13 @@ local function onLeft(player: Player, modeId: string, dodgeCounts: boolean)
 	local queue = queues[modeId]
 	joinedAt[player] = nil
 	boardDirty = true
-	if queue ~= nil and dodgeCounts and queue.mode.ranked and queue.countdownEndsAt ~= nil and queue.countdownPlayers[player] then
+	if
+		queue ~= nil
+		and dodgeCounts
+		and queue.mode.ranked
+		and queue.countdownEndsAt ~= nil
+		and queue.countdownPlayers[player]
+	then
 		queue.countdownPlayers[player] = nil
 		RankService.penalizeDodge(player, modeId)
 	end
@@ -270,10 +276,7 @@ local function buildEntries(queue: PadQueue): { Matchmaker.Entry }
 
 		local values: { number } = {}
 		for _, member in members do
-			table.insert(
-				values,
-				if ratingKey ~= nil then RankService.ratingFor(member, ratingKey) else powerOf(member)
-			)
+			table.insert(values, if ratingKey ~= nil then RankService.ratingFor(member, ratingKey) else powerOf(member))
 		end
 		local total = 0
 		for _, value in values do

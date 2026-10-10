@@ -55,7 +55,16 @@ local shopEntries: { [string]: ShopEntry } = {
 		unlock = { kind = "Wins", value = 5 },
 		builderId = "Orb",
 	},
-	MegaMech = { role = "Boss", price = 0, currency = "Gems", unlock = NONE, builderId = "Heavy" },
+	MegaMech = {
+		role = "Boss",
+		price = 250,
+		currency = "Gems",
+		unlock = { kind = "Wins", value = 3 },
+		builderId = "Heavy",
+	},
+	Crawler = { role = "Swarmer", price = 300, currency = "Coins", unlock = NONE, builderId = "Walker" },
+	Juggernaut = { role = "Siege", price = 1200, currency = "Coins", unlock = NONE, builderId = "Heavy" },
+	Hornet = { role = "Gunship", price = 80, currency = "Gems", unlock = NONE, builderId = "Hover" },
 }
 
 local TroopConfig = {}
@@ -88,10 +97,22 @@ TroopConfig.Troops = troops
 TroopConfig.Order = RobotConfig.Order
 
 -- Always on the first three tables.
-TroopConfig.Permanent = { "Medic", "Drone", "Sentinel" }
+TroopConfig.Permanent = { "Medic", "Drone", "MegaMech" }
 
 -- Drawn per UTC day for the other three tables.
-TroopConfig.RotatingPool = { "Glitch", "Bomber", "Sapper", "Striker", "Relay", "Mortar", "Phantom", "MegaMech" }
+TroopConfig.RotatingPool = {
+	"Glitch",
+	"Bomber",
+	"Sentinel",
+	"Sapper",
+	"Striker",
+	"Relay",
+	"Mortar",
+	"Phantom",
+	"Crawler",
+	"Juggernaut",
+	"Hornet",
+}
 TroopConfig.RotatingCount = 3
 TroopConfig.RotationSeed = 7919
 

@@ -42,14 +42,70 @@ RankConfig.PlacementMatches = 10
 RankConfig.PlacementKFactor = 64
 
 local tiers: { TierDef } = {
-	{ id = "Recruit", displayName = "Recruit", floor = 0, divisions = 3, color = Color3.fromRGB(150, 146, 136), seasonReward = { coins = 200 } },
-	{ id = "Private", displayName = "Private", floor = 900, divisions = 3, color = Color3.fromRGB(176, 140, 96), seasonReward = { coins = 400 } },
-	{ id = "Corporal", displayName = "Corporal", floor = 1050, divisions = 3, color = Color3.fromRGB(150, 168, 176), seasonReward = { coins = 600, gems = 5 } },
-	{ id = "Sergeant", displayName = "Sergeant", floor = 1200, divisions = 3, color = Color3.fromRGB(96, 170, 120), seasonReward = { coins = 800, gems = 10 } },
-	{ id = "Lieutenant", displayName = "Lieutenant", floor = 1350, divisions = 3, color = Color3.fromRGB(64, 160, 226), seasonReward = { coins = 1000, gems = 20 } },
-	{ id = "Captain", displayName = "Captain", floor = 1500, divisions = 3, color = Color3.fromRGB(150, 96, 226), seasonReward = { coins = 1250, gems = 35 } },
-	{ id = "Major", displayName = "Major", floor = 1650, divisions = 3, color = Color3.fromRGB(226, 96, 96), seasonReward = { coins = 1500, gems = 50 } },
-	{ id = "Commander", displayName = "Commander", floor = 1800, divisions = 1, color = Color3.fromRGB(242, 193, 0), seasonReward = { coins = 2000, gems = 80 } },
+	{
+		id = "Recruit",
+		displayName = "Recruit",
+		floor = 0,
+		divisions = 3,
+		color = Color3.fromRGB(150, 146, 136),
+		seasonReward = { coins = 200 },
+	},
+	{
+		id = "Private",
+		displayName = "Private",
+		floor = 900,
+		divisions = 3,
+		color = Color3.fromRGB(176, 140, 96),
+		seasonReward = { coins = 400 },
+	},
+	{
+		id = "Corporal",
+		displayName = "Corporal",
+		floor = 1050,
+		divisions = 3,
+		color = Color3.fromRGB(150, 168, 176),
+		seasonReward = { coins = 600, gems = 5 },
+	},
+	{
+		id = "Sergeant",
+		displayName = "Sergeant",
+		floor = 1200,
+		divisions = 3,
+		color = Color3.fromRGB(96, 170, 120),
+		seasonReward = { coins = 800, gems = 10 },
+	},
+	{
+		id = "Lieutenant",
+		displayName = "Lieutenant",
+		floor = 1350,
+		divisions = 3,
+		color = Color3.fromRGB(64, 160, 226),
+		seasonReward = { coins = 1000, gems = 20 },
+	},
+	{
+		id = "Captain",
+		displayName = "Captain",
+		floor = 1500,
+		divisions = 3,
+		color = Color3.fromRGB(150, 96, 226),
+		seasonReward = { coins = 1250, gems = 35 },
+	},
+	{
+		id = "Major",
+		displayName = "Major",
+		floor = 1650,
+		divisions = 3,
+		color = Color3.fromRGB(226, 96, 96),
+		seasonReward = { coins = 1500, gems = 50 },
+	},
+	{
+		id = "Commander",
+		displayName = "Commander",
+		floor = 1800,
+		divisions = 1,
+		color = Color3.fromRGB(242, 193, 0),
+		seasonReward = { coins = 2000, gems = 80 },
+	},
 }
 RankConfig.Tiers = tiers
 

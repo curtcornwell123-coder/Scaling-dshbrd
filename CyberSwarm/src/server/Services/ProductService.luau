@@ -118,11 +118,13 @@ function ProductService.start()
 	DataService.profileLoaded:connect(function(player: Player)
 		task.spawn(checkGamePass, player)
 	end)
-	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Player, passId: number, purchased: boolean)
-		if purchased and passId == ShopConfig.PremiumGamePassId then
-			checkGamePass(player)
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(
+		function(player: Player, passId: number, purchased: boolean)
+			if purchased and passId == ShopConfig.PremiumGamePassId then
+				checkGamePass(player)
+			end
 		end
-	end)
+	)
 end
 
 return ProductService

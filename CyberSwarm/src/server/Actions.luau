@@ -23,7 +23,10 @@ local busy: { [Player]: boolean } = {}
 -- ("OK" on success). The player always gets exactly one ActionResult back.
 function Actions.run(player: Player, action: string, id: string?, work: () -> string)
 	if busy[player] then
-		Remotes.ActionResult:fireClient(player, { action = action, ok = false, code = Constants.ErrorCode.Busy, id = id })
+		Remotes.ActionResult:fireClient(
+			player,
+			{ action = action, ok = false, code = Constants.ErrorCode.Busy, id = id }
+		)
 		return
 	end
 	busy[player] = true

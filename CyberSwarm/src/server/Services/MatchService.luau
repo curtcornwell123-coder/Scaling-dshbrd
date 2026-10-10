@@ -135,11 +135,19 @@ local function createMatchPlayer(match: Match, player: Player, arena: Arena): Ma
 	local loadout: { string } = {}
 	local data = DataService.getData(player)
 	local sandbox = match.sandbox
-	local source: { string }? = if sandbox ~= nil then sandbox.loadout elseif data ~= nil then data.equippedLoadout else nil
+	local source: { string }? = if sandbox ~= nil
+		then sandbox.loadout
+		elseif data ~= nil then data.equippedLoadout
+		else nil
 	if source ~= nil then
 		for _, robotId in source do
 			local robot = RobotConfig.Robots[robotId]
-			if robot ~= nil and not robot.locked and not table.find(loadout, robotId) and #loadout < Constants.MAX_LOADOUT then
+			if
+				robot ~= nil
+				and not robot.locked
+				and not table.find(loadout, robotId)
+				and #loadout < Constants.MAX_LOADOUT
+			then
 				table.insert(loadout, robotId)
 			end
 		end
@@ -668,7 +676,11 @@ end
 
 -- Creates and starts a match. Returns false and an error code when it cannot start; nothing is
 -- changed for any player in that case (the caller returns them to the lobby with no penalty).
-function MatchService.startMatch(modeId: string, candidates: { Player }, options: StartOptions?): (boolean, string?, Match?)
+function MatchService.startMatch(
+	modeId: string,
+	candidates: { Player },
+	options: StartOptions?
+): (boolean, string?, Match?)
 	local mode = ModeConfig.Modes[modeId]
 	if mode == nil then
 		return false, ErrorCode.InvalidMode, nil

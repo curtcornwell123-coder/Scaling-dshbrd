@@ -76,10 +76,42 @@ function LobbyBuilder.BuildLobby(parent: Instance): Lobby
 
 	local Areas = Theme.Areas
 	local hubEdge = Layout.HUB_RADIUS + Layout.WALL_THICKNESS
-	Hallway.build(folder, origin, Layout.Openings.Duels, hubEdge, Layout.DUELS_CENTER.Z - Layout.DUELS_RADIUS - 1.5, Areas.Duels, "DUELS")
-	Hallway.build(folder, origin, Layout.Openings.Troops, hubEdge, Layout.DEPOT_MIN_X - Layout.WALL_THICKNESS, Areas.Troops, "TROOP DEPOT")
-	Hallway.build(folder, origin, Layout.Openings.Market, hubEdge, -Layout.MARKET_MAX_X - Layout.WALL_THICKNESS, Areas.Market, "MARKET")
-	Hallway.build(folder, origin, Layout.Openings.Alcove, hubEdge, -Layout.ALCOVE_NEAR_Z - Layout.WALL_THICKNESS, Areas.Party, "PARTY & ARMORY")
+	Hallway.build(
+		folder,
+		origin,
+		Layout.Openings.Duels,
+		hubEdge,
+		Layout.DUELS_CENTER.Z - Layout.DUELS_RADIUS - 1.5,
+		Areas.Duels,
+		"DUELS"
+	)
+	Hallway.build(
+		folder,
+		origin,
+		Layout.Openings.Troops,
+		hubEdge,
+		Layout.DEPOT_MIN_X - Layout.WALL_THICKNESS,
+		Areas.Troops,
+		"TROOP DEPOT"
+	)
+	Hallway.build(
+		folder,
+		origin,
+		Layout.Openings.Market,
+		hubEdge,
+		-Layout.MARKET_MAX_X - Layout.WALL_THICKNESS,
+		Areas.Market,
+		"MARKET"
+	)
+	Hallway.build(
+		folder,
+		origin,
+		Layout.Openings.Alcove,
+		hubEdge,
+		-Layout.ALCOVE_NEAR_Z - Layout.WALL_THICKNESS,
+		Areas.Party,
+		"PARTY & ARMORY"
+	)
 
 	folder.Parent = parent
 	return {
@@ -89,7 +121,8 @@ function LobbyBuilder.BuildLobby(parent: Instance): Lobby
 		doors = duels.doors,
 		bounds = {
 			min = Constants.World.LOBBY_ORIGIN + Vector3.new(Layout.MARKET_MIN_X - 60, -20, Layout.ALCOVE_FAR_Z - 10),
-			max = Constants.World.LOBBY_ORIGIN + Vector3.new(Layout.DEPOT_MAX_X + 60, 80, Layout.DUELS_CENTER.Z + Layout.DUELS_RADIUS + 10),
+			max = Constants.World.LOBBY_ORIGIN
+				+ Vector3.new(Layout.DEPOT_MAX_X + 60, 80, Layout.DUELS_CENTER.Z + Layout.DUELS_RADIUS + 10),
 		},
 	}
 end

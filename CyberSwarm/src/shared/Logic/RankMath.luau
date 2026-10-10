@@ -53,7 +53,13 @@ function RankMath.kFor(played: number, settings: Settings): number
 end
 
 -- Whole-number rating change for one result (score 1 = win, 0 = loss).
-function RankMath.delta(rating: number, opponentRating: number, score: number, played: number, settings: Settings): number
+function RankMath.delta(
+	rating: number,
+	opponentRating: number,
+	score: number,
+	played: number,
+	settings: Settings
+): number
 	local k = RankMath.kFor(played, settings)
 	local change = k * (score - RankMath.expected(rating, opponentRating, settings.eloScale))
 	-- Round half away from zero so a win never rounds to a loss and vice versa.
@@ -110,7 +116,9 @@ function RankMath.tierFor(rating: number, tiers: { TierInfo }): TierResult
 		local step = math.clamp(math.floor((rating - tier.floor) / band), 0, tier.divisions - 1)
 		division = tier.divisions - step
 	end
-	local label = if tier.divisions > 1 then `{tier.displayName} {ROMAN[division] or tostring(division)}` else tier.displayName
+	local label = if tier.divisions > 1
+		then `{tier.displayName} {ROMAN[division] or tostring(division)}`
+		else tier.displayName
 	return { tier = tier, tierIndex = index, division = division, label = label }
 end
 

@@ -60,7 +60,13 @@ function SeasonRules.normalize(season: Types.SeasonData, seasonId: string): bool
 end
 
 -- XP is only added while the season is running.
-function SeasonRules.addXp(season: Types.SeasonData, amount: number, now: number, startsAt: number, endsAt: number): number
+function SeasonRules.addXp(
+	season: Types.SeasonData,
+	amount: number,
+	now: number,
+	startsAt: number,
+	endsAt: number
+): number
 	if amount <= 0 or now < startsAt or now >= endsAt then
 		return 0
 	end

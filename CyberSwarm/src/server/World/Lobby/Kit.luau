@@ -101,22 +101,23 @@ function Kit.ring(
 	for index = 1, segments do
 		local angle = (index - 0.5) / segments * math.pi * 2
 		local cframe = center * CFrame.Angles(0, -angle, 0) * CFrame.new(0, 0, -radius)
-		local part = Kit.block(
-			parent,
-			`{name}_{index}`,
-			Vector3.new(arc * 1.04, height, width),
-			cframe,
-			color,
-			material,
-			false
-		)
+		local part =
+			Kit.block(parent, `{name}_{index}`, Vector3.new(arc * 1.04, height, width), cframe, color, material, false)
 		table.insert(list, part)
 	end
 	return list
 end
 
 -- Rounded concrete arch. `cframe` is the floor centre of the opening; the arch spans local X.
-function Kit.arch(parent: Instance, name: string, cframe: CFrame, width: number, height: number, depth: number, color: Color3): Model
+function Kit.arch(
+	parent: Instance,
+	name: string,
+	cframe: CFrame,
+	width: number,
+	height: number,
+	depth: number,
+	color: Color3
+): Model
 	local model = Instance.new("Model")
 	model.Name = name
 	local pillarWidth = 3
@@ -269,7 +270,15 @@ function Kit.screen(
 		false
 	)
 	frame.CanQuery = false
-	local screen = Kit.block(parent, name, Vector3.new(size.X, size.Y, 0.2), cframe, World.Screen, Enum.Material.SmoothPlastic, false)
+	local screen = Kit.block(
+		parent,
+		name,
+		Vector3.new(size.X, size.Y, 0.2),
+		cframe,
+		World.Screen,
+		Enum.Material.SmoothPlastic,
+		false
+	)
 	screen:SetAttribute(Constants.Attributes.Screen, kind)
 	if attributes ~= nil then
 		for key, value in attributes do
@@ -290,16 +299,38 @@ function Kit.angledScreen(
 	attributes: { [string]: any }?
 ): Part
 	local postHeight = 3
-	Kit.block(parent, name .. "Post", Vector3.new(1.2, postHeight, 1.2), floorCFrame * CFrame.new(0, postHeight * 0.5, 0.8), World.Steel, Enum.Material.Metal)
+	Kit.block(
+		parent,
+		name .. "Post",
+		Vector3.new(1.2, postHeight, 1.2),
+		floorCFrame * CFrame.new(0, postHeight * 0.5, 0.8),
+		World.Steel,
+		Enum.Material.Metal
+	)
 	local center = floorCFrame * CFrame.new(0, postHeight + size.Y * 0.5, 0) * CFrame.Angles(math.rad(-8), 0, 0)
 	return Kit.screen(parent, name, center, size, kind, attributes)
 end
 
 -- Console with a ProximityPrompt. The client opens the panel named by `terminal`.
-function Kit.terminal(parent: Instance, name: string, floorCFrame: CFrame, terminal: string, actionText: string, objectText: string, accent: Color3): Part
+function Kit.terminal(
+	parent: Instance,
+	name: string,
+	floorCFrame: CFrame,
+	terminal: string,
+	actionText: string,
+	objectText: string,
+	accent: Color3
+): Part
 	local model = Instance.new("Model")
 	model.Name = name
-	Kit.block(model, "Base", Vector3.new(3.4, 3.2, 2), floorCFrame * CFrame.new(0, 1.6, 0), World.Steel, Enum.Material.Metal)
+	Kit.block(
+		model,
+		"Base",
+		Vector3.new(3.4, 3.2, 2),
+		floorCFrame * CFrame.new(0, 1.6, 0),
+		World.Steel,
+		Enum.Material.Metal
+	)
 	local top = Kit.block(
 		model,
 		"Console",
@@ -328,16 +359,41 @@ function Kit.truss(parent: Instance, from: Vector3, to: Vector3, lights: number,
 	local length = delta.Magnitude
 	local frame = CFrame.lookAt(from + delta * 0.5, to)
 	for _, offset in { Vector3.new(-0.8, 0.8, 0), Vector3.new(0.8, 0.8, 0), Vector3.new(0, -0.6, 0) } do
-		Kit.block(parent, "TrussRail", Vector3.new(0.35, 0.35, length), frame * CFrame.new(offset), World.Steel, Enum.Material.Metal, false)
+		Kit.block(
+			parent,
+			"TrussRail",
+			Vector3.new(0.35, 0.35, length),
+			frame * CFrame.new(offset),
+			World.Steel,
+			Enum.Material.Metal,
+			false
+		)
 	end
 	local braces = math.max(2, math.floor(length / 3))
 	for index = 0, braces do
 		local z = -length * 0.5 + index * length / braces
-		Kit.block(parent, "TrussBrace", Vector3.new(1.7, 1.5, 0.2), frame * CFrame.new(0, 0.1, z), World.SteelLight, Enum.Material.Metal, false).Transparency = 0.2
+		Kit.block(
+			parent,
+			"TrussBrace",
+			Vector3.new(1.7, 1.5, 0.2),
+			frame * CFrame.new(0, 0.1, z),
+			World.SteelLight,
+			Enum.Material.Metal,
+			false
+		).Transparency =
+			0.2
 	end
 	for index = 1, lights do
 		local z = -length * 0.5 + (index - 0.5) * length / lights
-		local can = Kit.block(parent, "Spotlight", Vector3.new(1, 1.2, 1), frame * CFrame.new(0, -1.4, z), World.HazardBlack, Enum.Material.Metal, false)
+		local can = Kit.block(
+			parent,
+			"Spotlight",
+			Vector3.new(1, 1.2, 1),
+			frame * CFrame.new(0, -1.4, z),
+			World.HazardBlack,
+			Enum.Material.Metal,
+			false
+		)
 		local light = Instance.new("SpotLight")
 		light.Face = Enum.NormalId.Bottom
 		light.Angle = 60
@@ -352,10 +408,24 @@ end
 -- Props ---------------------------------------------------------------------------------------
 
 function Kit.crate(parent: Instance, floorCFrame: CFrame, size: number)
-	local body = Kit.block(parent, "Crate", Vector3.one * size, floorCFrame * CFrame.new(0, size * 0.5, 0), Color3.fromRGB(132, 108, 70))
+	local body = Kit.block(
+		parent,
+		"Crate",
+		Vector3.one * size,
+		floorCFrame * CFrame.new(0, size * 0.5, 0),
+		Color3.fromRGB(132, 108, 70)
+	)
 	body.Material = Enum.Material.WoodPlanks
 	for _, y in { 0.15, 0.85 } do
-		Kit.block(parent, "CrateBand", Vector3.new(size + 0.1, 0.25, size + 0.1), floorCFrame * CFrame.new(0, size * y, 0), World.Steel, Enum.Material.Metal, false)
+		Kit.block(
+			parent,
+			"CrateBand",
+			Vector3.new(size + 0.1, 0.25, size + 0.1),
+			floorCFrame * CFrame.new(0, size * y, 0),
+			World.Steel,
+			Enum.Material.Metal,
+			false
+		)
 	end
 end
 
@@ -379,9 +449,24 @@ end
 
 function Kit.container(parent: Instance, floorCFrame: CFrame, color: Color3)
 	local size = Vector3.new(8, 8.5, 20)
-	Kit.block(parent, "Container", size, floorCFrame * CFrame.new(0, size.Y * 0.5, 0), color, Enum.Material.CorrodedMetal)
+	Kit.block(
+		parent,
+		"Container",
+		size,
+		floorCFrame * CFrame.new(0, size.Y * 0.5, 0),
+		color,
+		Enum.Material.CorrodedMetal
+	)
 	for index = -4, 4 do
-		Kit.block(parent, "Rib", Vector3.new(size.X + 0.2, size.Y - 0.6, 0.3), floorCFrame * CFrame.new(0, size.Y * 0.5, index * 2.2), color, Enum.Material.Metal, false)
+		Kit.block(
+			parent,
+			"Rib",
+			Vector3.new(size.X + 0.2, size.Y - 0.6, 0.3),
+			floorCFrame * CFrame.new(0, size.Y * 0.5, index * 2.2),
+			color,
+			Enum.Material.Metal,
+			false
+		)
 	end
 end
 

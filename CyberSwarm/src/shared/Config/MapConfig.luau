@@ -29,7 +29,7 @@ local maps: { [string]: Types.MapDef } = {
 		templateName = "FactoryFloor",
 		laneCount = 2,
 		baseHealth = 900,
-		builtIn = false,
+		builtIn = true,
 	},
 	NeonCity = {
 		id = "NeonCity",
@@ -38,7 +38,7 @@ local maps: { [string]: Types.MapDef } = {
 		templateName = "NeonCity",
 		laneCount = 3,
 		baseHealth = 1200,
-		builtIn = false,
+		builtIn = true,
 	},
 	FrozenLab = {
 		id = "FrozenLab",
@@ -47,7 +47,7 @@ local maps: { [string]: Types.MapDef } = {
 		templateName = "FrozenLab",
 		laneCount = 2,
 		baseHealth = 1000,
-		builtIn = false,
+		builtIn = true,
 	},
 	TestYard = {
 		id = "TestYard",
@@ -65,7 +65,7 @@ local maps: { [string]: Types.MapDef } = {
 		templateName = "VolcanoCore",
 		laneCount = 3,
 		baseHealth = 1500,
-		builtIn = false,
+		builtIn = true,
 	},
 }
 MapConfig.Maps = maps

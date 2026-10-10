@@ -16,6 +16,7 @@ local RobotConfig = {}
 
 -- Typed up front so the literal union survives (the old type solver widens inline literals).
 local SAPPER_IMMUNITIES: { Types.Immunity } = { "Stun", "Slow" }
+local SLOW_IMMUNE: { Types.Immunity } = { "Slow" }
 
 RobotConfig.Rarities = { "Common", "Uncommon", "Rare", "Epic" }
 
@@ -141,7 +142,12 @@ local Robots: { [string]: Types.RobotDef } = {
 			{ kind = "Guard", radius = 10, reduction = 0.33 },
 		},
 		modelPath = "Robots/Sentinel",
-		visual = { size = Vector3.new(4.4, 4.2, 3.4), color = CYAN, accent = Color3.fromRGB(242, 193, 0), shape = "Block" },
+		visual = {
+			size = Vector3.new(4.4, 4.2, 3.4),
+			color = CYAN,
+			accent = Color3.fromRGB(242, 193, 0),
+			shape = "Block",
+		},
 		locked = false,
 		upgradeCosts = { 60, 120, 240 },
 	},
@@ -159,7 +165,12 @@ local Robots: { [string]: Types.RobotDef } = {
 			{ kind = "Disable", radius = 12, duration = 1.5, cooldown = 5 },
 		},
 		modelPath = "Robots/Sapper",
-		visual = { size = Vector3.new(2.4, 2, 2.4), color = MAGENTA, accent = Color3.fromRGB(242, 193, 0), shape = "Block" },
+		visual = {
+			size = Vector3.new(2.4, 2, 2.4),
+			color = MAGENTA,
+			accent = Color3.fromRGB(242, 193, 0),
+			shape = "Block",
+		},
 		locked = false,
 		upgradeCosts = { 45, 90, 180 },
 		immunities = SAPPER_IMMUNITIES,
@@ -196,7 +207,12 @@ local Robots: { [string]: Types.RobotDef } = {
 			{ kind = "Boost", radius = 12, amount = 0.25, duration = 1.5, interval = 1 },
 		},
 		modelPath = "Robots/Relay",
-		visual = { size = Vector3.new(2.2, 3, 2.2), color = CYAN, accent = Color3.fromRGB(86, 214, 146), shape = "Ball" },
+		visual = {
+			size = Vector3.new(2.2, 3, 2.2),
+			color = CYAN,
+			accent = Color3.fromRGB(86, 214, 146),
+			shape = "Ball",
+		},
 		locked = false,
 		upgradeCosts = { 50, 100, 200 },
 	},
@@ -239,7 +255,7 @@ local Robots: { [string]: Types.RobotDef } = {
 	MegaMech = {
 		id = "MegaMech",
 		displayName = "Mega Mech",
-		description = "A walking fortress. Coming soon.",
+		description = "A walking fortress that soaks up a whole defense line.",
 		rarity = "Epic",
 		cost = 250,
 		health = 1500,
@@ -249,8 +265,71 @@ local Robots: { [string]: Types.RobotDef } = {
 		abilities = {},
 		modelPath = "Robots/MegaMech",
 		visual = { size = Vector3.new(7, 8, 7), color = MAGENTA, accent = CYAN, shape = "Block" },
-		locked = true,
+		locked = false,
 		upgradeCosts = { 300, 600 },
+	},
+	Crawler = {
+		id = "Crawler",
+		displayName = "Crawler",
+		description = "Low spider bot. Cheap, quick, and shrugs off slows.",
+		rarity = "Common",
+		cost = 12,
+		health = 40,
+		speed = 14,
+		damage = 6,
+		flying = false,
+		abilities = {},
+		immunities = SLOW_IMMUNE,
+		modelPath = "Robots/Crawler",
+		visual = { size = Vector3.new(2.6, 1.4, 2.6), color = CYAN, accent = MAGENTA, shape = "Block" },
+		locked = false,
+		upgradeCosts = { 30, 60, 120 },
+	},
+	Juggernaut = {
+		id = "Juggernaut",
+		displayName = "Juggernaut",
+		description = "Armoured siege tank that pounds towers as it rolls in.",
+		rarity = "Rare",
+		cost = 70,
+		health = 420,
+		speed = 5,
+		damage = 30,
+		flying = false,
+		abilities = {
+			{ kind = "Strike", radius = 10, damage = 25, cooldown = 2.5 },
+		},
+		modelPath = "Robots/Juggernaut",
+		visual = {
+			size = Vector3.new(4.6, 3.4, 5),
+			color = MAGENTA,
+			accent = Color3.fromRGB(242, 193, 0),
+			shape = "Block",
+		},
+		locked = false,
+		upgradeCosts = { 90, 180, 360 },
+	},
+	Hornet = {
+		id = "Hornet",
+		displayName = "Hornet",
+		description = "Fast gunship that strafes towers from the air.",
+		rarity = "Rare",
+		cost = 35,
+		health = 70,
+		speed = 15,
+		damage = 9,
+		flying = true,
+		abilities = {
+			{ kind = "Strike", radius = 14, damage = 8, cooldown = 1.2 },
+		},
+		modelPath = "Robots/Hornet",
+		visual = {
+			size = Vector3.new(2.4, 1.2, 2.8),
+			color = CYAN,
+			accent = Color3.fromRGB(242, 193, 0),
+			shape = "Block",
+		},
+		locked = false,
+		upgradeCosts = { 50, 100, 200 },
 	},
 }
 RobotConfig.Robots = Robots
@@ -269,6 +348,9 @@ RobotConfig.Order = {
 	"Relay",
 	"Mortar",
 	"Phantom",
+	"Crawler",
+	"Juggernaut",
+	"Hornet",
 	"MegaMech",
 }
 

@@ -19,7 +19,12 @@ function SupplyRules.claimsToday(supply: Types.SupplyData, now: number): number
 end
 
 -- When the next claim becomes available, or nil if none are left today.
-function SupplyRules.nextAvailableAt(supply: Types.SupplyData, now: number, claimsPerDay: number, cooldown: number): number?
+function SupplyRules.nextAvailableAt(
+	supply: Types.SupplyData,
+	now: number,
+	claimsPerDay: number,
+	cooldown: number
+): number?
 	local used = SupplyRules.claimsToday(supply, now)
 	if used >= claimsPerDay then
 		return nil

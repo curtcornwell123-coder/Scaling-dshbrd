@@ -51,14 +51,20 @@ local function addPart(model: Model, spec: PartSpec): Part
 	return part
 end
 
-local function legs(model: Model, size: Vector3, height: number)
+local function legs(model: Model, size: Vector3, height: number, accent: Color3)
 	for _, side in { -1, 1 } do
 		addPart(model, {
 			name = "Leg",
-			size = Vector3.new(size.X * 0.24, height, size.Z * 0.34),
+			size = Vector3.new(size.X * 0.24, height, size.Z * 0.3),
 			cframe = CFrame.new(side * size.X * 0.25, -size.Y * 0.5 - height * 0.5, 0),
 			color = Theme.Colors.MetalDark,
 			material = Enum.Material.Metal,
+		})
+		addPart(model, {
+			name = "Foot",
+			size = Vector3.new(size.X * 0.32, height * 0.25, size.Z * 0.55),
+			cframe = CFrame.new(side * size.X * 0.25, -size.Y * 0.5 - height + height * 0.125, -size.Z * 0.08),
+			color = accent,
 		})
 	end
 end
@@ -85,35 +91,84 @@ function RobotModels.build(def: Types.RobotDef): Model
 	})
 	model.PrimaryPart = body
 
-	-- Visor and eye strip on the front face. Only the eye glows.
+	local dark = Theme.Colors.MetalDark
+	-- Head on a short neck, with a visor and a glowing eye strip (only the eye glows).
+	local headSize = Vector3.new(size.X * 0.55, size.Y * 0.38, size.Z * 0.5)
+	local headY = size.Y * 0.5 + headSize.Y * 0.5 + 0.1
+	addPart(
+		model,
+		{
+			name = "Neck",
+			size = Vector3.new(size.X * 0.2, 0.3, size.Z * 0.2),
+			cframe = CFrame.new(0, size.Y * 0.5, 0),
+			color = dark,
+		}
+	)
+	addPart(model, { name = "Head", size = headSize, cframe = CFrame.new(0, headY, 0), color = visual.color })
 	addPart(model, {
 		name = "Visor",
-		size = Vector3.new(size.X * 0.72, size.Y * 0.3, 0.25),
-		cframe = CFrame.new(0, size.Y * 0.12, -size.Z * 0.5),
+		size = Vector3.new(headSize.X * 0.85, headSize.Y * 0.42, 0.18),
+		cframe = CFrame.new(0, headY + headSize.Y * 0.05, -headSize.Z * 0.5),
 		color = Theme.Colors.PanelDark,
 	})
 	addPart(model, {
 		name = "Eye",
-		size = Vector3.new(size.X * 0.5, size.Y * 0.08, 0.12),
-		cframe = CFrame.new(0, size.Y * 0.12, -size.Z * 0.5 - 0.12),
+		size = Vector3.new(headSize.X * 0.6, headSize.Y * 0.14, 0.1),
+		cframe = CFrame.new(0, headY + headSize.Y * 0.05, -headSize.Z * 0.5 - 0.1),
 		color = visual.accent,
 		material = Enum.Material.Neon,
 	})
+	-- Chest plate and a painted band so the torso reads as armour, not a blob.
+	addPart(model, {
+		name = "ChestPlate",
+		size = Vector3.new(size.X * 0.7, size.Y * 0.45, 0.2),
+		cframe = CFrame.new(0, size.Y * 0.05, -size.Z * 0.5 - 0.05),
+		color = dark,
+	})
 	addPart(model, {
 		name = "CoreRing",
-		size = Vector3.new(size.X * 1.05, size.Y * 0.12, size.Z * 1.05),
-		cframe = CFrame.new(0, -size.Y * 0.15, 0),
+		size = Vector3.new(size.X * 1.04, size.Y * 0.1, size.Z * 1.04),
+		cframe = CFrame.new(0, -size.Y * 0.3, 0),
 		color = visual.accent,
 	})
+	-- Arms with forward gun barrels.
+	local armSize = Vector3.new(math.max(0.35, size.X * 0.18), size.Y * 0.65, math.max(0.35, size.Z * 0.22))
+	for _, side in { -1, 1 } do
+		local armX = side * (size.X * 0.5 + armSize.X * 0.5 + 0.05)
+		addPart(
+			model,
+			{
+				name = "Arm",
+				size = armSize,
+				cframe = CFrame.new(armX, 0, 0),
+				color = dark,
+				material = Enum.Material.Metal,
+			}
+		)
+		addPart(model, {
+			name = "Barrel",
+			size = Vector3.new(armSize.X * 0.6, armSize.X * 0.6, size.Z * 0.7),
+			cframe = CFrame.new(armX, -armSize.Y * 0.35, -size.Z * 0.4),
+			color = Theme.Colors.Metal,
+			material = Enum.Material.Metal,
+		})
+		addPart(model, {
+			name = "Muzzle",
+			size = Vector3.new(armSize.X * 0.4, armSize.X * 0.4, 0.1),
+			cframe = CFrame.new(armX, -armSize.Y * 0.35, -size.Z * 0.75 - 0.05),
+			color = visual.accent,
+			material = Enum.Material.Neon,
+		})
+	end
 
 	if builder == "Heavy" then
 		-- Shoulder armour plates.
 		for _, side in { -1, 1 } do
 			addPart(model, {
 				name = "Shoulder",
-				size = Vector3.new(size.X * 0.3, size.Y * 0.28, size.Z * 0.8),
-				cframe = CFrame.new(side * size.X * 0.62, size.Y * 0.3, 0),
-				color = Theme.Colors.MetalDark,
+				size = Vector3.new(armSize.X * 1.8, size.Y * 0.24, size.Z * 0.8),
+				cframe = CFrame.new(side * (size.X * 0.5 + armSize.X * 0.5), size.Y * 0.42, 0),
+				color = visual.color,
 				material = Enum.Material.Metal,
 			})
 		end
@@ -130,8 +185,8 @@ function RobotModels.build(def: Types.RobotDef): Model
 		addPart(model, {
 			name = "Antenna",
 			size = Vector3.new(0.14, size.Y * 0.6, 0.14),
-			cframe = CFrame.new(size.X * 0.3, size.Y * 0.8, 0),
-			color = Theme.Colors.MetalDark,
+			cframe = CFrame.new(size.X * 0.2, headY + headSize.Y * 0.5 + size.Y * 0.3, 0),
+			color = dark,
 		})
 	end
 
@@ -144,8 +199,17 @@ function RobotModels.build(def: Types.RobotDef): Model
 			transparency = 0.35,
 			shape = Enum.PartType.Cylinder,
 		})
+		for _, side in { -1, 1 } do
+			addPart(model, {
+				name = "Thruster",
+				size = Vector3.new(size.X * 0.22, size.Y * 0.3, size.Z * 0.22),
+				cframe = CFrame.new(side * size.X * 0.35, -size.Y * 0.55, 0),
+				color = visual.accent,
+				material = Enum.Material.Neon,
+			})
+		end
 	else
-		legs(model, size, if builder == "Walker" then LEG_HEIGHT * 1.6 else LEG_HEIGHT)
+		legs(model, size, if builder == "Walker" then LEG_HEIGHT * 1.6 else LEG_HEIGHT, visual.accent)
 	end
 
 	return model

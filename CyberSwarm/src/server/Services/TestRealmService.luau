@@ -244,7 +244,12 @@ local function groupFor(player: Player): { Player }
 	end
 	local group: { Player } = {}
 	for _, member in party.members do
-		if member.Parent ~= nil and DataService.isLoaded(member) and not MatchService.isInMatch(member) and playerRealm[member] == nil then
+		if
+			member.Parent ~= nil
+			and DataService.isLoaded(member)
+			and not MatchService.isInMatch(member)
+			and playerRealm[member] == nil
+		then
 			table.insert(group, member)
 		end
 	end
@@ -268,10 +273,19 @@ local function onTagged(position: Vector3, tag: string): boolean
 			local half = instance.Size * 0.5
 			local radius = math.max(half.Y, half.Z)
 			if instance:IsA("Part") and instance.Shape == Enum.PartType.Cylinder then
-				if math.sqrt(offset.Y * offset.Y + offset.Z * offset.Z) <= radius and offset.X >= -1 and offset.X <= 8 then
+				if
+					math.sqrt(offset.Y * offset.Y + offset.Z * offset.Z) <= radius
+					and offset.X >= -1
+					and offset.X <= 8
+				then
 					return true
 				end
-			elseif math.abs(offset.X) <= half.X and math.abs(offset.Z) <= half.Z and offset.Y >= 0 and offset.Y <= 8 then
+			elseif
+				math.abs(offset.X) <= half.X
+				and math.abs(offset.Z) <= half.Z
+				and offset.Y >= 0
+				and offset.Y <= 8
+			then
 				return true
 			end
 		end

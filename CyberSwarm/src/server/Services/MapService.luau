@@ -23,6 +23,7 @@ local MapConfig = require(ReplicatedStorage.Shared.Config.MapConfig)
 local ServerTypes = require(script.Parent.Parent.ServerTypes)
 local JunkyardBuilder = require(script.Parent.Parent.World.JunkyardBuilder)
 local TestYardBuilder = require(script.Parent.Parent.World.TestYardBuilder)
+local ThemedMapBuilder = require(script.Parent.Parent.World.ThemedMapBuilder)
 
 local Layout = Constants.MapLayout
 
@@ -31,6 +32,11 @@ local GENERATORS: { [string]: () -> Model } = {
 	Junkyard = JunkyardBuilder.build,
 	TestYard = TestYardBuilder.build,
 }
+for mapId, theme in ThemedMapBuilder.Themes do
+	GENERATORS[mapId] = function(): Model
+		return ThemedMapBuilder.build(theme)
+	end
+end
 
 local MapService = {}
 

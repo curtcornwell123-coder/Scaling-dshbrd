@@ -231,13 +231,7 @@ export type TroopRotation = {
 	resetsAt: number,
 }
 
-export type QuestKind =
-	"PlayMatches"
-	| "WinMatches"
-	| "CompleteWaves"
-	| "DeployRobots"
-	| "TryTroops"
-	| "TestRealmWaves"
+export type QuestKind = "PlayMatches" | "WinMatches" | "CompleteWaves" | "DeployRobots" | "TryTroops" | "TestRealmWaves"
 
 export type QuestDef = {
 	id: string,

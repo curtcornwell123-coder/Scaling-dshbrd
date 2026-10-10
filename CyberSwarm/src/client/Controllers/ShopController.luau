@@ -1,12 +1,15 @@
 --!strict
 --[[
 	ShopController
-	The Armory: a modal where players unlock new robots with profile coins. Rows are built once
-	from RobotConfig and only re-coloured when the profile changes. The client never decides a
-	purchase; it sends RequestUnlockRobot and waits for the server's updated profile.
+	The Troop Shop (opened from the Troop Depot terminal or the side rail): every catalog troop
+	with its price, currency, stock state (permanent or today's rotation), and unlock requirement.
+	The client never decides a purchase; it sends RequestBuyTroop with the troop id only and the
+	server answers with an ActionResult. On success `purchased` fires so the Loadout panel opens
+	as the equip slot picker.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
 
 local Theme = require(ReplicatedStorage.Shared.Theme)
 local Types = require(ReplicatedStorage.Shared.Types)
@@ -15,6 +18,9 @@ local Maid = require(ReplicatedStorage.Shared.Util.Maid)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local MathUtil = require(ReplicatedStorage.Shared.Util.Math)
 local RobotConfig = require(ReplicatedStorage.Shared.Config.RobotConfig)
+local TroopConfig = require(ReplicatedStorage.Shared.Config.TroopConfig)
+local TroopRotation = require(ReplicatedStorage.Shared.Logic.TroopRotation)
+local Requirements = require(ReplicatedStorage.Shared.Logic.Requirements)
 local UIKit = require(script.Parent.Parent.UI.UIKit)
 local ClientState = require(script.Parent.Parent.ClientState)
 local UIController = require(script.Parent.UIController)
@@ -31,7 +37,17 @@ type Row = {
 	stroke: UIStroke,
 }
 
+local ROTATION: TroopRotation.RotationSettings = {
+	permanent = TroopConfig.Permanent,
+	rotatingPool = TroopConfig.RotatingPool,
+	rotatingCount = TroopConfig.RotatingCount,
+	seed = TroopConfig.RotationSeed,
+}
+
 local ShopController = {}
+ShopController.rotationSettings = ROTATION
+-- Fires with the troop id after the server confirms a purchase.
+ShopController.purchased = Signal.new() :: Signal.Signal<string>
 
 -- Fires when the panel closes (its X button or another panel opening), so the rail can update.
 ShopController.closed = Signal.new() :: Signal.Signal<()>
@@ -55,6 +71,7 @@ end
 
 local function refresh(profile: Types.PlayerData?)
 	local coins = if profile ~= nil then profile.coins else 0
+	local rotation = TroopRotation.forTime(workspace:GetServerTimeNow(), ROTATION)
 	UIKit.setText(coinsLabel, `COINS {MathUtil.formatCount(coins)}`)
 	for _, row in rows do
 		local robot = RobotConfig.Robots[row.robotId]
@@ -70,8 +87,17 @@ local function refresh(profile: Types.PlayerData?)
 			row.button.TextColor3 = Theme.Colors.Success
 			row.stroke.Color = Theme.Colors.Success
 		else
-			local affordable = coins >= robot.unlockCost
-			UIKit.setText(row.button, `UNLOCK  {MathUtil.formatCount(robot.unlockCost)}`)
+			local troop = TroopConfig.Troops[row.robotId]
+			local inStock = TroopRotation.inStock(rotation, row.robotId)
+			local balance = if troop.currency == "Gems" then (if profile ~= nil then profile.gems else 0) else coins
+			local met = profile ~= nil and Requirements.isMet(troop.unlock, Requirements.progressOf(profile))
+			local affordable = inStock and met and balance >= troop.price
+			local priceText =
+				`{MathUtil.formatCount(troop.price)} {if troop.currency == "Gems" then "GEMS" else "COINS"}`
+			UIKit.setText(
+				row.button,
+				if not inStock then "NOT IN STOCK" elseif not met then "LOCKED" else `BUY  {priceText}`
+			)
 			row.button.BackgroundColor3 = if affordable then Theme.Colors.Primary else Theme.Colors.PanelLight
 			row.button.TextColor3 = if affordable then Theme.Colors.PanelDark else Theme.Colors.TextDim
 			row.stroke.Color = Theme.Colors.Primary
@@ -144,7 +170,7 @@ local function buildRow(list: ScrollingFrame, robotId: string, order: number)
 		if robot.locked or profile == nil or table.find(profile.unlockedRobots, robotId) ~= nil then
 			return
 		end
-		Remotes.RequestUnlockRobot:fire(robotId)
+		Remotes.RequestBuyTroop:fire(robotId)
 	end)
 
 	table.insert(rows, { robotId = robotId, button = button, stroke = stroke })
@@ -172,7 +198,29 @@ function ShopController.isOpen(): boolean
 	return panel.Visible
 end
 
+local function onActionResult(result: Types.ActionResult)
+	if result.action ~= "BuyTroop" or not result.ok or result.id == nil then
+		return
+	end
+	local troop = TroopConfig.Troops[result.id :: string]
+	UIController.showBanner(
+		"TROOP UNLOCKED",
+		if troop ~= nil then `{troop.name} joined your swarm. Pick a slot.` else "",
+		"Success"
+	)
+	local sound = Instance.new("Sound")
+	sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
+	sound.Volume = 0.6
+	SoundService:PlayLocalSound(sound)
+	task.delay(2, function()
+		sound:Destroy()
+	end)
+	ShopController.close()
+	ShopController.purchased:fire(result.id :: string)
+end
+
 function ShopController.init()
+	maid:give(Remotes.ActionResult:connect(onActionResult))
 	local modal = UIController.getLayer("Modal")
 	panel = UIKit.frame({
 		Name = "Armory",
@@ -191,7 +239,7 @@ function ShopController.init()
 		Size = UDim2.fromScale(0.5, 0.08),
 		Position = UDim2.fromScale(0.04, 0.03),
 		Font = Theme.Fonts.Title,
-		Text = "ARMORY",
+		Text = "TROOP SHOP",
 		TextColor3 = Theme.Colors.Secondary,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = panel,

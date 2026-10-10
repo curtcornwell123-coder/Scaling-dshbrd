@@ -13,6 +13,7 @@ local TweenService = game:GetService("TweenService")
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Maid = require(ReplicatedStorage.Shared.Util.Maid)
+local ModeConfig = require(ReplicatedStorage.Shared.Config.ModeConfig)
 local ClientState = require(script.Parent.Parent.ClientState)
 
 local CameraController = {}
@@ -51,6 +52,11 @@ local function onMatchChanged(snapshot: Types.MatchSnapshot)
 		return
 	end
 	activeMatchId = snapshot.matchId
+	-- Test Realm: players walk the yard deck (RETURN pad), so the normal camera stays.
+	local mode = ModeConfig.Modes[snapshot.modeId]
+	if mode ~= nil and mode.sandbox then
+		return
+	end
 	targetCFrame = snapshot.cameraCFrame
 	matchMaid:cleanup()
 	applyMatchCamera(true)

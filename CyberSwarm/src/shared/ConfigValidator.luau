@@ -109,7 +109,6 @@ local function checkIdMatchesKey(issues: Issues, path: string, key: string, entr
 	end
 end
 
-
 local UNLOCK_KINDS = { "None", "Wins", "HighestWave", "OwnsTroop", "LoadoutSize", "MatchesPlayed" }
 
 local function checkRequirement(issues: Issues, path: string, requirement: any, set: ConfigSet)
@@ -333,14 +332,23 @@ local function validateModes(issues: Issues, set: ConfigSet)
 		elseif mode.minPlayers < 1 or mode.maxPlayers < mode.minPlayers then
 			table.insert(issues, `{path} needs 1 <= minPlayers <= maxPlayers`)
 		end
-		if typeof(mode.teams) ~= "number" or typeof(mode.teamSize) ~= "number" or mode.teams < 1 or mode.teamSize < 1 then
+		if
+			typeof(mode.teams) ~= "number"
+			or typeof(mode.teamSize) ~= "number"
+			or mode.teams < 1
+			or mode.teamSize < 1
+		then
 			table.insert(issues, `{path} needs teams and teamSize of at least 1`)
 		elseif mode.teams > 1 and mode.minPlayers ~= mode.teams * mode.teamSize then
 			table.insert(issues, `{path}: team modes need minPlayers = teams * teamSize`)
 		elseif mode.teams == 1 and typeof(mode.maxPlayers) == "number" and mode.maxPlayers > mode.teamSize then
 			table.insert(issues, `{path}: one-team modes need maxPlayers <= teamSize`)
 		end
-		if typeof(mode.queueCap) ~= "number" or typeof(mode.maxPlayers) ~= "number" or mode.queueCap < mode.maxPlayers then
+		if
+			typeof(mode.queueCap) ~= "number"
+			or typeof(mode.maxPlayers) ~= "number"
+			or mode.queueCap < mode.maxPlayers
+		then
 			table.insert(issues, `{path}.queueCap must be at least maxPlayers`)
 		end
 		expectPositive(issues, path .. ".bayOrder", mode.bayOrder)
@@ -399,7 +407,6 @@ local function validateDefensePlan(issues: Issues, set: ConfigSet)
 		end
 	end
 end
-
 
 local function validateTroops(issues: Issues, set: ConfigSet)
 	for robotId in set.robots do
@@ -572,7 +579,10 @@ function ConfigValidator.setupWarnings(): { string }
 	local warnings: { string } = {}
 	for productKey, product in ShopConfig.Products do
 		if product.productId == 0 then
-			table.insert(warnings, `ShopConfig.Products.{productKey}.productId is 0; create the developer product and paste its id`)
+			table.insert(
+				warnings,
+				`ShopConfig.Products.{productKey}.productId is 0; create the developer product and paste its id`
+			)
 		end
 	end
 	if ShopConfig.PremiumGamePassId == 0 then

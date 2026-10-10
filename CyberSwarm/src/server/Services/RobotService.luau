@@ -238,7 +238,11 @@ local function runBoost(arena: Arena, robot: RobotUnit, ability: Types.AbilityDe
 	local amount = ability.amount or 0
 	local boosted = false
 	for _, ally in arena.robots do
-		if ally ~= robot and ally.alive and MathUtil.distanceSquared(ally.position, robot.position) <= radiusSquared then
+		if
+			ally ~= robot
+			and ally.alive
+			and MathUtil.distanceSquared(ally.position, robot.position) <= radiusSquared
+		then
 			if now >= ally.boostedUntil or amount > ally.boostAmount then
 				ally.boostAmount = amount
 			end
@@ -260,7 +264,14 @@ local function runTowerAttack(arena: Arena, robot: RobotUnit, ability: Types.Abi
 	end
 	robot.abilityReadyAt[index] = now + (ability.cooldown or 0)
 	local kind: Types.EffectKind = if ability.kind == "Bombard" then "Explosion" else "Shot"
-	Effects.send(arena.viewers, kind, robot.position, tower.position, robot.def.visual.accent, if kind == "Explosion" then 3 else 0)
+	Effects.send(
+		arena.viewers,
+		kind,
+		robot.position,
+		tower.position,
+		robot.def.visual.accent,
+		if kind == "Explosion" then 3 else 0
+	)
 	arena.towerHitRequested:fire(tower, robot, ability.damage or 0, 0)
 end
 

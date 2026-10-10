@@ -22,11 +22,28 @@ local HEIGHT = 22
 local Alcove = {}
 
 local function partyPad(model: Model, floor: CFrame, action: string, label: string, color: Color3)
-	local pad = Kit.block(model, "PartyPad_" .. action, Vector3.new(9, 0.5, 9), floor * CFrame.new(0, 0.25, 0), World.SteelLight, Enum.Material.DiamondPlate)
+	local pad = Kit.block(
+		model,
+		"PartyPad_" .. action,
+		Vector3.new(9, 0.5, 9),
+		floor * CFrame.new(0, 0.25, 0),
+		World.SteelLight,
+		Enum.Material.DiamondPlate
+	)
 	pad:SetAttribute(Constants.Attributes.PartyAction, action)
 	CollectionService:AddTag(pad, Constants.Tags.PartyPad)
 	Kit.ring(model, "PartyPadEdge", floor * CFrame.new(0, 0.52, 0), 4.8, 0.4, 0.06, 4, color, Enum.Material.Neon)
-	Kit.sign(model, "PartyPadLabel", floor * CFrame.new(0, 0.53, 0) * CFrame.Angles(math.rad(90), 0, 0), Vector2.new(7, 2), label, color, nil, nil, Theme.Fonts.Title)
+	Kit.sign(
+		model,
+		"PartyPadLabel",
+		floor * CFrame.new(0, 0.53, 0) * CFrame.Angles(math.rad(90), 0, 0),
+		Vector2.new(7, 2),
+		label,
+		color,
+		nil,
+		nil,
+		Theme.Fonts.Title
+	)
 end
 
 function Alcove.build(parent: Instance, origin: CFrame)
@@ -42,8 +59,28 @@ function Alcove.build(parent: Instance, origin: CFrame)
 	partyPad(model, frame * CFrame.new(9, 0, 0), "Leave", "LEAVE PARTY", World.RingLocked)
 	local back = frame * CFrame.new(0, 0, depth * 0.5 - 0.6)
 	Kit.screen(model, "PartyScreen", back * CFrame.new(-9, 9, 0), Vector2.new(10, 6), Constants.ScreenKind.Party)
-	Kit.sign(model, "PartySign", back * CFrame.new(-9, 13.4, 0), Vector2.new(10, 1.8), "PARTY", Areas.Party, World.Steel, Areas.Party, Theme.Fonts.Title)
-	Kit.sign(model, "ArmorySign", back * CFrame.new(9, 13.4, 0), Vector2.new(10, 1.8), "ARMORY", Areas.Armory, World.Steel, Areas.Armory, Theme.Fonts.Title)
+	Kit.sign(
+		model,
+		"PartySign",
+		back * CFrame.new(-9, 13.4, 0),
+		Vector2.new(10, 1.8),
+		"PARTY",
+		Areas.Party,
+		World.Steel,
+		Areas.Party,
+		Theme.Fonts.Title
+	)
+	Kit.sign(
+		model,
+		"ArmorySign",
+		back * CFrame.new(9, 13.4, 0),
+		Vector2.new(10, 1.8),
+		"ARMORY",
+		Areas.Armory,
+		World.Steel,
+		Areas.Armory,
+		Theme.Fonts.Title
+	)
 	Kit.terminal(model, "ArmoryTerminal", back * CFrame.new(9, 0, -3), "Loadout", "Loadout", "Armory", Areas.Armory)
 	Kit.screen(model, "ArmoryRankCard", back * CFrame.new(9, 8.5, 0), Vector2.new(8, 5), Constants.ScreenKind.RankCard)
 	model.Parent = parent

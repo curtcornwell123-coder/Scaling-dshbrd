@@ -33,48 +33,149 @@ local Market = {}
 local function buildRobuxBay(model: Model, bay: CFrame)
 	local stage = Instance.new("Model")
 	stage.Name = "Bay01_RobuxShop"
-	Kit.block(stage, "Stage", Vector3.new(22, 1.2, 10), bay * CFrame.new(0, 0.6, -5), World.Steel, Enum.Material.WoodPlanks)
+	Kit.block(
+		stage,
+		"Stage",
+		Vector3.new(22, 1.2, 10),
+		bay * CFrame.new(0, 0.6, -5),
+		World.Steel,
+		Enum.Material.WoodPlanks
+	)
 	Kit.hazardStripe(stage, bay * CFrame.new(0, 1.24, -9.6), 22, 0.6, 0.06)
 	-- Red wedge curtains framing the stage.
 	for _, side in { -1, 1 } do
-		Kit.wedge(stage, "Curtain", Vector3.new(1, 16, 5), bay * CFrame.new(side * 11.5, 9.2, -1.5) * CFrame.Angles(0, if side < 0 then 0 else math.pi, 0), World.Curtain)
-		Kit.block(stage, "TrussLeg", Vector3.new(0.6, 18, 0.6), bay * CFrame.new(side * 12.5, 9, -8), World.Steel, Enum.Material.Metal)
+		Kit.wedge(
+			stage,
+			"Curtain",
+			Vector3.new(1, 16, 5),
+			bay * CFrame.new(side * 11.5, 9.2, -1.5) * CFrame.Angles(0, if side < 0 then 0 else math.pi, 0),
+			World.Curtain
+		)
+		Kit.block(
+			stage,
+			"TrussLeg",
+			Vector3.new(0.6, 18, 0.6),
+			bay * CFrame.new(side * 12.5, 9, -8),
+			World.Steel,
+			Enum.Material.Metal
+		)
 	end
-	Kit.block(stage, "CurtainTop", Vector3.new(24, 2, 1.5), bay * CFrame.new(0, 17.5, -1), World.Curtain, Enum.Material.Fabric)
-	Kit.truss(stage, (bay * CFrame.new(-12.5, 18, -8)).Position, (bay * CFrame.new(12.5, 18, -8)).Position, 4, Color3.fromRGB(255, 226, 180))
-	Kit.sign(stage, "RobuxSign", bay * CFrame.new(0, 14, -0.4), Vector2.new(14, 3), "ROBUX SHOP", Areas.Market, World.Steel, Areas.Market, Theme.Fonts.Title)
-	Kit.sign(stage, "BayPlate", bay * CFrame.new(-8, 4, -0.4), Vector2.new(4, 1.2), "BAY 01", World.HazardBlack, World.Hazard, nil, Theme.Fonts.Title)
+	Kit.block(
+		stage,
+		"CurtainTop",
+		Vector3.new(24, 2, 1.5),
+		bay * CFrame.new(0, 17.5, -1),
+		World.Curtain,
+		Enum.Material.Fabric
+	)
+	Kit.truss(
+		stage,
+		(bay * CFrame.new(-12.5, 18, -8)).Position,
+		(bay * CFrame.new(12.5, 18, -8)).Position,
+		4,
+		Color3.fromRGB(255, 226, 180)
+	)
+	Kit.sign(
+		stage,
+		"RobuxSign",
+		bay * CFrame.new(0, 14, -0.4),
+		Vector2.new(14, 3),
+		"ROBUX SHOP",
+		Areas.Market,
+		World.Steel,
+		Areas.Market,
+		Theme.Fonts.Title
+	)
+	Kit.sign(
+		stage,
+		"BayPlate",
+		bay * CFrame.new(-8, 4, -0.4),
+		Vector2.new(4, 1.2),
+		"BAY 01",
+		World.HazardBlack,
+		World.Hazard,
+		nil,
+		Theme.Fonts.Title
+	)
 	-- Product stands: three short plinths with display crates.
 	for index, x in { -6, 0, 6 } do
 		local stand = bay * CFrame.new(x, 1.2, -5)
-		Kit.block(stage, `Stand_{index}`, Vector3.new(3, 2.4, 3), stand * CFrame.new(0, 1.2, 0), World.SteelLight, Enum.Material.Metal)
+		Kit.block(
+			stage,
+			`Stand_{index}`,
+			Vector3.new(3, 2.4, 3),
+			stand * CFrame.new(0, 1.2, 0),
+			World.SteelLight,
+			Enum.Material.Metal
+		)
 		Kit.glow(stage, `StandTop_{index}`, Vector3.new(3.1, 0.15, 3.1), stand * CFrame.new(0, 2.45, 0), Areas.Market)
 		Kit.crate(stage, stand * CFrame.new(0, 2.5, 0) * CFrame.Angles(0, math.rad(25 * index), 0), 1.6)
 	end
 	-- Stanchions with a rope line in front of the stage.
 	for index = 0, 4 do
 		local post = bay * CFrame.new(-10 + index * 5, 0, -12)
-		Kit.block(stage, "Stanchion", Vector3.new(0.4, 3, 0.4), post * CFrame.new(0, 1.5, 0), Areas.Market, Enum.Material.Metal, false)
+		Kit.block(
+			stage,
+			"Stanchion",
+			Vector3.new(0.4, 3, 0.4),
+			post * CFrame.new(0, 1.5, 0),
+			Areas.Market,
+			Enum.Material.Metal,
+			false
+		)
 		if index < 4 then
-			Kit.block(stage, "Rope", Vector3.new(5, 0.2, 0.2), post * CFrame.new(2.5, 2.6, 0), World.Curtain, Enum.Material.Fabric, false)
+			Kit.block(
+				stage,
+				"Rope",
+				Vector3.new(5, 0.2, 0.2),
+				post * CFrame.new(2.5, 2.6, 0),
+				World.Curtain,
+				Enum.Material.Fabric,
+				false
+			)
 		end
 	end
-	Kit.terminal(stage, "RobuxTerminal", bay * CFrame.new(13, 0, -13) * CFrame.Angles(0, math.rad(-30), 0), "RobuxShop", "Shop", "Robux Shop", Areas.Market)
+	Kit.terminal(
+		stage,
+		"RobuxTerminal",
+		bay * CFrame.new(13, 0, -13) * CFrame.Angles(0, math.rad(-30), 0),
+		"RobuxShop",
+		"Shop",
+		"Robux Shop",
+		Areas.Market
+	)
 	stage.Parent = model
 end
 
 -- Original emblem: a shield with two swept wings, from blocks and wedges.
 local function wingedShield(model: Model, frame: CFrame)
 	Kit.block(model, "ShieldBody", Vector3.new(3.2, 3.4, 0.3), frame, Areas.Market, Enum.Material.SmoothPlastic, false)
-	Kit.wedge(model, "ShieldPoint", Vector3.new(0.3, 1.6, 3.2), frame * CFrame.new(0, -2.5, 0) * CFrame.Angles(0, math.rad(90), math.pi), Areas.Market).CanCollide = false
-	Kit.block(model, "ShieldStripe", Vector3.new(0.6, 3.4, 0.32), frame * CFrame.new(0, 0, -0.02), PASS_BLUE, Enum.Material.SmoothPlastic, false)
+	Kit.wedge(
+		model,
+		"ShieldPoint",
+		Vector3.new(0.3, 1.6, 3.2),
+		frame * CFrame.new(0, -2.5, 0) * CFrame.Angles(0, math.rad(90), math.pi),
+		Areas.Market
+	).CanCollide =
+		false
+	Kit.block(
+		model,
+		"ShieldStripe",
+		Vector3.new(0.6, 3.4, 0.32),
+		frame * CFrame.new(0, 0, -0.02),
+		PASS_BLUE,
+		Enum.Material.SmoothPlastic,
+		false
+	)
 	for _, side in { -1, 1 } do
 		for feather = 1, 3 do
 			Kit.block(
 				model,
 				"Wing",
 				Vector3.new(3.2 - feather * 0.5, 0.55, 0.25),
-				frame * CFrame.new(side * (2.6 + feather * 0.25), 1.1 - feather * 0.75, 0.05) * CFrame.Angles(0, 0, math.rad(side * (18 + feather * 8))),
+				frame
+					* CFrame.new(side * (2.6 + feather * 0.25), 1.1 - feather * 0.75, 0.05)
+					* CFrame.Angles(0, 0, math.rad(side * (18 + feather * 8))),
 				World.EmblemWhite,
 				Enum.Material.SmoothPlastic,
 				false
@@ -86,30 +187,122 @@ end
 local function buildPassBay(model: Model, bay: CFrame)
 	local set = Instance.new("Model")
 	set.Name = "Bay02_SeasonPass"
-	Kit.block(set, "GreenScreen", Vector3.new(22, 16, 0.5), bay * CFrame.new(0, 8, -0.4), World.GreenScreen, Enum.Material.SmoothPlastic)
-	Kit.block(set, "GreenFloor", Vector3.new(22, 0.1, 8), bay * CFrame.new(0, 0.05, -4.6), World.GreenScreen, Enum.Material.SmoothPlastic, false)
+	Kit.block(
+		set,
+		"GreenScreen",
+		Vector3.new(22, 16, 0.5),
+		bay * CFrame.new(0, 8, -0.4),
+		World.GreenScreen,
+		Enum.Material.SmoothPlastic
+	)
+	Kit.block(
+		set,
+		"GreenFloor",
+		Vector3.new(22, 0.1, 8),
+		bay * CFrame.new(0, 0.05, -4.6),
+		World.GreenScreen,
+		Enum.Material.SmoothPlastic,
+		false
+	)
 	wingedShield(set, bay * CFrame.new(0, 12, -0.8))
 	for _, side in { -1, 1 } do
-		Kit.block(set, "TrussLeg", Vector3.new(0.6, 18, 0.6), bay * CFrame.new(side * 12.5, 9, -9), World.Steel, Enum.Material.Metal)
+		Kit.block(
+			set,
+			"TrussLeg",
+			Vector3.new(0.6, 18, 0.6),
+			bay * CFrame.new(side * 12.5, 9, -9),
+			World.Steel,
+			Enum.Material.Metal
+		)
 	end
 	Kit.truss(set, (bay * CFrame.new(-12.5, 18, -9)).Position, (bay * CFrame.new(12.5, 18, -9)).Position, 4)
 	-- Pass board with tiers and the season countdown (client drawn).
 	Kit.screen(set, "PassBoard", bay * CFrame.new(0, 5.5, -0.8), Vector2.new(14, 6), Screen.Pass)
-	Kit.sign(set, "PassBanner", bay * CFrame.new(-14.5, 8, -3) * CFrame.Angles(0, math.rad(25), 0), Vector2.new(4, 9), `{SeasonConfig.DisplayName}\nPASS`, World.EmblemWhite, PASS_BLUE, nil, Theme.Fonts.Title)
-	Kit.sign(set, "BayPlate", bay * CFrame.new(8, 1.8, -0.8), Vector2.new(4, 1.2), "BAY 02", World.HazardBlack, World.Hazard, nil, Theme.Fonts.Title)
+	Kit.sign(
+		set,
+		"PassBanner",
+		bay * CFrame.new(-14.5, 8, -3) * CFrame.Angles(0, math.rad(25), 0),
+		Vector2.new(4, 9),
+		`{SeasonConfig.DisplayName}\nPASS`,
+		World.EmblemWhite,
+		PASS_BLUE,
+		nil,
+		Theme.Fonts.Title
+	)
+	Kit.sign(
+		set,
+		"BayPlate",
+		bay * CFrame.new(8, 1.8, -0.8),
+		Vector2.new(4, 1.2),
+		"BAY 02",
+		World.HazardBlack,
+		World.Hazard,
+		nil,
+		Theme.Fonts.Title
+	)
 	-- Director's chair and clapperboard.
 	local chair = bay * CFrame.new(7, 0, -8) * CFrame.Angles(0, math.rad(200), 0)
 	for _, side in { -1, 1 } do
-		Kit.block(set, "ChairLeg", Vector3.new(0.2, 3, 0.2), chair * CFrame.new(side * 0.9, 1.5, 0) * CFrame.Angles(math.rad(14), 0, 0), Color3.fromRGB(132, 108, 70), Enum.Material.Wood)
-		Kit.block(set, "ChairLeg", Vector3.new(0.2, 3, 0.2), chair * CFrame.new(side * 0.9, 1.5, 0) * CFrame.Angles(math.rad(-14), 0, 0), Color3.fromRGB(132, 108, 70), Enum.Material.Wood)
+		Kit.block(
+			set,
+			"ChairLeg",
+			Vector3.new(0.2, 3, 0.2),
+			chair * CFrame.new(side * 0.9, 1.5, 0) * CFrame.Angles(math.rad(14), 0, 0),
+			Color3.fromRGB(132, 108, 70),
+			Enum.Material.Wood
+		)
+		Kit.block(
+			set,
+			"ChairLeg",
+			Vector3.new(0.2, 3, 0.2),
+			chair * CFrame.new(side * 0.9, 1.5, 0) * CFrame.Angles(math.rad(-14), 0, 0),
+			Color3.fromRGB(132, 108, 70),
+			Enum.Material.Wood
+		)
 	end
-	Kit.block(set, "ChairSeat", Vector3.new(2, 0.15, 1.4), chair * CFrame.new(0, 2.8, 0), World.HazardBlack, Enum.Material.Fabric)
-	Kit.block(set, "ChairBack", Vector3.new(2, 1, 0.15), chair * CFrame.new(0, 4.1, 0.7), World.HazardBlack, Enum.Material.Fabric)
+	Kit.block(
+		set,
+		"ChairSeat",
+		Vector3.new(2, 0.15, 1.4),
+		chair * CFrame.new(0, 2.8, 0),
+		World.HazardBlack,
+		Enum.Material.Fabric
+	)
+	Kit.block(
+		set,
+		"ChairBack",
+		Vector3.new(2, 1, 0.15),
+		chair * CFrame.new(0, 4.1, 0.7),
+		World.HazardBlack,
+		Enum.Material.Fabric
+	)
 	local clapper = bay * CFrame.new(-6, 0, -8)
-	Kit.block(set, "ClapperStand", Vector3.new(1.4, 2.4, 1.4), clapper * CFrame.new(0, 1.2, 0), World.Steel, Enum.Material.Metal)
-	Kit.block(set, "Clapperboard", Vector3.new(1.8, 1.3, 0.15), clapper * CFrame.new(0, 3.1, 0) * CFrame.Angles(math.rad(-15), 0, 0), World.HazardBlack, Enum.Material.SmoothPlastic)
+	Kit.block(
+		set,
+		"ClapperStand",
+		Vector3.new(1.4, 2.4, 1.4),
+		clapper * CFrame.new(0, 1.2, 0),
+		World.Steel,
+		Enum.Material.Metal
+	)
+	Kit.block(
+		set,
+		"Clapperboard",
+		Vector3.new(1.8, 1.3, 0.15),
+		clapper * CFrame.new(0, 3.1, 0) * CFrame.Angles(math.rad(-15), 0, 0),
+		World.HazardBlack,
+		Enum.Material.SmoothPlastic
+	)
 	Kit.hazardStripe(set, clapper * CFrame.new(0, 3.85, 0.1) * CFrame.Angles(0, 0, math.rad(8)), 1.8, 0.16, 0.3)
-	Kit.terminal(set, "PassTerminal", bay * CFrame.new(-11, 0, -12) * CFrame.Angles(0, math.rad(30), 0), "Pass", "Open", "Season Pass", PASS_BLUE)
+	Kit.terminal(
+		set,
+		"PassTerminal",
+		bay * CFrame.new(-11, 0, -12) * CFrame.Angles(0, math.rad(30), 0),
+		"Pass",
+		"Open",
+		"Season Pass",
+		PASS_BLUE
+	)
 	set.Parent = model
 end
 
@@ -117,7 +310,17 @@ local function buildStatue(model: Model, floor: CFrame)
 	local statue = Instance.new("Model")
 	statue.Name = "CollectibleStatue"
 	Kit.disc(statue, "Pedestal", 2.6, 3, floor * CFrame.new(0, 1.5, 0), World.Steel, Enum.Material.Metal)
-	Kit.ring(statue, "PedestalGlow", floor * CFrame.new(0, 3.02, 0), 2.4, 0.3, 0.06, 20, Areas.Market, Enum.Material.Neon)
+	Kit.ring(
+		statue,
+		"PedestalGlow",
+		floor * CFrame.new(0, 3.02, 0),
+		2.4,
+		0.3,
+		0.06,
+		20,
+		Areas.Market,
+		Enum.Material.Neon
+	)
 	-- A gold low-poly robot on a mid-stride pose.
 	local base = floor * CFrame.new(0, 3, 0)
 	local gold = Color3.fromRGB(214, 170, 60)
@@ -149,7 +352,17 @@ function Market.build(parent: Instance, origin: CFrame)
 	Room.build(model, frame, width, depth, HEIGHT, Layout.HALL_WIDTH, World.Concrete)
 
 	local entry = frame * CFrame.new(0, 0, -(depth * 0.5 + Layout.WALL_THICKNESS + 0.3))
-	Kit.sign(model, "MarketSign", entry * CFrame.new(0, 21.5, 0), Vector2.new(14, 3.6), "MARKET", Areas.Market, World.Steel, Areas.Market, Theme.Fonts.Title)
+	Kit.sign(
+		model,
+		"MarketSign",
+		entry * CFrame.new(0, 21.5, 0),
+		Vector2.new(14, 3.6),
+		"MARKET",
+		Areas.Market,
+		World.Steel,
+		Areas.Market,
+		Theme.Fonts.Title
+	)
 	-- Yellow guide lines from the entrance to each bay.
 	local doorway = (frame * CFrame.new(0, 0, -(depth * 0.5 - 2))).Position
 	Kit.floorLine(model, doorway, (frame * CFrame.new(-(width * 0.5 - 16), 0, 0)).Position, 0.6, World.Hazard)

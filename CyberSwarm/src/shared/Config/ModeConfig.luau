@@ -29,6 +29,9 @@ local RANKED_UNLOCK: { Types.UnlockRequirement } = {
 	{ kind = "MatchesPlayed", value = 10 },
 }
 
+-- Every built-in arena world; a match picks one at random.
+local WORLDS = { "Junkyard", "FactoryFloor", "NeonCity", "FrozenLab", "VolcanoCore" }
+
 local ModeConfig = {}
 
 local modes: { [string]: Types.ModeDef } = {
@@ -51,7 +54,7 @@ local modes: { [string]: Types.ModeDef } = {
 		queueCountdown = 3,
 		estimatedWait = 3,
 		maxWaves = 20,
-		mapPool = { "Junkyard" },
+		mapPool = WORLDS,
 		rewards = { winCoins = 150, lossCoins = 25, perWaveCoins = 8 },
 		baseHealthPerExtraPlayer = 0,
 		sandbox = false,
@@ -75,7 +78,7 @@ local modes: { [string]: Types.ModeDef } = {
 		queueCountdown = 5,
 		estimatedWait = 30,
 		maxWaves = 20,
-		mapPool = { "Junkyard" },
+		mapPool = WORLDS,
 		rewards = { winCoins = 250, lossCoins = 40, perWaveCoins = 8 },
 		baseHealthPerExtraPlayer = 0,
 		sandbox = false,
@@ -99,7 +102,7 @@ local modes: { [string]: Types.ModeDef } = {
 		queueCountdown = 5,
 		estimatedWait = 45,
 		maxWaves = 20,
-		mapPool = { "Junkyard" },
+		mapPool = WORLDS,
 		rewards = { winCoins = 300, lossCoins = 40, perWaveCoins = 8 },
 		baseHealthPerExtraPlayer = 0,
 		sandbox = false,
@@ -123,7 +126,7 @@ local modes: { [string]: Types.ModeDef } = {
 		queueCountdown = 6,
 		estimatedWait = 60,
 		maxWaves = 20,
-		mapPool = { "Junkyard" },
+		mapPool = WORLDS,
 		rewards = { winCoins = 250, lossCoins = 40, perWaveCoins = 8 },
 		baseHealthPerExtraPlayer = 0.6,
 		sandbox = false,
@@ -147,7 +150,7 @@ local modes: { [string]: Types.ModeDef } = {
 		queueCountdown = 6,
 		estimatedWait = 90,
 		maxWaves = 20,
-		mapPool = { "Junkyard" },
+		mapPool = WORLDS,
 		rewards = { winCoins = 300, lossCoins = 40, perWaveCoins = 8 },
 		baseHealthPerExtraPlayer = 0.6,
 		sandbox = false,
@@ -171,7 +174,7 @@ local modes: { [string]: Types.ModeDef } = {
 		queueCountdown = 10,
 		estimatedWait = 30,
 		maxWaves = 25,
-		mapPool = { "Junkyard" },
+		mapPool = WORLDS,
 		rewards = { winCoins = 200, lossCoins = 30, perWaveCoins = 8 },
 		baseHealthPerExtraPlayer = 0.75,
 		sandbox = false,

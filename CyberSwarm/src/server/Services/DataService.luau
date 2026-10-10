@@ -190,7 +190,11 @@ local function sanitizeRank(raw: any, defaults: Types.RankData): Types.RankData
 	end
 	local pending: Types.RankedReward? = nil
 	local rawPending: any = raw.pendingReward
-	if TableUtil.isTable(rawPending) and type(rawPending.seasonId) == "string" and type(rawPending.tier) == "string" then
+	if
+		TableUtil.isTable(rawPending)
+		and type(rawPending.seasonId) == "string"
+		and type(rawPending.tier) == "string"
+	then
 		local reward = sanitizeReward(rawPending.reward)
 		if reward ~= nil then
 			pending = { seasonId = rawPending.seasonId, tier = rawPending.tier, reward = reward }

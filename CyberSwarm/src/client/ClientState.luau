@@ -18,12 +18,20 @@ ClientState.profile = nil :: Types.PlayerData?
 ClientState.queue = nil :: Types.QueueSnapshot?
 ClientState.queueBoard = {} :: { Types.QueueBoardEntry }
 ClientState.match = nil :: Types.MatchSnapshot?
+ClientState.leaderboards = {} :: { [string]: Types.LeaderboardSnapshot }
+ClientState.party = { members = {}, leader = nil } :: Types.PartySnapshot
+ClientState.sandbox = nil :: Types.SandboxState?
+-- Latest server queue notice (e.g. party too large), cleared with an empty modeId.
+ClientState.queueNotice = nil :: Types.QueueNotice?
 
 ClientState.profileChanged = Signal.new() :: Signal.Signal<Types.PlayerData>
 ClientState.queueChanged = Signal.new() :: Signal.Signal<Types.QueueSnapshot>
 ClientState.queueBoardChanged = Signal.new() :: Signal.Signal<{ Types.QueueBoardEntry }>
 ClientState.matchChanged = Signal.new() :: Signal.Signal<Types.MatchSnapshot>
 ClientState.matchClosed = Signal.new() :: Signal.Signal<()>
+ClientState.leaderboardChanged = Signal.new() :: Signal.Signal<Types.LeaderboardSnapshot>
+ClientState.partyChanged = Signal.new() :: Signal.Signal<Types.PartySnapshot>
+ClientState.sandboxChanged = Signal.new() :: Signal.Signal<Types.SandboxState>
 
 function ClientState.start()
 	Remotes.ProfileUpdated:connect(function(profile: Types.PlayerData)
@@ -41,6 +49,21 @@ function ClientState.start()
 	Remotes.MatchUpdated:connect(function(match: Types.MatchSnapshot)
 		ClientState.match = match
 		ClientState.matchChanged:fire(match)
+	end)
+	Remotes.Leaderboard:connect(function(board: Types.LeaderboardSnapshot)
+		ClientState.leaderboards[board.board] = board
+		ClientState.leaderboardChanged:fire(board)
+	end)
+	Remotes.PartyUpdated:connect(function(party: Types.PartySnapshot)
+		ClientState.party = party
+		ClientState.partyChanged:fire(party)
+	end)
+	Remotes.SandboxState:connect(function(state: Types.SandboxState)
+		ClientState.sandbox = if state.active then state else nil
+		ClientState.sandboxChanged:fire(state)
+	end)
+	Remotes.QueueNotice:connect(function(notice: Types.QueueNotice)
+		ClientState.queueNotice = if notice.modeId ~= "" then notice else nil
 	end)
 	Remotes.MatchClosed:connect(function()
 		ClientState.match = nil
