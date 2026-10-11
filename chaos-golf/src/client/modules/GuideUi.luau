@@ -115,7 +115,7 @@ local function modes(): { Section }
 			if m.BallCollide then "Balls collide: knock rivals off the course for a knockout." else "Balls pass through each other: pure skill.",
 		}
 		if m.Ranked then
-			table.insert(lines, "Win to climb " .. b("MMR") .. " through " .. #Ranks.Tiers .. " tiers (Bronze to Chaos Legend); Gold, Diamond, Onyx and Chaos Legend unlock a ball.")
+			table.insert(lines, "Everyone starts " .. b("Unranked") .. ": win " .. Config.Ranked.PlacementWins .. " Ranked games to place in " .. b("Bronze") .. ", then win to climb " .. b("MMR") .. " through " .. #Ranks.Tiers .. " tiers (Bronze to Chaos Legend); Gold, Diamond, Onyx and Chaos Legend unlock a ball.")
 			table.insert(lines, "Ball upgrades are " .. b("off") .. " in Ranked; everyone starts with the same two power-ups.")
 		elseif id == "Race" then
 			table.insert(lines, string.format("When the first ball sinks, the rest have %d seconds. Points per place: %s.", m.FinishWindow or 30, table.concat(Config.Match.RacePoints, " / ")))

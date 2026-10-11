@@ -114,7 +114,7 @@ Every match is 6 holes. Each hole has a 120 s limit and a stroke cap of par + 4.
 
 ### Ranked
 
-Hidden Elo MMR (start 1000, K 32, 48 for the first 5 placement matches) shown as tiers with three divisions: Bronze → Silver → Gold → Platinum → Diamond → Onyx → Chaos Legend. Reaching Gold, Diamond, Onyx and Chaos Legend unlocks a rank skin. Leaving mid-match counts as a loss. The rank shows on your nametag and the player list.
+Everyone starts **Unranked**: win 3 Ranked games to place (the results screen counts down "UNRANKED · 2 wins to rank"; placing shows a toast). Hidden Elo MMR starts at 600, the foot of Bronze (K 32, 48 for the first 5 matches), so the first rank is Bronze and players climb from there through tiers with three divisions: Bronze (III from 600) → Silver (900) → Gold (1100) → Platinum (1300) → Diamond (1500) → Onyx (1700) → Chaos Legend (1900). Rank-ups toast too. Reaching Gold, Diamond, Onyx and Chaos Legend unlocks a rank skin. Leaving mid-match counts as a loss. The rank shows on your nametag and the player list ("UNRANKED" until placed). Profiles from before this (start 1000, shown Silver II without a game) restart Unranked at 600 unless they already had 3 Ranked wins.
 
 ## 5. Courses
 
@@ -164,11 +164,11 @@ Owned{Skins{},Trails{},Knockouts{},Arrows{}}, Equipped{Skins,Trails,Knockouts,Ar
 Keys{Skins,Trails,Knockouts,Arrows}, Login{Day,LastClaim},
 Celebration, Upgrades{Power,Control,Bounce},
 Stats{Wins,Matches,Sabotages,Knockouts,CoinsEarned,HoleInOnes,Holes},
-Ranked{MMR,Wins,Losses,Draws,Played,Peak},
+Ranked{MMR,Wins,Losses,Draws,Played,Peak,V},
 Creator, TutorialDone, Device, GroupClaimed, PracticeBest{}, Serials{skinId=n}, Pity{crateId=n}, Receipts[], Lock
 ```
 
-Other stores: `_Public` (equipped skin, trail and MMR, for podiums), `_Global` (Mythic stock), `_CreatorSales`, and `_LB_<Stat>_<D|W|A>` ordered stores.
+Other stores: `_Public` (equipped skin, trail, MMR and Ranked wins, for podiums), `_Global` (Mythic stock), `_CreatorSales`, and `_LB_<Stat>_<D|W|A>` ordered stores.
 
 ## 10. Code map
 

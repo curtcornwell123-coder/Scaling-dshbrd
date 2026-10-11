@@ -239,8 +239,8 @@ local function updatePodium(stat: string, podium: Podium)
 	end
 	-- The podium always shows this board's exclusive ball (weekly top 3 unlock it).
 	local skin = REWARDS[stat] or "classic_white"
-	local pub: { Skin: string?, Trail: string?, MMR: number? } = if leader then Data.getPublic(leader.UserId) or {} else {}
-	local key = table.concat({ if leader then tostring(leader.UserId) else "-", if leader then tostring(leader.Value) else "-", tostring(pub.MMR) }, "|")
+	local pub: { Skin: string?, Trail: string?, MMR: number?, Wins: number? } = if leader then Data.getPublic(leader.UserId) or {} else {}
+	local key = table.concat({ if leader then tostring(leader.UserId) else "-", if leader then tostring(leader.Value) else "-", tostring(pub.MMR), tostring(pub.Wins) }, "|")
 	podium.Title.Text = (if period == "Daily" then "#1 TODAY · " else "#1 ALL-TIME · ") .. string.upper(stat)
 	if podiumState[stat] == key then
 		return
@@ -256,8 +256,8 @@ local function updatePodium(stat: string, podium: Podium)
 	end
 	podium.Name.Text = leader.Name
 	podium.Value.Text = UIKit.formatNumber(leader.Value) .. " " .. string.lower(stat)
-	if pub.MMR then
-		local info = Ranks.fromMMR(pub.MMR)
+	local info = if pub.MMR and pub.Wins then Ranks.of(pub.MMR, pub.Wins) else nil
+	if info and info.Ranked then
 		podium.Rank.Text = info.Label
 		podium.Rank.TextColor3 = info.Tier.Color
 	else

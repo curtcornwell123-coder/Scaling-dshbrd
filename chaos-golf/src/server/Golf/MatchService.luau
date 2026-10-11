@@ -520,6 +520,7 @@ local function applyRanked(match: Match, places: { [PlayerState]: number }): { [
 			score = 1
 		end
 		local old = profile.Ranked.MMR
+		local oldInfo = Ranks.of(old, profile.Ranked.Wins)
 		local delta = Ranks.delta(old, other.StartMMR, score, profile.Ranked.Played < Config.Ranked.PlacementMatches)
 		profile.Ranked.MMR = math.max(0, old + delta)
 		profile.Ranked.Played += 1
@@ -536,15 +537,23 @@ local function applyRanked(match: Match, places: { [PlayerState]: number }): { [
 		if session then
 			session.PublicDirty = true
 		end
-		grantRankRewards(ps.Player, profile.Ranked.MMR)
+		local newInfo = Ranks.of(profile.Ranked.MMR, profile.Ranked.Wins)
+		if newInfo.Ranked then
+			grantRankRewards(ps.Player, profile.Ranked.MMR)
+			if not oldInfo.Ranked then
+				Net.event("Toast"):FireClient(ps.Player, "Ranked: you placed " .. newInfo.Label .. "!", newInfo.Tier.Color)
+			elseif newInfo.Label ~= oldInfo.Label and profile.Ranked.MMR > old then
+				Net.event("Toast"):FireClient(ps.Player, "Rank up: " .. newInfo.Label .. "!", newInfo.Tier.Color)
+			end
+		end
 		Data.refreshLeaderstats(ps.Player)
 		Social.updateNametag(ps.Player)
 		out[ps.Player] = {
 			Old = old,
 			New = profile.Ranked.MMR,
 			Delta = profile.Ranked.MMR - old,
-			Label = Ranks.fromMMR(profile.Ranked.MMR).Label,
-			OldLabel = Ranks.fromMMR(old).Label,
+			Label = Ranks.describe(newInfo),
+			OldLabel = Ranks.describe(oldInfo),
 			Score = score,
 		}
 	end

@@ -28,7 +28,7 @@ export type Profile = {
 	Celebration: string,
 	Upgrades: { [string]: number },
 	Stats: { [string]: number },
-	Ranked: { MMR: number, Wins: number, Losses: number, Draws: number, Played: number, Peak: number },
+	Ranked: { MMR: number, Wins: number, Losses: number, Draws: number, Played: number, Peak: number, V: number },
 	Creator: string?,
 	TutorialDone: boolean,
 	Device: string, -- "" until chosen on first join: "Console" | "Touch" | "Keyboard"
@@ -102,7 +102,7 @@ local function defaultProfile(): Profile
 		Celebration = "Default",
 		Upgrades = { Power = 0, Control = 0, Bounce = 0 },
 		Stats = { Wins = 0, Matches = 0, Sabotages = 0, Knockouts = 0, CoinsEarned = 0, HoleInOnes = 0, Holes = 0 },
-		Ranked = { MMR = Config.Ranked.StartMMR, Wins = 0, Losses = 0, Draws = 0, Played = 0, Peak = Config.Ranked.StartMMR },
+		Ranked = { MMR = Config.Ranked.StartMMR, Wins = 0, Losses = 0, Draws = 0, Played = 0, Peak = Config.Ranked.StartMMR, V = 2 },
 		Creator = nil,
 		TutorialDone = false,
 		Device = "",
@@ -120,6 +120,16 @@ local function reconcile(saved: any): Profile
 	local base = defaultProfile() :: any
 	if type(saved) ~= "table" then
 		return base
+	end
+	-- Ranks v2: everyone starts Unranked at the foot of Bronze. Players who hadn't yet won
+	-- the placement games restart there (they were shown a rank they never earned).
+	local ranked = saved.Ranked
+	if type(ranked) == "table" and ranked.V == nil then
+		ranked.V = 2
+		if (ranked.Wins or 0) < Config.Ranked.PlacementWins then
+			ranked.MMR = Config.Ranked.StartMMR
+			ranked.Peak = Config.Ranked.StartMMR
+		end
 	end
 	for k, v in base do
 		if saved[k] == nil then
@@ -224,7 +234,7 @@ local function updateLeaderstats(session: Session)
 	local rank = ls:FindFirstChild("Rank") :: StringValue?
 	local wins = ls:FindFirstChild("Wins") :: IntValue?
 	if rank then
-		rank.Value = Ranks.fromMMR(session.Profile.Ranked.MMR).Label
+		rank.Value = Ranks.of(session.Profile.Ranked.MMR, session.Profile.Ranked.Wins).Label
 	end
 	if wins then
 		wins.Value = session.Profile.Stats.Wins
@@ -415,7 +425,7 @@ local function save(session: Session, release: boolean): boolean
 
 	if session.PublicDirty and publicStore then
 		session.PublicDirty = false
-		local pub = { Skin = profile.Equipped.Skins, Trail = profile.Equipped.Trails, MMR = profile.Ranked.MMR }
+		local pub = { Skin = profile.Equipped.Skins, Trail = profile.Equipped.Trails, MMR = profile.Ranked.MMR, Wins = profile.Ranked.Wins }
 		local ps = publicStore :: DataStore
 		task.spawn(pcall, function()
 			ps:SetAsync(tostring(session.Player.UserId), pub)
@@ -438,10 +448,10 @@ function Data.saveNow(player: Player): boolean
 end
 
 -- Public profile of any user (for leaderboard podiums).
-function Data.getPublic(userId: number): { Skin: string?, Trail: string?, MMR: number? }?
+function Data.getPublic(userId: number): { Skin: string?, Trail: string?, MMR: number?, Wins: number? }?
 	for _, s in sessions do
 		if s.Player.UserId == userId and s.Loaded then
-			return { Skin = s.Profile.Equipped.Skins, Trail = s.Profile.Equipped.Trails, MMR = s.Profile.Ranked.MMR }
+			return { Skin = s.Profile.Equipped.Skins, Trail = s.Profile.Equipped.Trails, MMR = s.Profile.Ranked.MMR, Wins = s.Profile.Ranked.Wins }
 		end
 	end
 	local ps = publicStore

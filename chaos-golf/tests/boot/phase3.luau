@@ -372,6 +372,44 @@ flow("real cup: hole cut clear to the bottom, real drops and lip-outs, Tiny Cup 
 	string.format("cut=%s turf=%d centre=%s@%s rim=%s lid=%s slow=%s fast=%s lip=%d half=%s touch=%s tiny=%s/%.2f tinyOff=%s/%.2f",
 		tostring(cutN), pieces, tostring(centreName), tostring(centreY), tostring(rimY), tostring(lidY), tostring(realSlow), tostring(realFast), realLip, tostring(realHalf), tostring(realTouch), tostring(tinyIn), tinyLow, tostring(tinyOff), offLow))
 
+-- c4. ranks: a new player is Unranked (leaderboard, nametag) at the foot of Bronze, the
+-- earlier Ranked match reported placement progress, three Ranked wins place them in Bronze ----
+e0 = errs()
+local Social = Sim.module("server", "Social")
+local rookie = newPlayer(1090, "Lia")
+local function rankStat(p)
+	local ls = p:FindFirstChild("leaderstats")
+	local r = ls and ls:FindFirstChild("Rank")
+	return r and r.Value
+end
+local function tagText(p)
+	local head = D[p].props.Character and D[p].props.Character:FindFirstChild("Head")
+	local gui = head and head:FindFirstChild("Nametag")
+	local r = gui and gui:FindFirstChild("Rank")
+	return r and r.Text
+end
+local rprof = Data.profile(rookie)
+local stat0, tag0, mmr0 = rankStat(rookie), tagText(rookie), rprof.Ranked.MMR
+local reported = nil
+for _, e in Sim.clientEvents("MatchEvent") do
+	if e.args[1] == "results" and type(e.args[2]) == "table" and e.args[2].Ranked then
+		reported = e.args[2].Ranked.Label
+	end
+end
+Sim.asSide("server", function()
+	rprof.Ranked.Wins = Config.Ranked.PlacementWins
+	rprof.Ranked.MMR += 70
+	Data.refreshLeaderstats(rookie)
+	Social.updateNametag(rookie)
+end)
+Sim.run(0.2)
+local stat1, tag1 = rankStat(rookie), tagText(rookie)
+Sim.removePlayer(rookie)
+flow("ranks: new players are Unranked, 3 Ranked wins place them in Bronze", errs() == e0 and stat0 == "UNRANKED" and mmr0 == Config.Ranked.StartMMR
+		and tag0 ~= nil and not string.find(tag0, "BRONZE") and not string.find(tag0, "SILVER") and reported ~= nil and string.find(reported, "UNRANKED") ~= nil
+		and stat1 == "BRONZE III" and tag1 ~= nil and string.find(tag1, "BRONZE III") ~= nil,
+	string.format("start=%s/%s mmr=%s match=%q placed=%s/%s", tostring(stat0), tostring(tag0), tostring(mmr0), tostring(reported), tostring(stat1), tostring(tag1)))
+
 -- d. shutdown ---------------------------------------------------------------------------------
 e0 = errs()
 for _, fn in Sim.closeCallbacks do

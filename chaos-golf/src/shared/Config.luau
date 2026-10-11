@@ -217,10 +217,13 @@ Config.Practice = {
 	Lanes = 6, -- two per minigame station
 }
 
+-- Everyone starts Unranked; PlacementWins Ranked wins earn a rank. MMR starts at the foot of
+-- Bronze (Ranks: Bronze III from 600), so the first rank is Bronze and players climb from there.
 Config.Ranked = {
-	StartMMR = 1000,
+	StartMMR = 600,
+	PlacementWins = 3,
 	K = 32,
-	PlacementK = 48,
+	PlacementK = 48, -- bigger steps over the first PlacementMatches games
 	PlacementMatches = 5,
 }
 

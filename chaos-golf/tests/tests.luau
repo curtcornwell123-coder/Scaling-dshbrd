@@ -58,7 +58,13 @@ for i, r in Daily.Days do
 end
 
 -- Ranks
-check(Ranks.fromMMR(1000).Label == "SILVER II" or true, "")
+-- New players: Unranked until the placement wins, then Bronze (MMR starts at the foot of it).
+local fresh = Ranks.of(Config.Ranked.StartMMR, 0)
+check(not fresh.Ranked and fresh.Label == "UNRANKED" and fresh.WinsToRank == Config.Ranked.PlacementWins, "new players are unranked")
+check(Ranks.describe(Ranks.of(Config.Ranked.StartMMR, Config.Ranked.PlacementWins - 1)) == "UNRANKED · 1 win to rank", "unranked progress text")
+local placed = Ranks.of(Config.Ranked.StartMMR + 3 * 24, Config.Ranked.PlacementWins)
+check(placed.Ranked and placed.Tier.Name == "Bronze", "first rank is Bronze (" .. placed.Label .. ")")
+check(Ranks.fromMMR(1000).Label == "SILVER II", "1000 MMR is Silver II")
 print("ranks:", Ranks.fromMMR(0).Label, Ranks.fromMMR(650).Label, Ranks.fromMMR(1000).Label, Ranks.fromMMR(1150).Label, Ranks.fromMMR(1950).Label)
 check(Ranks.delta(1000, 1000, 1, false) == 16, "equal win +16")
 check(Ranks.delta(1000, 1000, 0, false) == -16, "equal loss -16")

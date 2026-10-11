@@ -133,7 +133,7 @@ function Social.updateNametag(player: Player)
 	if not gui or not profile then
 		return
 	end
-	local info = Ranks.fromMMR(profile.Ranked.MMR)
+	local info = Ranks.of(profile.Ranked.MMR, profile.Ranked.Wins)
 	local rank = gui:FindFirstChild("Rank") :: TextLabel
 	local name = gui:FindFirstChild("PlayerName") :: TextLabel
 	local tags = {}
@@ -141,7 +141,7 @@ function Social.updateNametag(player: Player)
 	if session and session.Passes.Founder then
 		table.insert(tags, "FOUNDER")
 	end
-	if profile.Ranked.Played > 0 then
+	if info.Ranked then
 		table.insert(tags, info.Label)
 	end
 	rank.Text = table.concat(tags, " · ")

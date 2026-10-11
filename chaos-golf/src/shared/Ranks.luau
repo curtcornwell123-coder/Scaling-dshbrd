@@ -1,6 +1,8 @@
 --!strict
 -- Ranked 1v1: hidden Elo-style MMR shown as tiers with three divisions
--- (Bronze III -> Bronze I -> Silver III ... -> Chaos Legend).
+-- (Bronze III -> Bronze I -> Silver III ... -> Chaos Legend). New players are Unranked until
+-- they win Config.Ranked.PlacementWins Ranked games; MMR starts at the foot of Bronze, so the
+-- first rank is Bronze and they climb from there.
 
 local Config = require(script.Parent:WaitForChild("Config"))
 
@@ -20,7 +22,16 @@ Ranks.Tiers = {
 
 local NUMERALS = { "III", "II", "I" }
 
-export type RankInfo = { Tier: Tier, TierIndex: number, Division: string, Label: string }
+export type RankInfo = {
+	Tier: Tier,
+	TierIndex: number, -- 0 = unranked
+	Division: string,
+	Label: string,
+	Ranked: boolean,
+	WinsToRank: number, -- unranked: Ranked wins still needed (0 once ranked)
+}
+
+Ranks.Unranked = { Name = "Unranked", Min = -math.huge, Color = Color3.fromHex("#9AA3AE") } :: Tier
 
 function Ranks.fromMMR(mmr: number): RankInfo
 	local index = 1
@@ -32,7 +43,7 @@ function Ranks.fromMMR(mmr: number): RankInfo
 	local tier = Ranks.Tiers[index]
 	local nextTier = Ranks.Tiers[index + 1]
 	if not nextTier then
-		return { Tier = tier, TierIndex = index, Division = "", Label = string.upper(tier.Name) }
+		return { Tier = tier, TierIndex = index, Division = "", Label = string.upper(tier.Name), Ranked = true, WinsToRank = 0 }
 	end
 	local span = nextTier.Min - tier.Min
 	local floorMin = if index == 1 then 600 else tier.Min -- Bronze divisions start at 600 MMR
@@ -44,7 +55,26 @@ function Ranks.fromMMR(mmr: number): RankInfo
 		TierIndex = index,
 		Division = division,
 		Label = string.upper(tier.Name) .. " " .. division,
+		Ranked = true,
+		WinsToRank = 0,
 	}
+end
+
+-- What a player shows: Unranked until enough Ranked wins, then their tier from MMR.
+function Ranks.of(mmr: number, wins: number): RankInfo
+	local need = Config.Ranked.PlacementWins - wins
+	if need > 0 then
+		return { Tier = Ranks.Unranked, TierIndex = 0, Division = "", Label = "UNRANKED", Ranked = false, WinsToRank = need }
+	end
+	return Ranks.fromMMR(mmr)
+end
+
+-- "UNRANKED · 2 wins to rank" / "SILVER II".
+function Ranks.describe(info: RankInfo): string
+	if info.Ranked then
+		return info.Label
+	end
+	return string.format("%s · %d win%s to rank", info.Label, info.WinsToRank, if info.WinsToRank == 1 then "" else "s")
 end
 
 -- score: 1 win, 0.5 draw, 0 loss. Returns the MMR change for player A.
