@@ -69,7 +69,9 @@ local function showOnPedestal(skinId: string)
 	local at = if a and a:IsA("Attachment") then a.WorldPosition else pedestal.Position + Vector3.new(0, pedestal.Size.Y / 2 + 2.6, 0)
 	local ball = previewBall :: Part
 	ball.CFrame = CFrame.new(at)
-	Skins.apply(ball, skinId)
+	local profile = State.Profile
+	local serials = profile and (profile :: any).Serials
+	Skins.apply(ball, skinId, if type(serials) == "table" then serials[skinId] else nil)
 end
 
 local function ownedSkins(): { string }
@@ -114,7 +116,7 @@ local function ctaFor(item: ShopCatalog.Item): (string, UIKit.ButtonVariant)
 		end
 		return "Equip", "Primary"
 	end
-	if item.Action == "buySkin" and item.ItemId and State.owns("Skins", item.ItemId) then
+	if (item.Action == "buySkin" or item.Action == "buyLimited") and item.ItemId and State.owns("Skins", item.ItemId) then
 		if State.equipped("Skins") == item.ItemId then
 			return "Equipped", "Disabled"
 		end
@@ -193,7 +195,7 @@ local function card(item: ShopCatalog.Item, order: number): Frame
 		TextSize = 14,
 		Parent = c,
 	}, function()
-		if item.Action == "buySkin" and item.ItemId and State.owns("Skins", item.ItemId) then
+		if (item.Action == "buySkin" or item.Action == "buyLimited") and item.ItemId and State.owns("Skins", item.ItemId) then
 			Net.event("ShopAction"):FireServer("equip", "Skins", item.ItemId)
 		else
 			Net.event("ShopAction"):FireServer(item.Action, item.A, item.B)

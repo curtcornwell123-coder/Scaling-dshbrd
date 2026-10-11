@@ -11,10 +11,15 @@ Config.StartingCoins = 250
 
 Config.Ball = {
 	Diameter = 1.5,
-	-- Dimpled golf-ball mesh (assets/mesh/golfball.fbx, uploaded to the Corny Games group).
-	-- Its native size is read at boot (BallService) and published as the ReplicatedStorage
-	-- attribute "BallMeshSize"; until then balls show as smooth spheres. "" = never use it.
-	MeshId = "rbxassetid://99062873809491",
+	-- Premium dimpled tour-ball mesh (assets/mesh/golfball.fbx, tools/gen_ball.py: 252 round
+	-- dimples). Uploaded twice so it always loads: the Corny Games group copy (used once
+	-- the game lives in the group) and the owner's own copy (unpublished Studio files).
+	-- BallService loads one at boot and publishes "BallMeshId" + "BallMeshSize" on
+	-- ReplicatedStorage; until then balls show as smooth spheres.
+	MeshIds = {
+		Group = "rbxassetid://108440465413524",
+		User = "rbxassetid://140361458276465",
+	},
 	Density = 2.2,
 	Friction = 0.25,
 	Elasticity = 0.5,
@@ -217,6 +222,16 @@ Config.Mythic = {
 	GlobalCap = 10000,
 	CoinPrice = 6000,
 	StockRefresh = 30,
+}
+
+-- Limited-edition balls: only Stock copies ever exist worldwide (shared DataStore counter),
+-- each printed with its serial ("137 OF 500"). Sold for coins at the shop's vault case.
+Config.Limited = {
+	Skin = "corny_studio",
+	Stock = 500,
+	Price = 10000,
+	Key = "LimitedSold_corny_studio",
+	StockRefresh = 45,
 }
 
 -- Monetization ------------------------------------------------------------

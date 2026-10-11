@@ -73,11 +73,25 @@ end
 ShopCatalog.Tabs = {
 	{
 		Id = "Featured",
-		Name = "Today",
-		Hint = "Today's Coin Shop rotation · refreshes at 00:00 UTC",
+		Name = "Rotation",
+		Hint = "New balls every " .. math.floor(Skins.RotationSeconds / 60) .. " minutes, the same set in every server · Limited: " .. Config.Limited.Stock .. " ever made",
 		Items = function(_profile)
-			local out = {}
-			for _, skin in Skins.shopRotation(math.floor(os.time() / 86400), 12) do
+			local limited = Skins.get(Config.Limited.Skin)
+			local out: { Item } = {
+				{
+					Key = limited.Id,
+					Title = limited.Name,
+					Subtitle = "Limited edition · " .. Config.Limited.Stock .. " worldwide",
+					Rarity = limited.Rarity,
+					Accent = rarityColor(limited.Rarity),
+					Price = { Amount = Config.Limited.Price, Currency = "Coins" },
+					Preview = { Kind = "Ball", Ref = limited.Id },
+					Action = "buyLimited",
+					Category = "Skins",
+					ItemId = limited.Id,
+				},
+			}
+			for _, skin in Skins.shopRotation(Skins.rotationSlot(), 12) do
 				table.insert(out, skinItem(skin))
 			end
 			return out

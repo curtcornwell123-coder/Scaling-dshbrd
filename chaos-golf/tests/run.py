@@ -10,7 +10,7 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 SHARED = HERE.parent / "src" / "shared"
-MODULES = ["Config", "Skins", "Cosmetics", "Crates", "DailyRewards", "Maps", "Abilities", "Ranks", "Minigames", "ShopCatalog"]
+MODULES = ["Config", "BallPrints", "Skins", "Cosmetics", "Crates", "DailyRewards", "Maps", "Abilities", "Ranks", "Minigames", "ShopCatalog"]
 
 harness = (HERE / "harness.luau").read_text()
 harness = harness.replace(

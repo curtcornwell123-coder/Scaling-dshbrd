@@ -15,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Cosmetics = require(Shared:WaitForChild("Cosmetics"))
 local Net = require(Shared:WaitForChild("Net"))
+local BallPrints = require(Shared:WaitForChild("BallPrints"))
 local Skins = require(Shared:WaitForChild("Skins"))
 local UIKit = require(Shared:WaitForChild("UIKit"))
 
@@ -516,13 +517,25 @@ function WorldFx.start()
 		for part in pulsers do
 			if not part.Parent then
 				pulsers[part] = nil
-			elseif part:GetAttribute("SkinRainbow") then
-				part.Color = Color3.fromHSV((t * 0.15) % 1, 0.75, 1)
 			else
-				local a = part:GetAttribute("SkinBase") :: Color3?
-				local b = part:GetAttribute("SkinPulse") :: Color3?
-				if a and b then
-					part.Color = a:Lerp(b, (math.sin(t * 2.4) + 1) / 2)
+				local color: Color3? = nil
+				if part:GetAttribute("SkinRainbow") then
+					color = Color3.fromHSV((t * 0.15) % 1, 0.75, 1)
+				else
+					local a = part:GetAttribute("SkinBase") :: Color3?
+					local b = part:GetAttribute("SkinPulse") :: Color3?
+					if a and b then
+						color = a:Lerp(b, (math.sin(t * 2.4) + 1) / 2)
+					end
+				end
+				if color then
+					part.Color = color
+					-- Glowing skins: the neon core follows the shell, a touch brighter.
+					local prints = part:FindFirstChild(BallPrints.FolderName)
+					local core = prints and prints:FindFirstChild(BallPrints.CoreName) :: BasePart?
+					if core then
+						core.Color = color:Lerp(Color3.new(1, 1, 1), 0.25)
+					end
 				end
 			end
 		end

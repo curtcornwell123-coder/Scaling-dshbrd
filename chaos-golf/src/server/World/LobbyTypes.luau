@@ -75,7 +75,10 @@ export type Lobby = {
 		InviteKiosk: BasePart, -- Invite Friends terminal
 	},
 	East: {
-		SkinPedestals: { BasePart }, -- 12 coin-shop pedestals (Display attachment)
+		SkinPedestals: { BasePart }, -- 12 coin-shop display-case cups (Display attachment)
+		SkinPlaques: { BasePart }, -- price plaque on each case (text on Front), same order
+		Limited: { Pedestal: BasePart, Plaque: BasePart }, -- limited-edition vault case
+		RotationBoard: BasePart, -- hanging board: next rotation countdown (Front and Back)
 		CratePedestals: { [string]: BasePart }, -- "Skins", "Trails", "Knockouts", "Arrows"
 		CrateScreens: { [string]: BasePart }, -- odds boards behind each crate pedestal (same keys)
 		Mythic: { Pedestal: BasePart, Counter: BasePart, OddsBoard: BasePart },

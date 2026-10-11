@@ -1,24 +1,38 @@
 # Golf ball mesh
 
-`golfball.obj`: 108-dimple golf ball, 482 vertices / 960 triangles. It is centred at the origin with a diameter of exactly 1.5 studs (bbox 1.5 x 1.5 x 1.5, the same as `Config.Ball.Diameter`). The file is Y-up, has outward CCW winding, and is watertight. It includes normals (soft cup shading) and spherical UVs. `golfball_preview.png` shows a software render of it.
+`golfball.obj` / `golfball.fbx` is the premium tour ball every skin uses. It has 252 round dimples on an icosahedral layout (12 five-neighbour and 240 six-neighbour dimples), 7,502 vertices and 15,000 triangles, under the 20k import limit. It is centred at the origin with a diameter of exactly 1.5 studs (`Config.Ball.Diameter`), Y-up, with outward CCW faces, and it is watertight.
 
-## Import into Roblox
+- **Dimples:** each one is a round spherical cup on two rings of points. A flat land band runs out to its Voronoi cell edge, so neighbours are split by narrow ridges with small triangular land patches at the corners, like a real ball.
+- **Normals:** analytic. Inside a dimple they follow the cup, on the land they are radial, and they split at the rim so every dimple has a crisp edge. Custom normals survive the FBX export.
+- **UVs:** cube projection per dimple cell, so part materials (Foil, Glass, Ice) read evenly with no pole pinching.
 
-1. In Studio, open **Asset Manager → Import** (or **Home → Import 3D**) and pick `golfball.obj`.
-2. In the 3D Importer, set **File Dimensions / Scale Unit = Stud** so the ball stays 1.5 studs. No materials or textures are needed. Click **Import**. The mesh is uploaded as an asset.
-3. Copy the mesh id. Either select the imported MeshPart and copy its `MeshId`, or in Asset Manager → Meshes right-click `golfball` → **Copy Asset ID**.
-4. Paste it into `src/shared/Config.luau`:
-   ```lua
-   MeshId = "rbxassetid://<id>",
-   ```
-   Keep `MeshScale = Vector3.new(1, 1, 1)`. `Skins.apply` already scales the mesh by `part.Size.X / 1.5`.
-5. Delete the imported MeshPart from the place, because only the id is used. The mesh is visual only and physics still uses the ball Part's sphere.
+`golfball_preview.png` is a software render.
 
-## Regenerate
+## Uploaded copies
+
+| Owner | Asset id | Used when |
+|---|---|---|
+| Corny Games group (187537803) | `rbxassetid://108440465413524` | the game belongs to the group |
+| Owner's account (469657246) | `rbxassetid://140361458276465` | unpublished files / personal places |
+
+Both ids are in `Config.Ball.MeshIds`. At boot, `BallService` loads the right copy first and falls back to the other. It publishes the loaded `BallMeshId` and the native `BallMeshSize` on ReplicatedStorage, and `Skins.fitMesh` scales the mesh to any ball size.
+
+## Printing
+
+Logos, numbers, lines and stripes are built from tiny tangent plates in `src/shared/BallPrints.luau`, not baked into the mesh, so every skin can carry its own design (`Skins.design`).
+
+## Regenerate / re-upload
 
 ```sh
-pip install numpy scipy pillow
-python3 tools/gen_ball.py      # rewrites golfball.obj + golfball_preview.png and prints stats
+python3 tools/gen_ball.py      # rewrites golfball.obj + golfball_preview.png, prints stats
 ```
 
-You can tune `DEPTH`, `CUP_TILT_DEG` (cup shading strength) and `TARGET_TRIS` (max 1100) at the top of the script.
+Then convert to FBX with Blender, importing the OBJ with forward `-Z` and up `Y`, and exporting FBX with `mesh_smooth_type='OFF'` so custom normals are kept. Upload it through Open Cloud as `assetType: "Mesh"` for both owners, and paste the new ids into `Config.Ball.MeshIds`.
+
+## Showcase renders
+
+```sh
+tests/boot/dump_balls.sh <luau> <globalTypes.d.luau> balls.txt
+python tools/render_balls.py balls.txt --sheet                 # docs/renders/balls/collection_*.png
+python tools/render_balls.py balls.txt --only corny_studio --views three,back
+```

@@ -26,6 +26,7 @@ local Activity = require(Services:WaitForChild("Activity"))
 local Data = require(Services:WaitForChild("Data"))
 local Social = require(Services:WaitForChild("Social"))
 local MythicStock = require(Services:WaitForChild("MythicStock"))
+local LimitedStock = require(Services:WaitForChild("LimitedStock"))
 local CreatorCodes = require(Services:WaitForChild("CreatorCodes"))
 local Monetization = require(Services:WaitForChild("Monetization"))
 local Tags = require(Services:WaitForChild("Tags"))
@@ -72,6 +73,7 @@ for _, player in Players:GetPlayers() do
 end
 
 MythicStock.start()
+LimitedStock.start()
 CreatorCodes.start()
 Monetization.start()
 MatchService.start()

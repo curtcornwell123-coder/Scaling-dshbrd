@@ -58,7 +58,7 @@ export type Ball = {
 	Data: { [string]: any }, -- owner scratch space
 }
 
-export type Loadout = { Skin: string, Trail: string, Knockout: string, Arrow: string }
+export type Loadout = { Skin: string, Trail: string, Knockout: string, Arrow: string, Serial: number? }
 
 local HIT_SPEED = 14 -- relative speed that counts as a hit
 local KNOCKOUT_WINDOW = 5 -- seconds after a hit in which going out of bounds is a knockout
@@ -154,7 +154,7 @@ function BallService.create(player: Player, opts: CreateOpts): Ball
 	-- Equipped cosmetics: the skin (with its built-in aura) is applied here; the
 	-- trail, knockout effect and arrow skin are read by clients from attributes.
 	local loadout = opts.Loadout
-	Skins.apply(part, loadout and loadout.Skin)
+	Skins.apply(part, loadout and loadout.Skin, loadout and loadout.Serial)
 	part:SetAttribute("Trail", loadout and loadout.Trail or "none")
 	part:SetAttribute("Knockout", loadout and loadout.Knockout or "pop")
 	part:SetAttribute("Arrow", loadout and loadout.Arrow or "classic")
@@ -594,23 +594,30 @@ function BallService.tinyCup(ball: Ball, seconds: number, scale: number)
 	BallService.refresh(ball)
 end
 
--- Native size of the dimpled ball mesh, read once from Roblox (a web call, so in the
--- background) and shared with clients; Skins fits every ball's mesh from it.
+-- The dimpled ball mesh, loaded once in the background (a web call). The group's copy is
+-- tried first when the game belongs to a group, otherwise the owner's copy; whichever
+-- loads is shared with clients (id + native size) and Skins fits every ball from it.
 local function loadBallMesh()
-	if Config.Ball.MeshId == "" then
-		return
-	end
+	local ids = Config.Ball.MeshIds
+	local order: { string } = if game.CreatorType == Enum.CreatorType.Group then { ids.Group, ids.User } else { ids.User, ids.Group }
 	task.spawn(function()
-		local ok, result = pcall(function()
-			return AssetService:CreateMeshPartAsync(Config.Ball.MeshId)
-		end)
-		if ok and result then
-			local part = result :: MeshPart
-			ReplicatedStorage:SetAttribute("BallMeshSize", part.MeshSize)
-			part:Destroy()
-		else
-			warn("[UltimateGolf] golf ball mesh unavailable, using smooth balls:", result)
+		local last: any = nil
+		for _, id in order do
+			if id ~= "" then
+				local ok, result = pcall(function()
+					return AssetService:CreateMeshPartAsync(id)
+				end)
+				if ok and result then
+					local part = result :: MeshPart
+					ReplicatedStorage:SetAttribute("BallMeshId", id)
+					ReplicatedStorage:SetAttribute("BallMeshSize", part.MeshSize)
+					part:Destroy()
+					return
+				end
+				last = result
+			end
 		end
+		warn("[UltimateGolf] golf ball mesh unavailable, using smooth balls:", last)
 	end)
 end
 

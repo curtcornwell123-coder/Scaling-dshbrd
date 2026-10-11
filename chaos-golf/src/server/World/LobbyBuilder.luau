@@ -1115,19 +1115,99 @@ local function commas(n: number): string
 	return s
 end
 
+-- Display glass for cases: clear (SmoothPlastic, not Glass material, so the translucent
+-- balls and their prints inside still render through it).
+local CASE_GLASS: Props = { Name = "CaseGlass", Color = hex("#DCEBF0"), Transparency = 0.9, Reflectance = 0.18, CastShadow = false }
+local VELVET = hex("#5B1A2A")
+
+-- Jewellery-style display case, like rare balls in a pro shop: walnut plinth (toe kick,
+-- raised panels, brass band), velvet deck, an all-glass box with slim brass edges and a
+-- hidden downlight, a brass ball cup and a brass-framed plaque on the front. `cf` sits
+-- on the floor with its LookVector toward the viewer; `w` is the plinth width, `gh` the
+-- glass height. Returns the cup (Display attachment = ball centre) and
+-- the plaque (text goes on its Front face).
+local function glassCase(parent: Instance, name: string, cf: CFrame, w: number, gh: number, ball: number): (BasePart, BasePart)
+	local m = Parts.model(parent, name)
+	local ph = 2.8
+	Parts.block(m, cf * CFrame.new(0, 0.15, 0), Vector3.new(w - 0.4, 0.3, w - 0.4), solid(WALNUT_DARK, "ToeKick"))
+	Parts.roundedBox(m, cf * CFrame.new(0, 0.3 + ph / 2, 0), Vector3.new(w, ph, w), 0.1, solid(WALNUT, "Plinth"))
+	for _, k in { 0, 1, 2, 3 } do
+		local face = cf * CFrame.Angles(0, k * PI / 2, 0)
+		Parts.block(m, face * CFrame.new(0, 0.3 + ph / 2 - 0.05, -w / 2 - 0.03), Vector3.new(w - 0.7, ph - 0.7, 0.06), solid(WALNUT_MID, "Panel"))
+	end
+	local top = 0.3 + ph
+	Parts.block(m, cf * CFrame.new(0, top + 0.06, 0), Vector3.new(w + 0.08, 0.12, w + 0.08), deco(BRASS, "Band"))
+	local deck = top + 0.12
+	Parts.block(m, cf * CFrame.new(0, deck + 0.05, 0), Vector3.new(w - 0.3, 0.1, w - 0.3), mat(VELVET, M.Fabric, "Velvet"))
+	-- Glass box with brass edges.
+	local gw = w - 0.2
+	local y0, y1 = deck, deck + gh
+	for _, k in { 0, 1, 2, 3 } do
+		local face = cf * CFrame.Angles(0, k * PI / 2, 0)
+		Parts.block(m, face * CFrame.new(0, (y0 + y1) / 2, -gw / 2 + 0.03), Vector3.new(gw - 0.1, gh, 0.06), CASE_GLASS)
+		Parts.block(m, face * CFrame.new(0, y0 + 0.04, -gw / 2 + 0.03), Vector3.new(gw, 0.08, 0.1), deco(BRASS, "Edge"))
+		Parts.block(m, face * CFrame.new(0, y1 - 0.04, -gw / 2 + 0.03), Vector3.new(gw, 0.08, 0.1), deco(BRASS, "Edge"))
+		Parts.block(m, face * CFrame.new(gw / 2 - 0.04, (y0 + y1) / 2, -gw / 2 + 0.04), Vector3.new(0.09, gh, 0.09), deco(BRASS, "Post"))
+	end
+	-- Glass lid in a brass frame; a hidden downlight in the lid lights the ball.
+	local lid = Parts.block(m, cf * CFrame.new(0, y1 - 0.03, 0), Vector3.new(gw - 0.1, 0.06, gw - 0.1), CASE_GLASS)
+	Parts.light(lid, LAMP, 6 + ball, 1.1, "Spot")
+	-- Brass cup on a short stem.
+	Parts.cylinder(m, cf * CFrame.new(0, deck + 0.2, 0), 0.3, 0.3, deco(BRASS, "Stem"))
+	local cup = Parts.disc(m, (cf * CFrame.new(0, deck + 0.38, 0)).Position, ball * 0.42, 0.08, deco(BRASS, name .. "Cup"))
+	display(cup, (cf * CFrame.new(0, deck + 0.4 + ball / 2, 0)).Position)
+	-- Plaque: dark plate in a brass frame on the front panel.
+	Parts.block(m, cf * CFrame.new(0, 0.3 + ph * 0.62, -w / 2 - 0.08), Vector3.new(w * 0.7 + 0.12, 0.98, 0.05), deco(BRASS, "PlaqueFrame"))
+	local plaque = Parts.block(m, cf * CFrame.new(0, 0.3 + ph * 0.62, -w / 2 - 0.11), Vector3.new(w * 0.7, 0.86, 0.04), { Name = "Plaque", Color = SCREEN, CanCollide = false, CanQuery = false })
+	return cup, plaque
+end
+
+-- Brass stanchion with a velvet rope to the next one.
+local function stanchions(parent: Instance, points: { Vector3 })
+	for i, p in points do
+		Parts.disc(parent, p + Vector3.new(0, 0.08, 0), 1.1, 0.16, solid(BRASS, "StanchionFoot"))
+		Parts.cylinder(parent, CFrame.new(p + Vector3.new(0, 1.55, 0)), 2.9, 0.22, solid(BRASS, "Stanchion"))
+		Parts.ball(parent, p + Vector3.new(0, 3.1, 0), 0.38, deco(BRASS, "StanchionCap"))
+		local q = points[i % #points + 1]
+		Parts.rod(parent, p + Vector3.new(0, 2.75, 0), q + Vector3.new(0, 2.75, 0), 0.16, mat(VELVET, M.Fabric, "Rope"))
+	end
+end
+
 local function buildEast(room: Model, R: CFrame)
 	local m = Parts.model(room, "Shop")
 	local accent = C.East
 
-	-- 12 coin-shop skin pedestals in a U around the room centre, open toward the entrance.
-	-- 12 coin-shop pedestals in two straight rows either side of a carpet runner.
-	local sm = Parts.model(m, "SkinPedestals")
+	-- 12 coin-shop balls in glass display cases, two rows either side of a carpet runner,
+	-- with the limited-edition vault in the middle of the runner.
+	local sm = Parts.model(m, "SkinCases")
 	LobbyKit.rug(sm, along(R, 0, 0, -6), 8, 36, mat(RUG, M.Carpet), mat(RUG_BORDER, M.Carpet))
 	local skins: { BasePart } = {}
+	local plaques: { BasePart } = {}
 	for i = 1, 12 do
 		local side = if i <= 6 then -1 else 1
 		local k = (i - 1) % 6
-		table.insert(skins, roundPedestal(sm, "SkinPedestal" .. i, at(R, side * 8.5, 0, -21 + k * 6), accent))
+		local cup, plaque = glassCase(sm, "SkinCase" .. i, along(R, side * 8.5, 0, -21 + k * 6, side * PI / 2), 3.6, 3.1, 2.2)
+		cup.Name = "SkinPedestal" .. i
+		table.insert(skins, cup)
+		table.insert(plaques, plaque)
+	end
+	local vm = Parts.model(m, "LimitedVault")
+	local vcf = along(R, 0, 0, -6, TO_ENTRANCE)
+	Parts.trimmedSlab(vm, vcf * CFrame.new(0, 0.12, 0), Vector3.new(7.2, 0.24, 7.2), 1.2, MARBLE_DARK, GOLD)
+	local vaultCup, vaultPlaque = glassCase(vm, "Vault", vcf * CFrame.new(0, 0.24, 0), 4.6, 4.2, 3)
+	vaultCup.Name = "LimitedPedestal"
+	local corners = {}
+	for _, c in { { -1, -1 }, { 1, -1 }, { 1, 1 }, { -1, 1 } } do
+		table.insert(corners, (vcf * CFrame.new(c[1] * 3.1, 0.24, c[2] * 3.1)).Position)
+	end
+	stanchions(vm, corners)
+	-- Rotation board hanging over the runner by the entrance: two faces (in and out).
+	local bm = Parts.model(m, "RotationBoard")
+	local bcf = along(R, 0, 12.6, -25, TO_ENTRANCE)
+	local board: BasePart = Parts.block(bm, bcf, Vector3.new(13, 2.8, 0.3), { Name = "RotationBoard", Color = SCREEN, CanCollide = false })
+	Parts.block(bm, bcf, Vector3.new(13.3, 3.1, 0.2), deco(BRASS, "Frame"))
+	for _, x in { -5.5, 5.5 } do
+		Parts.rod(bm, (bcf * CFrame.new(x, 1.4, 0)).Position, (bcf * CFrame.new(x, ROOM_H - 12.6, 0)).Position, 0.12, solid(STEEL, "Hanger"))
 	end
 
 	-- Mythic shrine: isolated alcove in the middle of the back wall.
@@ -1210,6 +1290,9 @@ local function buildEast(room: Model, R: CFrame)
 
 	return {
 		SkinPedestals = skins,
+		SkinPlaques = plaques,
+		Limited = { Pedestal = vaultCup, Plaque = vaultPlaque },
+		RotationBoard = board,
 		CratePedestals = cratePeds,
 		CrateScreens = crateScreens,
 		Mythic = { Pedestal = mythic, Counter = counter, OddsBoard = odds },

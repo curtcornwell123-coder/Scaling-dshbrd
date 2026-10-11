@@ -164,6 +164,86 @@ act("claimGroup")
 act("claimGroup")
 local granted = Data.profile(p1).GroupClaimed == true and Data.owns(p1, "Skins", "kernel") and Data.profile(p1).Coins - k0 == Config.Group.Coins
 flow("group reward: refused for non-members, granted once to members", errs() == e0 and refused and granted, string.format("refused=%s granted=%s", tostring(refused), tostring(granted)))
+
+-- c3. premium balls: dimpled mesh, printed designs, limited edition, 10-minute rotation ----------
+e0 = errs()
+local meshId = RSt:GetAttribute("BallMeshId")
+local meshOk = (meshId == Config.Ball.MeshIds.User or meshId == Config.Ball.MeshIds.Group) and RSt:GetAttribute("BallMeshSize") ~= nil
+local cased, printed, guis, welded = 0, 0, 0, 0
+for _, x in Sim.descendants(lobbyModel) do
+	local props = D[x].props
+	if props.Name == "DisplayBall" then
+		cased += 1
+		local prints = x:FindFirstChild("SkinPrints")
+		if prints and x:FindFirstChild("DimpleMesh") then
+			printed += 1
+			for _, q in prints:GetChildren() do
+				if q:FindFirstChildOfClass("SurfaceGui") then
+					guis += 1
+				end
+				if q:FindFirstChildOfClass("Weld") then
+					welded += 1
+				end
+			end
+		end
+	end
+end
+local Skins = Sim.module("server", "Skins")
+local LimitedStock = Sim.module("server", "LimitedStock")
+local collector = newPlayer(1087, "Ivy")
+local function buyAs(p)
+	Sim.fireServerAs(p, "ShopAction", "buyLimited")
+	Sim.run(0.6)
+end
+local prof = Data.profile(collector)
+prof.Coins += 25000
+local l0 = prof.Coins
+local left0 = LimitedStock.remaining()
+buyAs(collector)
+local owned = Data.owns(collector, "Skins", Config.Limited.Skin) and prof.Serials[Config.Limited.Skin] == Config.Limited.Stock - left0 + 1
+local charged = l0 - prof.Coins == Config.Limited.Price
+buyAs(collector)
+local once = l0 - prof.Coins == Config.Limited.Price and LimitedStock.remaining() == left0 - 1
+local serialOnBall = Data.loadout(collector).Serial == prof.Serials[Config.Limited.Skin]
+while LimitedStock.remaining() > 0 do
+	LimitedStock.reserve()
+end
+local buyer = newPlayer(1088, "Hana")
+Data.profile(buyer).Coins += 25000
+local b0 = Data.profile(buyer).Coins
+buyAs(buyer)
+local soldOut = Data.profile(buyer).Coins == b0 and not Data.owns(buyer, "Skins", Config.Limited.Skin)
+local announced = false
+for _, e in Sim.clientEvents("Fx", p1) do
+	if e.args[1] == "announce" and string.find(tostring(e.args[2].Text), "Ivy just bought Corny Games Studio No.", 1, true) then
+		announced = true
+	end
+end
+flow("premium balls: dimpled mesh, printed cases, limited edition with serial + sold out", errs() == e0 and meshOk and cased >= 13 and printed == cased and guis > cased * 8 and welded > cased * 8 and owned and charged and once and serialOnBall and soldOut and announced,
+	string.format("mesh=%s cased=%d printed=%d plates=%d owned=%s charged=%s once=%s serial=%s soldOut=%s announced=%s", tostring(meshOk), cased, printed, guis, tostring(owned), tostring(charged), tostring(once), tostring(serialOnBall), tostring(soldOut), tostring(announced)))
+
+e0 = errs()
+local slot0 = Skins.rotationSlot()
+local rot0 = Skins.shopRotation(slot0, 12)[1].Id
+local n0 = #Sim.clientEvents("Fx", p1)
+Sim.EPOCH += Skins.RotationSeconds
+Sim.run(2)
+local rotated = false
+for i, e in Sim.clientEvents("Fx", p1) do
+	if i > n0 and e.args[1] == "shopRotated" then
+		rotated = true
+	end
+end
+local boardText = ""
+for _, x in Sim.descendants(lobbyModel) do
+	if D[x].props.ClassName == "TextLabel" or (x:IsA("TextLabel")) then
+		local t = tostring(x.Text)
+		if string.find(t, "NEW BALLS IN") then
+			boardText = t
+		end
+	end
+end
+flow("coin shop: new set every 10 minutes, countdown board", errs() == e0 and rotated and Skins.rotationSlot() == slot0 + 1 and boardText ~= "", string.format("rotated=%s board=%q first=%s", tostring(rotated), boardText, rot0))
 Sim.removePlayer(fresh)
 
 -- d. shutdown ---------------------------------------------------------------------------------

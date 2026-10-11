@@ -73,6 +73,28 @@ local rot = Skins.shopRotation(20000, 12)
 check(#rot == 12, "rotation size 12")
 for _, s in rot do check(s.Rarity ~= "Mythic" and s.Source == "Shop", "rotation pool") end
 check(Skins.shopRotation(20000, 12)[1].Id == rot[1].Id, "rotation deterministic")
+-- Rotation is a balanced pro-shop set and changes every RotationSeconds.
+local mix = {}
+for _, s in rot do mix[s.Rarity] = (mix[s.Rarity] or 0) + 1 end
+check(mix.Common == 5 and mix.Rare == 4 and mix.Epic == 2 and mix.Legendary == 1, "rotation mix 5/4/2/1")
+check(Skins.RotationSeconds == 600, "10 minute rotation")
+check(Skins.rotationSlot(1200) == 2 and Skins.rotationEndsIn(1290) == 510, "rotation slot maths")
+local differs = false
+for i = 1, 12 do if Skins.shopRotation(20001, 12)[i].Id ~= rot[i].Id then differs = true end end
+check(differs, "next slot has a different set")
+-- Every ball has a full print design; glowing balls use a translucent shell over a core.
+for _, skin in Skins.List do
+	local d = Skins.design(skin)
+	check(#d.Brand > 0 and #d.Model > 0 and #d.Number > 0, "design text " .. skin.Id)
+	local m, _, tr = Skins.finish(skin)
+	check(m ~= Enum.Material.Neon, "no flat neon balls " .. skin.Id)
+	if d.Core then check(tr > 0 or m == Enum.Material.ForceField, "core shows through " .. skin.Id) end
+end
+-- Limited edition: exists, never sold in rotation or crates, serial printed on the back.
+local ltd = Skins.get(Config.Limited.Skin)
+check(ltd.Id == Config.Limited.Skin and ltd.Source == "Limited", "limited skin")
+check(Skins.design(ltd, 137).Number == "137" and Skins.design(ltd, 137).SubNumber == "OF 500", "limited serial print")
+check(Skins.design(ltd).Brand == "CORNY GAMES" and Skins.design(ltd).Model == "STUDIO", "limited says Corny Games Studio")
 -- Every login/pass/rank reward skin exists
 for _, id in { "vip_aurum", "founder", "creator_fan", "rookie", "ace", "eternal_dawn", "rank_gold", "rank_diamond", "rank_onyx", "rank_legend" } do
 	check(Skins.ById[id] ~= nil, "skin exists " .. id)

@@ -33,6 +33,7 @@ export type Profile = {
 	DirectoryDone: boolean,
 	GroupClaimed: boolean, -- one-time Corny Games group reward
 	PracticeBest: { [string]: number }, -- per minigame: best points / studs / fewest strokes (0 = none)
+	Serials: { [string]: number }, -- limited skin id -> this player's copy number
 	Pity: { [string]: number },
 	Receipts: { string },
 	Lock: { Job: string, Time: number }?,
@@ -97,6 +98,7 @@ local function defaultProfile(): Profile
 		DirectoryDone = false,
 		GroupClaimed = false,
 		PracticeBest = { Target = 0, Drive = 0, Hazard = 0 },
+		Serials = {},
 		Pity = {},
 		Receipts = {},
 		Lock = nil,
@@ -154,6 +156,7 @@ function Data.snapshot(session: Session): { [string]: any }
 		DirectoryDone = p.DirectoryDone,
 		GroupClaimed = p.GroupClaimed,
 		PracticeBest = p.PracticeBest,
+		Serials = p.Serials,
 		Pity = p.Pity,
 		Passes = session.Passes,
 	}
@@ -321,11 +324,13 @@ function Data.equip(player: Player, category: string, id: string): boolean
 end
 
 -- Equipped cosmetics as a flat table for ball spawning.
-function Data.loadout(player: Player): { Skin: string, Trail: string, Knockout: string, Arrow: string }
+function Data.loadout(player: Player): { Skin: string, Trail: string, Knockout: string, Arrow: string, Serial: number? }
 	local p = Data.profile(player)
 	local e = if p then p.Equipped else Cosmetics.Defaults
+	local skin = e.Skins or Cosmetics.Defaults.Skins
 	return {
-		Skin = e.Skins or Cosmetics.Defaults.Skins,
+		Skin = skin,
+		Serial = if p and p.Serials then p.Serials[skin] else nil,
 		Trail = e.Trails or Cosmetics.Defaults.Trails,
 		Knockout = e.Knockouts or Cosmetics.Defaults.Knockouts,
 		Arrow = e.Arrows or Cosmetics.Defaults.Arrows,
