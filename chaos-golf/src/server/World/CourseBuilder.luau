@@ -281,6 +281,23 @@ local function assignFeatures(rng: Random, tiles: { TilePlan }, hazards: { [stri
 			phase = 1 - phase
 		end
 	end
+	-- Every hole gets at least one obstacle: bumpers on a flat middle tile if the rolls gave none.
+	local any = false
+	local spots: { TilePlan } = {}
+	for i = 2, n - 1 do
+		local f = tiles[i].Feature
+		if f == "Bumper" or f == "Spinner" or f == "Pusher" then
+			any = true
+		elseif f == nil and not tiles[i].Ramp then
+			table.insert(spots, tiles[i])
+		end
+	end
+	if not any and #spots > 0 then
+		local t = spots[rng:NextInteger(1, #spots)]
+		t.Feature = "Bumper"
+		t.Bumpers = bumperLayout(t, 0.9, rng:NextNumber(), 0.5)
+		t.ChaosBox = false
+	end
 end
 
 local function computePar(turns: number, len: number, hazards: number): number

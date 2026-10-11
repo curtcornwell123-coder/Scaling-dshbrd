@@ -153,8 +153,8 @@ Maps.Themes = {
 	},
 } :: { [string]: Theme }
 
-local sprint = { Bumper = 0.18, Spinner = 0.08, Pusher = 0.05, Sand = 0.08, Ice = 0.06, Boost = 0.08, Bridge = 0.04, ChaosBox = 0.12 }
-local gauntlet = { Bumper = 0.2, Spinner = 0.16, Pusher = 0.12, Sand = 0.1, Ice = 0.1, Boost = 0.1, Bridge = 0.1, ChaosBox = 0.14 }
+local sprint = { Bumper = 0.3, Spinner = 0.2, Pusher = 0.16, Sand = 0.08, Ice = 0.06, Boost = 0.08, Bridge = 0.06, ChaosBox = 0.18 }
+local gauntlet = { Bumper = 0.32, Spinner = 0.28, Pusher = 0.24, Sand = 0.1, Ice = 0.1, Boost = 0.1, Bridge = 0.1, ChaosBox = 0.2 }
 
 local function map(id: string, name: string, theme: string, seed: number, gauntletMode: boolean, overrides: { [string]: number }?, blurb: string): MapDef
 	local hazards = table.clone(if gauntletMode then gauntlet else sprint)

@@ -41,8 +41,9 @@ local stripLabel: TextLabel? = nil
 local spectating: BasePart? = nil
 
 local ACTION_CHARGE = "UltimateGolfCharge"
-local ACTION_ABILITY1 = "UltimateGolfAbility1"
-local ACTION_ABILITY2 = "UltimateGolfAbility2"
+local ABILITY_ACTIONS = { "UltimateGolfAbility1", "UltimateGolfAbility2", "UltimateGolfAbility3" }
+local ABILITY_KEYS = { Enum.KeyCode.One, Enum.KeyCode.Two, Enum.KeyCode.Three }
+local ABILITY_PADS = { Enum.KeyCode.ButtonX, Enum.KeyCode.ButtonY, Enum.KeyCode.ButtonL1 }
 local ACTION_LEAVE = "UltimateGolfLeave"
 
 -- Aim guide (equipped Arrow Skin) -------------------------------------------------
@@ -308,7 +309,10 @@ end
 
 local function abilityAction(name: string, state: Enum.UserInputState, _input: InputObject): Enum.ContextActionResult
 	if state == Enum.UserInputState.Begin then
-		Net.event("UseAbility"):FireServer(if name == ACTION_ABILITY1 then 1 else 2)
+		local slot = table.find(ABILITY_ACTIONS, name)
+		if slot then
+			Net.event("UseAbility"):FireServer(slot)
+		end
 	end
 	return Enum.ContextActionResult.Sink
 end
@@ -321,7 +325,8 @@ local function leaveAction(_name: string, state: Enum.UserInputState, _input: In
 end
 
 local function refreshAbilityButtons()
-	for i, action in { ACTION_ABILITY1, ACTION_ABILITY2 } do
+	for i = 1, math.min(Config.Match.MaxAbilities, #ABILITY_ACTIONS) do
+		local action = ABILITY_ACTIONS[i]
 		local def = Abilities.get(player:GetAttribute("Ability" .. i) :: string?)
 		local button = ContextActionService:GetButton(action)
 		if button then
@@ -340,8 +345,9 @@ local function bindControls(context: string)
 	ContextActionService:BindActionAtPriority(ACTION_CHARGE, chargeAction, true, 2000, Enum.UserInputType.MouseButton1, Enum.KeyCode.Space, Enum.KeyCode.ButtonR2)
 	ContextActionService:SetTitle(ACTION_CHARGE, "PUTT")
 	if context ~= "Practice" then
-		ContextActionService:BindAction(ACTION_ABILITY1, abilityAction, true, Enum.KeyCode.One, Enum.KeyCode.ButtonX)
-		ContextActionService:BindAction(ACTION_ABILITY2, abilityAction, true, Enum.KeyCode.Two, Enum.KeyCode.ButtonY)
+		for i = 1, math.min(Config.Match.MaxAbilities, #ABILITY_ACTIONS) do
+			ContextActionService:BindAction(ABILITY_ACTIONS[i], abilityAction, true, ABILITY_KEYS[i], ABILITY_PADS[i])
+		end
 	end
 	if context == "Tutorial" or context == "Practice" then
 		ContextActionService:BindAction(ACTION_LEAVE, leaveAction, true, Enum.KeyCode.X, Enum.KeyCode.ButtonB)
@@ -351,7 +357,7 @@ local function bindControls(context: string)
 end
 
 local function unbindControls()
-	for _, a in { ACTION_CHARGE, ACTION_ABILITY1, ACTION_ABILITY2, ACTION_LEAVE } do
+	for _, a in { ACTION_CHARGE, ACTION_LEAVE, table.unpack(ABILITY_ACTIONS) } do
 		ContextActionService:UnbindAction(a)
 	end
 	charging = false
@@ -454,8 +460,9 @@ end
 
 function GolfController.start()
 	Net.event("BallAssigned").OnClientEvent:Connect(assign)
-	player:GetAttributeChangedSignal("Ability1"):Connect(refreshAbilityButtons)
-	player:GetAttributeChangedSignal("Ability2"):Connect(refreshAbilityButtons)
+	for i = 1, Config.Match.MaxAbilities do
+		player:GetAttributeChangedSignal("Ability" .. i):Connect(refreshAbilityButtons)
+	end
 	player.CharacterAdded:Connect(function()
 		if not ball and not spectating then
 			task.defer(restoreCamera)

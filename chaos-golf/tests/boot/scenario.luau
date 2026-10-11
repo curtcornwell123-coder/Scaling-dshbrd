@@ -273,7 +273,7 @@ local finished = Sim.run(240, function()
 							RSt.UltimateGolfRemotes.UseAbility:FireServer(2)
 						end)
 					end
-					if p == p2 and ball.Strokes == 1 and not mulliganDone then
+					if p == p2 and ball.Strokes >= 1 and not mulliganDone then
 						mulliganDone = true
 						Sim.fireServerAs(p2, "UseAbility", 1)
 					else

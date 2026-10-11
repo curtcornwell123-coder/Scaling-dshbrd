@@ -211,6 +211,21 @@ local function finishPlayer(match: Match, ps: PlayerState, strokes: number, sunk
 	end
 end
 
+-- Power-ups are earned in play (never bought): one for sinking a hole, one per
+-- knockout. They stay with the player for the rest of the match; every new match
+-- starts from the mode's loadout again.
+local function earnAbility(match: Match, player: Player, reason: string)
+	local ps = match.ByPlayer[player]
+	if match.Ended or not ps or ps.Left then
+		return
+	end
+	local id = Abilities.random(match.Rng)
+	local def = Abilities.get(id)
+	if AbilityService.give(player, id) and def then
+		Net.event("Toast"):FireClient(player, string.format("%s! +1 power-up: %s %s", reason, def.Icon, def.Name), def.Color)
+	end
+end
+
 local function makeContext(match: Match, ps: PlayerState): BallService.Context
 	return {
 		CanShoot = function(ball)
@@ -239,6 +254,7 @@ local function makeContext(match: Match, ps: PlayerState): BallService.Context
 			end
 		end,
 		OnSink = function(ball)
+			earnAbility(match, ps.Player, "Sunk it")
 			finishPlayer(match, ps, ball.Strokes, true)
 		end,
 		OnKnockout = function(_victim, attacker)
@@ -248,6 +264,7 @@ local function makeContext(match: Match, ps: PlayerState): BallService.Context
 				Data.addStat(attacker, "Sabotages", 1)
 				Data.addStat(attacker, "Knockouts", 1)
 				toastAll(match, "💥 " .. aps.Name .. " knocked " .. ps.Name .. " out of bounds!", Config.Colors.Gold)
+				earnAbility(match, attacker, "Knockout")
 			end
 		end,
 		OnOOB = function(ball)
@@ -271,7 +288,7 @@ local function makeContext(match: Match, ps: PlayerState): BallService.Context
 						Net.event("Fx"):FireAllClients("pickup", { Position = box.Position, Player = ps.Player })
 						task.delay(10, function()
 							if box.Parent then
-								box.Transparency = 0.15
+								box.Transparency = tonumber(box:GetAttribute("ShowTransparency")) or 0
 							end
 						end)
 					end
@@ -362,7 +379,7 @@ local function playHole(match: Match, index: number)
 	match.AwaitingRest = false
 	match.BoxCooldown = {}
 	for _, box in hole.ChaosBoxes do
-		box.Transparency = 0.15
+		box.Transparency = tonumber(box:GetAttribute("ShowTransparency")) or 0
 	end
 	for _, ps in match.Players do
 		ps.Finished = ps.Left
