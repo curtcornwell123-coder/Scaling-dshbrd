@@ -113,7 +113,9 @@ def terrain_parts(scene):
         if mat == "Air":
             continue
         rgb = scene.tcolors.get(mat) or _hex_rgb(TERRAIN_RGB.get(mat, "#808080"))
-        base = {"cls": "Part", "shape": "Block", "pos": f["pos"], "right": f["right"], "up": f["up"],
+        # Sink previews slightly: floors built flush on carved terrain (top = 0) must win.
+        pos = (f["pos"][0], f["pos"][1] - (0 if mat == "Water" else 0.08), f["pos"][2])
+        base = {"cls": "Part", "shape": "Block", "pos": pos, "right": f["right"], "up": f["up"],
                 "back": f["back"], "rgb": rgb, "mat": "Ice" if mat in ("Glacier", "Ice") else mat,
                 "t": 0.35 if mat == "Water" else 0.0, "shadow": mat != "Water", "name": "Terrain_" + mat}
         k, d = f["kind"], f["dims"]
@@ -868,7 +870,7 @@ def _cam(pos, target, fov=70.0, hide=()):
 
 LOBBY_VIEWS = {
     # Inside the atrium, from the north wall, looking across the fountain to the south side.
-    "lobby_overview": _cam((0, 15.5, -50), (0, 6, 12), 76),
+    "lobby_overview": _cam((9, 15.5, -49), (0, 6, 12), 76),
     # High aerial of the whole clubhouse (atrium, lantern, wings, grounds).
     "lobby_aerial": _cam((150, 230, 210), (0, 10, 0), 50),
     # Spawn POV: standing on the spawn medallion (0,3,-31), facing south toward the fountain.

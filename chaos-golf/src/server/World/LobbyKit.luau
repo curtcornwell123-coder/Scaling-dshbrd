@@ -237,7 +237,7 @@ function LobbyKit.planter(parent: Instance, pos: Vector3, pal: Palette, rng: Ran
 end
 
 -- Pendant lamp hanging from the ceiling at `ceilingY` over `pos` (drop = cord length).
-function LobbyKit.pendant(parent: Instance, pos: Vector3, ceilingY: number, drop: number, pal: Palette, range: number?)
+function LobbyKit.pendant(parent: Instance, pos: Vector3, ceilingY: number, drop: number, pal: Palette, range: number?, lit: boolean?)
 	local m = Parts.model(parent, "Pendant")
 	local y = ceilingY - drop
 	Parts.cylinder(m, CFrame.new(Vector3.new(pos.X, ceilingY - 0.08, pos.Z)), 0.16, 0.9, deco(pal.Brass, "Canopy"))
@@ -248,7 +248,9 @@ function LobbyKit.pendant(parent: Instance, pos: Vector3, ceilingY: number, drop
 		Vector2.new(1.45, 0),
 	}, 12, 0.1, deco(pal.Brass, "Shade"))
 	local bulb = Parts.ball(m, Vector3.new(pos.X, y + 0.25, pos.Z), 0.75, deco(pal.Lamp, "LampBulb"))
-	Parts.light(bulb, Color3.fromRGB(255, 214, 160), range or 18, 0.9)
+	if lit ~= false then
+		Parts.light(bulb, Color3.fromRGB(255, 214, 160), range or 18, 0.9)
+	end
 end
 
 -- Wall sconce on a face (cf = wall surface point, LookVector out of the wall).
@@ -256,8 +258,7 @@ function LobbyKit.sconce(parent: Instance, cf: CFrame, pal: Palette)
 	local m = Parts.model(parent, "Sconce")
 	Parts.block(m, cf * CFrame.new(0, 0, -0.05), Vector3.new(0.5, 1.6, 0.1), deco(pal.Brass, "Plate"))
 	Parts.block(m, cf * CFrame.new(0, 0, -0.35), Vector3.new(0.18, 0.18, 0.6), deco(pal.Brass, "Arm"))
-	local shade = Parts.cylinder(m, cf * CFrame.new(0, 0.2, -0.7), 1.1, 0.7, deco(pal.Lamp, "LampShade"))
-	Parts.light(shade, Color3.fromRGB(255, 210, 150), 10, 0.6)
+	Parts.cylinder(m, cf * CFrame.new(0, 0.2, -0.7), 1.1, 0.7, deco(pal.Lamp, "LampShade"))
 end
 
 -- Running water -----------------------------------------------------------------------

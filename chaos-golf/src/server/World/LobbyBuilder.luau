@@ -145,7 +145,7 @@ local function mat(color: Color3, material: Enum.Material, name: string?): Props
 end
 
 local function glassProps(name: string): Props
-	return { Name = name, Color = GLASS, Material = M.Glass, Transparency = 0.62, Reflectance = 0.12, CastShadow = false }
+	return { Name = name, Color = GLASS, Material = M.Glass, Transparency = 0.7, Reflectance = 0.1, CastShadow = false }
 end
 
 local BARRIER: Props = { Name = "Barrier", Transparency = 1, CastShadow = false }
@@ -572,7 +572,7 @@ end
 
 -- Leather lounge in a window bay: rug, sofa with its back to the glass, two armchairs,
 -- a coffee table and a pendant overhead.
-local function buildLounge(parent: Instance, deg: number, rng: Random)
+local function buildLounge(parent: Instance, deg: number)
 	local m = Parts.model(parent, "Lounge")
 	local F = CFrame.lookAt(polar(47, deg, 0), Vector3.zero) -- looks toward the centre
 	LobbyKit.rug(m, F, 11, 9, mat(RUG, M.Carpet), mat(RUG_BORDER, M.Carpet))
@@ -582,8 +582,6 @@ local function buildLounge(parent: Instance, deg: number, rng: Random)
 		LobbyKit.armchair(m, F * CFrame.new(s * 3.2, 0, -3.4) * CFrame.Angles(0, PI + s * 0.5, 0), KIT)
 	end
 	LobbyKit.pendant(m, (F * CFrame.new(0, 0, -0.4)).Position, HUB_H, 4.2, KIT, 16)
-	local side = F * CFrame.new(5.6, 0, 3.2)
-	LobbyKit.planter(m, side.Position, KIT, rng, 6)
 end
 
 -- Slim monolith facing the spawn: marble base, steel frame, walnut face.
@@ -627,7 +625,7 @@ end
 -- Directory totem (front-left of the spawn). Arrow directions are as seen from the
 -- spawn looking south: +X (East) is to the player's left.
 local function buildDirectory(parent: Instance): (BasePart, Vector3)
-	local m, cf = totem(parent, "Directory", Vector3.new(10, 0, -24), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
+	local m, cf = totem(parent, "Directory", Vector3.new(12.5, 0, -21.5), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
 	local sign = Parts.block(m, cf * CFrame.new(0, 6.5, 0.02), Vector3.new(6.2, 10.8, 0.1), { Name = "DirectorySign", Color = WALNUT, Transparency = 1, CanCollide = false })
 	text(m, cf * CFrame.new(0, 11.2, -0.05), 5.6, 1.3, "WHERE TO?", BRASS:Lerp(WHITE, 0.25))
 	Parts.block(m, cf * CFrame.new(0, 10.35, -0.02), Vector3.new(3, 0.08, 0.06), deco(BRASS, "Rule"))
@@ -653,7 +651,7 @@ local NEWS = {
 }
 
 local function buildNews(parent: Instance)
-	local m, cf = totem(parent, "WhatsNew", Vector3.new(-10, 0, -24), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
+	local m, cf = totem(parent, "WhatsNew", Vector3.new(-12.5, 0, -21.5), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
 	text(m, cf * CFrame.new(0, 11.2, -0.05), 5.6, 1.3, "WHAT'S NEW", BRASS:Lerp(WHITE, 0.25))
 	Parts.block(m, cf * CFrame.new(0, 10.35, -0.02), Vector3.new(3, 0.08, 0.06), deco(BRASS, "Rule"))
 	for i, line in NEWS do
@@ -805,7 +803,7 @@ local function buildAtrium(parent: Instance, rng: Random)
 	end
 	for q = 0, 3 do
 		for _, bay in BAY_DEGS do
-			buildLounge(hub, q * 90 + bay, rng)
+			buildLounge(hub, q * 90 + bay)
 		end
 	end
 	Fountain.build(hub, Vector3.zero, {
@@ -931,6 +929,12 @@ local function buildExterior(m: Instance, R: CFrame, top: number)
 	Parts.block(m, along(R, 0, top + 0.6, -ou - over), Vector3.new(2 * (ox + over) + 0.6, 1.8, 0.6), solid(STEEL, "Fascia"))
 	for _, s in { -1, 1 } do
 		Parts.block(m, along(R, s * (ox + over), top + 0.6, 0), Vector3.new(0.6, 1.8, 2 * (ou + over)), solid(STEEL, "Fascia"))
+		-- Ridge skylight strip on each half of the roof.
+		Parts.block(m, along(R, s * W / 2, top + 1.35, 0), Vector3.new(6, 0.5, 2 * D - 8), solid(STEEL, "SkylightCurb"))
+		Parts.block(m, along(R, s * W / 2, top + 1.7, 0), Vector3.new(5.2, 0.3, 2 * D - 8.8), glassProps("Skylight"))
+		for k = -3, 3 do
+			Parts.block(m, along(R, s * W / 2, top + 1.9, k * (D - 4) / 3.5), Vector3.new(5.4, 0.2, 0.3), solid(STEEL, "SkylightBar"))
+		end
 	end
 end
 
@@ -993,7 +997,7 @@ local function buildRoomShell(parent: Instance, quad: Quad, floorStyle: FloorSty
 	-- Brass pendants between the beams.
 	for _, x in { -22, 22 } do
 		for _, u in { -16, 0, 16 } do
-			LobbyKit.pendant(shell, at(R, x, 0, u), H, 4, KIT, 26)
+			LobbyKit.pendant(shell, at(R, x, 0, u), H, 4, KIT, 30, u == 0 or (x > 0) == (u > 0))
 		end
 	end
 	buildExterior(shell, R, top)
