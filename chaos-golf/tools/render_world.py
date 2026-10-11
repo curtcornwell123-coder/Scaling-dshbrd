@@ -87,6 +87,7 @@ class Scene:
         self.by_id = {}
         self.tfills = []
         self.tcolors = {}
+        self.beams = []
 
 
 # Roblox's default terrain material colours (Terrain:SetMaterialColor overrides arrive as @TC).
@@ -174,6 +175,11 @@ def parse_dump(path):
                                    "dims": tuple(float(x) for x in f[7].split(","))})
             elif tag == "@TC":
                 cur.tcolors[f[1]] = _v3(f[2])
+            elif tag == "@B":
+                cur.beams.append({"p0": _v3(f[1]), "x0": _v3(f[2]), "y0": _v3(f[3]), "p1": _v3(f[4]), "x1": _v3(f[5]),
+                                  "y1": _v3(f[6]), "c0": float(f[7]), "c1": float(f[8]), "w0": float(f[9]),
+                                  "w1": float(f[10]), "rgb": _v3(f[11]), "t0": float(f[12]), "t1": float(f[13]),
+                                  "facecam": f[14] == "true"})
             elif tag == "@ORIGIN":
                 cur.origin = _v3(f[1])
             elif tag == "@HOLE":
@@ -405,6 +411,18 @@ def make_material(cls, attr="col"):
         nt.links.new(bs.outputs[0], mix.inputs[2])
         nt.links.new(mix.outputs[0], out.inputs["Surface"])
         return m
+    elif cls == "water":
+        bs = nt.nodes.new("ShaderNodeBsdfPrincipled")
+        nt.links.new(col, bs.inputs["Base Color"])
+        bs.inputs["Roughness"].default_value = 0.12
+        em = nt.nodes.new("ShaderNodeEmission")
+        nt.links.new(col, em.inputs["Color"])
+        em.inputs["Strength"].default_value = 0.35
+        add = nt.nodes.new("ShaderNodeAddShader")
+        nt.links.new(bs.outputs[0], add.inputs[0])
+        nt.links.new(em.outputs[0], add.inputs[1])
+        nt.links.new(_alpha_mix(nt, add.outputs[0], alpha), out.inputs["Surface"])
+        return m
     elif cls == "forcefield":
         lw = nt.nodes.new("ShaderNodeLayerWeight")
         lw.inputs["Blend"].default_value = 0.35
@@ -438,6 +456,62 @@ def make_material(cls, attr="col"):
 
 
 # Geometry ------------------------------------------------------------------------------
+
+def build_beams(scene, steps=14, sides=6):
+    """Beams as Bezier ribbons (or round tubes for FaceCamera beams), translucent water."""
+    if not scene.beams:
+        return 0
+    co, faces, cols = [], [], []
+    for b in scene.beams:
+        p0, p3 = np.array(b["p0"]), np.array(b["p1"])
+        p1 = p0 + np.array(b["x0"]) * b["c0"]
+        p2 = p3 - np.array(b["x1"]) * b["c1"]
+        ts = np.linspace(0, 1, steps + 1)
+        pts = [((1 - u) ** 3) * p0 + 3 * ((1 - u) ** 2) * u * p1 + 3 * (1 - u) * u * u * p2 + (u ** 3) * p3 for u in ts]
+        rgb = srgb_to_linear(np.array(b["rgb"]))
+        ring = sides if b["facecam"] else 2
+        base = len(co)
+        for i, u in enumerate(ts):
+            tan = pts[min(i + 1, steps)] - pts[max(i - 1, 0)]
+            tan = tan / (np.linalg.norm(tan) + 1e-9)
+            w = b["w0"] + (b["w1"] - b["w0"]) * u
+            if b["facecam"]:
+                ref = np.array([0.0, 1.0, 0.0]) if abs(tan[1]) < 0.9 else np.array([1.0, 0.0, 0.0])
+                n1 = np.cross(tan, ref)
+                n1 /= np.linalg.norm(n1)
+                n2 = np.cross(tan, n1)
+                for k in range(sides):
+                    ang = 2 * np.pi * k / sides
+                    co.append(pts[i] + (np.cos(ang) * n1 + np.sin(ang) * n2) * w / 2)
+            else:
+                side = np.array(b["y0"]) * (1 - u) + np.array(b["y1"]) * u
+                side = side - tan * side.dot(tan)
+                side /= (np.linalg.norm(side) + 1e-9)
+                co.append(pts[i] - side * w / 2)
+                co.append(pts[i] + side * w / 2)
+        for i in range(steps):
+            a = 1.0 - (b["t0"] + (b["t1"] - b["t0"]) * (i + 0.5) / steps)
+            if b["facecam"]:
+                for k in range(sides):
+                    a0 = base + i * ring + k
+                    a1 = base + i * ring + (k + 1) % sides
+                    faces.append((a0, a1, a1 + ring, a0 + ring))
+                    cols.append((*rgb, a))
+            else:
+                a0 = base + i * 2
+                faces.append((a0, a0 + 1, a0 + 3, a0 + 2))
+                cols.append((*rgb, a))
+    me = bpy.data.meshes.new("beams")
+    me.from_pydata([tuple(rb(v)) for v in co], [], faces)
+    me.update()
+    ca = me.attributes.new("col", "FLOAT_COLOR", "FACE")
+    ca.data.foreach_set("color", np.array(cols, dtype=np.float32).ravel())
+    me.materials.append(make_material("water"))
+    ob = bpy.data.objects.new("beams", me)
+    ob.visible_shadow = False
+    bpy.context.scene.collection.objects.link(ob)
+    return len(scene.beams)
+
 
 def build_parts(parts, hide):
     """Merge parts into one mesh per (material class, casts shadow)."""
@@ -793,30 +867,32 @@ def _cam(pos, target, fov=70.0, hide=()):
 
 
 LOBBY_VIEWS = {
-    # High over the north wall, looking across the whole garden plaza.
-    "lobby_overview": _cam((0, 70, -66), (0, 0, 10), 72),
-    # High aerial of the whole complex (plaza, clubhouses, roofs, meadow).
+    # Inside the atrium, from the north wall, looking across the fountain to the south side.
+    "lobby_overview": _cam((0, 15.5, -50), (0, 6, 12), 76),
+    # High aerial of the whole clubhouse (atrium, lantern, wings, grounds).
     "lobby_aerial": _cam((150, 230, 210), (0, 10, 0), 50),
-    # Spawn POV: standing on the spawn pad (0,3,-25), facing south toward the fountain.
-    "spawn": _cam((0, 8, -25), (0, 5, 10), 70),
+    # Spawn POV: standing on the spawn medallion (0,3,-31), facing south toward the fountain.
+    "spawn": _cam((0, 7.5, -31), (0, 6, 10), 72),
     # Default third-person camera just after spawning (behind and above the character).
-    "spawn_3p": _cam((0, 9.5, -38), (0, 5, -10), 70),
-    "fountain": _cam((19, 9, -21), (0, 4.5, 0), 60),
-    "arch_north": _cam((0, 10, -40), (0, 14, -88), 70),
-    # Standing on the lawn by the east gate, looking back across the plaza.
-    "lawn": _cam((30, 6, 18), (-20, 8, -40), 70),
-    "room_north": _cam((0, 9, -90), (0, 8, -150), 80),
-    "room_east": _cam((90, 9, 0), (150, 8, 0), 80),
-    "room_south": _cam((0, 9, 90), (0, 8, 150), 80),
-    "room_west": _cam((-90, 9, 0), (-150, 8, 0), 80),
-    "room_north_back": _cam((0, 15, -130), (0, 7, -76), 80),
-    "room_east_back": _cam((130, 15, 0), (76, 7, 0), 80),
-    "room_south_back": _cam((0, 15, 130), (0, 7, 76), 80),
-    "room_west_back": _cam((-130, 15, 0), (-76, 7, 0), 80),
+    "spawn_3p": _cam((0, 10, -44), (0, 6, -12), 70),
+    "fountain": _cam((20, 7, -20), (0, 8, 0), 60),
+    "fountain_low": (_cam((11, 3.2, -15), (0, 10, 0), 70)),
+    "lounge": _cam((24, 6, 6), (44, 4, 22), 70),
+    "station_daily": _cam((20, 7.5, 20), (36, 6, 36), 64),
+    "station_locker": _cam((20, 7.5, -20), (36, 6, -36), 64),
+    "arch_north": _cam((0, 8, -36), (0, 9, -80), 70),
+    "room_north": _cam((0, 9, -74), (0, 8, -130), 80),
+    "room_east": _cam((74, 9, 0), (130, 8, 0), 80),
+    "room_south": _cam((0, 9, 74), (0, 8, 130), 80),
+    "room_west": _cam((-74, 9, 0), (-130, 8, 0), 80),
+    "room_north_back": _cam((0, 14, -128), (0, 7, -74), 80),
+    "room_east_back": _cam((128, 14, 0), (74, 7, 0), 80),
+    "room_south_back": _cam((0, 14, 128), (0, 7, 74), 80),
+    "room_west_back": _cam((-128, 14, 0), (-74, 7, 0), 80),
 }
 
-DEFAULT_LOBBY = ["lobby_overview", "lobby_aerial", "spawn", "spawn_3p", "fountain", "lawn", "arch_north", "room_north", "room_east",
-                 "room_south", "room_west", "room_east_back", "room_north_back"]
+DEFAULT_LOBBY = ["lobby_overview", "lobby_aerial", "spawn", "spawn_3p", "fountain", "fountain_low", "lounge",
+                 "station_daily", "room_north", "room_east", "room_south", "room_west"]
 
 
 def course_views(scene):
@@ -929,6 +1005,7 @@ def main(argv):
         TEMPLATES.clear()
         n, skipped = build_parts(s.parts + terrain_parts(s), hide)
         build_gradients(s)
+        build_beams(s)
         if not args.no_text:
             build_texts(s)
         build_lights(s)

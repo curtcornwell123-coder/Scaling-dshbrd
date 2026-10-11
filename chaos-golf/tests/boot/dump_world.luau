@@ -11,6 +11,13 @@ do (function()
 	local function dumpTree(root)
 		for _, x in Sim.descendants(root) do
 			local d = D[x]
+			if d.cls == "Beam" and x.Attachment0 and x.Attachment1 then
+				local a0, a1 = x.Attachment0.WorldCFrame, x.Attachment1.WorldCFrame
+				local tk = x.Transparency.Keypoints
+				print(string.format("@B|%s|%s|%s|%s|%s|%s|%.3f|%.3f|%.3f|%.3f|%s|%.3f|%.3f|%s", f3(a0.Position), f3(a0.RightVector), f3(a0.UpVector),
+					f3(a1.Position), f3(a1.RightVector), f3(a1.UpVector), x.CurveSize0, x.CurveSize1, x.Width0, x.Width1,
+					col(x.Color.Keypoints[1].Value), tk[1].Value, tk[#tk].Value, tostring(x.FaceCamera)))
+			end
 			if d.isBasePart then
 				local c = x.CFrame
 				local shape = if d.cls == "Part" then x.Shape.Name else d.cls

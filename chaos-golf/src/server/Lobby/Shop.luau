@@ -497,7 +497,7 @@ local function buildPasses()
 end
 
 local function buildUpgrades()
-	for stat, button in lobby.East.Upgrades.Buttons do
+	for stat, button in lobby.Stations.Upgrades.Buttons do
 		local def
 		for _, s in Config.Upgrades.Stats do
 			if s.Id == stat then

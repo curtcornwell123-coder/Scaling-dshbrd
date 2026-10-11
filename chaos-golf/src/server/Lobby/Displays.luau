@@ -238,7 +238,7 @@ function Displays.card(adornee: BasePart, offsetY: number, title: string, sub: s
 	gui.Name = "InfoCard"
 	gui.Size = UDim2.fromOffset(190, 74)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, offsetY, 0)
-	gui.MaxDistance = 45
+	gui.MaxDistance = 20 -- only the displays you walk up to show their card
 	gui.LightInfluence = 0
 	gui.Adornee = adornee
 	local panel = UIKit.panel({ Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.08, Parent = gui })

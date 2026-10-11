@@ -42,6 +42,10 @@ export type Board = {
 	Nameplate: BasePart, -- screen under the podium for the leader's name
 }
 
+export type LockerStation = { Pedestal: BasePart, Screen: BasePart, Prev: BasePart, Next: BasePart, Equip: BasePart } -- Screen ≈14x8: catalog terminal
+export type UpgradeStation = { Screen: BasePart, Buttons: { [string]: BasePart } } -- buttons: "Power", "Control", "Bounce"
+export type CreatorStation = { Screen: BasePart }
+
 export type Lobby = {
 	Model: Model,
 	Spawn: SpawnLocation,
@@ -50,7 +54,12 @@ export type Lobby = {
 		Sign: BasePart, -- solid (non-neon) 4-way direction sign in front of spawn
 		StandPoint: Vector3, -- where the first-join arrow leads
 	},
-	Daily: { Screen: BasePart, Button: BasePart }, -- 14-day login calendar near spawn
+	Daily: { Screen: BasePart, Button: BasePart }, -- 14-day login calendar (atrium station)
+	Stations: { -- service stations at the atrium edges
+		Locker: LockerStation,
+		Upgrades: UpgradeStation,
+		CreatorKiosk: CreatorStation,
+	},
 	North: {
 		Portals: { [string]: Portal }, -- keys: "Ranked", "Classic", "Race"
 		VoteSigns: { VoteSign }, -- exactly 3
@@ -61,9 +70,6 @@ export type Lobby = {
 		SkinPedestals: { BasePart }, -- 12 coin-shop pedestals (Display attachment)
 		CratePedestals: { [string]: BasePart }, -- "Skins", "Trails", "Knockouts", "Arrows"
 		CrateScreens: { [string]: BasePart }, -- odds boards behind each crate pedestal (same keys)
-		Locker: { Pedestal: BasePart, Screen: BasePart, Prev: BasePart, Next: BasePart, Equip: BasePart }, -- Screen ≈14x8: catalog terminal
-		Upgrades: { Screen: BasePart, Buttons: { [string]: BasePart } }, -- buttons: "Power", "Control", "Bounce"
-		CreatorKiosk: { Screen: BasePart },
 		Mythic: { Pedestal: BasePart, Counter: BasePart, OddsBoard: BasePart },
 		PassPedestals: { [string]: BasePart }, -- keys = Config.GamePassOrder (Display attachment)
 		CoinPackPads: { [string]: BasePart }, -- keys "Coins1".."Coins4"

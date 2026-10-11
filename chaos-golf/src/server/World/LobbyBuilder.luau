@@ -1,9 +1,11 @@
 --!strict
--- Code-built lobby: an open-air garden plaza (grass lawn, dirt paths, stone
--- fountain, hedge-topped stone wall) in rolling meadow terrain, with four
--- clubhouse buildings around it (N Matchmaking, E Shop, S Practice,
--- W Leaderboards). Geometry only: services attach prompts, SurfaceGuis and
--- logic through the LobbyTypes.Lobby contract returned by build().
+-- Code-built lobby: a modern country-club clubhouse. A round marble atrium with a
+-- premium three-tier fountain under a glass lantern, an oak ceiling on black-steel
+-- crossbeams and pillars, steel-framed window bays with leather lounges, and four
+-- service stations (Locker, Daily Rewards, Upgrades, Creator Code) at the edges.
+-- Four wings off the atrium: N Matchmaking, E Shop, S Practice, W Leaderboards.
+-- Outside: meadow grounds with trees and a pond. Geometry only: services attach
+-- prompts, SurfaceGuis and logic through the LobbyTypes.Lobby contract.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -11,6 +13,8 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Crates = require(Shared:WaitForChild("Crates"))
 local Parts = require(script.Parent:WaitForChild("Parts"))
+local LobbyKit = require(script.Parent:WaitForChild("LobbyKit"))
+local Fountain = require(script.Parent:WaitForChild("Fountain"))
 local CourseNature = require(script.Parent:WaitForChild("CourseNature"))
 local LobbyTypes = require(script.Parent:WaitForChild("LobbyTypes"))
 
@@ -19,45 +23,74 @@ type Props = Parts.Props
 local LobbyBuilder = {}
 
 -- Palette -------------------------------------------------------------------
--- Clubhouse materials: plaster walls, oiled timber, limestone, terracotta roofs.
+-- Marble, walnut, oak, black steel, brass, cognac leather, forest-green carpet.
 
 local C = Config.Colors
 local hex = Color3.fromHex
 local M = Enum.Material
 
-local WALL = hex("#EEE5D3") -- plaster
-local WALL2 = hex("#D9CAAE") -- limestone trim
-local WOOD_DARK = hex("#4A3426")
-local WOOD = hex("#6E4D35")
-local FLOOR_A = hex("#B78C61") -- floor planks
-local FLOOR_B = hex("#A67C53")
-local SCREEN = hex("#161A22")
+local MARBLE = hex("#EEEAE3")
+local MARBLE_DARK = hex("#35383C")
+local GRANITE = hex("#2B2D30")
+local WALNUT = hex("#4B3324")
+local WALNUT_DARK = hex("#30221A")
+local WALNUT_MID = hex("#6A4A35")
+local OAK = hex("#BC8F63") -- ceiling planks
+local FLOOR_A = hex("#A97C54") -- floor planks
+local FLOOR_B = hex("#9A6F4A")
+local PLASTER = hex("#F1ECE3")
+local STEEL = hex("#2A2C30")
+local BRASS = hex("#C8A15A")
+local LEATHER = hex("#8B4F2E")
+local RUG = hex("#2E4A3B")
+local RUG_BORDER = hex("#C8B489")
+local QUARTZ = hex("#F6F3ED")
+local STONE = hex("#A79E90") -- exterior limestone
+local MOSAIC = hex("#1E4D59")
+local POT = hex("#E3DDD3")
+local SOIL = hex("#3A2A20")
+local LEAF = hex("#4E7A39")
+local SCREEN = hex("#12151B")
 local WHITE = hex("#F7F2E8")
 local GOLD = C.Gold
 local SILVER = hex("#C9D3E6")
 local BRONZE = hex("#D9895B")
-local MYTHIC = hex("#FF2D55")
+local MYTHIC = hex("#B3203D")
 local LANE_GREEN = hex("#4E9A4A")
-local STONE = hex("#A39A8C")
-local STONE_DARK = hex("#7F776C")
-local HEDGE = hex("#3F6A2E")
-local ROOF = hex("#A65A3C")
-local IRON = hex("#2F3033")
 local LAMP = hex("#FFE3B3")
-local WATER = hex("#6FB7D4")
+local WATER = hex("#69B4D2")
+local GLASS = hex("#A8C4CF")
+local HEDGE = hex("#3F6A2E")
+
+-- Names the room builders use.
+local WALL = PLASTER
+local WALL2 = MARBLE
+local WOOD_DARK = WALNUT
+local WOOD = WALNUT_MID
 
 -- Plain parts in these colours get the matching material in naturalize().
 local MATERIAL_OF: { [string]: Enum.Material } = {
-	[WALL:ToHex()] = M.Plaster,
-	[WALL2:ToHex()] = M.Limestone,
-	[WOOD_DARK:ToHex()] = M.Wood,
-	[WOOD:ToHex()] = M.Wood,
+	[MARBLE:ToHex()] = M.Marble,
+	[MARBLE_DARK:ToHex()] = M.Marble,
+	[QUARTZ:ToHex()] = M.Marble,
+	[GRANITE:ToHex()] = M.Granite,
+	[WALNUT:ToHex()] = M.Wood,
+	[WALNUT_DARK:ToHex()] = M.Wood,
+	[WALNUT_MID:ToHex()] = M.Wood,
+	[OAK:ToHex()] = M.WoodPlanks,
 	[FLOOR_A:ToHex()] = M.WoodPlanks,
 	[FLOOR_B:ToHex()] = M.WoodPlanks,
-	[STONE:ToHex()] = M.Cobblestone,
-	[STONE_DARK:ToHex()] = M.Slate,
+	[PLASTER:ToHex()] = M.Plaster,
+	[STEEL:ToHex()] = M.Metal,
+	[BRASS:ToHex()] = M.Metal,
 	[GOLD:ToHex()] = M.Metal,
-	[IRON:ToHex()] = M.Metal,
+	[LEATHER:ToHex()] = M.Leather,
+	[RUG:ToHex()] = M.Carpet,
+	[RUG_BORDER:ToHex()] = M.Carpet,
+	[STONE:ToHex()] = M.Limestone,
+	[MOSAIC:ToHex()] = M.Slate,
+	[SOIL:ToHex()] = M.Ground,
+	[LEAF:ToHex()] = M.LeafyGrass,
 	[LANE_GREEN:ToHex()] = M.Fabric,
 }
 -- Walkable parts keep plastic physics whatever they look like (balls roll the same).
@@ -65,23 +98,25 @@ local SMOOTH_PHYS = PhysicalProperties.new(0.7, 0.2, 0.5, 1, 1)
 
 local NEON = M.Neon
 local PI = math.pi
+local UP = Vector3.yAxis
 
--- Dimensions (ground level is Y = 0, fountain at the origin) ---------------------
+-- Dimensions (floor top is Y = 0, fountain at the origin) ---------------------
 
-local LOBBY_R = 60 -- inner radius of the garden wall
-local WALL_T = 3
-local STONE_H = 2.4 -- stone course under the hedge
-local HEDGE_H = 5.2
-local BARRIER_H = 30 -- invisible, keeps everyone inside the grounds
-local ARCH_HALF = 13 -- half width of each gateway
-local ARCH_H = 16
-local PLAZA_R = 19 -- cobbled circle round the fountain
-local ROOM_DIST = 104
+local LOBBY_R = 56 -- inner face of the atrium wall
+local WALL_T = 2
+local HUB_H = 18 -- ceiling height at the atrium edge
+local LANTERN_R = 22 -- glass lantern over the fountain
+local LANTERN_H = 27
+local PLAZA_R = 26 -- brass ring around the fountain plaza
+local DOOR_HALF = 12
+local ARCH_H = 13 -- doorway height (atrium and wings)
+local ROOM_DIST = 100
 local ROOM_W = 44 -- half width
 local ROOM_D = 32 -- half depth
-local ROOM_H = 30
+local ROOM_H = 22
 local HALL_HALF = 12
 local NEAR_WALL = ROOM_DIST - ROOM_D -- axial distance of a room's entrance wall (inside face)
+local STATION_R = 51 -- station frame distance from the centre
 
 -- Yaw offsets for along(): which way a part's LookVector points in a quadrant/room frame.
 local TO_BACK = 0 -- away from the lobby
@@ -109,7 +144,24 @@ local function mat(color: Color3, material: Enum.Material, name: string?): Props
 	return { Color = color, Material = material, Name = name }
 end
 
+local function glassProps(name: string): Props
+	return { Name = name, Color = GLASS, Material = M.Glass, Transparency = 0.62, Reflectance = 0.12, CastShadow = false }
+end
+
 local BARRIER: Props = { Name = "Barrier", Transparency = 1, CastShadow = false }
+
+local KIT: LobbyKit.Palette = {
+	Leather = mat(LEATHER, M.Leather),
+	Wood = mat(WALNUT, M.Wood),
+	Metal = mat(STEEL, M.Metal),
+	Brass = mat(BRASS, M.Metal),
+	Stone = mat(QUARTZ, M.Marble),
+	Fabric = mat(RUG, M.Fabric),
+	Lamp = lamp(),
+	Leaf = mat(LEAF, M.LeafyGrass),
+	Pot = { Color = POT, Material = M.SmoothPlastic, Reflectance = 0.08 },
+	Soil = mat(SOIL, M.Ground),
+}
 
 -- Frame helpers. A quadrant frame sits at the fountain with its LookVector
 -- pointing out toward the room; a room frame sits at the room centre with the
@@ -159,30 +211,25 @@ local function text(parent: Instance, cf: CFrame, w: number, h: number, str: str
 	return p
 end
 
--- Contract screen: dark display (Front = cf's LookVector) in a walnut bezel with a
--- thin painted accent edge. Returns the screen part.
-local function screen(parent: Instance, name: string, cf: CFrame, w: number, h: number, accent: Color3): BasePart
+-- Contract screen: dark display (Front = cf's LookVector) in a black-steel bezel with
+-- a hairline brass edge. Returns the screen part.
+local function screen(parent: Instance, name: string, cf: CFrame, w: number, h: number, _accent: Color3?): BasePart
 	local m = Parts.model(parent, name)
-	roundPanel(m, cf * CFrame.new(0, 0, 0.35), w + 1, h + 1, 0.5, 0.6, solid(WOOD_DARK, "Frame"))
-	local e = 0.12
-	Parts.block(m, cf * CFrame.new(0, h / 2 + e / 2, 0), Vector3.new(w + 2 * e, e, 0.2), deco(accent, "Edge"))
-	Parts.block(m, cf * CFrame.new(0, -h / 2 - e / 2, 0), Vector3.new(w + 2 * e, e, 0.2), deco(accent, "Edge"))
-	Parts.block(m, cf * CFrame.new(w / 2 + e / 2, 0, 0), Vector3.new(e, h, 0.2), deco(accent, "Edge"))
-	Parts.block(m, cf * CFrame.new(-w / 2 - e / 2, 0, 0), Vector3.new(e, h, 0.2), deco(accent, "Edge"))
+	roundPanel(m, cf * CFrame.new(0, 0, 0.35), w + 0.9, h + 0.9, 0.5, 0.35, solid(STEEL, "Bezel"))
+	local e = 0.08
+	Parts.block(m, cf * CFrame.new(0, h / 2 + e / 2, 0.02), Vector3.new(w + 2 * e, e, 0.16), deco(BRASS, "Edge"))
+	Parts.block(m, cf * CFrame.new(0, -h / 2 - e / 2, 0.02), Vector3.new(w + 2 * e, e, 0.16), deco(BRASS, "Edge"))
+	Parts.block(m, cf * CFrame.new(w / 2 + e / 2, 0, 0.02), Vector3.new(e, h, 0.16), deco(BRASS, "Edge"))
+	Parts.block(m, cf * CFrame.new(-w / 2 - e / 2, 0, 0.02), Vector3.new(e, h, 0.16), deco(BRASS, "Edge"))
 	return Parts.block(m, cf, Vector3.new(w, h, 0.2), { Name = name, Color = SCREEN, CanCollide = false })
 end
 
--- Walnut sign board: cream lettering tinted with the accent, accent stripes top and
--- bottom (cf = board front centre, facing the viewer).
+-- Walnut sign board with brass lettering and a slim accent line under the text.
 local function titlePlate(parent: Instance, cf: CFrame, w: number, h: number, str: string, accent: Color3)
 	local m = Parts.model(parent, "Title")
-	local r = math.min(1.4, h / 3)
-	roundPanel(m, cf * CFrame.new(0, 0, 0.5), w, h, 1, r, solid(WOOD_DARK, "Plate"))
-	local t = math.min(0.22, h * 0.08)
-	for _, s in { -1, 1 } do
-		Parts.block(m, cf * CFrame.new(0, s * (h / 2 - 0.18 - t / 2), 0), Vector3.new(w - 2 * r, t, 0.1), deco(accent, "Stripe"))
-	end
-	text(m, cf * CFrame.new(0, 0, -0.08), w - 2, h - 0.8, str, accent:Lerp(WHITE, 0.6), WOOD_DARK)
+	roundPanel(m, cf * CFrame.new(0, 0, 0.4), w, h, 0.8, math.min(0.6, h / 4), solid(WALNUT_DARK, "Plate"))
+	Parts.block(m, cf * CFrame.new(0, -h / 2 + 0.22, 0), Vector3.new(w * 0.32, math.min(0.12, h * 0.06), 0.06), deco(accent, "Accent"))
+	text(m, cf * CFrame.new(0, 0.08, -0.06), w - 1.2, h * 0.62, str, BRASS:Lerp(WHITE, 0.25))
 end
 
 local function display(part: BasePart, worldPos: Vector3)
@@ -192,55 +239,30 @@ local function display(part: BasePart, worldPos: Vector3)
 	a.Parent = part
 end
 
--- Flat floor pad: slate disc flush with the floor inside a painted accent ring.
+-- Flat floor pad: dark marble disc flush with the floor inside a brass ring.
 local function pad(parent: Instance, name: string, pos: Vector3, diameter: number, accent: Color3): BasePart
-	Parts.disc(parent, pos + Vector3.new(0, -0.03, 0), diameter + 0.6, 0.14, deco(accent, name .. "Ring"))
-	local p = Parts.disc(parent, pos + Vector3.new(0, -0.04, 0), diameter, 0.2, { Name = name, Color = STONE_DARK, CanCollide = false })
+	Parts.disc(parent, pos + Vector3.new(0, -0.03, 0), diameter + 0.7, 0.14, deco(BRASS, name .. "Ring"))
+	Parts.disc(parent, pos + Vector3.new(0, -0.02, 0), diameter + 0.25, 0.14, deco(accent, name .. "Accent"))
+	local p = Parts.disc(parent, pos + Vector3.new(0, -0.01, 0), diameter, 0.2, { Name = name, Color = MARBLE_DARK, CanCollide = false })
 	p:SetAttribute("Radius", diameter / 2)
 	return p
 end
 
--- Round showcase pedestal (timber foot, accent band, limestone column). Returns the cap.
+-- Showcase pedestal: walnut foot, brass band, marble drum, quartz cap. Returns the cap.
 local function roundPedestal(parent: Instance, name: string, pos: Vector3, ring: Color3, capColor: Color3?, lift: number?): BasePart
 	local m = Parts.model(parent, name)
-	Parts.disc(m, pos + Vector3.new(0, 0.25, 0), 4.6, 0.5, solid(WOOD_DARK, "Base"))
-	Parts.disc(m, pos + Vector3.new(0, 0.6, 0), 4.0, 0.2, deco(ring, "Ring"))
-	Parts.disc(m, pos + Vector3.new(0, 1.65, 0), 3.4, 2.3, solid(WALL2, "Column"))
-	local cap = Parts.disc(m, pos + Vector3.new(0, 2.975, 0), 3.9, 0.35, solid(capColor or WHITE, name))
+	Parts.disc(m, pos + Vector3.new(0, 0.2, 0), 4.2, 0.4, solid(WALNUT_DARK, "Base"))
+	Parts.disc(m, pos + Vector3.new(0, 0.46, 0), 3.7, 0.12, deco(BRASS, "Band"))
+	Parts.disc(m, pos + Vector3.new(0, 1.6, 0), 3.3, 2.2, solid(MARBLE, "Column"))
+	Parts.disc(m, pos + Vector3.new(0, 2.76, 0), 3.5, 0.1, deco(ring, "Ring"))
+	local cap = Parts.disc(m, pos + Vector3.new(0, 2.975, 0), 3.7, 0.35, solid(capColor or QUARTZ, name))
 	display(cap, pos + Vector3.new(0, 3.15 + (lift or 2.5), 0))
 	return cap
 end
 
--- Park bench: iron frame, timber slats. cf faces the way a sitter looks.
+-- Leather bench (rooms). cf faces the way a sitter looks.
 local function bench(parent: Instance, cf: CFrame, _accent: Color3?)
-	local m = Parts.model(parent, "Bench")
-	for _, s in { -1, 1 } do
-		Parts.block(m, cf * CFrame.new(s * 2.9, 0.85, 0), Vector3.new(0.35, 1.7, 2.2), solid(IRON, "Leg"))
-		Parts.block(m, cf * CFrame.new(s * 2.9, 2.6, 1.05), Vector3.new(0.35, 2.2, 0.3), solid(IRON, "Leg"))
-	end
-	for i = 0, 2 do
-		Parts.block(m, cf * CFrame.new(0, 1.82, -0.75 + i * 0.75), Vector3.new(7, 0.25, 0.62), solid(WOOD, "Slat"))
-	end
-	for i = 0, 1 do
-		Parts.block(m, cf * CFrame.new(0, 2.6 + i * 0.85, 1.2), Vector3.new(7, 0.55, 0.2), solid(WOOD, "Slat"))
-	end
-end
-
--- Iron street lamp with a warm lantern.
-local function lampPost(parent: Instance, pos: Vector3)
-	local m = Parts.model(parent, "LampPost")
-	Parts.disc(m, pos + Vector3.new(0, 0.35, 0), 1.5, 0.7, solid(IRON, "Foot"))
-	Parts.disc(m, pos + Vector3.new(0, 4.3, 0), 0.42, 8, solid(IRON, "Pole"))
-	Parts.disc(m, pos + Vector3.new(0, 8.4, 0), 1.3, 0.3, solid(IRON, "Collar"))
-	local glass = Parts.block(m, CFrame.new(pos + Vector3.new(0, 9.35, 0)), Vector3.new(1.1, 1.6, 1.1), lamp())
-	for _, sx in { -1, 1 } do
-		for _, sz in { -1, 1 } do
-			Parts.block(m, CFrame.new(pos + Vector3.new(sx * 0.6, 9.35, sz * 0.6)), Vector3.new(0.16, 1.7, 0.16), deco(IRON, "Frame"))
-		end
-	end
-	Parts.block(m, CFrame.new(pos + Vector3.new(0, 10.3, 0)), Vector3.new(1.7, 0.3, 1.7), deco(IRON, "Hood"))
-	Parts.ball(m, pos + Vector3.new(0, 10.65, 0), 0.5, deco(IRON, "Finial"))
-	Parts.light(glass, LAMP, 20, 0.9)
+	LobbyKit.sofa(parent, cf, KIT, 7)
 end
 
 -- Quadrants -------------------------------------------------------------------
@@ -249,13 +271,13 @@ type Quad = {
 	Key: string,
 	Frame: CFrame, -- at the fountain, LookVector toward the room
 	Color: Color3,
-	Arch: string, -- gateway sign
+	Arch: string, -- doorway sign
 }
 
 local QUADS: { Quad } = {
 	{ Key = "North", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(0, 0, -1)), Color = C.North, Arch = "MATCHMAKING" },
-	{ Key = "East", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(1, 0, 0)), Color = C.East, Arch = "SHOP" },
-	{ Key = "South", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(0, 0, 1)), Color = C.South, Arch = "PRACTICE" },
+	{ Key = "East", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(1, 0, 0)), Color = C.East, Arch = "PRO SHOP" },
+	{ Key = "South", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(0, 0, 1)), Color = C.South, Arch = "PRACTICE RANGE" },
 	{ Key = "West", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(-1, 0, 0)), Color = C.West, Arch = "LEADERBOARDS" },
 }
 
@@ -273,28 +295,28 @@ local MEADOW: CourseNature.Palette = {
 	Water = WATER,
 }
 
-local POND = polar(98, 45, 0)
+local POND = polar(96, 45, 0)
+local HUB_OUT = LOBBY_R + WALL_T + 3 -- roof edge
 
--- Grass lawn and meadow, a cobbled plaza, dirt paths to the gates, slate under the
--- buildings (no grass blades through floors), a pond and low hills on the horizon.
+-- Meadow around the clubhouse, carved out under every floor, a pond in the
+-- north-east corner and low hills on the horizon.
 local function buildGrounds(rng: Random)
 	local terrain = workspace.Terrain
 	local ext = ROOM_DIST + ROOM_D + 170
 	terrain:FillBlock(CFrame.new(0, -6, 0), Vector3.new(ext * 2, 12, ext * 2), M.Grass)
 	for _ = 1, 18 do
-		local p = polar(rng:NextNumber(LOBBY_R + 30, ext - 20), rng:NextNumber(0, 360), -0.8)
+		local p = polar(rng:NextNumber(HUB_OUT + 30, ext - 20), rng:NextNumber(0, 360), -0.8)
 		local size = Vector3.new(rng:NextNumber(14, 30), 1.4, rng:NextNumber(14, 30))
 		terrain:FillBlock(CFrame.new(p) * CFrame.Angles(0, rng:NextNumber(0, PI), 0), size, M.LeafyGrass)
 	end
-	terrain:FillCylinder(CFrame.new(0, -2, 0), 4, PLAZA_R + 1, M.Cobblestone)
+	-- Stone paving round the building, then carve the top layer out under the floors.
+	terrain:FillCylinder(CFrame.new(0, -2, 0), 4, HUB_OUT + 2, M.Pavement)
+	terrain:FillCylinder(CFrame.new(0, -2, 0), 4, LOBBY_R + WALL_T, M.Air)
 	for _, quad in QUADS do
-		local d0, d1 = PLAZA_R - 1, LOBBY_R + 1
-		terrain:FillBlock(along(quad.Frame, 0, -1, (d0 + d1) / 2), Vector3.new(10, 2, d1 - d0), M.Ground)
-		terrain:FillBlock(along(quad.Frame, 0, -2, (LOBBY_R + NEAR_WALL) / 2), Vector3.new(HALL_HALF * 2 + 6, 4, NEAR_WALL - LOBBY_R + 2), M.Slate)
-		-- Room interiors: carve the top layer out so the plank floor never meets the ground.
 		local R = roomFrame(quad)
-		terrain:FillBlock(R * CFrame.new(0, -6, 0), Vector3.new(2 * ROOM_W + 6, 4, 2 * ROOM_D + 6), M.Slate)
-		terrain:FillBlock(R * CFrame.new(0, -2, 0), Vector3.new(2 * ROOM_W, 4, 2 * ROOM_D), M.Air)
+		terrain:FillBlock(R * CFrame.new(0, -2, 0), Vector3.new(2 * ROOM_W + 12, 4, 2 * ROOM_D + 12), M.Pavement)
+		terrain:FillBlock(R * CFrame.new(0, -2, 0), Vector3.new(2 * ROOM_W + 2, 4, 2 * ROOM_D + 2), M.Air)
+		terrain:FillBlock(along(quad.Frame, 0, -2, (LOBBY_R + NEAR_WALL) / 2), Vector3.new(HALL_HALF * 2 + 2, 4, NEAR_WALL - LOBBY_R + 2), M.Air)
 	end
 	terrain:FillCylinder(CFrame.new(POND + Vector3.new(0, -2, 0)), 3.4, 10, M.Water)
 	for i = 0, 17 do
@@ -303,50 +325,36 @@ local function buildGrounds(rng: Random)
 	end
 end
 
--- True when a prop of radius `r` at p stays clear of the buildings, walls and pond.
+-- True when a prop of radius `r` at p stays clear of the buildings and the pond.
 local function openGround(p: Vector3, r: number): boolean
 	local flat = Vector3.new(p.X, 0, p.Z)
-	if flat.Magnitude < LOBBY_R + 6 + r or (flat - POND).Magnitude < 12 + r then
+	if flat.Magnitude < HUB_OUT + 4 + r or (flat - POND).Magnitude < 12 + r then
 		return false
 	end
 	for _, quad in QUADS do
 		local l = roomFrame(quad):PointToObjectSpace(flat)
-		if math.abs(l.X) < ROOM_W + 6 + r and math.abs(l.Z) < ROOM_D + 6 + r then
+		if math.abs(l.X) < ROOM_W + 8 + r and math.abs(l.Z) < ROOM_D + 8 + r then
+			return false
+		end
+		local h = quad.Frame:PointToObjectSpace(flat)
+		if math.abs(h.X) < HALL_HALF + 4 + r and -h.Z > 0 and -h.Z < NEAR_WALL + 2 then
 			return false
 		end
 	end
 	return true
 end
 
--- Trees, flower beds and bushes (decoration: they never collide).
+-- Trees, bushes and rocks on the grounds (decoration: they never collide).
 local function buildScenery(parent: Instance, rng: Random)
 	local m = Parts.model(parent, "Scenery")
-	-- Four shade trees on the lawn diagonals, each with an invisible trunk collider.
-	for k = 0, 3 do
-		local base = polar(44, 45 + k * 90, 0)
-		CourseNature.prop(m, "Oak", base, -base.Unit, rng, MEADOW)
-		Parts.cylinder(m, CFrame.new(base + Vector3.new(0, 5, 0)), 10, 2.2, { Name = "TrunkCollider", Transparency = 1, CastShadow = false })
-		for j = 0, 4 do
-			local p = base + polar(rng:NextNumber(4.5, 6.5), j * 72 + rng:NextNumber(-15, 15), 0)
-			CourseNature.prop(m, if j % 2 == 0 then "Flowers" else "Bush", p, -p.Unit, rng, MEADOW)
-		end
-	end
-	-- Planting along the inside of the wall, clear of the gateways.
-	for q = 0, 3 do
-		for i = 0, 5 do
-			local p = polar(LOBBY_R - 2.6, q * 90 + 24 + i * 8.4, 0)
-			CourseNature.prop(m, if i % 2 == 0 then "Flowers" else "Bush", p, -p.Unit, rng, MEADOW)
-		end
-	end
-	-- Meadow outside the walls: trees in the open corners, a far ring on the horizon.
 	local placed = 0
-	for _ = 1, 400 do
-		if placed >= 26 then
+	for _ = 1, 500 do
+		if placed >= 30 then
 			break
 		end
-		local p = polar(rng:NextNumber(LOBBY_R + 12, 175), rng:NextNumber(0, 360), 0)
+		local p = polar(rng:NextNumber(HUB_OUT + 6, 175), rng:NextNumber(0, 360), 0)
 		if openGround(p, 5) then
-			CourseNature.prop(m, if rng:NextNumber() < 0.75 then "Oak" else "Bush", p, -p.Unit, rng, MEADOW)
+			CourseNature.prop(m, if rng:NextNumber() < 0.7 then "Oak" else "Bush", p, -p.Unit, rng, MEADOW)
 			placed += 1
 		end
 	end
@@ -358,347 +366,249 @@ local function buildScenery(parent: Instance, rng: Random)
 		local p = POND + polar(rng:NextNumber(11, 13), rng:NextNumber(0, 360), 0)
 		CourseNature.prop(m, "Rock", p, -p.Unit, rng, MEADOW)
 	end
-end
-
--- Plaza ---------------------------------------------------------------------------
-
-local function buildPlaza(parent: Instance)
-	local m = Parts.model(parent, "Plaza")
-	Parts.flatRing(m, Vector3.new(0, 0.12, 0), PLAZA_R, 0.9, 0.36, 32, mat(WALL2, M.Limestone, "Kerb"))
-	for k = 0, 3 do
-		lampPost(m, polar(PLAZA_R + 2.6, 45 + k * 90, 0))
-	end
-	-- Benches facing the fountain on the south half (the spawn side stays open).
-	for _, deg in { 122, 148, 212, 238 } do
-		bench(m, inward(PLAZA_R + 3.6, deg, 0))
-	end
-	-- Lamps where the paths reach the gates.
-	for _, quad in QUADS do
-		for _, s in { -1, 1 } do
-			lampPost(m, at(quad.Frame, s * 7.5, 0, LOBBY_R - 9))
+	-- Clipped hedges along the building's outer walls between the wings.
+	for q = 0, 3 do
+		for _, deg in { q * 90 + 30, q * 90 + 60 } do
+			local cf = CFrame.lookAt(polar(HUB_OUT + 2.5, deg, 1.6), Vector3.new(0, 1.6, 0))
+			Parts.roundedBox(m, cf, Vector3.new(12, 3.2, 2.4), 1, mat(HEDGE, M.LeafyGrass, "Hedge"))
 		end
 	end
 end
 
--- Garden wall ---------------------------------------------------------------------
--- Stone course with a clipped hedge on top, limestone piers at every other joint and
--- an invisible barrier above (the ring leaves a gap at each gateway).
+-- Atrium floor ----------------------------------------------------------------
+-- Marble field, granite border with a brass inlay, walnut runners to each door, a
+-- brass-ringed plaza with a 16-point compass star around the fountain.
 
-local function hedgeProps(name: string): Props
-	return mat(HEDGE, M.LeafyGrass, name)
+local function buildFloor(parent: Instance)
+	local f = Parts.model(parent, "Floor")
+	Parts.disc(f, Vector3.new(0, -0.5, 0), (LOBBY_R + WALL_T) * 2, 1, solid(MARBLE, "Base"))
+	LobbyKit.ring(f, Vector3.zero, 47.4, LOBBY_R + 0.4, -0.02, 0.03, 72, deco(GRANITE, "Border"))
+	LobbyKit.ring(f, Vector3.zero, 46.9, 47.4, -0.02, 0.04, 72, deco(BRASS, "BorderInlay"))
+	LobbyKit.ring(f, Vector3.zero, PLAZA_R - 0.6, PLAZA_R, -0.02, 0.04, 64, deco(WALNUT, "PlazaInlay"))
+	LobbyKit.ring(f, Vector3.zero, PLAZA_R, PLAZA_R + 0.3, -0.02, 0.045, 64, deco(BRASS, "PlazaBrass"))
+	-- Compass star between the fountain step and the plaza ring.
+	local rIn = Fountain.Radius + 0.4
+	for i = 0, 15 do
+		local deg = i * 22.5
+		local long = i % 2 == 0
+		local tip = polar(if long then PLAZA_R - 0.8 else PLAZA_R - 4.5, deg, 0.035)
+		local half = if long then 5 else 3.4
+		local mid = polar(rIn, deg, 0.035)
+		Parts.triangle(f, mid, polar(rIn, deg - half, 0.035), tip, 0.05, deco(MARBLE_DARK, "Star"))
+		Parts.triangle(f, mid, polar(rIn, deg + half, 0.035), tip, 0.05, deco(if long then WALNUT else GRANITE, "Star"))
+	end
+	-- Walnut runners from the plaza to each doorway (they continue into the walkways).
+	for _, quad in QUADS do
+		local d0, d1 = PLAZA_R + 0.3, LOBBY_R + 0.4
+		local len = d1 - d0
+		Parts.block(f, along(quad.Frame, 0, 0.02, d0 + len / 2), Vector3.new(7, 0.06, len), deco(WALNUT, "Runner"))
+		for _, s in { -1, 1 } do
+			Parts.block(f, along(quad.Frame, s * 3.65, 0.025, d0 + len / 2), Vector3.new(0.3, 0.07, len), deco(BRASS, "RunnerEdge"))
+		end
+	end
+end
+
+-- Atrium wall -----------------------------------------------------------------
+-- Per quarter (degrees from the quarter's doorway axis): door surround, window bay,
+-- solid station wall, window bay, door surround. Steel pillars stand at every zone
+-- boundary. Windows are steel-framed glass curtain walls onto the grounds.
+
+local DOOR_DEG = math.deg(math.asin((DOOR_HALF + 0.6) / LOBBY_R))
+local ZONES = {
+	{ From = DOOR_DEG, To = 17.5, Kind = "Solid" },
+	{ From = 17.5, To = 31.5, Kind = "Window" },
+	{ From = 31.5, To = 58.5, Kind = "Solid" },
+	{ From = 58.5, To = 72.5, Kind = "Window" },
+	{ From = 72.5, To = 90 - DOOR_DEG, Kind = "Solid" },
+}
+local PILLAR_DEGS = { 17.5, 31.5, 58.5, 72.5 }
+local BAY_DEGS = { 24.5, 65.5 }
+
+local function wallSegment(m: Instance, deg: number, step: number, kind: string)
+	local rMid = LOBBY_R + WALL_T / 2
+	local w = 2 * (LOBBY_R + WALL_T) * math.tan(math.rad(step / 2)) + 0.06
+	local wIn = 2 * LOBBY_R * math.tan(math.rad(step / 2)) + 0.06
+	local top = HUB_H + 0.6
+	if kind == "Solid" then
+		Parts.block(m, inward(rMid, deg, top / 2), Vector3.new(w, top, WALL_T), solid(PLASTER, "Wall"))
+		Parts.block(m, inward(LOBBY_R - 0.15, deg, 2.1), Vector3.new(wIn, 3.6, 0.3), solid(WALNUT, "Wainscot"))
+		Parts.block(m, inward(LOBBY_R - 0.25, deg, 0.3), Vector3.new(wIn, 0.6, 0.5), solid(WALNUT_DARK, "Skirting"))
+		Parts.block(m, inward(LOBBY_R - 0.32, deg, 3.95), Vector3.new(wIn, 0.14, 0.3), deco(BRASS, "Rail"))
+		Parts.block(m, inward(LOBBY_R - 0.3, deg, HUB_H - 0.35), Vector3.new(wIn, 0.7, 0.6), solid(WALNUT, "Crown"))
+		-- Outside: limestone cladding.
+		Parts.block(m, inward(LOBBY_R + WALL_T + 0.2, deg, top / 2), Vector3.new(w + 0.1, top, 0.4), solid(STONE, "Cladding"))
+	else
+		-- Glass curtain wall: walnut sill, glass, steel transom and head.
+		Parts.block(m, inward(rMid, deg, 0.5), Vector3.new(w, 1, WALL_T + 0.4), solid(WALNUT_DARK, "Sill"))
+		Parts.block(m, inward(rMid, deg, (1 + HUB_H - 1.2) / 2), Vector3.new(w, HUB_H - 2.2, 0.3), glassProps("Glass"))
+		Parts.block(m, inward(rMid, deg, 12.4), Vector3.new(w, 0.35, 0.6), solid(STEEL, "Transom"))
+		Parts.block(m, inward(rMid, deg, HUB_H - 0.5), Vector3.new(w, 2.2, WALL_T), solid(PLASTER, "Head"))
+		Parts.block(m, inward(LOBBY_R - 0.3, deg, HUB_H - 0.35), Vector3.new(wIn, 0.7, 0.6), solid(WALNUT, "Crown"))
+		Parts.block(m, inward(rMid, deg, 10), Vector3.new(w, 20, WALL_T), BARRIER)
+	end
+end
+
+local function mullion(m: Instance, deg: number)
+	Parts.block(m, inward(LOBBY_R + WALL_T / 2, deg, (1 + HUB_H - 1.4) / 2), Vector3.new(0.3, HUB_H - 2.4, 0.55), solid(STEEL, "Mullion"))
 end
 
 local function buildWall(parent: Instance)
 	local m = Parts.model(parent, "Wall")
-	local rMid = LOBBY_R + WALL_T / 2
-	local rOut = LOBBY_R + WALL_T
-	local alpha = math.deg(math.asin(ARCH_HALF / LOBBY_R))
-	local perQuarter = 10
-	local step = (90 - 2 * alpha) / perQuarter
-	local w = 2 * rOut * math.tan(math.rad(step / 2)) + 0.1
-	local hedgeY = STONE_H + 0.3
 	for q = 0, 3 do
-		for i = 0, perQuarter - 1 do
-			local deg = q * 90 + alpha + (i + 0.5) * step
-			local seg = Parts.model(m, "Segment")
-			Parts.block(seg, inward(rMid, deg, STONE_H / 2), Vector3.new(w, STONE_H, WALL_T + 0.6), solid(STONE, "Stone"))
-			Parts.block(seg, inward(rMid, deg, STONE_H + 0.15), Vector3.new(w, 0.3, WALL_T + 0.9), solid(WALL2, "Coping"))
-			Parts.block(seg, inward(rMid, deg, hedgeY + HEDGE_H / 2), Vector3.new(w + 0.2, HEDGE_H, WALL_T - 0.2), hedgeProps("Hedge"))
-			Parts.cylinder(seg, inward(rMid, deg, hedgeY + HEDGE_H) * CFrame.Angles(0, 0, PI / 2), w + 0.2, WALL_T - 0.2, hedgeProps("HedgeTop"))
-			Parts.block(seg, inward(rMid, deg, BARRIER_H / 2), Vector3.new(w, BARRIER_H, WALL_T), BARRIER)
-			if i % 2 == 1 and i < perQuarter - 1 then
-				local jd = q * 90 + alpha + (i + 1) * step
-				local top = hedgeY + HEDGE_H + 1.6
-				Parts.block(seg, inward(rMid, jd, top / 2), Vector3.new(2.6, top, WALL_T + 1.2), solid(WALL2, "Pier"))
-				Parts.block(seg, inward(rMid, jd, top + 0.25), Vector3.new(3.2, 0.5, WALL_T + 1.8), solid(WALL2, "PierCap"))
-				Parts.ball(seg, polar(rMid, jd, top + 1), 1.4, solid(WALL2, "PierBall"))
-			end
-		end
-	end
-end
-
--- Gateway: limestone piers, a timber lintel and the hanging sign facing the plaza.
-local function buildGate(parent: Instance, quad: Quad)
-	local m = Parts.model(parent, "Gate" .. quad.Key)
-	local q = quad.Frame
-	local d = LOBBY_R + WALL_T / 2
-	for _, s in { -1, 1 } do
-		local x = s * 14.6
-		Parts.block(m, along(q, x, 0.6, d), Vector3.new(4.8, 1.2, 4.8), solid(STONE_DARK, "PierFoot"))
-		Parts.block(m, along(q, x, ARCH_H / 2, d), Vector3.new(4, ARCH_H, 4), solid(STONE, "Pier"))
-		Parts.block(m, along(q, x, ARCH_H + 0.35, d), Vector3.new(4.8, 0.7, 4.8), solid(WALL2, "PierCap"))
-		Parts.block(m, along(q, x, ARCH_H + 0.5, d - 2.6), Vector3.new(1.1, 1.6, 1.1), lamp())
-		Parts.block(m, along(q, x, ARCH_H + 1.45, d - 2.6), Vector3.new(1.5, 0.3, 1.5), deco(IRON, "Hood"))
-		Parts.block(m, along(q, x, ARCH_H + 0.5, d - 2.05), Vector3.new(0.3, 0.3, 1.1), deco(IRON, "Bracket"))
-	end
-	Parts.block(m, along(q, 0, ARCH_H + 1.5, d), Vector3.new(34, 1.6, 2.4), solid(WOOD_DARK, "Lintel"))
-	titlePlate(m, along(q, 0, ARCH_H + 4.4, d - 0.9, TO_ENTRANCE), 22, 4.4, quad.Arch, quad.Color)
-	for _, s in { -1, 1 } do
-		Parts.block(m, along(q, s * 9, ARCH_H + 2.3, d - 0.5), Vector3.new(0.4, 0.4, 0.4), deco(IRON, "Hook"))
-	end
-end
-
--- Central fountain ----------------------------------------------------------
-
-local function waterEmitter(anchor: BasePart, cf: CFrame, rate: number, speed: NumberRange, life: NumberRange, size: NumberSequence, spread: number, gravity: number): ParticleEmitter
-	local a = Instance.new("Attachment")
-	a.Name = "Water"
-	a.CFrame = anchor.CFrame:ToObjectSpace(cf)
-	a.Parent = anchor
-	local e = Instance.new("ParticleEmitter")
-	e.Texture = "rbxasset://textures/particles/smoke_main.dds"
-	e.Color = ColorSequence.new(hex("#F2FAFF"), hex("#B5DCEE"))
-	e.LightEmission = 0.15
-	e.LightInfluence = 0.9
-	e.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.35),
-		NumberSequenceKeypoint.new(0.6, 0.5),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	e.Size = size
-	e.Rate = rate
-	e.Lifetime = life
-	e.Speed = speed
-	e.SpreadAngle = Vector2.new(spread, spread)
-	e.Acceleration = Vector3.new(0, -gravity, 0)
-	e.EmissionDirection = Enum.NormalId.Top
-	e.Rotation = NumberRange.new(0, 360)
-	e.RotSpeed = NumberRange.new(-40, 40)
-	e.Parent = a
-	return e
-end
-
-local function waterSurface(name: string): Props
-	return {
-		Name = name,
-		Color = WATER,
-		Material = M.Glass,
-		Transparency = 0.3,
-		Reflectance = 0.25,
-		CanCollide = false,
-		CanQuery = false,
-	}
-end
-
-local function buildFountain(parent: Instance)
-	local m = Parts.model(parent, "Fountain")
-	local marble = mat(WHITE, M.Marble, "Marble")
-	-- Step plinth and the collecting bowl: stone floor, rim wall, marble cap, water.
-	Parts.disc(m, Vector3.new(0, 0.1, 0), 29.6, 0.5, solid(STONE_DARK, "Step"))
-	Parts.disc(m, Vector3.new(0, 0.6, 0), 24.2, 1.2, solid(STONE_DARK, "BowlBody"))
-	Parts.flatRing(m, Vector3.new(0, 0.95, 0), 12.3, 1.4, 1.9, 28, solid(WALL2, "Rim"))
-	Parts.flatRing(m, Vector3.new(0, 2.05, 0), 12.3, 1.9, 0.3, 28, marble)
-	Parts.flatRing(m, Vector3.new(0, 0.55, 0), 13.1, 0.4, 0.5, 28, solid(STONE_DARK, "RimBase"))
-	Parts.disc(m, Vector3.new(0, 1.5, 0), 23.6, 0.2, waterSurface("Water"))
-	-- Pedestal column and upper basin (radius 4.5, rim at y 7.7).
-	Parts.disc(m, Vector3.new(0, 1.6, 0), 4.2, 0.8, solid(STONE_DARK, "Collar"))
-	Parts.disc(m, Vector3.new(0, 3.7, 0), 3, 5, solid(WALL2, "Column"))
-	Parts.disc(m, Vector3.new(0, 5.9, 0), 6, 0.6, solid(WALL2, "BasinTaper"))
-	Parts.disc(m, Vector3.new(0, 6.7, 0), 9, 1, solid(WALL2, "Basin"))
-	Parts.flatRing(m, Vector3.new(0, 7.45, 0), 4.25, 0.7, 0.5, 18, marble)
-	Parts.disc(m, Vector3.new(0, 7.35, 0), 8, 0.2, waterSurface("Water"))
-	-- Top spout.
-	Parts.disc(m, Vector3.new(0, 8.8, 0), 1, 3.2, solid(WALL2, "Spout"))
-	Parts.ball(m, Vector3.new(0, 10.6, 0), 1.4, marble)
-
-	-- Flowing water: jet up from the spout, cascades over the upper rim, splashes below.
-	local anchor = Parts.block(m, CFrame.new(0, 6, 0), Vector3.one, {
-		Name = "WaterFx",
-		Transparency = 1,
-		CanCollide = false,
-		CanQuery = false,
-		CanTouch = false,
-		CastShadow = false,
-	})
-	local flowSize = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 1.3) })
-	waterEmitter(anchor, CFrame.new(0, 11.2, 0), 45, NumberRange.new(6, 8), NumberRange.new(1.2, 1.8), flowSize, 10, 30)
-	for j = 0, 5 do
-		local deg = j * 60 + 30
-		local out = polar(1, deg, 0)
-		local tangent = Vector3.new(-out.Z, 0, out.X)
-		local up = (out * 0.8 + Vector3.yAxis * 0.6).Unit
-		waterEmitter(anchor, CFrame.fromMatrix(polar(4.6, deg, 7.75), tangent, up), 45, NumberRange.new(4, 6), NumberRange.new(1.2, 1.8), flowSize, 8, 30)
-	end
-	local splashSize = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 1.6) })
-	for j = 0, 5 do
-		local splash = waterEmitter(anchor, CFrame.new(polar(7.4, j * 60 + 30, 1.65)), 18, NumberRange.new(1.5, 3), NumberRange.new(0.4, 0.7), splashSize, 35, 10)
-		splash.Transparency = NumberSequence.new(0.55, 1)
-	end
-end
-
--- Walkways ------------------------------------------------------------------
--- Flagstones from the gate to the clubhouse door between hedged side walls, under
--- a timber pergola.
-
-local function buildHall(parent: Instance, quad: Quad)
-	local m = Parts.model(parent, "Hall" .. quad.Key)
-	local q = quad.Frame
-	local d0 = LOBBY_R - 1
-	local dWall = NEAR_WALL - 2 -- outside face of the clubhouse front wall
-	Parts.block(m, along(q, 0, -0.45, (d0 + NEAR_WALL) / 2), Vector3.new(HALL_HALF * 2 + 2, 1, NEAR_WALL - d0), solid(STONE_DARK, "Floor"))
-	local w0, w1 = LOBBY_R - 3, dWall
-	local wm, wl = (w0 + w1) / 2, w1 - w0
-	for _, s in { -1, 1 } do
-		local x = s * (HALL_HALF + 1.5)
-		Parts.block(m, along(q, x, STONE_H / 2, wm), Vector3.new(3.6, STONE_H, wl), solid(STONE, "Stone"))
-		Parts.block(m, along(q, x, STONE_H + 0.15, wm), Vector3.new(3.9, 0.3, wl), solid(WALL2, "Coping"))
-		Parts.block(m, along(q, x, STONE_H + 0.3 + HEDGE_H / 2, wm), Vector3.new(2.8, HEDGE_H, wl), hedgeProps("Hedge"))
-		Parts.block(m, along(q, x, BARRIER_H / 2, wm), Vector3.new(3, BARRIER_H, wl), BARRIER)
-		Parts.block(m, along(q, s * (HALL_HALF - 0.45), (ARCH_H + 1) / 2, dWall - 0.8), Vector3.new(0.9, ARCH_H + 1, 0.9), solid(WOOD_DARK, "Post"))
-		Parts.block(m, along(q, s * (HALL_HALF - 0.45), ARCH_H + 1.45, (d0 + 3 + dWall) / 2), Vector3.new(0.9, 0.9, dWall - d0 - 2), solid(WOOD_DARK, "Beam"))
-	end
-	local d = LOBBY_R + 4.2
-	while d < dWall - 0.4 do
-		Parts.block(m, along(q, 0, ARCH_H + 2.15, d), Vector3.new(HALL_HALF * 2 + 1.5, 0.5, 0.45), solid(WOOD, "Rafter"))
-		d += 1.5
-	end
-end
-
--- Clubhouse shell -------------------------------------------------------------
--- Room frame R: centre of the room floor, LookVector away from the lobby.
--- Room-local coordinates (x, y, u): u = +ROOM_D is the back wall, -ROOM_D the entrance.
-
-local function trimRun(m: Instance, R: CFrame, x0: number, u0: number, x1: number, u1: number, nx: number, nu: number, accent: Color3)
-	local function run(off: number, y: number, h: number, depth: number, props: Props)
-		Parts.beam(m, at(R, x0 + nx * off, y, u0 + nu * off), at(R, x1 + nx * off, y, u1 + nu * off), depth, h, props)
-	end
-	run(0.3, 1.2, 2.4, 0.6, solid(WOOD_DARK, "Skirting"))
-	run(0.25, 2.575, 0.35, 0.5, deco(accent, "Band"))
-	run(0.5, ROOM_H - 1, 2, 1, solid(WOOD_DARK, "Crown"))
-end
-
--- Fake sash window on an outside wall (cf = glass centre, LookVector out).
-local function window(m: Instance, cf: CFrame, w: number, h: number)
-	Parts.block(m, cf * CFrame.new(0, 0, 0.1), Vector3.new(w + 0.8, h + 0.8, 0.3), solid(WOOD_DARK, "WindowFrame"))
-	Parts.block(m, cf * CFrame.new(0, -h / 2 - 0.55, -0.1), Vector3.new(w + 1.4, 0.35, 0.7), solid(WALL2, "Sill"))
-	Parts.block(m, cf, Vector3.new(w, h, 0.1), { Name = "Glass", Color = hex("#33444F"), Material = M.Glass, Reflectance = 0.3, CanCollide = false, CanQuery = false })
-	Parts.block(m, cf * CFrame.new(0, 0, -0.05), Vector3.new(0.22, h, 0.12), deco(WOOD_DARK, "Mullion"))
-	Parts.block(m, cf * CFrame.new(0, 0, -0.05), Vector3.new(w, 0.22, 0.12), deco(WOOD_DARK, "Mullion"))
-end
-
--- Outside of a clubhouse: stone plinth, timber corners and eaves, windows and a
--- terracotta gable roof (ridge parallel to the entrance wall).
-local function buildExterior(m: Instance, R: CFrame, top: number)
-	local W, D = ROOM_W, ROOM_D
-	local ox, ou = W + 2, D + 2 -- outside faces
-	local plinth = solid(STONE, "Plinth")
-	Parts.block(m, along(R, 0, 1.5, ou + 0.3), Vector3.new(2 * ox + 1.2, 3, 0.6), plinth)
-	for _, s in { -1, 1 } do
-		Parts.block(m, along(R, s * (ox + 0.3), 1.5, 0), Vector3.new(0.6, 3, 2 * ou + 1.2), plinth)
-		local len = ox - HALL_HALF
-		Parts.block(m, along(R, s * (HALL_HALF + len / 2), 1.5, -ou - 0.3), Vector3.new(len + 0.6, 3, 0.6), plinth)
-		for _, su in { -1, 1 } do
-			Parts.block(m, along(R, s * ox, top / 2, su * ou), Vector3.new(1.8, top, 1.8), solid(WOOD_DARK, "Corner"))
-		end
-	end
-	local eave = solid(WOOD_DARK, "Eave")
-	Parts.block(m, along(R, 0, top - 0.7, ou + 0.35), Vector3.new(2 * ox + 1.4, 1.4, 0.7), eave)
-	Parts.block(m, along(R, 0, top - 0.7, -ou - 0.35), Vector3.new(2 * ox + 1.4, 1.4, 0.7), eave)
-	for _, s in { -1, 1 } do
-		Parts.block(m, along(R, s * (ox + 0.35), top - 0.7, 0), Vector3.new(0.7, 1.4, 2 * ou + 1.4), eave)
-	end
-	-- Windows: either side of the door, along both side walls and the back.
-	for _, x in { -36, -24, 24, 36 } do
-		window(m, along(R, x, 12, -ou - 0.05, TO_ENTRANCE), 5.6, 8)
-	end
-	for _, s in { -1, 1 } do
-		for _, u in { -18, 0, 18 } do
-			window(m, along(R, s * (ox + 0.05), 12, u, if s > 0 then TO_MINUS_X else TO_PLUS_X), 5.6, 8)
-		end
-	end
-	for _, x in { -30, -10, 10, 30 } do
-		window(m, along(R, x, 12, ou + 0.05, TO_BACK), 5.6, 8)
-	end
-	-- Gable roof: two tiled slopes, plaster gable ends, ridge cap.
-	local rise, over = 13, 3
-	local theta = math.atan(rise / ou)
-	local run = ou + over
-	local roofW = 2 * ox + 2 * over
-	local tiles = mat(ROOF, M.ClayRoofTiles, "Roof")
-	for _, s in { -1, 1 } do
-		local cf = along(R, 0, top + rise - rise * (run / 2) / ou, s * run / 2) * CFrame.Angles(-s * theta, 0, 0) * CFrame.new(0, 0.5, 0)
-		Parts.block(m, cf, Vector3.new(roofW, 1, run / math.cos(theta)), tiles)
-	end
-	Parts.block(m, along(R, 0, top + rise + 0.75, 0), Vector3.new(roofW, 0.9, 1.8), mat(ROOF:Lerp(Color3.new(0, 0, 0), 0.25), M.ClayRoofTiles, "Ridge"))
-	for _, s in { -1, 1 } do
-		local x = s * (ox - 1)
-		Parts.triangle(m, at(R, x, top, -ou), at(R, x, top, ou), at(R, x, top + rise, 0), 2, solid(WALL, "Gable"))
-	end
-end
-
-local function buildRoomShell(parent: Instance, quad: Quad, title: string, checker: boolean): (Model, CFrame)
-	local m = Parts.model(parent, quad.Key .. "Room")
-	local R = roomFrame(quad)
-	local accent = quad.Color
-	local W, D, H = ROOM_W, ROOM_D, ROOM_H
-	local shell = Parts.model(m, "Shell")
-	-- Plank floor (+ large alternating boards 0.02 above it).
-	Parts.block(shell, along(R, 0, -0.5, 1), Vector3.new(2 * W + 4, 1, 2 * D + 2), solid(FLOOR_A, "Floor"))
-	if checker then
-		for ix = 0, 3 do
-			for iu = 0, 3 do
-				if (ix + iu) % 2 == 0 then
-					Parts.block(shell, along(R, -W + 11 + 22 * ix, 0, -D + 8 + 16 * iu), Vector3.new(22, 0.04, 16), deco(FLOOR_B, "Tile"))
+		local base = q * 90
+		for _, z in ZONES do
+			local span = z.To - z.From
+			local n = math.max(1, math.ceil(span / 3.6))
+			local step = span / n
+			for i = 0, n - 1 do
+				local deg = base + z.From + (i + 0.5) * step
+				wallSegment(m, deg, step, z.Kind)
+				if z.Kind == "Window" and i > 0 then
+					mullion(m, base + z.From + i * step)
 				end
 			end
 		end
-	end
-	Parts.block(shell, along(R, 0, 0, -D + 0.4), Vector3.new(22, 0.08, 2.8), deco(STONE_DARK, "Threshold"))
-	-- Walls and ceiling (2 thick, outside the interior box).
-	local top = H + 1.5
-	local yc = (top - 1) / 2
-	local wallH = top + 1
-	Parts.block(shell, along(R, 0, yc, D + 1), Vector3.new(2 * W + 4, wallH, 2), solid(WALL, "BackWall"))
-	for _, s in { -1, 1 } do
-		Parts.block(shell, along(R, s * (W + 1), yc, 0), Vector3.new(2, wallH, 2 * D + 4), solid(WALL, "SideWall"))
-		local len = W + 2 - HALL_HALF
-		Parts.block(shell, along(R, s * (HALL_HALF + len / 2), yc, -D - 1), Vector3.new(len, wallH, 2), solid(WALL, "FrontWall"))
-	end
-	Parts.block(shell, along(R, 0, (ARCH_H + 0.5 + top) / 2, -D - 1), Vector3.new(HALL_HALF * 2 + 0.2, top - ARCH_H - 0.5, 2), solid(WALL, "DoorHeader"))
-	Parts.block(shell, along(R, 0, H + 0.75, 0), Vector3.new(2 * W + 4, 1.5, 2 * D + 4), solid(WALL, "Ceiling"))
-	-- Interior trims.
-	trimRun(shell, R, -W, D, W, D, 0, -1, accent)
-	trimRun(shell, R, -W, -D, -W, D, 1, 0, accent)
-	trimRun(shell, R, W, -D, W, D, -1, 0, accent)
-	trimRun(shell, R, -W, -D, -HALL_HALF - 1.5, -D, 0, 1, accent)
-	trimRun(shell, R, HALL_HALF + 1.5, -D, W, -D, 0, 1, accent)
-	-- Door frame on the room side.
-	for _, s in { -1, 1 } do
-		Parts.block(shell, along(R, s * 13, ARCH_H / 2, -D + 0.5), Vector3.new(2.6, ARCH_H, 2.6), solid(WOOD_DARK, "DoorPost"))
-	end
-	Parts.block(shell, along(R, 0, ARCH_H + 1.1, -D + 0.5), Vector3.new(28.6, 2.2, 2.6), solid(WOOD_DARK, "DoorLintel"))
-	-- Corner columns, exposed ceiling beams and warm light panels.
-	for _, sx in { -1, 1 } do
-		for _, su in { -1, 1 } do
-			Parts.block(shell, along(R, sx * (W - 1), (H - 2) / 2, su * (D - 1)), Vector3.new(2.4, H - 2, 2.4), solid(WOOD, "Column"))
+		for _, pd in PILLAR_DEGS do
+			local deg = base + pd
+			LobbyKit.column(m, polar(LOBBY_R - 1.2, deg, 0), HUB_H, 1.5, solid(STEEL, "Pillar"))
+			mullion(m, deg)
 		end
 	end
-	for _, u in { -D / 3, D / 3 } do
-		Parts.block(shell, along(R, 0, H - 0.6, u), Vector3.new(2 * W, 1.2, 1.4), solid(WOOD_DARK, "Beam"))
-	end
-	for _, x in { -W * 0.6, 0, W * 0.6 } do
-		for _, u in { -D / 1.6, 0, D / 1.6 } do
-			Parts.block(shell, along(R, x, H - 0.1, u), Vector3.new(7.4, 0.2, 3.6), solid(WOOD_DARK, "Fixture"))
-			local panel = Parts.block(shell, along(R, x, H - 0.25, u), Vector3.new(6.6, 0.2, 2.8), lamp())
-			if u ~= 0 then
-				Parts.light(panel, LAMP, 30, 1.3, "Surface")
-			end
-		end
-	end
-	-- Room title on the back wall.
-	titlePlate(shell, along(R, 0, 24.6, D - 1, TO_ENTRANCE), 44, 5, title, accent)
-	buildExterior(shell, R, top)
-	return m, R
+	-- Roof edge: a steel fascia ring and the flat roof over the atrium.
+	LobbyKit.ring(m, Vector3.zero, LOBBY_R + WALL_T + 0.4, HUB_OUT, HUB_H + 0.2, HUB_H + 1.8, 64, solid(STEEL, "Fascia"))
+	LobbyKit.ring(m, Vector3.zero, LANTERN_R, LOBBY_R + WALL_T + 0.5, HUB_H + 0.6, HUB_H + 1.2, 48, solid(STONE, "Roof"))
 end
 
--- Spawn, directory sign, daily calendar -----------------------------------------
+-- Doorway: steel portal, walnut lining, header wall with the brass-lettered sign
+-- and sconces either side.
+local function buildDoorway(parent: Instance, quad: Quad)
+	local m = Parts.model(parent, "Door" .. quad.Key)
+	local q = quad.Frame
+	local d = LOBBY_R + WALL_T / 2
+	local x = DOOR_HALF + 0.6
+	local top = HUB_H + 0.6
+	Parts.block(m, along(q, 0, (ARCH_H + top) / 2, d), Vector3.new(2 * x + 2.4, top - ARCH_H, WALL_T), solid(PLASTER, "Header"))
+	Parts.block(m, along(q, 0, (ARCH_H + top) / 2, d + WALL_T / 2 + 0.2), Vector3.new(2 * x + 2.4, top - ARCH_H, 0.4), solid(STONE, "Cladding"))
+	for _, s in { -1, 1 } do
+		Parts.block(m, along(q, s * x, ARCH_H / 2, d), Vector3.new(1.2, ARCH_H, WALL_T + 1.2), solid(STEEL, "Jamb"))
+		Parts.block(m, along(q, s * (x - 0.75), ARCH_H / 2, d), Vector3.new(0.3, ARCH_H - 0.2, WALL_T + 0.6), solid(WALNUT, "Lining"))
+		LobbyKit.sconce(m, along(q, s * (x + 3), 8.5, LOBBY_R - 0.4, TO_ENTRANCE), KIT)
+	end
+	Parts.block(m, along(q, 0, ARCH_H + 0.6, d), Vector3.new(2 * x + 1.2, 1.2, WALL_T + 1.2), solid(STEEL, "Head"))
+	Parts.block(m, along(q, 0, ARCH_H - 0.15, d), Vector3.new(2 * x - 1.2, 0.3, WALL_T + 0.6), solid(WALNUT, "Soffit"))
+	Parts.block(m, along(q, 0, 0.02, d), Vector3.new(2 * x, 0.06, WALL_T + 1), deco(BRASS, "Threshold"))
+	titlePlate(m, along(q, 0, ARCH_H + 2.9, LOBBY_R - 0.55, TO_ENTRANCE), 2 * x - 1, 3.1, quad.Arch, quad.Color)
+end
 
-local SPAWN_POS = Vector3.new(0, 0.5, -25)
+-- Ceiling ---------------------------------------------------------------------
+-- Oak plank ceiling on radial black-steel I-beams with a ring beam, an LED cove
+-- round the lantern, the glass lantern itself and a halo chandelier over the fountain.
+
+local function buildCeiling(parent: Instance)
+	local m = Parts.model(parent, "Ceiling")
+	local oak = solid(OAK, "Ceiling")
+	LobbyKit.ring(m, Vector3.zero, LANTERN_R, 34, HUB_H, HUB_H + 0.6, 40, oak)
+	LobbyKit.ring(m, Vector3.zero, 34, 46, HUB_H + 0.01, HUB_H + 0.6, 56, oak)
+	LobbyKit.ring(m, Vector3.zero, 46, LOBBY_R + WALL_T, HUB_H + 0.02, HUB_H + 0.6, 72, oak)
+	local steel = solid(STEEL, "Beam")
+	local beamY = HUB_H - 0.75
+	local degs = {}
+	for q = 0, 3 do
+		table.insert(degs, q * 90)
+		for _, pd in PILLAR_DEGS do
+			table.insert(degs, q * 90 + pd)
+		end
+	end
+	table.sort(degs)
+	for _, deg in degs do
+		LobbyKit.ibeam(m, polar(LANTERN_R + 0.6, deg, beamY), polar(LOBBY_R - 0.2, deg, beamY), 1.5, 0.8, steel)
+	end
+	for i, deg in degs do
+		local nextDeg = degs[i % #degs + 1] + (if i == #degs then 360 else 0)
+		LobbyKit.ibeam(m, polar(39, deg, beamY - 0.05), polar(39, nextDeg, beamY - 0.05), 1.2, 0.7, steel)
+	end
+	-- Ring beam round the lantern and the LED cove under it.
+	LobbyKit.ring(m, Vector3.zero, LANTERN_R - 0.6, LANTERN_R + 0.6, HUB_H - 1.2, HUB_H + 0.6, 36, solid(STEEL, "RingBeam"))
+	local cove = LobbyKit.ring(m, Vector3.zero, LANTERN_R + 0.6, LANTERN_R + 0.9, HUB_H - 0.25, HUB_H - 0.05, 48, lamp())
+	for i, child in cove:GetChildren() do
+		if i % 8 == 1 and child:IsA("BasePart") then
+			Parts.light(child, LAMP, 16, 0.5, "Surface")
+		end
+	end
+	-- Glass lantern: clerestory drum and a glass roof on steel ribs.
+	local n = 24
+	local w = 2 * LANTERN_R * math.tan(PI / n) + 0.05
+	for i = 0, n - 1 do
+		local deg = (i + 0.5) / n * 360
+		Parts.block(m, inward(LANTERN_R, deg, (HUB_H + 0.6 + LANTERN_H) / 2), Vector3.new(w, LANTERN_H - HUB_H - 0.6, 0.3), glassProps("LanternGlass"))
+		Parts.block(m, inward(LANTERN_R, i / n * 360, (HUB_H + 0.6 + LANTERN_H) / 2), Vector3.new(0.35, LANTERN_H - HUB_H - 0.6, 0.6), solid(STEEL, "LanternMullion"))
+	end
+	LobbyKit.ring(m, Vector3.zero, LANTERN_R - 0.5, LANTERN_R + 0.5, LANTERN_H, LANTERN_H + 0.9, 36, solid(STEEL, "LanternRing"))
+	LobbyKit.ring(m, Vector3.zero, LANTERN_R - 0.3, LANTERN_R + 0.3, (HUB_H + LANTERN_H) / 2, (HUB_H + LANTERN_H) / 2 + 0.3, 36, solid(STEEL, "LanternTransom"))
+	Parts.cylinder(m, CFrame.new(0, LANTERN_H + 0.7, 0), 0.25, LANTERN_R * 2, glassProps("LanternRoof"))
+	for i = 0, 11 do
+		local deg = i * 30
+		LobbyKit.ibeam(m, polar(3, deg, LANTERN_H + 0.3), polar(LANTERN_R - 0.4, deg, LANTERN_H + 0.3), 0.9, 0.5, steel)
+	end
+	Parts.cylinder(m, CFrame.new(0, LANTERN_H + 0.4, 0), 1, 6.2, solid(STEEL, "Hub"))
+	-- Halo chandelier: a brass ring of candle lamps hung from the lantern roof.
+	local ringY = LANTERN_H - 4.2
+	LobbyKit.torus(m, Vector3.new(0, ringY, 0), 9, 0.4, 40, deco(BRASS, "Halo"), false)
+	LobbyKit.torus(m, Vector3.new(0, ringY - 0.55, 0), 8.6, 0.25, 40, deco(BRASS, "Halo"), false)
+	for i = 0, 15 do
+		local p = polar(9, i * 22.5, ringY + 0.5)
+		Parts.cylinder(m, CFrame.new(p - UP * 0.2), 0.3, 0.55, deco(BRASS, "Cup"))
+		local bulb = Parts.cylinder(m, CFrame.new(p + UP * 0.35), 0.8, 0.32, lamp())
+		if i % 4 == 0 then
+			Parts.light(bulb, LAMP, 22, 0.8)
+		end
+	end
+	for i = 0, 3 do
+		Parts.rod(m, polar(9, i * 90 + 45, ringY), polar(3, i * 90 + 45, LANTERN_H + 0.1), 0.08, deco(STEEL, "Hanger"))
+	end
+end
+
+-- Lounges, planters, totems ------------------------------------------------------
+
+-- Leather lounge in a window bay: rug, sofa with its back to the glass, two armchairs,
+-- a coffee table and a pendant overhead.
+local function buildLounge(parent: Instance, deg: number, rng: Random)
+	local m = Parts.model(parent, "Lounge")
+	local F = CFrame.lookAt(polar(47, deg, 0), Vector3.zero) -- looks toward the centre
+	LobbyKit.rug(m, F, 11, 9, mat(RUG, M.Carpet), mat(RUG_BORDER, M.Carpet))
+	LobbyKit.sofa(m, F * CFrame.new(0, 0, 2.8), KIT, 8)
+	LobbyKit.coffeeTable(m, (F * CFrame.new(0, 0, -0.4)).Position, 3.6, KIT)
+	for _, s in { -1, 1 } do
+		LobbyKit.armchair(m, F * CFrame.new(s * 3.2, 0, -3.4) * CFrame.Angles(0, PI + s * 0.5, 0), KIT)
+	end
+	LobbyKit.pendant(m, (F * CFrame.new(0, 0, -0.4)).Position, HUB_H, 4.2, KIT, 16)
+	local side = F * CFrame.new(5.6, 0, 3.2)
+	LobbyKit.planter(m, side.Position, KIT, rng, 6)
+end
+
+-- Slim monolith facing the spawn: marble base, steel frame, walnut face.
+local function totem(parent: Instance, name: string, base: Vector3, faceTo: Vector3): (Model, CFrame)
+	local m = Parts.model(parent, name)
+	local cf = CFrame.lookAt(base, Vector3.new(faceTo.X, 0, faceTo.Z))
+	Parts.roundedBox(m, cf * CFrame.new(0, 0.35, 0.2), Vector3.new(7.6, 0.7, 3), 0.6, solid(MARBLE, "Base"))
+	Parts.block(m, cf * CFrame.new(0, 0.74, 0.2), Vector3.new(7, 0.08, 2.4), deco(BRASS, "BaseInlay"))
+	Parts.block(m, cf * CFrame.new(0, 6.5, 0.45), Vector3.new(7, 11.6, 0.6), solid(STEEL, "Frame"))
+	Parts.block(m, cf * CFrame.new(0, 6.5, 0.1), Vector3.new(6.4, 11, 0.2), solid(WALNUT, "Face"))
+	Parts.block(m, cf * CFrame.new(0, 12.45, 0.45), Vector3.new(7.4, 0.3, 1), solid(STEEL, "Cap"))
+	return m, cf
+end
+
+local SPAWN_POS = Vector3.new(0, 0.5, -31)
 
 local function buildSpawn(parent: Instance): SpawnLocation
 	local m = Parts.model(parent, "Spawn")
-	Parts.disc(m, Vector3.new(0, 0.08, -25), 10, 0.16, deco(WALL2, "SpawnRim"))
-	Parts.disc(m, Vector3.new(0, 0.1, -25), 8.8, 0.16, deco(STONE, "SpawnPad"))
+	local c = Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z)
+	LobbyKit.ring(m, c, 4.2, 4.6, -0.01, 0.07, 32, deco(BRASS, "SpawnRing"))
+	Parts.disc(m, c + UP * 0.03, 8.4, 0.08, deco(MARBLE_DARK, "SpawnPad"))
+	for i = 0, 3 do
+		local deg = i * 90
+		Parts.triangle(m, c + polar(3.6, deg, 0.08), c + polar(0.5, deg - 45, 0.08), c + polar(0.5, deg + 45, 0.08), 0.04, deco(BRASS, "Needle"))
+	end
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "LobbySpawn"
 	spawn.Size = Vector3.new(6, 1, 6)
@@ -714,63 +624,160 @@ local function buildSpawn(parent: Instance): SpawnLocation
 	return spawn
 end
 
--- Timber 4-way signpost facing the spawn. Arrow directions are as seen from the
+-- Directory totem (front-left of the spawn). Arrow directions are as seen from the
 -- spawn looking south: +X (East) is to the player's left.
 local function buildDirectory(parent: Instance): (BasePart, Vector3)
-	local m = Parts.model(parent, "Directory")
-	local base = Vector3.new(10, 0, -20)
-	local cf = CFrame.lookAt(base, Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
-	Parts.roundedBox(m, cf * CFrame.new(0, 0.3, 0.6), Vector3.new(5, 0.6, 3), 0.8, solid(STONE, "Base"))
-	Parts.roundedBox(m, cf * CFrame.new(0, 0.7, 0.6), Vector3.new(4.2, 0.2, 2.2), 0.6, solid(WALL2, "BaseCap"))
-	Parts.block(m, cf * CFrame.new(0, 3.2, 0.9), Vector3.new(1.3, 5.8, 1.3), solid(WOOD_DARK, "Post"))
-	roundPanel(m, cf * CFrame.new(0, 7.6, 0.35), 8.6, 10.2, 0.4, 0.9, solid(WOOD_DARK, "Frame"))
-	local sign = Parts.block(m, cf * CFrame.new(0, 7.6, 0), Vector3.new(7.8, 9.4, 0.3), solid(WOOD, "DirectorySign"))
-	local head = Parts.block(m, cf * CFrame.new(0, 11.3, -0.22), Vector3.new(7.8, 1.6, 0.15), solid(WHITE, "Header"))
-	text(m, head.CFrame * CFrame.new(0, 0, -0.1), 7.4, 1.5, "WHERE TO?", WOOD_DARK)
-	-- Arrow boards: label, colour, tip side (+1 = viewer's left = cf +X, -1 = right, 0 = none).
+	local m, cf = totem(parent, "Directory", Vector3.new(10, 0, -24), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
+	local sign = Parts.block(m, cf * CFrame.new(0, 6.5, 0.02), Vector3.new(6.2, 10.8, 0.1), { Name = "DirectorySign", Color = WALNUT, Transparency = 1, CanCollide = false })
+	text(m, cf * CFrame.new(0, 11.2, -0.05), 5.6, 1.3, "WHERE TO?", BRASS:Lerp(WHITE, 0.25))
+	Parts.block(m, cf * CFrame.new(0, 10.35, -0.02), Vector3.new(3, 0.08, 0.06), deco(BRASS, "Rule"))
 	local arrows = {
-		{ Text = "▲  PRACTICE · SOUTH", Color = C.South, Tip = 0 },
-		{ Text = "◀  SHOP · EAST", Color = C.East, Tip = 1 },
-		{ Text = "LEADERBOARDS · WEST  ▶", Color = C.West, Tip = -1 },
-		{ Text = "▼  MATCHMAKING · BEHIND YOU", Color = C.North, Tip = 0 },
+		{ Text = "▲  PRACTICE RANGE", Color = C.South },
+		{ Text = "◀  PRO SHOP", Color = C.East },
+		{ Text = "LEADERBOARDS  ▶", Color = C.West },
+		{ Text = "▼  MATCHMAKING", Color = C.North },
 	}
 	for i, a in arrows do
-		local y = 11.225 - i * 1.8
-		local body = cf * CFrame.new(a.Tip * -0.4, y, -0.3)
-		local board = Parts.block(m, body, Vector3.new(6.4, 1.55, 0.3), mat(a.Color, M.WoodPlanks, "Arrow"))
-		if a.Tip ~= 0 then
-			local tx = a.Tip * -0.4 + a.Tip * 3.2
-			local p1 = (cf * CFrame.new(tx, y + 0.775, -0.3)).Position
-			local p2 = (cf * CFrame.new(tx, y - 0.775, -0.3)).Position
-			local p3 = (cf * CFrame.new(tx + a.Tip * 0.9, y, -0.3)).Position
-			Parts.triangle(m, p1, p2, p3, 0.3, mat(a.Color, M.WoodPlanks, "ArrowTip"))
-		end
-		text(m, board.CFrame * CFrame.new(0, 0, -0.2), 6.2, 1.4, a.Text, WHITE, WOOD_DARK)
+		local y = 10.3 - i * 2.05
+		Parts.block(m, cf * CFrame.new(-2.75, y, -0.04), Vector3.new(0.18, 1.3, 0.06), deco(a.Color, "Accent"))
+		text(m, cf * CFrame.new(0.15, y, -0.06), 5.4, 1.2, a.Text, WHITE)
 	end
 	return sign, (cf * CFrame.new(0, 3, -5)).Position
 end
 
-local function buildDaily(parent: Instance): (BasePart, BasePart)
-	local m = Parts.model(parent, "Daily")
-	local base = Vector3.new(-12, 0, -34)
-	local cf = CFrame.lookAt(base, Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
-	Parts.block(m, cf * CFrame.new(0, 0.25, 0.6), Vector3.new(12, 0.5, 3.4), solid(STONE, "Base"))
-	for _, s in { -1, 1 } do
-		Parts.block(m, cf * CFrame.new(s * 5.6, 5.6, 0.8), Vector3.new(0.9, 11.2, 0.9), solid(WOOD_DARK, "Post"))
+local NEWS = {
+	"Power-ups: earn them by sinking holes and knockouts",
+	"More obstacles on every hole",
+	"The new clubhouse is open",
+	"Join Corny Games for updates",
+}
+
+local function buildNews(parent: Instance)
+	local m, cf = totem(parent, "WhatsNew", Vector3.new(-10, 0, -24), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
+	text(m, cf * CFrame.new(0, 11.2, -0.05), 5.6, 1.3, "WHAT'S NEW", BRASS:Lerp(WHITE, 0.25))
+	Parts.block(m, cf * CFrame.new(0, 10.35, -0.02), Vector3.new(3, 0.08, 0.06), deco(BRASS, "Rule"))
+	for i, line in NEWS do
+		local y = 10.1 - i * 2.05
+		Parts.ball(m, (cf * CFrame.new(-2.65, y + 0.3, -0.06)).Position, 0.22, deco(BRASS, "Bullet"))
+		local t = text(m, cf * CFrame.new(0.25, y, -0.06), 5.1, 1.7, line, WHITE, nil, false, Config.FontBody)
+		local label = t:FindFirstChildWhichIsA("SurfaceGui") and (t:FindFirstChildWhichIsA("SurfaceGui") :: SurfaceGui):FindFirstChildWhichIsA("TextLabel")
+		if label then
+			label.TextWrapped = true
+			label.TextXAlignment = Enum.TextXAlignment.Left
+		end
 	end
-	local scr = screen(m, "DailyScreen", cf * CFrame.new(0, 7.5, 0.5), 10, 6, GOLD)
-	titlePlate(m, cf * CFrame.new(0, 11.9, 0.3), 11.4, 1.8, "DAILY REWARDS", GOLD)
-	-- Claim button on a stone pedestal in front of the board.
-	Parts.cylinder(m, cf * CFrame.new(0, 1.5, -3), 3, 2.6, solid(WALL2, "ButtonPedestal"))
-	Parts.cylinder(m, cf * CFrame.new(0, 3.08, -3), 0.16, 2.9, deco(WOOD_DARK, "ButtonRing"))
-	local button = Parts.cylinder(m, cf * CFrame.new(0, 3.3, -3), 0.6, 2.1, solid(GOLD, "DailyButton"))
-	text(m, cf * CFrame.new(0, 1.8, -4.36), 2, 0.9, "CLAIM", WOOD_DARK)
+end
+
+-- Stations ---------------------------------------------------------------------
+-- A walnut-fin feature wall with a brass-lettered header, a recessed screen and a
+-- two-tier marble dais. Station frame F: on the floor at STATION_R on the diagonal,
+-- LookVector toward the centre (local -Z = toward the visitor, +X = visitor's left).
+
+local STATION_W = 20
+
+local function stationShell(parent: Instance, deg: number, title: string, rng: Random): (Model, CFrame)
+	local m = Parts.model(parent, title:gsub("%s", "") .. "Station")
+	local F = CFrame.lookAt(polar(STATION_R, deg, 0), Vector3.zero)
+	local w = STATION_W
+	-- Dais.
+	Parts.roundedBox(m, F * CFrame.new(0, 0.2, -1), Vector3.new(w, 0.4, 9.4), 1.2, solid(MARBLE, "Dais"))
+	Parts.block(m, F * CFrame.new(0, 0.41, -5.62), Vector3.new(w - 2.4, 0.04, 0.16), deco(BRASS, "DaisInlay"))
+	Parts.roundedBox(m, F * CFrame.new(0, 0.6, 0.7), Vector3.new(w - 3, 0.4, 5.6), 0.9, solid(WALNUT, "DaisUpper"))
+	-- Feature wall: dark backing, walnut fins, brass reveals, a lit valance.
+	Parts.block(m, F * CFrame.new(0, 6.8, 3.6), Vector3.new(w, 13.6, 0.6), solid(WALNUT_DARK, "Backdrop"))
+	local fins = math.floor(w / 0.95)
+	for i = 0, fins - 1 do
+		local x = -w / 2 + 0.475 + i * (w / fins)
+		Parts.block(m, F * CFrame.new(x, 6.8, 3.05), Vector3.new(0.42, 12.6, 0.5), solid(WALNUT, "Fin"))
+	end
+	Parts.block(m, F * CFrame.new(0, 0.5, 3.0), Vector3.new(w, 0.12, 0.7), deco(BRASS, "Reveal"))
+	local valance = Parts.block(m, F * CFrame.new(0, 13.4, 2.7), Vector3.new(w + 0.6, 0.8, 1.6), solid(STEEL, "Valance"))
+	Parts.light(valance, LAMP, 16, 0.9, "Surface")
+	Parts.block(m, F * CFrame.new(0, 12.98, 2.6), Vector3.new(w - 0.6, 0.06, 1.2), lamp())
+	-- Header with brass lettering.
+	Parts.block(m, F * CFrame.new(0, 11.95, 2.55), Vector3.new(13, 1.9, 0.3), solid(WALNUT_DARK, "Header"))
+	text(m, F * CFrame.new(0, 11.95, 2.33), 12, 1.5, title, BRASS:Lerp(WHITE, 0.25))
+	-- Planters either side.
+	for _, s in { -1, 1 } do
+		LobbyKit.planter(m, (F * CFrame.new(s * (w / 2 + 1.6), 0, 1)).Position, KIT, rng, 7)
+	end
+	return m, F
+end
+
+-- Counter with labelled push-buttons on top (F-local position). `buttons` from the
+-- visitor's left to right; returns the button parts.
+local function counter(parent: Instance, cf: CFrame, buttons: { { Name: string, Label: string, Color: Color3 } }): { BasePart }
+	local m = Parts.model(parent, "Console")
+	local w = 3.2 * #buttons + 0.8
+	Parts.roundedBox(m, cf * CFrame.new(0, 1.55, 0), Vector3.new(w, 3.1, 2.2), 0.4, solid(WALNUT, "Body"))
+	Parts.roundedBox(m, cf * CFrame.new(0, 3.2, 0), Vector3.new(w + 0.4, 0.2, 2.6), 0.5, solid(QUARTZ, "Top"))
+	Parts.block(m, cf * CFrame.new(0, 0.18, -0.95), Vector3.new(w - 0.4, 0.36, 0.4), solid(STEEL, "Kick"))
+	Parts.block(m, cf * CFrame.new(0, 2.6, -1.12), Vector3.new(w - 0.6, 0.1, 0.06), deco(BRASS, "Inlay"))
+	local out: { BasePart } = {}
+	for i, b in buttons do
+		-- cf's +X is the visitor's left (the visitor faces the counter's front).
+		local bx = ((#buttons + 1) / 2 - i) * 3.2
+		Parts.cylinder(m, cf * CFrame.new(bx, 3.33, 0), 0.06, 2.2, deco(BRASS, "ButtonRing"))
+		local part = Parts.cylinder(m, cf * CFrame.new(bx, 3.5, 0), 0.4, 1.8, { Name = b.Name, Color = b.Color, Material = M.SmoothPlastic, Reflectance = 0.05 })
+		table.insert(out, part)
+		text(m, cf * CFrame.new(bx, 1.75, -1.16), 2.9, 0.9, b.Label, BRASS:Lerp(WHITE, 0.4))
+	end
+	return out
+end
+
+local function buildLocker(parent: Instance, rng: Random): LobbyTypes.LockerStation
+	local m, F = stationShell(parent, 45, "LOCKER", rng)
+	local scr = screen(m, "LockerScreen", F * CFrame.new(0, 6.4, 2.5), 14, 8)
+	local buttons = counter(m, F * CFrame.new(1.6, 0.4, -3.6), {
+		{ Name = "LockerPrev", Label = "◀ PREV", Color = QUARTZ },
+		{ Name = "LockerEquip", Label = "EQUIP", Color = BRASS },
+		{ Name = "LockerNext", Label = "NEXT ▶", Color = QUARTZ },
+	})
+	local ped = roundPedestal(m, "LockerPedestal", (F * CFrame.new(-6.4, 0.4, -3.4)).Position, BRASS, QUARTZ, 2.2)
+	return { Pedestal = ped, Screen = scr, Prev = buttons[1], Equip = buttons[2], Next = buttons[3] }
+end
+
+local function buildUpgrades(parent: Instance, rng: Random): LobbyTypes.UpgradeStation
+	local m, F = stationShell(parent, 225, "BALL UPGRADES", rng)
+	local scr = screen(m, "UpgradeScreen", F * CFrame.new(0, 6.6, 2.5), 12, 7)
+	local b = counter(m, F * CFrame.new(0, 0.4, -3.6), {
+		{ Name = "Power", Label = "POWER", Color = C.North },
+		{ Name = "Control", Label = "CONTROL", Color = C.West },
+		{ Name = "Bounce", Label = "BOUNCE", Color = C.South },
+	})
+	return { Screen = scr, Buttons = { Power = b[1], Control = b[2], Bounce = b[3] } }
+end
+
+local function buildCreator(parent: Instance, rng: Random): LobbyTypes.CreatorStation
+	local m, F = stationShell(parent, 315, "CREATOR CODE", rng)
+	local scr = screen(m, "CreatorScreen", F * CFrame.new(0, 6.6, 2.5), 11, 6.5)
+	LobbyKit.armchair(m, F * CFrame.new(-4.5, 0.4, -3) * CFrame.Angles(0, PI - 0.35, 0), KIT)
+	LobbyKit.armchair(m, F * CFrame.new(4.5, 0.4, -3) * CFrame.Angles(0, PI + 0.35, 0), KIT)
+	return { Screen = scr }
+end
+
+local function buildDaily(parent: Instance, rng: Random): (BasePart, BasePart)
+	local m, F = stationShell(parent, 135, "DAILY REWARDS", rng)
+	local scr = screen(m, "DailyScreen", F * CFrame.new(0, 6.5, 2.5), 13, 7.5)
+	-- Claim button on a turned marble plinth in front of the wall.
+	local base = (F * CFrame.new(0, 0.4, -3.4)).Position
+	LobbyKit.lathe(m, base, {
+		Vector2.new(1.5, 0),
+		Vector2.new(1.25, 0.4),
+		Vector2.new(0.95, 1.2),
+		Vector2.new(1.0, 2.4),
+		Vector2.new(1.45, 2.85),
+	}, 20, 0.25, deco(MARBLE, "ButtonPlinth"))
+	Parts.cylinder(m, CFrame.new(base + UP * 1.45), 2.9, 2, solid(MARBLE, "ButtonCore"))
+	Parts.cylinder(m, CFrame.new(base + UP * 2.95), 0.12, 2.9, deco(BRASS, "ButtonRing"))
+	local button = Parts.cylinder(m, CFrame.new(base + UP * 3.15), 0.5, 2.1, solid(GOLD, "DailyButton"))
+	text(m, CFrame.lookAt(base + UP * 1.6, base + UP * 1.6 + F.LookVector) * CFrame.new(0, 0, -1.02), 1.8, 0.8, "CLAIM", BRASS:Lerp(WHITE, 0.4))
 	return scr, button
 end
 
 -- Painted outline hugging a w x h face centred on cf.
 local function outline(parent: Instance, cf: CFrame, w: number, h: number, color: Color3)
-	local e = 0.16
+	local e = 0.12
 	Parts.block(parent, cf * CFrame.new(0, h / 2 + e / 2, 0), Vector3.new(w + 2 * e, e, 0.2), deco(color, "Edge"))
 	Parts.block(parent, cf * CFrame.new(0, -h / 2 - e / 2, 0), Vector3.new(w + 2 * e, e, 0.2), deco(color, "Edge"))
 	Parts.block(parent, cf * CFrame.new(w / 2 + e / 2, 0, 0), Vector3.new(e, h, 0.2), deco(color, "Edge"))
@@ -783,27 +790,215 @@ local function heroPanel(parent: Instance, cf: CFrame, w: number, h: number, top
 	Parts.gradientFace(p, Enum.NormalId.Front, top, bottom, 90)
 end
 
--- Final pass: palette colours become real materials, accent trims lose their glow
--- (only lamp glass stays emissive) and anything solid keeps plastic physics.
-local function naturalize(root: Instance)
-	for _, d in root:GetDescendants() do
-		if d:IsA("BasePart") then
-			if d.Material == NEON and string.sub(d.Name, 1, 4) ~= "Lamp" then
-				d.Material = M.SmoothPlastic
-			end
-			if d.Material == M.SmoothPlastic then
-				local m = MATERIAL_OF[d.Color:ToHex()]
-				if m then
-					d.Material = m
-				end
-			end
-			if d.CanCollide and d.Material ~= M.SmoothPlastic and not (d.CustomPhysicalProperties :: PhysicalProperties?) then
-				d.CustomPhysicalProperties = SMOOTH_PHYS
-			end
+-- Atrium ----------------------------------------------------------------------------
+
+local function buildAtrium(parent: Instance, rng: Random)
+	local hub = Parts.model(parent, "Hub")
+	buildFloor(hub)
+	buildWall(hub)
+	buildCeiling(hub)
+	for _, quad in QUADS do
+		buildDoorway(hub, quad)
+		for _, s in { -1, 1 } do
+			LobbyKit.planter(hub, at(quad.Frame, s * 16.5, 0, LOBBY_R - 3.4), KIT, rng, 7.5)
 		end
+	end
+	for q = 0, 3 do
+		for _, bay in BAY_DEGS do
+			buildLounge(hub, q * 90 + bay, rng)
+		end
+	end
+	Fountain.build(hub, Vector3.zero, {
+		Marble = mat(MARBLE, M.Marble),
+		MarbleDark = mat(MARBLE_DARK, M.Marble),
+		Brass = mat(BRASS, M.Metal),
+		Mosaic = mat(MOSAIC, M.Slate),
+		Water = {
+			Color = WATER,
+			Material = M.Glass,
+			Transparency = 0.32,
+			Reflectance = 0.32,
+			CanCollide = false,
+			CanQuery = false,
+			CastShadow = false,
+		},
+	})
+	-- Invisible collider round the fountain so nobody wades through the water.
+	Parts.cylinder(hub, CFrame.new(0, 5, 0), 10, 31.2, { Name = "FountainCollider", Transparency = 1, CastShadow = false })
+	buildNews(hub)
+end
+
+-- Walkways -----------------------------------------------------------------------
+-- Glass link corridor from each atrium doorway to its wing: marble floor with the
+-- walnut runner, steel-framed glass sides and an oak ceiling.
+
+local function buildHall(parent: Instance, quad: Quad)
+	local m = Parts.model(parent, "Hall" .. quad.Key)
+	local q = quad.Frame
+	local d0 = LOBBY_R + WALL_T - 0.2
+	local d1 = NEAR_WALL - 2 -- outside face of the wing's entrance wall
+	local len = d1 - d0
+	local mid = (d0 + d1) / 2
+	local x = HALL_HALF + 0.6
+	Parts.block(m, along(q, 0, -0.5, (LOBBY_R + NEAR_WALL) / 2), Vector3.new(2 * x + 1, 1, NEAR_WALL - LOBBY_R + 0.4), solid(MARBLE, "Floor"))
+	Parts.block(m, along(q, 0, 0.02, (LOBBY_R + NEAR_WALL) / 2), Vector3.new(7, 0.06, NEAR_WALL - LOBBY_R + 0.4), deco(WALNUT, "Runner"))
+	local h = ARCH_H + 1
+	for _, s in { -1, 1 } do
+		Parts.block(m, along(q, s * x, 0.5, mid), Vector3.new(0.8, 1, len), solid(WALNUT_DARK, "Sill"))
+		Parts.block(m, along(q, s * x, (1 + h) / 2, mid), Vector3.new(0.3, h - 1, len), glassProps("Glass"))
+		for _, d in { d0 + 0.4, mid, d1 - 0.4 } do
+			Parts.block(m, along(q, s * x, h / 2, d), Vector3.new(0.6, h, 0.6), solid(STEEL, "Post"))
+		end
+		Parts.block(m, along(q, s * x, h, mid), Vector3.new(0.8, 0.6, len), solid(STEEL, "Rail"))
+	end
+	Parts.block(m, along(q, 0, h + 0.5, mid), Vector3.new(2 * x + 1.6, 1, len), solid(OAK, "Ceiling"))
+	Parts.block(m, along(q, 0, h + 1.2, mid), Vector3.new(2 * x + 2.4, 0.5, len + 0.6), solid(STEEL, "Roof"))
+	local strip = Parts.block(m, along(q, 0, h - 0.05, mid), Vector3.new(2, 0.1, len - 1), lamp())
+	Parts.light(strip, LAMP, 14, 0.7, "Surface")
+end
+
+-- Wing shell ------------------------------------------------------------------
+-- Room frame R: centre of the room floor, LookVector away from the lobby.
+-- Room-local coordinates (x, y, u): u = +ROOM_D is the back wall, -ROOM_D the entrance.
+
+type FloorStyle = "Oak" | "Marble" | "Walnut"
+
+local function trimRun(m: Instance, R: CFrame, x0: number, u0: number, x1: number, u1: number, nx: number, nu: number, accent: Color3)
+	local function run(off: number, y: number, h: number, depth: number, props: Props)
+		Parts.beam(m, at(R, x0 + nx * off, y, u0 + nu * off), at(R, x1 + nx * off, y, u1 + nu * off), depth, h, props)
+	end
+	run(0.25, 0.3, 0.6, 0.5, solid(WALNUT_DARK, "Skirting"))
+	run(0.15, 2.3, 3.4, 0.3, solid(WALNUT, "Wainscot"))
+	run(0.33, 4.05, 0.14, 0.3, deco(BRASS, "Rail"))
+	run(0.33, 0.85, 0.08, 0.3, deco(accent, "Accent"))
+	run(0.3, ROOM_H - 0.35, 0.7, 0.6, solid(WALNUT, "Crown"))
+end
+
+-- Modern window on an outside wall (cf = glass centre, LookVector out): slim steel frame, two panes.
+local function window(m: Instance, cf: CFrame, w: number, h: number)
+	Parts.block(m, cf * CFrame.new(0, 0, 0.1), Vector3.new(w + 0.6, h + 0.6, 0.3), solid(STEEL, "WindowFrame"))
+	Parts.block(m, cf, Vector3.new(w, h, 0.1), { Name = "Glass", Color = hex("#33444F"), Material = M.Glass, Reflectance = 0.35, CanCollide = false, CanQuery = false })
+	Parts.block(m, cf * CFrame.new(0, 0, -0.05), Vector3.new(0.22, h, 0.12), deco(STEEL, "Mullion"))
+	Parts.block(m, cf * CFrame.new(0, -h / 2 - 0.45, -0.15), Vector3.new(w + 1, 0.3, 0.6), solid(STONE, "Sill"))
+end
+
+-- Outside of a wing: limestone base course, vertical walnut cladding bays between
+-- black-steel posts, tall windows and a flat roof with a deep steel fascia.
+local function buildExterior(m: Instance, R: CFrame, top: number)
+	local W, D = ROOM_W, ROOM_D
+	local ox, ou = W + 2, D + 2 -- outside faces
+	local base = solid(STONE, "BaseCourse")
+	Parts.block(m, along(R, 0, 1.75, ou + 0.25), Vector3.new(2 * ox + 1, 3.5, 0.5), base)
+	for _, s in { -1, 1 } do
+		Parts.block(m, along(R, s * (ox + 0.25), 1.75, 0), Vector3.new(0.5, 3.5, 2 * ou + 1), base)
+		local len = ox - HALL_HALF
+		Parts.block(m, along(R, s * (HALL_HALF + len / 2), 1.75, -ou - 0.25), Vector3.new(len + 0.5, 3.5, 0.5), base)
+	end
+	-- Walnut cladding above the base course (one board per bay) and steel posts.
+	local clad = solid(WALNUT, "Cladding")
+	local h = top - 3.5
+	local y = 3.5 + h / 2
+	Parts.block(m, along(R, 0, y, ou + 0.15), Vector3.new(2 * ox, h, 0.3), clad)
+	for _, s in { -1, 1 } do
+		Parts.block(m, along(R, s * (ox + 0.15), y, 0), Vector3.new(0.3, h, 2 * ou), clad)
+		local len = ox - HALL_HALF
+		Parts.block(m, along(R, s * (HALL_HALF + len / 2), y, -ou - 0.15), Vector3.new(len, h, 0.3), clad)
+	end
+	for _, x in { -ox, -ox / 2, 0, ox / 2, ox } do
+		Parts.block(m, along(R, x, top / 2, ou + 0.35), Vector3.new(0.8, top, 0.5), solid(STEEL, "Post"))
+	end
+	for _, s in { -1, 1 } do
+		for _, u in { -ou, -ou / 2, 0, ou / 2, ou } do
+			Parts.block(m, along(R, s * (ox + 0.35), top / 2, u), Vector3.new(0.5, top, 0.8), solid(STEEL, "Post"))
+		end
+		Parts.block(m, along(R, s * (HALL_HALF + 0.4), top / 2, -ou - 0.35), Vector3.new(0.8, top, 0.5), solid(STEEL, "Post"))
+	end
+	for _, x in { -34, -22, 22, 34 } do
+		window(m, along(R, x, 10.5, -ou - 0.35, TO_ENTRANCE), 5, 11)
+	end
+	for _, s in { -1, 1 } do
+		for _, u in { -22, -11, 0, 11, 22 } do
+			window(m, along(R, s * (ox + 0.35), 10.5, u, if s > 0 then TO_MINUS_X else TO_PLUS_X), 5, 11)
+		end
+	end
+	for _, x in { -33, -11, 11, 33 } do
+		window(m, along(R, x, 10.5, ou + 0.35, TO_BACK), 5, 11)
+	end
+	-- Flat roof with a deep overhang and a steel fascia band.
+	local over = 3
+	Parts.block(m, along(R, 0, top + 0.6, 0), Vector3.new(2 * (ox + over), 1.2, 2 * (ou + over)), solid(STONE, "Roof"))
+	Parts.block(m, along(R, 0, top + 0.6, ou + over), Vector3.new(2 * (ox + over) + 0.6, 1.8, 0.6), solid(STEEL, "Fascia"))
+	Parts.block(m, along(R, 0, top + 0.6, -ou - over), Vector3.new(2 * (ox + over) + 0.6, 1.8, 0.6), solid(STEEL, "Fascia"))
+	for _, s in { -1, 1 } do
+		Parts.block(m, along(R, s * (ox + over), top + 0.6, 0), Vector3.new(0.6, 1.8, 2 * (ou + over)), solid(STEEL, "Fascia"))
 	end
 end
 
+local function buildRoomShell(parent: Instance, quad: Quad, floorStyle: FloorStyle): (Model, CFrame)
+	local m = Parts.model(parent, quad.Key .. "Room")
+	local R = roomFrame(quad)
+	local accent = quad.Color
+	local W, D, H = ROOM_W, ROOM_D, ROOM_H
+	local shell = Parts.model(m, "Shell")
+	-- Floor with a walnut border band and brass inlay.
+	local floorColor = if floorStyle == "Marble" then MARBLE elseif floorStyle == "Walnut" then WALNUT_MID else FLOOR_A
+	Parts.block(shell, along(R, 0, -0.5, 1), Vector3.new(2 * W + 4, 1, 2 * D + 2), solid(floorColor, "Floor"))
+	for _, s in { -1, 1 } do
+		Parts.block(shell, along(R, s * (W - 1.2), 0.02, 0), Vector3.new(2.4, 0.06, 2 * D), deco(WALNUT_DARK, "Border"))
+		Parts.block(shell, along(R, 0, 0.02, s * (D - 1.2)), Vector3.new(2 * W, 0.06, 2.4), deco(WALNUT_DARK, "Border"))
+		Parts.block(shell, along(R, s * (W - 2.5), 0.03, 0), Vector3.new(0.2, 0.06, 2 * D - 4.8), deco(BRASS, "Inlay"))
+		Parts.block(shell, along(R, 0, 0.03, s * (D - 2.5)), Vector3.new(2 * W - 4.8, 0.06, 0.2), deco(BRASS, "Inlay"))
+	end
+	if floorStyle == "Marble" then
+		for i = -3, 3 do
+			Parts.block(shell, along(R, i * 11, 0.01, 0), Vector3.new(0.12, 0.04, 2 * D - 5), deco(MARBLE_DARK, "Joint"))
+		end
+	end
+	Parts.block(shell, along(R, 0, 0.02, -D + 1.2), Vector3.new(24, 0.06, 2.4), deco(BRASS, "Threshold"))
+	-- Walls and ceiling (2 thick, outside the interior box).
+	local top = H + 1.5
+	local yc = (top - 1) / 2
+	local wallH = top + 1
+	Parts.block(shell, along(R, 0, yc, D + 1), Vector3.new(2 * W + 4, wallH, 2), solid(PLASTER, "BackWall"))
+	for _, s in { -1, 1 } do
+		Parts.block(shell, along(R, s * (W + 1), yc, 0), Vector3.new(2, wallH, 2 * D + 4), solid(PLASTER, "SideWall"))
+		local len = W + 2 - HALL_HALF
+		Parts.block(shell, along(R, s * (HALL_HALF + len / 2), yc, -D - 1), Vector3.new(len, wallH, 2), solid(PLASTER, "FrontWall"))
+	end
+	Parts.block(shell, along(R, 0, (ARCH_H + 0.5 + top) / 2, -D - 1), Vector3.new(HALL_HALF * 2 + 0.2, top - ARCH_H - 0.5, 2), solid(PLASTER, "DoorHeader"))
+	Parts.block(shell, along(R, 0, H + 0.75, 0), Vector3.new(2 * W + 4, 1.5, 2 * D + 4), solid(OAK, "Ceiling"))
+	-- Interior trims.
+	trimRun(shell, R, -W, D, W, D, 0, -1, accent)
+	trimRun(shell, R, -W, -D, -W, D, 1, 0, accent)
+	trimRun(shell, R, W, -D, W, D, -1, 0, accent)
+	trimRun(shell, R, -W, -D, -HALL_HALF - 1.5, -D, 0, 1, accent)
+	trimRun(shell, R, HALL_HALF + 1.5, -D, W, -D, 0, 1, accent)
+	-- Steel door portal on the room side.
+	for _, s in { -1, 1 } do
+		Parts.block(shell, along(R, s * 12.6, ARCH_H / 2, -D + 0.3), Vector3.new(1.2, ARCH_H, 1.4), solid(STEEL, "Jamb"))
+	end
+	Parts.block(shell, along(R, 0, ARCH_H + 0.6, -D + 0.3), Vector3.new(26.4, 1.2, 1.4), solid(STEEL, "Head"))
+	-- Black-steel pillars (corners and side walls) carrying I-beam crossbeams under the oak ceiling.
+	local pillar = solid(STEEL, "Pillar")
+	for _, sx in { -1, 1 } do
+		for _, u in { -(D - 1.2), D - 1.2 } do
+			LobbyKit.column(shell, at(R, sx * (W - 1.2), 0, u), H, 1.4, pillar)
+		end
+		LobbyKit.column(shell, at(R, sx * (HALL_HALF + 3.5), 0, -(D - 1.2)), H, 1.4, pillar)
+	end
+	for _, u in { -(D - 8), -8, 8, D - 8 } do
+		LobbyKit.ibeam(shell, at(R, -W, H - 0.7, u), at(R, W, H - 0.7, u), 1.4, 0.8, solid(STEEL, "Beam"))
+	end
+	LobbyKit.ibeam(shell, at(R, 0, H - 0.75, -D), at(R, 0, H - 0.75, D), 1.2, 0.7, solid(STEEL, "Beam"))
+	-- Brass pendants between the beams.
+	for _, x in { -22, 22 } do
+		for _, u in { -16, 0, 16 } do
+			LobbyKit.pendant(shell, at(R, x, 0, u), H, 4, KIT, 26)
+		end
+	end
+	buildExterior(shell, R, top)
+	return m, R
+end
 -- NORTH: Matchmaking & voting --------------------------------------------------
 
 local function buildNorth(room: Model, R: CFrame)
@@ -815,8 +1010,8 @@ local function buildNorth(room: Model, R: CFrame)
 		local x = (i - 2) * 22
 		local p = Parts.model(m, "Portal" .. key)
 		-- Backdrop on the back wall.
-		roundPanel(p, along(R, x, 11.75, ROOM_D - 0.25, TO_ENTRANCE), 19.5, 17.5, 0.5, 2, solid(WOOD_DARK, "Backdrop"))
-		heroPanel(p, along(R, x, 11.75, ROOM_D - 0.55, TO_ENTRANCE), 17.5, 15.5, col:Lerp(WOOD_DARK, 0.3), WOOD)
+		roundPanel(p, along(R, x, 10.2, ROOM_D - 0.25, TO_ENTRANCE), 19.5, 15.6, 0.5, 1.2, solid(WALNUT_DARK, "Backdrop"))
+		heroPanel(p, along(R, x, 10.2, ROOM_D - 0.55, TO_ENTRANCE), 17.5, 13.6, col:Lerp(WALNUT_DARK, 0.55), WALNUT_DARK)
 		-- Plinth + hoop frame + force-field film.
 		Parts.trimmedSlab(p, along(R, x, 0.4, 29, TO_ENTRANCE), Vector3.new(19, 0.8, 4.6), 1.2, WOOD, col)
 		local hc = along(R, x, 8.6, 29, TO_ENTRANCE)
@@ -833,9 +1028,9 @@ local function buildNorth(room: Model, R: CFrame)
 		})
 		Parts.light(film, col, 18, 1.4)
 		-- Status screen above the portal, bracketed to the wall.
-		local sign = screen(p, "Sign", along(R, x, 19.6, 29, TO_ENTRANCE), 12, 4, col)
+		local sign = screen(p, "Sign", along(R, x, 17.4, 29, TO_ENTRANCE), 12, 4, col)
 		for _, s in { -1, 1 } do
-			Parts.block(p, along(R, x + s * 4, 19.6, 30.5), Vector3.new(0.6, 0.6, 1.8), solid(WOOD_DARK, "Bracket"))
+			Parts.block(p, along(R, x + s * 4, 17.4, 30.5), Vector3.new(0.6, 0.6, 1.8), solid(STEEL, "Bracket"))
 		end
 		-- Queue bubble (bottom on the floor) with a floor ring.
 		local bubble = Parts.ball(p, at(R, x, 7, 19), 14, {
@@ -866,7 +1061,7 @@ local function buildNorth(room: Model, R: CFrame)
 		end
 		Parts.block(vm, cf * CFrame.new(0, 0, 0.3), Vector3.new(11, 8, 0.3), {
 			Name = "HoloFrame",
-			Color = WOOD_DARK,
+			Color = STEEL,
 			Transparency = 0.35,
 			CanCollide = false,
 		})
@@ -882,7 +1077,7 @@ local function buildNorth(room: Model, R: CFrame)
 		table.insert(votes, entry)
 	end
 	local header = screen(vm, "VoteHeader", along(R, -43.3, 13.8, 0, TO_PLUS_X), 30, 4.5, accent)
-	titlePlate(vm, along(R, -43, 18.6, 0, TO_PLUS_X), 16, 2.6, "MAP VOTE", accent)
+	titlePlate(vm, along(R, -43, 17.6, 0, TO_PLUS_X), 16, 2.6, "MAP VOTE", accent)
 
 	-- Invite Friends kiosk on the east side, plus a small lounge.
 	local km = Parts.model(m, "Invite")
@@ -913,53 +1108,34 @@ local function commas(n: number): string
 	return s
 end
 
--- Console with three labelled buttons on top, facing `yaw` in room frame R.
--- `buttons` lists the labels from the user's left to right; returns the button parts.
-local function console(parent: Instance, R: CFrame, x: number, u: number, yaw: number, buttons: { { Name: string, Label: string, Color: Color3 } }, accent: Color3): { BasePart }
-	local m = Parts.model(parent, "Console")
-	local cf = along(R, x, 0, u, yaw)
-	Parts.roundedBox(m, cf * CFrame.new(0, 1.6, 0), Vector3.new(9, 3.2, 2.2), 0.6, solid(WOOD, "Desk"))
-	Parts.block(m, cf * CFrame.new(0, 2.95, -1.12), Vector3.new(7.6, 0.16, 0.16), deco(accent, "Trim"))
-	local out: { BasePart } = {}
-	for i, b in buttons do
-		-- cf's +X is the user's left (the user faces the console's front).
-		local bx = (2 - i) * 3
-		Parts.cylinder(m, cf * CFrame.new(bx, 3.24, 0), 0.08, 2.3, deco(b.Color, "ButtonRing"))
-		local part = Parts.cylinder(m, cf * CFrame.new(bx, 3.45, 0), 0.5, 1.9, solid(b.Color, b.Name))
-		table.insert(out, part)
-		text(m, cf * CFrame.new(bx, 1.7, -1.16), 2.8, 1.1, b.Label, WHITE, WOOD_DARK, false)
-	end
-	return out
-end
-
 local function buildEast(room: Model, R: CFrame)
 	local m = Parts.model(room, "Shop")
 	local accent = C.East
 
 	-- 12 coin-shop skin pedestals in a U around the room centre, open toward the entrance.
+	-- 12 coin-shop pedestals in two straight rows either side of a carpet runner.
 	local sm = Parts.model(m, "SkinPedestals")
-	Parts.disc(sm, at(R, 0, 0.02, -2), 35.2, 0.08, deco(accent, "MedallionRing"))
-	Parts.disc(sm, at(R, 0, 0.04, -2), 34, 0.08, deco(WALL2, "Medallion"))
+	LobbyKit.rug(sm, along(R, 0, 0, -6), 8, 36, mat(RUG, M.Carpet), mat(RUG_BORDER, M.Carpet))
 	local skins: { BasePart } = {}
 	for i = 1, 12 do
-		local theta = math.rad(-125 + (i - 1) * 250 / 11)
-		local pos = at(R, 14 * math.sin(theta), 0, -2 + 14 * math.cos(theta))
-		table.insert(skins, roundPedestal(sm, "SkinPedestal" .. i, pos, accent))
+		local side = if i <= 6 then -1 else 1
+		local k = (i - 1) % 6
+		table.insert(skins, roundPedestal(sm, "SkinPedestal" .. i, at(R, side * 8.5, 0, -21 + k * 6), accent))
 	end
 
 	-- Mythic shrine: isolated alcove in the middle of the back wall.
 	local am = Parts.model(m, "MythicShrine")
 	for _, s in { -1, 1 } do
-		Parts.roundedBox(am, along(R, s * 11, 12, 26.5), Vector3.new(1.5, 24, 11), 0.75, solid(WOOD, "Partition"))
-		Parts.block(am, along(R, s * 11, 24.05, 26.75), Vector3.new(0.5, 0.1, 10.5), deco(GOLD, "PartitionGlow"))
-		local pillar = Parts.cylinder(am, along(R, s * 11, 12, 21), 24, 1.7, deco(MYTHIC, "Pillar"))
-		Parts.disc(am, at(R, s * 11, 24.3, 21), 2.3, 0.6, solid(GOLD, "PillarCap"))
-		Parts.disc(am, at(R, s * 11, 0.3, 21), 2.6, 0.6, solid(GOLD, "PillarFoot"))
+		Parts.roundedBox(am, along(R, s * 11, 9.5, 26.5), Vector3.new(1.5, 19, 11), 0.75, solid(WALNUT, "Partition"))
+		Parts.block(am, along(R, s * 11, 19.05, 26.75), Vector3.new(0.5, 0.1, 10.5), deco(BRASS, "PartitionInlay"))
+		local pillar = Parts.cylinder(am, along(R, s * 11, 9.5, 21), 19, 1.7, solid(BRASS, "Pillar"))
+		Parts.disc(am, at(R, s * 11, 19.3, 21), 2.3, 0.6, solid(STEEL, "PillarCap"))
+		Parts.disc(am, at(R, s * 11, 0.3, 21), 2.6, 0.6, solid(STEEL, "PillarFoot"))
 		Parts.light(pillar, MYTHIC, 16, 1.5)
 	end
-	heroPanel(am, along(R, 0, 11.5, ROOM_D - 0.55, TO_ENTRANCE), 20.4, 18, MYTHIC:Lerp(WOOD_DARK, 0.35), WOOD_DARK)
-	local counter = screen(am, "MythicCounter", along(R, 0, 18.5, ROOM_D - 0.8, TO_ENTRANCE), 16, 5, GOLD)
-	local odds = screen(am, "MythicOdds", along(R, 0, 11.7, ROOM_D - 0.8, TO_ENTRANCE), 10, 5.4, MYTHIC)
+	heroPanel(am, along(R, 0, 9.6, ROOM_D - 0.55, TO_ENTRANCE), 20.4, 15, MYTHIC:Lerp(WALNUT_DARK, 0.5), WALNUT_DARK)
+	local counter = screen(am, "MythicCounter", along(R, 0, 15.6, ROOM_D - 0.8, TO_ENTRANCE), 16, 4.6, GOLD)
+	local odds = screen(am, "MythicOdds", along(R, 0, 9.4, ROOM_D - 0.8, TO_ENTRANCE), 10, 5.4, MYTHIC)
 	local base = at(R, 0, 0, 26)
 	local up = Vector3.yAxis
 	Parts.disc(am, base + up * 0.25, 11.4, 0.3, deco(GOLD, "StepGlow"))
@@ -1023,60 +1199,10 @@ local function buildEast(room: Model, R: CFrame)
 	end
 	titlePlate(km, along(R, ROOM_W - 1, 13, -0.5, TO_MINUS_X), 26, 3.4, "COIN PACKS", GOLD)
 
-	-- Locker (left of the door) and upgrades + creator code (right of the door), on the entrance wall.
-	local lm = Parts.model(m, "Locker")
-	local lockerScreen = screen(lm, "LockerScreen", along(R, -28, 7.5, -ROOM_D + 0.6, TO_BACK), 14, 8, accent)
-	titlePlate(lm, along(R, -28, 13.4, -ROOM_D + 1, TO_BACK), 12, 1.8, "LOCKER", accent)
-	local lockerButtons = console(lm, R, -28, -25, TO_BACK, {
-		{ Name = "LockerPrev", Label = "◀ PREV", Color = WHITE },
-		{ Name = "LockerEquip", Label = "EQUIP", Color = accent },
-		{ Name = "LockerNext", Label = "NEXT ▶", Color = WHITE },
-	}, accent)
-	local mp = at(R, -38.6, 0, -25)
-	Parts.disc(lm, mp + up * 0.3, 5.4, 0.6, solid(WOOD_DARK, "Base"))
-	Parts.disc(lm, mp + up * 0.7, 4.6, 0.2, deco(accent, "Ring"))
-	Parts.disc(lm, mp + up * 2, 3.6, 2.6, { Name = "Chrome", Color = SILVER, Reflectance = 0.45 })
-	local lockerPed: BasePart = Parts.disc(lm, mp + up * 3.5, 4.2, 0.4, { Name = "LockerPedestal", Color = WHITE, Reflectance = 0.3 })
-	display(lockerPed, mp + up * 6.2)
-	roundPanel(lm, along(R, -38.6, 7.5, -ROOM_D + 0.2, TO_BACK), 5.2, 9.8, 0.4, 1, solid(WOOD_DARK, "MirrorFrame"))
-	Parts.block(lm, along(R, -38.6, 7.5, -ROOM_D + 0.5, TO_BACK), Vector3.new(4.4, 9, 0.2), {
-		Name = "Mirror",
-		Color = hex("#DCE6F5"),
-		Reflectance = 0.5,
-		CanCollide = false,
-	})
-
-	local um = Parts.model(m, "Upgrades")
-	local upScreen = screen(um, "UpgradeScreen", along(R, 24, 7.5, -ROOM_D + 0.6, TO_BACK), 10, 6, accent)
-	titlePlate(um, along(R, 24, 12.6, -ROOM_D + 1, TO_BACK), 10, 1.8, "UPGRADES", accent)
-	local upButtons = console(um, R, 24, -25, TO_BACK, {
-		{ Name = "Power", Label = "POWER", Color = C.North },
-		{ Name = "Control", Label = "CONTROL", Color = C.West },
-		{ Name = "Bounce", Label = "BOUNCE", Color = C.South },
-	}, accent)
-
-	local upgradeButtons: { [string]: BasePart } = { Power = upButtons[1], Control = upButtons[2], Bounce = upButtons[3] }
-
-	local crm = Parts.model(m, "CreatorKiosk")
-	local creatorScreen = screen(crm, "CreatorScreen", along(R, 36, 7.5, -ROOM_D + 0.6, TO_BACK), 8, 5, accent)
-	titlePlate(crm, along(R, 36, 11.4, -ROOM_D + 1, TO_BACK), 8.5, 1.6, "CREATOR CODE", accent)
-
 	return {
 		SkinPedestals = skins,
 		CratePedestals = cratePeds,
 		CrateScreens = crateScreens,
-		Locker = {
-			Pedestal = lockerPed,
-			Screen = lockerScreen,
-			Prev = lockerButtons[1],
-			Equip = lockerButtons[2],
-			Next = lockerButtons[3],
-		},
-		Upgrades = {
-			Screen = upScreen,
-			Buttons = upgradeButtons,
-		},
-		CreatorKiosk = { Screen = creatorScreen },
 		Mythic = { Pedestal = mythic, Counter = counter, OddsBoard = odds },
 		PassPedestals = passPeds,
 		CoinPackPads = coinPads,
@@ -1132,8 +1258,8 @@ local function buildSouth(room: Model, R: CFrame)
 	end
 
 	-- Rotation sign on the back wall, above the lane ends.
-	heroPanel(m, along(R, 0, 15.3, ROOM_D - 0.55, TO_ENTRANCE), 34, 12.6, accent:Lerp(WOOD_DARK, 0.3), WOOD)
-	local rotation = screen(m, "RotationSign", along(R, 0, 15.5, ROOM_D - 0.8, TO_ENTRANCE), 28, 9, accent)
+	heroPanel(m, along(R, 0, 13.2, ROOM_D - 0.55, TO_ENTRANCE), 34, 10.4, accent:Lerp(WALNUT_DARK, 0.55), WALNUT_DARK)
+	local rotation = screen(m, "RotationSign", along(R, 0, 13.3, ROOM_D - 0.8, TO_ENTRANCE), 28, 8, accent)
 
 	-- Token kiosk on the west (local +x) side.
 	local tm = Parts.model(m, "TokenKiosk")
@@ -1174,8 +1300,8 @@ local function buildBoard(parent: Instance, F: CFrame, stat: string, medal: Colo
 	local function v(vx: number, y: number, dist: number): CFrame
 		return F * CFrame.new(-vx, y, -dist)
 	end
-	heroPanel(m, v(1, 12.2, 0.05), 28, 18.8, medal:Lerp(WOOD_DARK, 0.45), WOOD)
-	local panel = screen(m, "Panel", v(-4, 13, 0.6), 14, 16, medal)
+	heroPanel(m, v(1, 10.4, 0.05), 28, 16, medal:Lerp(WALNUT_DARK, 0.6), WALNUT_DARK)
+	local panel = screen(m, "Panel", v(-4, 11, 0.6), 14, 14, medal)
 	Parts.roundedBox(m, v(-4, 2, 1.6), Vector3.new(12, 4, 2.2), 0.6, solid(WOOD, "Console"))
 	Parts.block(m, v(-4, 3.8, 2.72), Vector3.new(10.6, 0.16, 0.16), deco(accent, "Trim"))
 	local function button(vx: number, name: string, label: string): Part
@@ -1241,6 +1367,27 @@ local function buildWest(room: Model, R: CFrame)
 end
 
 
+-- Final pass: palette colours become real materials, accent trims lose any glow
+-- (only lamp glass stays emissive) and anything solid keeps plastic physics.
+local function naturalize(root: Instance)
+	for _, d in root:GetDescendants() do
+		if d:IsA("BasePart") then
+			if d.Material == NEON and string.sub(d.Name, 1, 4) ~= "Lamp" then
+				d.Material = M.SmoothPlastic
+			end
+			if d.Material == M.SmoothPlastic then
+				local m = MATERIAL_OF[d.Color:ToHex()]
+				if m then
+					d.Material = m
+				end
+			end
+			if d.CanCollide and d.Material ~= M.SmoothPlastic and not (d.CustomPhysicalProperties :: PhysicalProperties?) then
+				d.CustomPhysicalProperties = SMOOTH_PHYS
+			end
+		end
+	end
+end
+
 -- Entry point -------------------------------------------------------------------------
 
 function LobbyBuilder.build(): LobbyTypes.Lobby
@@ -1253,31 +1400,33 @@ function LobbyBuilder.build(): LobbyTypes.Lobby
 	local rng = Random.new(20261011)
 
 	buildGrounds(rng)
-	local hub = Parts.model(model, "Hub")
-	buildPlaza(hub)
-	buildWall(hub)
-	buildFountain(hub)
+	buildAtrium(model, rng)
 	for _, quad in QUADS do
-		buildGate(hub, quad)
 		buildHall(model, quad)
 	end
 	buildScenery(model, rng)
 
-	local northRoom, northR = buildRoomShell(model, QUADS[1], "MATCHMAKING", true)
-	local eastRoom, eastR = buildRoomShell(model, QUADS[2], "MEGA SHOP", true)
-	local southRoom, southR = buildRoomShell(model, QUADS[3], "PRACTICE RANGE", false)
-	local westRoom, westR = buildRoomShell(model, QUADS[4], "LEADERBOARDS", true)
+	local northRoom, northR = buildRoomShell(model, QUADS[1], "Oak")
+	local eastRoom, eastR = buildRoomShell(model, QUADS[2], "Marble")
+	local southRoom, southR = buildRoomShell(model, QUADS[3], "Oak")
+	local westRoom, westR = buildRoomShell(model, QUADS[4], "Walnut")
 
+	local stations = Parts.model(model, "Stations")
 	local spawn = buildSpawn(model)
 	local sign, stand = buildDirectory(model)
-	local dailyScreen, dailyButton = buildDaily(model)
+	local dailyScreen, dailyButton = buildDaily(stations, rng)
 
 	local lobby: LobbyTypes.Lobby = {
 		Model = model,
 		Spawn = spawn,
-		SpawnCFrame = CFrame.lookAt(Vector3.new(0, 3, -25), Vector3.new(0, 3, 0)),
+		SpawnCFrame = CFrame.lookAt(SPAWN_POS + Vector3.new(0, 2.5, 0), Vector3.new(0, 3, 0)),
 		Directory = { Sign = sign, StandPoint = stand },
 		Daily = { Screen = dailyScreen, Button = dailyButton },
+		Stations = {
+			Locker = buildLocker(stations, rng),
+			Upgrades = buildUpgrades(stations, rng),
+			CreatorKiosk = buildCreator(stations, rng),
+		},
 		North = buildNorth(northRoom, northR),
 		East = buildEast(eastRoom, eastR),
 		South = buildSouth(southRoom, southR),
