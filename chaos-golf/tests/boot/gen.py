@@ -7,6 +7,8 @@ ROOT = HERE.parent.parent
 scenario = sys.argv[1]
 outname = sys.argv[2]
 out = ['local API = (function()\n' + (HERE / 'api.luau').read_text() + '\nend)()']
+strict = HERE / 'strict.luau'
+out.append('local STRICT = ' + ('(function()\n' + strict.read_text() + '\nend)()' if strict.exists() else 'nil'))
 for p in ['rt1.luau', 'rt2.luau', 'rt3.luau', 'rt4.luau']:
     out.append('do end\n' + (HERE / p).read_text())
 files = []

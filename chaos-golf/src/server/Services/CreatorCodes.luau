@@ -17,9 +17,11 @@ local Data = require(script.Parent:WaitForChild("Data"))
 local CreatorCodes = {}
 
 local store: DataStore? = nil
-pcall(function()
-	store = DataStoreService:GetDataStore(Config.DataStoreName .. "_CreatorSales")
-end)
+if game.PlaceId ~= 0 then -- unpublished places have no DataStores
+	pcall(function()
+		store = DataStoreService:GetDataStore(Config.DataStoreName .. "_CreatorSales")
+	end)
+end
 
 type Pending = { Coins: number, Robux: number, Purchases: number, Supporters: number }
 local pending: { [string]: Pending } = {}

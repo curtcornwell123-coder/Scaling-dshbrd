@@ -53,7 +53,10 @@ local AUTOSAVE = 120
 
 local store: DataStore? = nil
 local publicStore: DataStore? = nil
-do
+if game.PlaceId == 0 then
+	-- Opened from a file and never published: DataStore calls can hang here instead of failing.
+	warn("[UltimateGolf] This place isn't published yet: playing on temporary profiles (progress won't save).")
+else
 	local ok, err = pcall(function()
 		store = DataStoreService:GetDataStore(Config.DataStoreName)
 		publicStore = DataStoreService:GetDataStore(Config.DataStoreName .. "_Public")
@@ -443,7 +446,7 @@ local function load(player: Player)
 		LBDelta = {},
 		Passes = {},
 		Leaderstats = nil,
-		Offline = false,
+		Offline = store == nil,
 	}
 	sessions[player] = session
 

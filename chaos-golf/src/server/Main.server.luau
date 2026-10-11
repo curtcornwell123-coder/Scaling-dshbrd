@@ -1,7 +1,9 @@
 --!strict
--- Ultimate Golf server bootstrap. Order matters: remotes first, then services,
--- then the lobby world and the systems that live in it, and player data last
--- so every Data.Loaded listener is connected before the first profile loads.
+-- Ultimate Golf server bootstrap. Order matters: remotes first, then the local
+-- services, then the lobby world (characters may spawn from here on), then the
+-- web-backed services and the systems that live in the lobby, and player data
+-- last so every Data.Loaded listener is connected before the first profile loads.
+-- Nothing before Data.start may yield on a web call.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -44,10 +46,6 @@ Activity.start()
 Social.start()
 BallService.start()
 AbilityService.start()
-MythicStock.start()
-CreatorCodes.start()
-Monetization.start()
-MatchService.start()
 
 -- Template leftovers would show outdoors or steal spawns: the world is code-built.
 for _, child in workspace:GetChildren() do
@@ -64,6 +62,19 @@ local lobby = LobbyBuilder.build()
 Activity.setLobbySpawn(lobby.SpawnCFrame)
 Tags.apply(lobby)
 
+-- The world exists now: let characters in (anyone already waiting spawns on the lobby pad).
+Players.CharacterAutoLoads = true
+for _, player in Players:GetPlayers() do
+	if not player.Character then
+		task.spawn(player.LoadCharacter, player)
+	end
+end
+
+MythicStock.start()
+CreatorCodes.start()
+Monetization.start()
+MatchService.start()
+
 Voting.start(lobby)
 Matchmaking.start(lobby)
 Shop.start(lobby)
@@ -74,12 +85,5 @@ Daily.start(lobby)
 Leaderboards.start(lobby)
 Practice.start(lobby)
 Tutorial.start(lobby)
-
-Players.CharacterAutoLoads = true
-for _, player in Players:GetPlayers() do
-	if not player.Character then
-		task.spawn(player.LoadCharacter, player)
-	end
-end
 
 Data.start()

@@ -55,10 +55,10 @@ DM.get.JobId = function()
 	return ""
 end
 DM.get.PlaceId = function()
-	return 0
+	return Sim.placeId or 0 -- 0 = opened from a file, never published
 end
 DM.get.GameId = function()
-	return 0
+	return if Sim.placeId then Sim.placeId + 1 else 0
 end
 Sim.closeCallbacks = {}
 DM.methods.BindToClose = function(self, fn)
@@ -76,7 +76,8 @@ local Instance = {
 		if rawtype(cls) ~= "string" then
 			Sim.misuse("Instance.new: string expected")
 		end
-		if not Classes[cls] or NOT_CREATABLE[cls] or isServiceName[cls] or not classIsA(cls, "Instance") then
+		if not Classes[cls] or NOT_CREATABLE[cls] or isServiceName[cls] or not classIsA(cls, "Instance")
+			or (STRICT and STRICT.Creatable[cls] == false) then
 			Sim.misuse('Unable to create an Instance of type "' .. cls .. '"')
 		end
 		local inst = Sim.newInstance(cls)

@@ -15,6 +15,9 @@ end
 
 -- 1. server boot
 Sim.runScript(Sim.mainServer, "server")
+-- Before any simulated time passes: the lobby and spawning must not wait on anything that yields.
+flow("lobby + spawning ready before any yield", Sim.workspace:FindFirstChild("Lobby") ~= nil
+	and Sim.game:GetService("Players").CharacterAutoLoads == true, "")
 Sim.run(1)
 local Data = Sim.module("server", "Data")
 local Activity = Sim.module("server", "Activity")

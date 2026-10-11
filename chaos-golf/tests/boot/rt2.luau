@@ -545,6 +545,31 @@ local function newInstance(cls)
 end
 Sim.newInstance = newInstance
 
+-- Real-engine access rules from the API dump (strict.luau): what a game script may not read/write.
+local strictCache = {}
+local function strictRule(which, cls, key)
+	if not STRICT or rawtype(key) ~= "string" then
+		return nil
+	end
+	local ck = which .. "\0" .. cls .. "\0" .. key
+	local r = strictCache[ck]
+	if r == nil then
+		r = false
+		local c = cls
+		while c and c ~= "" do
+			local t = STRICT[which][c]
+			if t and t[key] then
+				r = t[key]
+				break
+			end
+			c = STRICT.Super[c]
+		end
+		strictCache[ck] = r
+	end
+	return r or nil
+end
+Sim.strictRule = strictRule
+
 InstMT.__index = function(inst, key)
 	local d = D[inst]
 	if rawtype(key) ~= "string" then
@@ -558,6 +583,10 @@ InstMT.__index = function(inst, key)
 	if m then
 		local kind = m[1]
 		if kind == "prop" then
+			local why = strictRule("Read", d.cls, key)
+			if why and not Sim.internalWrite then
+				Sim.misuse(string.format("%s.%s %s (cannot be read by game scripts)", d.cls, key, why))
+			end
 			local v = d.props[key]
 			if v == nil then
 				return defaultFor(d.cls, key, m[2])
@@ -608,11 +637,16 @@ local function rawSet(inst, d, key, value)
 end
 Sim.rawSet = rawSet
 
+
 InstMT.__newindex = function(inst, key, value)
 	local d = D[inst]
 	local m = member(d.cls, key)
 	if not m then
 		Sim.misuse(string.format('%s is not a valid member of %s "%s"', tostring(key), d.cls, fullName(inst)))
+	end
+	local why = strictRule("Write", d.cls, key)
+	if why and not Sim.internalWrite then
+		Sim.misuse(string.format("Unable to assign property %s. %s.%s %s", tostring(key), d.cls, tostring(key), why))
 	end
 	local kind = m[1]
 	if kind == "method" or kind == "event" then

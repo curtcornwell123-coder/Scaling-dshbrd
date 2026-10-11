@@ -44,6 +44,9 @@ local function periodKey(period: string): string
 end
 
 local function store(stat: string, period: string): OrderedDataStore?
+	if game.PlaceId == 0 then -- unpublished places have no DataStores
+		return nil
+	end
 	local ok, ds = pcall(function()
 		return DataStoreService:GetOrderedDataStore(Config.DataStoreName .. "_LB_" .. stat .. "_" .. periodKey(period))
 	end)

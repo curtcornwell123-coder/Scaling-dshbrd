@@ -15,10 +15,14 @@ local MythicStock = {}
 local KEY = "MythicSold_" .. Config.Mythic.Season
 local TOPIC = "UltimateGolfMythic"
 
+local PUBLISHED = game.PlaceId ~= 0 -- unpublished places have no DataStores/MessagingService
+
 local store: DataStore? = nil
-pcall(function()
-	store = DataStoreService:GetDataStore(Config.DataStoreName .. "_Global")
-end)
+if PUBLISHED then
+	pcall(function()
+		store = DataStoreService:GetDataStore(Config.DataStoreName .. "_Global")
+	end)
+end
 
 local sold = 0
 local changed = Instance.new("BindableEvent")
@@ -105,27 +109,31 @@ local function refresh()
 end
 
 function MythicStock.start()
-	-- Studio without API access hands out a DataStore whose calls all fail:
-	-- probe once and fall back to local (per-server) stock tracking.
-	if store and RunService:IsStudio() then
-		local ds = store :: DataStore
-		local ok = pcall(function()
-			ds:GetAsync(KEY)
-		end)
-		if not ok then
-			store = nil
-			warn("[UltimateGolf] Studio: Mythic stock is tracked locally (enable API access to test the global stock).")
-		end
-	end
-	pcall(function()
-		MessagingService:SubscribeAsync(TOPIC, function(message)
-			local n = message.Data
-			if type(n) == "number" and n > sold then
-				set(n)
-			end
-		end)
-	end)
+	-- Web calls can stall for a long time (especially in Studio), so none of this may block
+	-- server startup: everything runs in its own thread.
 	task.spawn(function()
+		-- Studio without API access hands out a DataStore whose calls all fail:
+		-- probe once and fall back to local (per-server) stock tracking.
+		if store and RunService:IsStudio() then
+			local ds = store :: DataStore
+			local ok = pcall(function()
+				ds:GetAsync(KEY)
+			end)
+			if not ok then
+				store = nil
+				warn("[UltimateGolf] Studio: Mythic stock is tracked locally (enable API access to test the global stock).")
+			end
+		end
+		if PUBLISHED then
+			pcall(function()
+				MessagingService:SubscribeAsync(TOPIC, function(message)
+					local n = message.Data
+					if type(n) == "number" and n > sold then
+						set(n)
+					end
+				end)
+			end)
+		end
 		while true do
 			refresh()
 			task.wait(Config.Mythic.StockRefresh)
