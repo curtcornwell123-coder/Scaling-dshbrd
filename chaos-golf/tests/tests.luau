@@ -66,7 +66,16 @@ check(Ranks.delta(1000, 1000, 0, false) == -16, "equal loss -16")
 -- Maps: distinct picks
 local seen = {}
 for _, m in Maps.pickDistinct(3, Random.new(7)) do check(not seen[m.Id], "dup map pick"); seen[m.Id] = true end
-check(#Maps.List >= 20, "20+ maps")
+check(#Maps.List >= 22, "22+ maps")
+local oceanMaps = 0
+for _, m in Maps.List do
+	if m.Theme == "Ocean" then
+		oceanMaps += 1
+		check((m.Hazards.Jump or 0) >= 0.7, "ocean map " .. m.Id .. " is full of jumps")
+	end
+end
+check(oceanMaps >= 2, "two ocean maps")
+check(Maps.Themes.Ocean ~= nil and Maps.Themes.Ocean.Decor == "Ocean", "ocean theme")
 
 -- Skins: rotation size, no mythic, deterministic
 local rot = Skins.shopRotation(20000, 12)

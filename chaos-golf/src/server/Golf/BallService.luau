@@ -52,6 +52,7 @@ export type Ball = {
 	ShotMagnet: boolean,
 	LastShot: number,
 	MaxDistance: number, -- furthest projected distance this shot (practice drive scoring)
+	LastBoost: number, -- server time the ball last touched a boost floor (drives the "Boost" attribute)
 	LastHitBy: Player?,
 	LastHitTime: number,
 	LastHitEffect: string?,
@@ -207,6 +208,7 @@ function BallService.create(player: Player, opts: CreateOpts): Ball
 		ShotMagnet = false,
 		LastShot = 0,
 		MaxDistance = 0,
+		LastBoost = 0,
 		LastHitBy = nil,
 		LastHitTime = 0,
 		LastHitEffect = nil,
@@ -468,13 +470,22 @@ local function step(ball: Ball, dt: number)
 			decel += control * 0.08 * P.RollResistance -- extra grip on slopes
 		end
 		if surface == "Boost" then
-			local dir = hit.Instance:GetAttribute("BoostDir")
+			local inst = hit.Instance
+			local dir = inst:GetAttribute("BoostDir")
 			if typeof(dir) == "Vector3" and dir.Magnitude > 0 then
 				local target = dir.Unit * P.BoostSpeed
 				if horizontal:Dot(dir.Unit) < P.BoostSpeed then
-					horizontal = horizontal:Lerp(target, math.clamp(dt * 8, 0, 1))
+					-- Jump launch lanes pull harder (BoostRate) so any ball reaches launch speed.
+					local rate = inst:GetAttribute("BoostRate")
+					horizontal = horizontal:Lerp(target, math.clamp(dt * (if type(rate) == "number" then rate else 8), 0, 1))
 					speed = horizontal.Magnitude
 					decel = 0
+				end
+				-- Clients play the boost effect when this attribute changes.
+				local now = workspace:GetServerTimeNow()
+				if now - ball.LastBoost > 0.8 then
+					ball.LastBoost = now
+					part:SetAttribute("Boost", now)
 				end
 			end
 		end

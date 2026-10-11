@@ -21,8 +21,10 @@ Read this first when resuming.
 - Onboarding: device picker on first join (Console / Phone-Tablet / Keyboard, saved), then the tutorial invite; 7-tab Player Guide (HUD button, G, Select) with one controls tutorial per device; controller-friendly menus (focus on open, B closes, LB/RB tabs) and phone scaling. Directory totem removed; group reward moved into the Rewards station (with the daily calendar) on the atrium wall.
 - Practice range: one game live on all six lanes, rotating every 20 minutes (same in every server); 5 games, each its own biome (Garden Green, Night Driving Range, Construction Yard, Frozen Rink, Desert Canyon); new Bank Shot (ice) and Gate Run (canyon) with tokens, crates and 4 balls each; broadcast TV + gantry header + two signs at the atrium doorway (now / next / countdown); Token Exchange hut with a tab per game.
 
-## Next (owner's order, one step at a time, place file after each)
-- Ocean map with ramps + boost pads to jump across water; boost-jump obstacle on other maps; boost screen effect.
+- Boost jumps: a launch tile (boost lane pulling to 70 studs/s + an 18° kicker), an open gap and a sandy landing; ~19 studs of flight over a 12-stud gap. On the new Ocean Piers maps (Coral Cove, Leviathan Leap: piers on wooden piles over open sea, islets, lighthouses, sea stacks, boats) and sprinkled into 7 other maps. Boost pads restyled (glass pad, LED strips, chasing chevrons). Boost effect: FOV kick, radial speed lines, blur, edge glow, "BOOST!" pop and whoosh for your ball; a streak burst on every boosting ball.
+
+## Next
+- Waiting on the owner's next instructions.
 
 ## Open (owner's manual steps)
 - Publish Ultimate Golf to the Corny Games group from Studio, then create passes/products (tools/setup_monetization.py) and republish.

@@ -303,6 +303,7 @@ Config.Sounds = {
 	Win = "rbxasset://sounds/victory.wav",
 	Splash = "rbxasset://sounds/impact_water.mp3",
 	Bonk = "rbxasset://sounds/collide.wav",
+	Boost = "rbxasset://sounds/swoosh.wav",
 }
 
 return Config

@@ -7,6 +7,7 @@ local order = {
 	"State",
 	"Hud",
 	"WorldFx",
+	"BoostFx",
 	"GolfController",
 	"MatchUi",
 	"Catalog",

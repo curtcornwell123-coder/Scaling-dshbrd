@@ -118,12 +118,14 @@ Hidden Elo MMR (start 1000, K 32, 48 for the first 5 placement matches) shown as
 
 ## 5. Courses
 
-12 maps (6 themes × Sprint / Gauntlet): Neon Arcade, Candy Clash, Frost Factory, Lava Lab, Jungle Temple, Orbit Station. Each map's holes are generated deterministically from its seed (`World/CourseBuilder`), so a map always plays the same and can be learned:
+22 maps (Sprint / Gauntlet) across 9 worlds: Meadow Greens, Sunset Canyon, Frost, Lava, Jungle, Tropical Cove, Autumn Woods, Blossom Gardens and **Ocean Piers**. Each map's holes are generated deterministically from its seed (`World/CourseBuilder`), so a map always plays the same and can be learned:
 
-- 12-stud tiles on an 8×8 grid; a self-avoiding path of 4–7 (Sprint) or 7–10 (Gauntlet) tiles.
-- ±4-stud ramps, bumpers, spinners (hinge motors), pushers (prismatic servos), sand, ice, boost pads, narrow bridges over the void, and Chaos Boxes.
+- 12-stud tiles on an 8×8 grid; a self-avoiding path of 4–7 (Sprint) or 7–10 (Gauntlet) tiles (Ocean maps favour long straight piers).
+- ±4-stud ramps, bumpers, spinners (hinge motors), pushers (prismatic servos), windmills, humps, tunnels, sand, ice, boost pads, narrow bridges and Chaos Boxes. Every hole has at least one obstacle.
+- **Boost jumps** (`Jump` = per-hole chance): a launch tile (a boost lane that pulls any ball to 70 studs/s, then an 18° kicker), an open gap with no floor, and a sandy landing tile. About 19 studs of flight over the 12-stud gap; falling short is out of bounds (+1 stroke). Both Ocean maps (Coral Cove, Leviathan Leap) are full of them, and seven other maps have a few.
+- **Ocean Piers**: the holes are piers on wooden piles over open sea (terrain water), with sand islets and palms, lighthouses, sea stacks, buoys and sailboats.
 - Rails close every non-connected edge (no shortcuts); par comes from length, turns and hazards.
-- Each course sits in its own enclosed themed hall, far from the lobby, with characters parked in a sealed booth.
+- Boost feel: pads have a glass top, LED strips and chasing chevrons. Boosting plays an FOV kick, radial speed lines, a light blur, edge glow, a "BOOST!" pop and a whoosh for you, and a streak burst others can see.
 
 Adding a map is one line in `src/shared/Maps.luau`.
 

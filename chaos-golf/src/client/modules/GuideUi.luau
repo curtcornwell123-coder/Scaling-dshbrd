@@ -18,6 +18,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Abilities = require(Shared:WaitForChild("Abilities"))
 local Config = require(Shared:WaitForChild("Config"))
 local Crates = require(Shared:WaitForChild("Crates"))
+local Maps = require(Shared:WaitForChild("Maps"))
 local Minigames = require(Shared:WaitForChild("Minigames"))
 local Net = require(Shared:WaitForChild("Net"))
 local Ranks = require(Shared:WaitForChild("Ranks"))
@@ -123,6 +124,16 @@ local function modes(): { Section }
 		end
 		table.insert(out, { Title = m.Display, Lines = lines })
 	end
+	local themes = {}
+	for _, t in Maps.Themes do
+		table.insert(themes, t.Name)
+	end
+	table.sort(themes)
+	table.insert(out, { Title = "Courses", Lines = {
+		string.format("%d courses of 6 holes across %d worlds: %s.", #Maps.List, #themes, table.concat(themes, ", ")),
+		"Obstacles: windmills, spinners, pushers, bumpers, bridges, humps, tunnels, sand (slow), ice (slippery) and " .. b("boost pads") .. " (they launch you forward).",
+		b("Boost jumps") .. ": a boost lane into a ramp sends you flying over a gap. Roll onto it with any speed and the boost does the rest; fall short and it's out of bounds (+1 stroke). Ocean Piers maps are full of them.",
+	} })
 	table.insert(out, { Title = "Joining a match", Lines = {
 		"Go to " .. b("Matchmaking") .. " and stand in a mode's bubble. The match starts when enough players are in.",
 		"Vote for the next map on the vote pads. Standing in a bubble pays a few coins while you wait.",

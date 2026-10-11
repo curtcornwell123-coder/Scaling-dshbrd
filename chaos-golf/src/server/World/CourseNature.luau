@@ -30,6 +30,7 @@ CourseNature.Biomes = {
 	Volcano = { Ground = Enum.Material.Basalt, GroundAlt = Enum.Material.CrackedLava, Hill = Enum.Material.Basalt, Rock = Enum.Material.Basalt, Water = false, Path = Enum.Material.Ground },
 	Jungle = { Ground = Enum.Material.LeafyGrass, GroundAlt = Enum.Material.Mud, Hill = Enum.Material.LeafyGrass, Rock = Enum.Material.Slate, Water = true, Path = Enum.Material.Mud },
 	Tropical = { Ground = Enum.Material.Sand, GroundAlt = Enum.Material.Grass, Hill = Enum.Material.Grass, Rock = Enum.Material.Rock, Water = true, Path = Enum.Material.Sand },
+	Ocean = { Ground = Enum.Material.Sand, GroundAlt = Enum.Material.Sand, Hill = Enum.Material.Sand, Rock = Enum.Material.Rock, Water = true, Path = nil },
 } :: { [string]: Biome }
 
 CourseNature.Kinds = {
@@ -39,6 +40,7 @@ CourseNature.Kinds = {
 	Volcano = { { Name = "Basalt", Weight = 3, Radius = 5 }, { Name = "DeadTree", Weight = 2, Radius = 4 }, { Name = "LavaPool", Weight = 1, Radius = 6 }, { Name = "Vent", Weight = 1, Radius = 4 }, { Name = "Rock", Weight = 2, Radius = 3 } },
 	Jungle = { { Name = "JungleTree", Weight = 4, Radius = 6 }, { Name = "Ruin", Weight = 2, Radius = 4 }, { Name = "Fern", Weight = 3, Radius = 3 }, { Name = "Idol", Weight = 1, Radius = 4 } },
 	Tropical = { { Name = "Palm", Weight = 5, Radius = 4 }, { Name = "Umbrella", Weight = 1, Radius = 3 }, { Name = "Torch", Weight = 1, Radius = 2 }, { Name = "Rock", Weight = 1, Radius = 3 }, { Name = "Bush", Weight = 1, Radius = 3 } },
+	Ocean = { { Name = "PalmIsle", Weight = 3, Radius = 7 }, { Name = "Buoy", Weight = 3, Radius = 2 }, { Name = "Boat", Weight = 2, Radius = 6 }, { Name = "SeaStack", Weight = 2, Radius = 4 }, { Name = "Lighthouse", Weight = 1, Radius = 7 } },
 } :: { [string]: { Kind } }
 
 -- Small props planted around the foot of every green.
@@ -49,10 +51,11 @@ CourseNature.Small = {
 	Volcano = { "Rock", "Basalt" },
 	Jungle = { "Fern", "Fern", "Bush" },
 	Tropical = { "Bush", "Rock", "Fern" },
+	Ocean = { "Buoy", "Rock", "Buoy" },
 } :: { [string]: { string } }
 
 -- Trees used for the backdrop ring around each course.
-CourseNature.Backdrop = { Meadow = "Oak", Canyon = "Spire", Snow = "Pine", Volcano = "Basalt", Jungle = "JungleTree", Tropical = "Palm" } :: { [string]: string }
+CourseNature.Backdrop = { Meadow = "Oak", Canyon = "Spire", Snow = "Pine", Volcano = "Basalt", Jungle = "JungleTree", Tropical = "Palm", Ocean = "PalmIsle" } :: { [string]: string }
 
 local function deco(color: Color3, material: Enum.Material?, transparency: number?): Parts.Props
 	return { Name = "Decor", Color = color, Material = material, Transparency = transparency, CanCollide = false, CanQuery = false, CanTouch = false }
@@ -95,6 +98,32 @@ function CourseNature.landscape(biomeId: string, area: Area, rng: Random, avoid:
 	local w, d = area.X1 - area.X0, area.Z1 - area.Z0
 	local gy = area.GroundY
 	local margin = 70
+	if biomeId == "Ocean" then
+		-- Open sea everywhere (the course stands on piers): a sand sea floor, water up to
+		-- the ground line, sand bars in clear spots and rocky islands on the horizon.
+		fill(regions, CFrame.new(mx, gy - 9, mz), Vector3.new(w + margin * 2, 6, d + margin * 2), Enum.Material.Sand)
+		fill(regions, CFrame.new(mx, gy - 3, mz), Vector3.new(w + margin * 2, 6, d + margin * 2), Enum.Material.Water)
+		for _ = 1, 40 do
+			local r = rng:NextNumber(5, 9)
+			local x, z = rng:NextNumber(area.X0 - 30, area.X1 + 30), rng:NextNumber(area.Z0 - 30, area.Z1 + 30)
+			if avoid(x, z, r + 6) and rng:NextNumber() < 0.3 then
+				fillBall(regions, Vector3.new(x, gy - r * 0.82, z), r, Enum.Material.Sand)
+			end
+		end
+		for x = area.X0 - 40, area.X1 + 40, 46 do
+			for _, z in { area.Z0 - rng:NextNumber(40, 60), area.Z1 + rng:NextNumber(40, 60) } do
+				if rng:NextNumber() < 0.6 then
+					local r = rng:NextNumber(10, 18)
+					fillBall(regions, Vector3.new(x + rng:NextNumber(-10, 10), gy - r * 0.4, z), r, Enum.Material.Rock)
+					fillBall(regions, Vector3.new(x + rng:NextNumber(-6, 6), gy - r * 0.55, z + rng:NextNumber(-4, 4)), r * 0.8, Enum.Material.Grass)
+				end
+			end
+		end
+		for _, r in keepClear do
+			workspace.Terrain:FillBlock(r.CFrame, r.Size, Enum.Material.Air)
+		end
+		return regions
+	end
 	fill(regions, CFrame.new(mx, gy - 3, mz), Vector3.new(w + margin * 2, 6, d + margin * 2), b.Ground)
 	-- Patches of the second material break up the ground.
 	for _ = 1, 14 do
@@ -191,7 +220,12 @@ export type Palette = { Foliage: Color3, Accent: Color3, Rock: Color3, Trim: Col
 
 -- Cheap stand-ins (3-5 parts) for trees and spires only ever seen from far away.
 local function farProp(parent: Instance, kind: string, base: Vector3, rng: Random, pal: Palette)
-	if kind == "Pine" then
+	if kind == "PalmIsle" then
+		local dia = rng:NextNumber(8, 12)
+		Parts.cylinder(parent, CFrame.new(base + up(0.2)), 1, dia, deco(Color3.fromRGB(236, 214, 160), Enum.Material.Sand))
+		Parts.cylinder(parent, CFrame.new(base + up(0.75)), 0.6, dia * 0.6, deco(Color3.fromRGB(226, 202, 146), Enum.Material.Sand))
+		farProp(parent, "Palm", base + up(1), rng, pal)
+	elseif kind == "Pine" then
 		local h = rng:NextNumber(10, 15)
 		Parts.cylinder(parent, CFrame.new(base + up(h * 0.2)), h * 0.4, 1, deco(BARK, Enum.Material.Wood))
 		for k = 0, 2 do
@@ -397,6 +431,52 @@ function CourseNature.prop(parent: Instance, kind: string, base: Vector3, face: 
 		for _, s in { -1, 1 } do
 			Parts.block(parent, facing * CFrame.new(s * 0.65, 4.8, -1.22), Vector3.new(0.6, 0.4, 0.05), deco(pal.Accent))
 		end
+	elseif kind == "Buoy" then
+		local red, white = Color3.fromRGB(214, 48, 49), Color3.fromRGB(245, 245, 245)
+		local tilt = CFrame.Angles(rng:NextNumber(-0.08, 0.08), 0, rng:NextNumber(-0.08, 0.08))
+		Parts.cylinder(parent, CFrame.new(base + up(0.1)) * tilt, 1.2, 2.4, deco(red))
+		Parts.cylinder(parent, CFrame.new(base + up(1.1)) * tilt, 0.8, 1.6, deco(white))
+		Parts.cylinder(parent, CFrame.new(base + up(1.9)) * tilt, 0.8, 1.2, deco(red))
+		local lamp = Parts.ball(parent, base + up(2.6), 0.6, deco(Color3.fromRGB(255, 220, 120), Enum.Material.Neon))
+		lamp.CastShadow = false
+	elseif kind == "Boat" then
+		local hullCF = facing * CFrame.Angles(0, rng:NextNumber(0.4, 1.2), rng:NextNumber(-0.05, 0.05)) + up(0.3)
+		local hull = Color3.fromRGB(245, 242, 235)
+		Parts.block(parent, hullCF, Vector3.new(2.8, 1.2, 6.5), deco(hull, Enum.Material.WoodPlanks))
+		Parts.block(parent, hullCF * CFrame.new(0, 0.66, 0), Vector3.new(2.4, 0.12, 6), deco(Color3.fromRGB(176, 128, 82), Enum.Material.WoodPlanks))
+		Parts.block(parent, hullCF * CFrame.new(0, -0.1, 0), Vector3.new(2.9, 0.25, 6.6), deco(pal.Accent))
+		Parts.ball(parent, (hullCF * CFrame.new(0, 0, -3.2)).Position, 1.6, deco(hull, Enum.Material.WoodPlanks))
+		local mastBase = (hullCF * CFrame.new(0, 0.7, -0.6)).Position
+		Parts.rod(parent, mastBase, mastBase + up(7.5), 0.22, deco(Color3.fromRGB(120, 90, 60), Enum.Material.Wood))
+		Parts.block(parent, hullCF * CFrame.new(0, 4.6, 0.9), Vector3.new(0.08, 5.6, 2.6), deco(WHITE, Enum.Material.Fabric))
+	elseif kind == "PalmIsle" then
+		local dia = rng:NextNumber(9, 13)
+		Parts.cylinder(parent, CFrame.new(base + up(0.2)), 1, dia, deco(Color3.fromRGB(236, 214, 160), Enum.Material.Sand))
+		Parts.cylinder(parent, CFrame.new(base + up(0.8)), 0.7, dia * 0.62, deco(Color3.fromRGB(226, 202, 146), Enum.Material.Sand))
+		Parts.cylinder(parent, CFrame.new(base + up(-0.05)), 0.3, dia + 1.6, deco(Color3.fromRGB(150, 210, 220), Enum.Material.Glass, 0.45))
+		CourseNature.prop(parent, "Palm", base + up(1.15), face, rng, pal)
+		if rng:NextNumber() < 0.5 then
+			rock(parent, base + facing.RightVector * 3 + up(0.4), 1.6, pal.Rock, Enum.Material.Rock, rng)
+		end
+	elseif kind == "SeaStack" then
+		local col = Color3.fromRGB(118, 112, 104)
+		local h = rng:NextNumber(7, 13)
+		for k = 0, 3 do
+			local s = (1 - k * 0.18) * rng:NextNumber(4, 5.5)
+			Parts.block(parent, CFrame.new(base + up(h * (k + 0.5) / 4)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), rng:NextNumber(-0.08, 0.08)), Vector3.new(s, h / 4 + 0.4, s * 0.85), deco(vary(col, rng, 0.08), Enum.Material.Rock))
+		end
+		Parts.ball(parent, base + up(h + 0.2), 2.6, deco(pal.Foliage, Enum.Material.Grass))
+	elseif kind == "Lighthouse" then
+		rock(parent, base, 5, Color3.fromRGB(118, 112, 104), Enum.Material.Rock, rng)
+		local h = 16
+		for k = 0, 3 do
+			Parts.cylinder(parent, CFrame.new(base + up(2.5 + h * (k + 0.5) / 4)), h / 4, 4.2 - k * 0.35, deco(if k % 2 == 0 then WHITE else Color3.fromRGB(214, 48, 49)))
+		end
+		Parts.cylinder(parent, CFrame.new(base + up(h + 2.8)), 0.4, 4.4, deco(Color3.fromRGB(40, 44, 52), Enum.Material.Metal))
+		local lantern = Parts.cylinder(parent, CFrame.new(base + up(h + 4)), 2, 2.6, deco(Color3.fromRGB(255, 236, 170), Enum.Material.Neon))
+		lantern.CastShadow = false
+		Parts.light(lantern, Color3.fromRGB(255, 236, 170), 30, 1.4)
+		Parts.cylinder(parent, CFrame.new(base + up(h + 5.4)), 0.8, 3.2, deco(Color3.fromRGB(214, 48, 49)))
 	elseif kind == "Umbrella" then
 		Parts.cylinder(parent, CFrame.new(base + up(2.5)), 5, 0.2, deco(WHITE))
 		for k = 0, 3 do

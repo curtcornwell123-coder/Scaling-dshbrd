@@ -105,6 +105,44 @@ Sim.run(2)
 local Maps = Sim.module("server", "Maps")
 flow("CourseBuilder.build for all " .. #Maps.List .. " maps", built == #Maps.List and built >= 20 and errs() == e0, string.format("built=%d holes=%d", built, holes))
 
+-- Boost jumps: launch / gap / landing runs on straight, flat tiles; ocean maps are full of them.
+e0 = errs()
+local jumps, oceanHoles, oceanJumps, validJumps = 0, 0, 0, true
+local kickers, kickerOk = 0, true
+Sim.asSide("server", function()
+	local CourseBuilder = Sim.module("server", "CourseBuilder")
+	for _, map in Maps.List do
+		for h = 1, map.Holes do
+			local plan = CourseBuilder.plan(map, h)
+			for i, t in plan.Tiles do
+				if t.Feature == "JumpLaunch" then
+					jumps += 1
+					local g, l = plan.Tiles[i + 1], plan.Tiles[i + 2]
+					validJumps = validJumps and g ~= nil and l ~= nil and g.Feature == "JumpGap" and l.Feature == "JumpLand"
+						and g.Straight and not t.Ramp and not g.Ramp and not l.Ramp and t.Entry == g.Entry and g.Entry == l.Entry
+						and t.Out == g.Out and l.In == g.Out and i > 1 and i + 2 < #plan.Tiles
+					if map.Theme == "Ocean" then
+						oceanJumps += 1
+					end
+				end
+			end
+			if map.Theme == "Ocean" then
+				oceanHoles += 1
+			end
+		end
+	end
+	local course = CourseBuilder.build(Maps.get("ocean_gauntlet"), V(52000, 0, 30000), { ChaosBoxes = true })
+	for _, x in course.Model:GetDescendants() do
+		if x.Name == "Kicker" then
+			kickers += 1
+			kickerOk = kickerOk and x:GetAttribute("Surface") == "Boost" and x:GetAttribute("BoostRate") ~= nil
+		end
+	end
+	course.Destroy()
+end)
+flow("boost jumps: valid launch/gap/landing runs, ocean maps full of them", validJumps and jumps >= 8 and oceanJumps * 2 >= oceanHoles and kickers > 0 and kickerOk and errs() == e0,
+	string.format("jumps=%d ocean=%d/%d kickers=%d", jumps, oceanJumps, oceanHoles, kickers))
+
 -- B. Classic (turn-based) match ---------------------------------------------------------
 local function bubble(mode)
 	for _, x in Sim.descendants(lobbyModel) do
@@ -524,6 +562,24 @@ for _, a in Cosmetics.list("Arrows") do
 	end)
 	Sim.run(0.1)
 end
+-- Boost: a stranger's ball bursts; your own ball also plays the on-screen rush.
+local pgBoost = p1:FindFirstChild("PlayerGui"):FindFirstChild("BoostFx")
+Sim.asSide("server", function()
+	fake:SetAttribute("Boost", 1)
+end)
+Sim.run(0.2)
+local strangerRush = pgBoost ~= nil and pgBoost:FindFirstChild("Rush") ~= nil
+Sim.asSide("server", function()
+	fake:SetAttribute("Owner", p1.UserId)
+	fake:SetAttribute("Boost", 2)
+end)
+Sim.run(0.3)
+local ownRush = pgBoost ~= nil and pgBoost:FindFirstChild("Rush") ~= nil
+Sim.run(1.6)
+local cleaned = pgBoost ~= nil and pgBoost:FindFirstChild("Rush") == nil
+flow("boost effect: rush only for your own ball, then cleans up", pgBoost ~= nil and not strangerRush and ownRush and cleaned and errs() == e0,
+	string.format("gui=%s stranger=%s own=%s cleaned=%s", tostring(pgBoost ~= nil), tostring(strangerRush), tostring(ownRush), tostring(cleaned)))
+e0 = errs()
 Sim.asSide("server", function()
 	Net.event("BallAssigned"):FireClient(p1, nil, { Spectate = true, Overview = Sim.types.CFrame.new(0, 50, 0) })
 end)

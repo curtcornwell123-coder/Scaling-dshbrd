@@ -33,7 +33,8 @@ export type MapDef = {
 	Holes: number,
 	Length: { number }, -- {min, max} tiles per hole (12-stud tiles)
 	RampChance: number,
-	Hazards: { [string]: number }, -- per-tile chance of each feature
+	Hazards: { [string]: number }, -- per-tile chance of each feature (Jump: per-hole chance of a boost jump)
+	StraightBias: number?, -- chance a hole's path keeps going straight (default 0.6)
 	Difficulty: string,
 	Blurb: string,
 }
@@ -187,6 +188,24 @@ Maps.Themes = {
 		Decor = "Meadow",
 		Foliage = hex("#F2A7C3"),
 	},
+	Ocean = {
+		Id = "Ocean",
+		Name = "Ocean Piers",
+		Floor = hex("#4CB86A"),
+		FloorAlt = hex("#57C274"),
+		Rail = hex("#ECE6D8"),
+		Trim = hex("#1F4E79"),
+		Wall = hex("#7A5A3C"),
+		WallAlt = hex("#B89A72"),
+		Ceiling = hex("#8FD3F4"),
+		Accent = hex("#FF7F50"),
+		Water = hex("#1CA3EC"),
+		Sand = hex("#F2DFA7"),
+		Ice = hex("#DDF6FF"),
+		Light = hex("#FFF4D6"),
+		Decor = "Ocean",
+		Foliage = hex("#3E9B4F"),
+	},
 } :: { [string]: Theme }
 
 local sprint = { Windmill = 0.06, Bumper = 0.3, Spinner = 0.2, Pusher = 0.16, Sand = 0.08, Ice = 0.06, Boost = 0.08, Bridge = 0.06, Hump = 0.08, Tunnel = 0.05, ChaosBox = 0.18 }
@@ -208,6 +227,7 @@ local function map(id: string, name: string, theme: string, seed: number, gauntl
 		Length = if gauntletMode then { 7, 10 } else { 4, 7 },
 		RampChance = if gauntletMode then 0.22 else 0.12,
 		Hazards = hazards,
+		StraightBias = if theme == "Ocean" then 0.85 else nil, -- long straight piers for jumps
 		Difficulty = if gauntletMode then "Gauntlet" else "Sprint",
 		Blurb = blurb,
 	}
@@ -215,25 +235,27 @@ end
 
 Maps.List = {
 	map("arcade_sprint", "Sunny Meadow", "Arcade", 11021, false, nil, "Gentle greens, flower beds and a duck pond"),
-	map("arcade_gauntlet", "Windmill Way", "Arcade", 22917, true, { Boost = 0.16 }, "Spinners, boosts and long fairways"),
+	map("arcade_gauntlet", "Windmill Way", "Arcade", 22917, true, { Boost = 0.16, Jump = 0.3 }, "Spinners, boosts and a ravine jump"),
 	map("candy_sprint", "Red Rock Run", "Candy", 31337, false, { Bumper = 0.26 }, "Canyon bumpers around every bend"),
 	map("candy_gauntlet", "Mesa Mayhem", "Candy", 44012, true, { Pusher = 0.16 }, "Pushers on the cliff edge punish slow putts"),
 	map("frost_sprint", "Powder Putt", "Frost", 51719, false, { Ice = 0.16 }, "Icy patches on short snowy holes"),
 	map("frost_gauntlet", "Avalanche Alley", "Frost", 60451, true, { Ice = 0.22, Sand = 0.04 }, "Frozen rinks and spinning gates"),
 	map("lava_sprint", "Hot Shot", "Lava", 72203, false, { Bridge = 0.1 }, "Narrow bridges over lava rivers"),
-	map("lava_gauntlet", "Meltdown", "Lava", 83377, true, { Bridge = 0.16, Spinner = 0.18 }, "The hardest course on the volcano"),
+	map("lava_gauntlet", "Meltdown", "Lava", 83377, true, { Bridge = 0.16, Spinner = 0.18, Jump = 0.35 }, "Boost-jump the lava on the hardest course on the volcano"),
 	map("jungle_sprint", "Vine Swing", "Jungle", 91847, false, { Sand = 0.16 }, "Sand traps and temple steps"),
 	map("jungle_gauntlet", "Lost Temple", "Jungle", 10391, true, { Sand = 0.16, Pusher = 0.14 }, "Stone pushers guard the idol"),
-	map("space_sprint", "Palm Beach", "Space", 12007, false, { Boost = 0.14, Ice = 0.1 }, "Breezy greens by the shore"),
-	map("space_gauntlet", "Shipwreck Shoals", "Space", 13931, true, { Boost = 0.14, Bridge = 0.14 }, "Bridges over the lagoon"),
+	map("space_sprint", "Palm Beach", "Space", 12007, false, { Boost = 0.14, Ice = 0.1, Jump = 0.4 }, "Breezy greens and boost jumps by the shore"),
+	map("space_gauntlet", "Shipwreck Shoals", "Space", 13931, true, { Boost = 0.14, Bridge = 0.14, Jump = 0.45 }, "Bridges and jumps over the lagoon"),
 	map("autumn_sprint", "Maple Mile", "Autumn", 14411, false, { Hump = 0.16 }, "Rolling fairways under falling leaves"),
 	map("autumn_gauntlet", "Harvest Hollow", "Autumn", 15583, true, { Windmill = 0.16 }, "Windmills guard the old farm"),
 	map("blossom_sprint", "Petal Path", "Blossom", 16661, false, { Tunnel = 0.16, Bridge = 0.1 }, "Blossom arches over koi ponds"),
 	map("blossom_gauntlet", "Sakura Summit", "Blossom", 17779, true, { Windmill = 0.12, Hump = 0.12 }, "Hills, windmills and pink canopies"),
 	map("arcade_windmill", "Windmill Hollow", "Arcade", 18803, false, { Windmill = 0.22 }, "A windmill on almost every hole"),
-	map("candy_dunes", "Dune Drift", "Candy", 19927, false, { Hump = 0.22, Boost = 0.12 }, "Humps and boost pads through the dunes"),
-	map("frost_gate", "Glacier Gate", "Frost", 21149, true, { Windmill = 0.14, Ice = 0.16 }, "Icy windmill gates in the peaks"),
-	map("jungle_caves", "Canopy Caves", "Jungle", 22271, true, { Tunnel = 0.18, Hump = 0.1 }, "Ruined arches and rolling roots"),
+	map("candy_dunes", "Dune Drift", "Candy", 19927, false, { Hump = 0.22, Boost = 0.12, Jump = 0.3 }, "Humps, boost pads and canyon jumps through the dunes"),
+	map("frost_gate", "Glacier Gate", "Frost", 21149, true, { Windmill = 0.14, Ice = 0.16, Jump = 0.25 }, "Icy windmill gates and crevasse jumps in the peaks"),
+	map("jungle_caves", "Canopy Caves", "Jungle", 22271, true, { Tunnel = 0.18, Hump = 0.1, Jump = 0.25 }, "Ruined arches, rolling roots and a gorge jump"),
+	map("ocean_sprint", "Coral Cove", "Ocean", 23417, false, { Jump = 0.75, Boost = 0.12, Bumper = 0.24, Bridge = 0.06 }, "Piers over the sea: boost across the gaps"),
+	map("ocean_gauntlet", "Leviathan Leap", "Ocean", 24683, true, { Jump = 0.95, Boost = 0.14, Pusher = 0.18, Spinner = 0.2 }, "Long piers, big jumps, nowhere to fall but the sea"),
 } :: { MapDef }
 
 local byId: { [string]: MapDef } = {}

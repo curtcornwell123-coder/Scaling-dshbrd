@@ -11,7 +11,11 @@
 -- Conventions for the services
 --  * Tiles are 12x12 studs; level 0 = origin.Y; floor parts are 1 stud thick.
 --  * Floor parts (CanQuery = true) carry attribute Surface = "Sand" | "Ice" | "Boost"
---    (Boost floors also carry BoostDir: Vector3). Plain floors have no Surface attribute.
+--    (Boost floors also carry BoostDir: Vector3 and may carry BoostRate: number).
+--    Plain floors have no Surface attribute.
+--  * Boost jumps span three straight tiles: a launch tile (boost floor + kicker ramp),
+--    an open gap (no floor, no support: fall in and you're out of bounds) and a sandy
+--    landing tile. At BoostSpeed the ball carries ~19 studs past the kicker lip (12-stud gap).
 --  * Rails and rail posts carry attribute Rail = true; bumpers carry Bumper = true.
 --  * Decoration is CanQuery = false, and CanCollide = false wherever a ball could reach it.
 --  * The hall floor sits below every hole's FloorY - Config.Physics.OOBDepth, so a ball
@@ -91,7 +95,9 @@ local WALK_ATTEMPTS, STRICT_ATTEMPTS = 160, 100
 -- Major features are rolled in this order; the first eligible hit claims the tile.
 local FEATURE_ORDER = { "Windmill", "Spinner", "Pusher", "Bridge", "Boost", "Hump", "Tunnel", "Bumper", "Sand", "Ice" }
 local NEEDS_STRAIGHT_FLAT: { [string]: boolean } = { Windmill = true, Spinner = true, Pusher = true, Bridge = true, Boost = true, Hump = true, Tunnel = true }
-local OBSTACLES: { [string]: boolean } = { Windmill = true, Spinner = true, Pusher = true, Bumper = true }
+local OBSTACLES: { [string]: boolean } = { Windmill = true, Spinner = true, Pusher = true, Bumper = true, JumpLaunch = true }
+local JUMP_RATE = 14 -- boost pull on a jump's launch tile (normal boost pads: 8)
+local KICKER_LEN, KICKER_H = 4, 1.3 -- ~18 degree kicker: ~19 studs of flight at BoostSpeed
 
 export type TilePlan = {
 	X: number, -- cell coordinates
@@ -132,7 +138,7 @@ end
 
 -- Self-avoiding walk inside an 8x8 box. `strict` also forbids touching earlier tiles
 -- (no non-consecutive neighbours), which keeps lanes readable.
-local function tryWalk(rng: Random, len: number, strict: boolean): ({ { number } }?, { number }?)
+local function tryWalk(rng: Random, len: number, strict: boolean, bias: number): ({ { number } }?, { number }?)
 	local cells: { { number } } = { { 0, 0 } }
 	local moves: { number } = {}
 	local visited: { [number]: boolean } = { [cellKey(0, 0)] = true }
@@ -142,7 +148,7 @@ local function tryWalk(rng: Random, len: number, strict: boolean): ({ { number }
 		local cur = cells[i - 1]
 		local turnA = if rng:NextNumber() < 0.5 then dir % 4 + 1 else (dir + 2) % 4 + 1
 		local turnB = opposite(turnA)
-		local order: { number } = if i == 2 or rng:NextNumber() < STRAIGHT_BIAS then { dir, turnA, turnB } else { turnA, turnB, dir }
+		local order: { number } = if i == 2 or rng:NextNumber() < bias then { dir, turnA, turnB } else { turnA, turnB, dir }
 		local pick = 0
 		for _, d in order do
 			local nx, nz = cur[1] + DIRS[d][1], cur[2] + DIRS[d][2]
@@ -282,6 +288,33 @@ local function assignFeatures(rng: Random, tiles: { TilePlan }, hazards: { [stri
 			phase = 1 - phase
 		end
 	end
+	-- Boost jump: one per hole at most. The gap tile must be straight; launch, gap and
+	-- landing must be flat and level (the boost turns a ball entering the launch tile from
+	-- the side). Rolled after everything else so maps without jumps keep their layouts.
+	if (hazards.Jump or 0) > 0 and rng:NextNumber() < hazards.Jump then
+		local starts: { number } = {}
+		for i = 2, n - 3 do
+			local ok = tiles[i + 1].Straight
+			for k = i, i + 2 do
+				local t = tiles[k]
+				if t.Ramp or t.Entry ~= tiles[i].Entry or t.Exit ~= tiles[i].Entry then
+					ok = false
+				end
+			end
+			if ok then
+				table.insert(starts, i)
+			end
+		end
+		if #starts > 0 then
+			local i = starts[rng:NextInteger(1, #starts)]
+			for k, name in { "JumpLaunch", "JumpGap", "JumpLand" } do
+				local t = tiles[i + k - 1]
+				t.Feature = name
+				t.ChaosBox = false
+				t.Bumpers = {}
+			end
+		end
+	end
 	-- Every hole gets at least one obstacle: bumpers on a flat middle tile if the rolls gave none.
 	local any = false
 	local spots: { TilePlan } = {}
@@ -313,7 +346,7 @@ local function finishPlan(tiles: { TilePlan }, fallback: boolean): HolePlan
 		if not t.Straight then
 			turns += 1
 		end
-		if t.Feature and t.Feature ~= "Tunnel" then -- tunnels are scenery
+		if t.Feature and t.Feature ~= "Tunnel" and t.Feature ~= "JumpGap" and t.Feature ~= "JumpLand" then -- tunnels are scenery; a jump counts once
 			hazards += 1
 		end
 		minX, maxX = math.min(minX, t.X), math.max(maxX, t.X)
@@ -342,7 +375,7 @@ local function planHole(map: Maps.MapDef, holeIndex: number): HolePlan
 	local cells: { { number } }? = nil
 	local moves: { number }? = nil
 	for attempt = 1, WALK_ATTEMPTS do
-		cells, moves = tryWalk(rng, len, attempt <= STRICT_ATTEMPTS)
+		cells, moves = tryWalk(rng, len, attempt <= STRICT_ATTEMPTS, map.StraightBias or STRAIGHT_BIAS)
 		if cells then
 			break
 		end
@@ -516,6 +549,12 @@ local function buildFloor(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3): 
 	elseif t.Feature == "Bridge" then
 		props.Material = Enum.Material.WoodPlanks
 		props.Color = theme.Rail:Lerp(Color3.new(1, 1, 1), 0.12)
+	elseif t.Feature == "JumpLaunch" then
+		props.Material = Enum.Material.Asphalt
+		props.Color = Color3.fromRGB(38, 42, 50)
+	elseif t.Feature == "JumpLand" then
+		props.Material = Enum.Material.Sand
+		props.Color = theme.Sand
 	end
 	local floor: Part
 	if t.Ramp then
@@ -536,6 +575,12 @@ local function buildFloor(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3): 
 	elseif t.Feature == "Boost" then
 		floor:SetAttribute("Surface", "Boost")
 		floor:SetAttribute("BoostDir", dirVec(t.Out))
+	elseif t.Feature == "JumpLaunch" then
+		floor:SetAttribute("Surface", "Boost")
+		floor:SetAttribute("BoostDir", dirVec(t.Out))
+		floor:SetAttribute("BoostRate", JUMP_RATE)
+	elseif t.Feature == "JumpLand" then
+		floor:SetAttribute("Surface", "Sand")
 	end
 	return floor
 end
@@ -589,6 +634,24 @@ local function buildSupport(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3)
 			local p = c + f * (k * HALF * 0.6)
 			local h = top - floorRel + 1
 			Parts.cylinder(parent, CFrame.new(p + up(top - h / 2)), h, 1.1, { Name = "Support", Color = theme.Rail:Lerp(BLACK, 0.2), Material = WOOD, CanQuery = false })
+		end
+		return
+	end
+	if theme.Decor == "Ocean" then
+		-- Pier: a plank deck edge under the turf and four wooden piles into the sea floor.
+		local f = dirVec(t.Out)
+		if not t.Ramp then
+			Parts.block(parent, CFrame.new(c + up(top - 0.35)), alignedSize(t.Out, TILE - 0.3, 0.7, TILE - 0.3), { Name = "Support", Color = theme.WallAlt, Material = Enum.Material.WoodPlanks, CanQuery = false })
+		end
+		local pile: Parts.Props = { Name = "Support", Color = theme.Wall, Material = WOOD, CanQuery = false }
+		local bottom = floorRel - 7
+		for _, sx in { -1, 1 } do
+			for _, sz in { -1, 1 } do
+				local off = Vector3.new(sx * (HALF - 1.3), 0, sz * (HALF - 1.3))
+				local level = if t.Ramp and off:Dot(f) > 0 then hi else lo
+				local h = (level - 1) - bottom
+				Parts.cylinder(parent, CFrame.new(c + off + up(bottom + h / 2)), h, 1.1, pile)
+			end
 		end
 		return
 	end
@@ -843,17 +906,81 @@ local function buildTunnel(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3
 	end
 end
 
-local function buildBoost(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
-	local f = dirVec(t.Out)
+-- Boost pad: a dark glass-topped pad with LED side strips and five chevrons that light
+-- up in sequence (clients animate tag "BoostChevron" by its Order attribute).
+local function boostPad(parent: Instance, top: Vector3, f: Vector3, length: number, color: Color3)
 	local lat = Vector3.new(-f.Z, 0, f.X)
 	local padPos = top + up(0.025)
-	Parts.block(parent, CFrame.lookAt(padPos, padPos + f), Vector3.new(6.4, 0.05, 10), { Name = "BoostPad", Color = Color3.fromRGB(58, 62, 70), Material = Enum.Material.Concrete, CanCollide = false, CanQuery = false })
-	local neon: Parts.Props = { Name = "BoostChevron", Color = Color3.fromRGB(255, 210, 63), CanCollide = false, CanQuery = false }
-	for k = -1, 1 do
-		local base = top + f * (k * 2.8) + up(0.06)
+	Parts.block(parent, CFrame.lookAt(padPos, padPos + f), Vector3.new(7, 0.05, length), { Name = "BoostPad", Color = Color3.fromRGB(24, 27, 34), Material = Enum.Material.Glass, Reflectance = 0.15, CanCollide = false, CanQuery = false })
+	for _, s in { -1, 1 } do
+		local strip = top + lat * (s * 3.35) + up(0.06)
+		Parts.block(parent, CFrame.lookAt(strip, strip + f), Vector3.new(0.18, 0.06, length - 0.4), { Name = "BoostStrip", Color = color, Material = NEON, CanCollide = false, CanQuery = false })
+	end
+	local count = 5
+	for k = 1, count do
+		local along = (k - (count + 1) / 2) * (length - 2) / count
+		local base = top + f * along + up(0.07)
 		local tip = base + f * 1.1
-		Parts.beam(parent, base - f * 0.9 + lat * 2, tip, 0.6, 0.05, neon)
-		Parts.beam(parent, base - f * 0.9 - lat * 2, tip, 0.6, 0.05, neon)
+		for _, s in { -1, 1 } do
+			local arm = Parts.beam(parent, base - f * 0.9 + lat * (s * 2), tip, 0.55, 0.05, { Name = "BoostChevron", Color = color, Material = NEON, CanCollide = false, CanQuery = false })
+			arm:SetAttribute("Order", k)
+			CollectionService:AddTag(arm, "BoostChevron")
+		end
+	end
+end
+
+local BOOST_YELLOW = Color3.fromRGB(255, 210, 63)
+local BOOST_CYAN = Color3.fromRGB(64, 224, 255)
+
+local function buildBoost(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
+	boostPad(parent, top, dirVec(t.Out), 10, BOOST_YELLOW)
+end
+
+-- Jump launch: a full-length boost lane into a kicker ramp at the tile's exit edge.
+local function buildJumpLaunch(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
+	local f = dirVec(t.Out)
+	boostPad(parent, top - f * (KICKER_LEN / 2), f, TILE - KICKER_LEN - 0.6, BOOST_CYAN)
+	local across = TILE - 2 * RAIL_W
+	local kicker = slopeWedge(parent, top + f * (HALF - KICKER_LEN / 2) + up(KICKER_H / 2), f, across, KICKER_H, KICKER_LEN, {
+		Name = "Kicker",
+		Color = Color3.fromRGB(38, 42, 50),
+		Material = Enum.Material.Asphalt,
+	})
+	kicker.CustomPhysicalProperties = FLOOR_PHYS
+	kicker:SetAttribute("Surface", "Boost")
+	kicker:SetAttribute("BoostDir", f)
+	kicker:SetAttribute("BoostRate", JUMP_RATE)
+	-- Glowing lip and a hazard-striped face so the jump reads from the tee.
+	local lip = top + f * (HALF - 0.08) + up(KICKER_H + 0.03)
+	Parts.block(parent, CFrame.lookAt(lip, lip + f), Vector3.new(across, 0.08, 0.16), { Name = "KickerLip", Color = BOOST_CYAN, Material = NEON, CanCollide = false, CanQuery = false })
+	local face = top + f * (HALF + 0.03) + up(KICKER_H / 2)
+	local facePart = Parts.block(parent, CFrame.lookAt(face, face + f), Vector3.new(across, KICKER_H, 0.06), { Name = "KickerFace", Color = Color3.fromRGB(242, 183, 5), CanCollide = false, CanQuery = false })
+	Parts.gradientFace(facePart, Enum.NormalId.Front, Color3.fromRGB(242, 183, 5), Color3.fromRGB(29, 30, 33), 35)
+end
+
+-- Jump gap: nothing to land on. Red lamps on the rail ends either side mark the drop
+-- (below is the ravine, or the sea).
+local function buildJumpGap(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
+	local f = dirVec(t.Out)
+	local lat = Vector3.new(-f.Z, 0, f.X)
+	for _, s in { -1, 1 } do
+		for _, k in { -1, 1 } do
+			local p = top + lat * (s * RAIL_IN) + f * (k * (HALF + 0.45)) + up(RAIL_BODY + 0.95)
+			Parts.cylinder(parent, CFrame.new(p), 0.3, 0.7, { Name = "GapLampBase", Color = ctx.Theme.Trim, CanCollide = false, CanQuery = false })
+			local lamp = Parts.ball(parent, p + up(0.4), 0.55, { Name = "GapLamp", Color = Color3.fromRGB(255, 72, 72), Material = NEON, CanCollide = false, CanQuery = false })
+			lamp.CastShadow = false
+		end
+	end
+end
+
+-- Landing: a sand pad (it slows the ball) with two pennant flags.
+local function buildJumpLand(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
+	local f = dirVec(t.Out)
+	local lat = Vector3.new(-f.Z, 0, f.X)
+	for _, s in { -1, 1 } do
+		local base = top + lat * (s * (HALF - 1.2)) - f * (HALF - 1.2)
+		Parts.rod(parent, base, base + up(4.5), 0.14, { Name = "FlagPole", Color = WHITE, CanCollide = false, CanQuery = false })
+		Parts.block(parent, CFrame.lookAt(base + up(4) + f * 0.8, base + up(4) + f * 2), Vector3.new(0.08, 0.9, 1.5), { Name = "Pennant", Color = ctx.Theme.Accent, CanCollide = false, CanQuery = false })
 	end
 end
 
@@ -1041,11 +1168,14 @@ local function buildHole(ctx: Ctx, parent: Instance, index: number, plan: HolePl
 	local boxes: { BasePart } = {}
 	for i, t in tiles do
 		local c = centres[i]
-		buildFloor(ctx, track, t, c)
-		buildSupport(ctx, supports, t, c)
-		for d = 1, 4 do
-			if not opens[i][d] then
-				buildRail(ctx, track, t, c, d)
+		local gap = t.Feature == "JumpGap"
+		if not gap then
+			buildFloor(ctx, track, t, c)
+			buildSupport(ctx, supports, t, c)
+			for d = 1, 4 do
+				if not opens[i][d] then
+					buildRail(ctx, track, t, c, d)
+				end
 			end
 		end
 		if i > 1 and i < n then
@@ -1066,6 +1196,12 @@ local function buildHole(ctx: Ctx, parent: Instance, index: number, plan: HolePl
 				buildHump(ctx, features, t, tops[i])
 			elseif kind == "Tunnel" then
 				buildTunnel(ctx, features, t, tops[i])
+			elseif kind == "JumpLaunch" then
+				buildJumpLaunch(ctx, features, t, tops[i])
+			elseif kind == "JumpGap" then
+				buildJumpGap(ctx, features, t, tops[i])
+			elseif kind == "JumpLand" then
+				buildJumpLand(ctx, features, t, tops[i])
 			end
 		end
 		if t.ChaosBox and ctx.ChaosBoxes then
@@ -1086,6 +1222,9 @@ local function buildHole(ctx: Ctx, parent: Instance, index: number, plan: HolePl
 	for i, t in tiles do
 		local c = centres[i]
 		local o = opens[i]
+		if t.Feature == "JumpGap" then
+			continue -- open air: no rails, no posts
+		end
 		for _, sx in { -1, 1 } do
 			for _, sz in { -1, 1 } do
 				local dX = if sx > 0 then 1 else 3
@@ -1101,12 +1240,12 @@ local function buildHole(ctx: Ctx, parent: Instance, index: number, plan: HolePl
 					post(c.X + sx * RAIL_IN, c.Z + sz * RAIL_IN, level, 1.2)
 				elseif railZ then
 					local j = byCell[cellKey(t.X + sx, t.Z)]
-					if j and not opens[j][dZ] then
+					if j and not opens[j][dZ] and tiles[j].Feature ~= "JumpGap" then
 						post(c.X + sx * HALF, c.Z + sz * RAIL_IN, level, RAIL_W)
 					end
 				else
 					local j = byCell[cellKey(t.X, t.Z + sz)]
-					if j and not opens[j][dX] then
+					if j and not opens[j][dX] and tiles[j].Feature ~= "JumpGap" then
 						post(c.X + sx * RAIL_IN, c.Z + sz * HALF, level, RAIL_W)
 					end
 				end
@@ -1284,10 +1423,11 @@ local function buildDecor(ctx: Ctx, parent: Instance, infos: { HoleInfo }, rng: 
 
 	-- Two loose bands of trees (or rock spires) framing the course on its long sides.
 	local backdrop = CourseNature.Backdrop[theme.Decor] or "Oak"
-	for band = 1, 2 do
-		for x = ctx.X0 + 4, ctx.X1 - 4, 13 do
+	local ocean = theme.Decor == "Ocean" -- open sea: a few scattered islets, not a wall
+	for band = 1, if ocean then 1 else 2 do
+		for x = ctx.X0 + 4, ctx.X1 - 4, if ocean then 22 else 13 do
 			for _, side in { -1, 1 } do
-				if not (theme.Decor == "Tropical" and side > 0) and rng:NextNumber() < 0.8 then
+				if not (theme.Decor == "Tropical" and side > 0) and rng:NextNumber() < (if ocean then 0.45 else 0.8) then
 					local z = (if side < 0 then ctx.Z0 else ctx.Z1) + side * (band * 13 + rng:NextNumber(-5, 7))
 					CourseNature.prop(parent, backdrop, Vector3.new(x + rng:NextNumber(-6, 6), groundY, z), Vector3.new(0, 0, -side), rng, palette, true)
 				end
@@ -1395,6 +1535,11 @@ local function assemble(theme: Maps.Theme, plans: { HolePlan }, origin: Vector3,
 			CourseNature.clear(ctx.Terrain)
 		end,
 	}
+end
+
+-- The (pure) layout plan of one hole, for tests and tools.
+function CourseBuilder.plan(map: Maps.MapDef, holeIndex: number): HolePlan
+	return planHole(map, holeIndex)
 end
 
 function CourseBuilder.build(map: Maps.MapDef, origin: Vector3, opts: BuildOpts): Course
