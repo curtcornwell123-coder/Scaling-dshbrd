@@ -651,6 +651,9 @@ def stamp_array(kind="flag", res=512):
             x, y = 0.24 * math.cos(math.radians(ang)), 0.24 * math.sin(math.radians(ang))
             d.ellipse((*P(x - 0.08, y - 0.08), *P(x + 0.08, y + 0.08)), fill=90)
         d.ellipse((*P(-0.08, -0.08), *P(0.08, 0.08)), fill=90)
+    elif kind == "bolt":
+        bolt = [P(0.10, -0.62), P(-0.36, 0.06), P(-0.02, 0.06), P(-0.12, 0.62), P(0.36, -0.08), P(0.02, -0.08)]
+        d.polygon(round_poly(bolt, 0.03 * k), fill=255)
     return np.asarray(m, np.float32) / 255.0
 
 
