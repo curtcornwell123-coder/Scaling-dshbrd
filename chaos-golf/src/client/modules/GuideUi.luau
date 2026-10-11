@@ -197,14 +197,16 @@ end
 local function practice(): { Section }
 	local lines = {}
 	for _, m in Minigames.List do
-		table.insert(lines, string.format('<font color="#%s"><b>%s</b></font>: %s', m.Color:ToHex(), m.Name, m.Rules))
+		table.insert(lines, string.format('<font color="#%s"><b>%s</b></font> (%s): %s', m.Color:ToHex(), m.Name, m.BiomeName, m.Rules))
 	end
 	return {
 		{ Title = "The practice range", Lines = {
-			"Walk into the " .. b("Practice Range") .. " and step onto a lane's start pad to play. No power-ups; upgrades count.",
+			string.format("One practice is live at a time on all six lanes. It changes every %d minutes, the same in every server, and the whole range turns into that game's world.", math.floor(Minigames.RotationSeconds / 60)),
+			"The " .. b("TV") .. " over the lanes and the two signs by the Practice doorway show what's live, what's next and the countdown.",
+			"Step onto a lane's start pad to play. No power-ups; upgrades count.",
 			"Every run pays " .. b("tokens") .. " for that game. Tokens can't be bought.",
-			"Spend them at the game's " .. b("token hut") .. ": a token crate or a skin straight off the shelf.",
-			"Each game keeps a " .. b("best-scores board") .. ". Beat your personal best to get on it.",
+			"Spend them at the " .. b("Token Exchange") .. " hut: every game's crate and balls, one tab per game.",
+			"The " .. b("best-scores board") .. " shows the live game's all-time top scores.",
 		} },
 		{ Title = "The games", Lines = lines },
 		{ Title = "Tutorial", Lines = {

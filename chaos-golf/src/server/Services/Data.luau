@@ -11,6 +11,7 @@ local RunService = game:GetService("RunService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Cosmetics = require(Shared:WaitForChild("Cosmetics"))
+local Minigames = require(Shared:WaitForChild("Minigames"))
 local Net = require(Shared:WaitForChild("Net"))
 local Ranks = require(Shared:WaitForChild("Ranks"))
 
@@ -75,11 +76,20 @@ local releaseHooks: { (Session) -> () } = {}
 
 Data.Loaded = loadedEvent.Event -- (player, session)
 
+-- One zero per practice game (tokens and personal bests).
+local function perGame(): { [string]: number }
+	local t = {}
+	for _, m in Minigames.List do
+		t[m.Id] = 0
+	end
+	return t
+end
+
 local function defaultProfile(): Profile
 	return {
 		Version = 1,
 		Coins = Config.StartingCoins,
-		Tokens = { Target = 0, Drive = 0, Hazard = 0 },
+		Tokens = perGame(),
 		Owned = {
 			Skins = { [Cosmetics.Defaults.Skins] = true },
 			Trails = { [Cosmetics.Defaults.Trails] = true },
@@ -97,7 +107,7 @@ local function defaultProfile(): Profile
 		TutorialDone = false,
 		Device = "",
 		GroupClaimed = false,
-		PracticeBest = { Target = 0, Drive = 0, Hazard = 0 },
+		PracticeBest = perGame(),
 		Serials = {},
 		Pity = {},
 		Receipts = {},

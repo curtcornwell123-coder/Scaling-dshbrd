@@ -132,6 +132,32 @@ local crates: { [string]: Crate } = {
 		PityRarity = "Legendary",
 		Color = Color3.fromHex("#FFB703"),
 	},
+	Bank = {
+		Id = "Bank",
+		Name = "Frostbank Crate",
+		Category = "Skins",
+		Pool = "Token:Bank",
+		Currency = "Tokens:Bank",
+		Price = 12,
+		Keyed = false,
+		Odds = { Common = 50, Rare = 32, Epic = 14, Legendary = 4 },
+		PityAt = 25,
+		PityRarity = "Legendary",
+		Color = Color3.fromHex("#5BC0EB"),
+	},
+	Gates = {
+		Id = "Gates",
+		Name = "Canyon Crate",
+		Category = "Skins",
+		Pool = "Token:Gates",
+		Currency = "Tokens:Gates",
+		Price = 12,
+		Keyed = false,
+		Odds = { Common = 50, Rare = 32, Epic = 14, Legendary = 4 },
+		PityAt = 25,
+		PityRarity = "Legendary",
+		Color = Color3.fromHex("#E07A2F"),
+	},
 }
 
 -- Free crate from playtime gifts (never sold; duplicates refund coins against Price).

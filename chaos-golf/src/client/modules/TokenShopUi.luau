@@ -1,8 +1,9 @@
 --!strict
 -- Practice range token economy on screen:
---  * a token pill (top centre) while you're inside the range, so you always see your
---    Target / Drive / Hazard tokens;
---  * the token shop panel each station's hut opens (crate + that game's skins).
+--  * a token pill (top centre) while you're inside the range, so you always see every
+--    game's tokens;
+--  * the token shop panel the Token Exchange hut opens: a tab per game (the live game
+--    first), each with that game's crate and balls.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -59,7 +60,7 @@ local function buildPill()
 		dot.Parent = pill
 		counts[m.Id] = UIKit.text({
 			Text = "0",
-			TextSize = 16,
+			TextSize = 15,
 			Font = T.FontHeavy,
 			Size = UDim2.fromOffset(0, 36),
 			AutomaticSize = Enum.AutomaticSize.X,
@@ -72,7 +73,7 @@ end
 
 local function renderPill()
 	for id, label in counts do
-		label.Text = string.format("%s  %d", (Minigames.ById[id] :: Minigames.Minigame).Token, tokens(id))
+		label.Text = string.format("%s %d", string.gsub((Minigames.ById[id] :: Minigames.Minigame).Token, " Tokens", ""), tokens(id))
 	end
 	pill.Visible = player:GetAttribute("InPractice") == true
 end
@@ -90,7 +91,9 @@ local function close()
 	Pad.closed("TokenShop")
 end
 
-local function open(id: string)
+local open: (id: string) -> ()
+
+function open(id: string)
 	close()
 	local mg = Minigames.ById[id]
 	if not mg then
@@ -109,6 +112,27 @@ local function open(id: string)
 	panel = card
 	UIKit.padding(card, 16)
 	UIKit.list(card, 8)
+	-- One tab per game.
+	local tabs = Instance.new("ScrollingFrame")
+	tabs.BackgroundTransparency = 1
+	tabs.BorderSizePixel = 0
+	tabs.Size = UDim2.new(1, 0, 0, 30)
+	tabs.ScrollingDirection = Enum.ScrollingDirection.X
+	tabs.AutomaticCanvasSize = Enum.AutomaticSize.X
+	tabs.CanvasSize = UDim2.new()
+	tabs.ScrollBarThickness = 0
+	tabs.LayoutOrder = -1
+	tabs.ZIndex = 31
+	tabs.Parent = card
+	UIKit.list(tabs, 4, true)
+	for i, m in Minigames.List do
+		local tab = UIKit.button(string.gsub(m.Token, " Tokens", ""), if m.Id == id then "Primary" else "Secondary", { Size = UDim2.fromOffset(0, 28), AutomaticSize = Enum.AutomaticSize.X, TextSize = 13, LayoutOrder = i, ZIndex = 32, Parent = tabs }, function()
+			if m.Id ~= id then
+				open(m.Id)
+			end
+		end)
+		UIKit.padding(tab, 0, 10)
+	end
 	UIKit.text({ Text = string.upper(mg.Token) .. " SHOP", TextSize = 22, Font = T.FontHeavy, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = 0, ZIndex = 31, Parent = card })
 	local balance = UIKit.text({ Text = "", TextSize = 15, Font = T.FontMedium, TextColor3 = T.Muted, Size = UDim2.new(1, 0, 0, 20), LayoutOrder = 1, ZIndex = 31, Parent = card })
 	local buttons: { [string]: { Button: TextButton, Price: number, Skin: string? } } = {}

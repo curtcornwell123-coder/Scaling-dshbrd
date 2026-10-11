@@ -28,16 +28,19 @@ export type Lane = {
 	Origin: CFrame, -- floor-level centre of the lane start, LookVector runs down the lane
 	Length: number,
 	Width: number,
-	Minigame: string, -- "Target" | "Drive" | "Hazard": this lane's permanent minigame
 	StartPad: BasePart, -- step on to play (attribute Radius); sits just behind Origin
-	Props: Folder, -- empty folder: Practice builds the minigame's props in here
+	Props: Folder, -- empty folder: Practice builds the live minigame's props in here
 	Screen: BasePart, -- small per-lane score screen
+	Surface: BasePart, -- lane floor (restyled per biome; attribute Surface = "Ice" on the rink)
+	Rails: { BasePart }, -- side rails (restyled per biome)
+	Caps: { BasePart }, -- rail caps
+	Back: BasePart, -- end wall
 }
 
-export type PracticeStation = {
-	Board: BasePart, -- best-scores leaderboard screen (Front face)
-	Counter: BasePart, -- token hut counter: the shop prompt goes here
+export type TokenHut = {
+	Counter: BasePart, -- the token shop prompt goes here
 	Display: BasePart, -- crate showcase on the counter (Display attachment)
+	Shelf: { BasePart }, -- four ball spots on the back shelves (Display attachments)
 }
 
 export type Board = {
@@ -82,8 +85,15 @@ export type Lobby = {
 		CoinPackPads: { [string]: BasePart }, -- keys "Coins1".."Coins4"
 	},
 	South: {
-		Lanes: { Lane }, -- two per minigame
-		Stations: { [string]: PracticeStation }, -- keyed by minigame id
+		Lanes: { Lane }, -- six lanes, all playing the live minigame
+		Header: BasePart, -- gantry screen over the lane heads: the live game (Front)
+		TV: BasePart, -- broadcast TV over the lanes: now / next / countdown (Front faces the lane heads)
+		LobbyTVs: { BasePart }, -- signage either side of the atrium's Practice doorway (Front faces the hub)
+		Ground: BasePart, -- floor slab under the whole range, restyled per biome
+		Backdrop: BasePart, -- back wall panel (Front faces the lanes), restyled per biome
+		Biome: Folder, -- runtime biome dressing (PracticeBiomes)
+		Hut: TokenHut,
+		Board: BasePart, -- best-scores screen for the live game (Front)
 		Bounds: CFrame, -- room centre (floor level); with Size: the practice area
 		Size: Vector3,
 		TutorialPad: BasePart, -- replay tutorial (attribute Radius)

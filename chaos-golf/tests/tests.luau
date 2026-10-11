@@ -107,8 +107,22 @@ for _, m in Minigames.List do
 	for _, s in list do check(Crates.TokenDirectPrice[s.Rarity] ~= nil, "token price " .. s.Id) end
 	check(Crates.get(m.Id) ~= nil, "token crate " .. m.Id)
 end
--- Permanent stations: one per minigame; free crates and exclusive balls exist
-check(#Minigames.List == 3, "three practice minigames")
+-- Practice rotation: 5 games, 20 minutes each, every game has a biome, the cycle covers all.
+check(#Minigames.List == 5, "five practice minigames")
+check(Minigames.RotationSeconds == 1200, "20 minute practice rotation")
+local seenGames = {}
+for k = 0, 4 do
+	local g = Minigames.active(k * 1200 + 30)
+	seenGames[g.Id] = true
+	check(g.Biome ~= nil and g.BiomeName ~= nil, "biome for " .. g.Id)
+	check(Minigames.upNext(k * 1200 + 30).Id == Minigames.active((k + 1) * 1200 + 30).Id, "up next is the next live game")
+end
+local nGames = 0
+for _ in seenGames do nGames += 1 end
+check(nGames == 5, "rotation visits every game")
+check(Minigames.endsIn(1200 * 7 + 100) == 1100, "practice countdown")
+check(Minigames.tokensFor("Bank", 1) > Minigames.tokensFor("Bank", 3) and Minigames.tokensFor("Bank", 0) == 0, "bank shot payouts")
+check(Minigames.tokensFor("Gates", 45) > Minigames.tokensFor("Gates", 5) and Minigames.tokensFor("Gates", 0) == 0, "gate run payouts")
 check(Crates.get("Playtime") ~= nil and Crates.get("Playtime").Currency == "Gift", "playtime crate is gift-only")
 for _, skinId in Config.Leaderboards.Rewards do
 	check(Skins.get(skinId).Id == skinId, "leaderboard ball " .. skinId)

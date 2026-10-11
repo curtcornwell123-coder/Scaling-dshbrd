@@ -154,8 +154,8 @@ local function revealAt(crateId: string): Vector3?
 		part = lobby.East.Mythic.Pedestal
 	elseif crateId == "Playtime" then
 		part = lobby.Daily.Button
-	elseif lobby.South.Stations[crateId] then
-		part = lobby.South.Stations[crateId].Display
+	elseif Minigames.ById[crateId] then
+		part = lobby.South.Hut.Display
 	end
 	return if part then Displays.anchorPoint(part) else nil
 end

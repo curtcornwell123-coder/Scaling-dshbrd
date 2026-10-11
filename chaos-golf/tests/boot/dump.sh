@@ -7,7 +7,8 @@ LUAU="$1"; DEFS="$2"; OUT="$3"; WHICH="${4:-all}"
 TMP="$(mktemp -d)"
 cd "$HERE"
 [ -f api.luau ] || python3 gen_api.py "$DEFS" > /dev/null
-(echo "Sim.dumpWhich = \"$WHICH\""; echo ";(function()"; cat setup.luau; echo "end)();"; cat dump_world.luau) > "$TMP/scenario.luau"
+# SHIFT (env, seconds): move the clock first, e.g. to make another practice game live.
+(echo "Sim.dumpWhich = \"$WHICH\""; echo ";(function()"; cat setup.luau; echo "end)();"; echo "Sim.EPOCH += ${SHIFT:-0}"; cat dump_world.luau) > "$TMP/scenario.luau"
 python3 gen.py "$TMP/scenario.luau" "$TMP/boot.luau"
 "$LUAU" "$TMP/boot.luau" | grep "^@" > "$OUT"
 rm -rf "$TMP"

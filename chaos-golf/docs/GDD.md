@@ -31,46 +31,42 @@ One kit for the HUD and every in-world screen:
 - Two accents only: **Primary green** for Buy / Equip / Claim CTAs, **Info blue** for selection and secondary emphasis. Rarity and quadrant colours appear only as small dots and tags.
 - `UIGridLayout` grids, `TweenService` hover lift (scale 1.03 + stroke highlight) and press feedback on every button.
 
-## 3. The lobby (fully enclosed)
+## 3. The lobby: a modern country club
 
-A perfect circular room (radius 80, 45 tall) under an architecturally framed **geodesic glass dome** (160 diameter, Glass, transparency 0.6, reflectance 0.2). No baseplate, terrain or outdoor scenery is visible from anywhere; every room and hallway has a ceiling.
+A circular marble-and-walnut atrium (radius 56) under an oak ceiling on black-steel I-beams, a glass lantern and a brass halo chandelier. Four glass corridors lead to the wings. The style is marble, walnut, brass and black steel: symmetric, high detail, no kid neon (`LobbyBuilder`, `LobbyKit`).
 
-- **Fountain** at (0,0,0): tiered medium-poly fountain; neon-blue ParticleEmitter streams (rate 45, lifetime 1.2–1.8 s, speed 4–8, cyan→deep blue) arc from the spout and cascade over the upper basin into a large circular collecting bowl.
-- **Spawn** at (0,3,−25), facing south toward the fountain.
-- **Neon floor paths** (2 studs wide) run from the fountain to each room in its quadrant colour.
-- **Wall labels**: big neon typography over every archway, plus "◀ SHOP" and "LEADERBOARDS ▶" on the SE/SW walls so all directions are readable from spawn.
-- **Direction sign** (solid, not neon) in front of spawn: ▲ Practice ahead, ◀ Shop left, Leaderboards right ▶, Matchmaking behind you.
-- **Daily Rewards board** near spawn (14-day calendar).
+- **Premium Marble Fountain** in the centre: three tiers, running water curtains and jets (protected asset, see BACKLOG).
+- **Spawn** south of the fountain, facing it. The view from spawn is symmetric with nothing in the middle.
+- **Stations** on the atrium wall: **Locker** (browse and equip skins), **Rewards** (14-day calendar + Corny Games group reward with the Kernel ball), **Ball Upgrades**, **Creator Code**. Lounges sit in the window bays.
+- **Practice doorway signs**: two digital signs show the practice that is live now and the one up next, with the countdown.
 
-### North — Matchmaking & map voting (0,0,−120)
+### North: Matchmaking & map voting
 
 - Three portals: **Ranked 1v1**, **Classic (turn-based, 4)**, **Race Chaos (8)**. Standing inside a portal's bubble queues you; leaving it leaves the queue.
 - **Patience pay**: +1 coin / 30 s (0–60 s), +2 / 20 s (61–120 s), +5 / 15 s (121 s+).
-- **Server-wide vote**: three holographic signs show three distinct maps drawn with equal weight. Step on a sign's pad to vote (move your vote anytime). The next match to launch from any portal plays the winner, then three new maps are drawn. Your vote shows a private "✓ YOUR VOTE" marker.
-- **Invite kiosk**: opens the Roblox invite prompt (friends in the server give +15% match coins).
+- **Server-wide vote**: three signs show three distinct maps. Step on a sign's pad to vote; the next match plays the winner.
+- **Invite kiosk** (friends in the server give +10% match coins each, up to +40%).
 
-### East — Mega Shop (120,0,0)
+### East: Pro Shop
 
-- **Coin Shop**: 12 pedestals with spinning balls, the daily rotation (same in every server, refreshes 00:00 UTC). Prompt to buy or equip.
-- **Four category crates**: Ball Skins, Trails, Knockout Effects, Arrow Skins. Each opens with coins or a crate key, with an odds board behind it and a pity guarantee.
-- **Catalog terminal**: a large interactive in-world screen with a data-driven grid (`ShopCatalog`). Tabs: Today / Crates / Locker (filter chips by category) / Passes. Clicking a ball thumbnail shows it on the Locker pedestal. `Config.UI.ShopMode = "Screen"` turns the same grid into a centred overlay.
-- **Locker pedestal**: Q / E browse your skins on a spinning pedestal, F to equip.
-- **Stat upgrade terminal**: Power (+5%/level), Control (+8%/level), Bounce (+6%/level), up to level 5. Active in Classic, Race and Practice; off in Ranked.
-- **Creator code kiosk**: type a code on the in-world screen. It unlocks the Creator Fan ball and credits that creator for your purchases.
-- **Mythic Featured shrine** (isolated alcove): the Featured crate plus a live counter of the global stock remaining across all servers.
-- **Pass pedestals and coin-pack kiosks** (Robux).
+- **Ball collection**: 12 balls in jewellery-style glass cases (walnut plinths, brass edges, velvet decks, engraved plaques). A balanced set (5 Common, 4 Rare, 2 Epic, 1 Legendary) every 10 minutes, the same in every server; the hanging board by the entrance counts down.
+- **Limited vault** in the middle of the runner: the **Corny Games Studio** ball, 500 ever made (global stock), each printed with its serial, behind velvet ropes.
+- **Four category crates** (Ball Skins, Trails, Knockout Effects, Arrow Skins) with odds boards and pity; the **Mythic Featured shrine** with its global stock counter; pass pedestals and coin-pack kiosks.
+- **Catalog terminal**: data-driven grid (`ShopCatalog`): Rotation / Crates / Locker / Passes.
 
-### South — Practice Zone (0,0,120)
+### South: Practice Range
 
-- Five lanes. The active minigame rotates every 20 minutes on a clock shared by every server:
-  - **Target Putting**: 5 putts; stop on the rings (10 / 5 / 2 points).
-  - **Velocity Long-Drive**: 3 drives up a 28° ramp; your best distance counts.
-  - **Hazard Avoidance**: thread three spinning sweepers and sink it in 4 strokes or fewer.
-- Each run pays that minigame's **tokens** (Target / Drive / Hazard), which can't be bought with coins or Robux.
-- The **token kiosk** sells only the active minigame's crate and its four themed skins.
-- **Replay Tutorial** pad.
+- **One game is live on all six lanes** and rotates every 20 minutes on a clock shared by every server (`Minigames.active`). The whole range dresses itself as the live game's biome (`PracticeBiomes`): ground, backdrop sky, lane floors and rails, and themed props.
+  - **Target Putting** (Garden Green): 5 putts; stop on the rings (10 / 5 / 2 points).
+  - **Velocity Long-Drive** (Night Driving Range): 3 drives up a 28° ramp; best distance counts.
+  - **Hazard Avoidance** (Construction Yard): thread three spinning sweepers, sink it in 4 strokes or fewer.
+  - **Bank Shot** (Frozen Rink, slippery ice lanes): the cup hides behind an ice wall; bank off the boards and sink it in 3 strokes or fewer.
+  - **Gate Run** (Desert Canyon): 3 shots through 5 narrowing gates (gate n = n points); a shot only scores if the ball stops before the red line.
+- A **broadcast TV** over the lanes and the gantry header show what's live, what's next and the countdown. A lane that is mid-run when the game changes finishes the run first.
+- Each run pays that game's **tokens**, which can't be bought. The **Token Exchange** hut shows the live game's crate and balls and sells every game's (one tab per game).
+- The **best-scores board** shows the live game's all-time top scores. There is a **Replay Tutorial** pad.
 
-### West — Hall of Leaderboards (−120,0,0)
+### West: Hall of Leaderboards
 
 - Three boards: **Wins**, **Coins earned**, **Sabotages**, each Daily / Weekly / All-Time (OrderedDataStores).
 - Each player pages their own view with physical ◀ / ▶ / period buttons (local only).
@@ -161,7 +157,7 @@ Adding a map is one line in `src/shared/Maps.luau`.
 `UltimateGolf_v1` DataStore, one key per user (`u_<userId>`), saved with UpdateAsync, retries and a soft session lock (prevents two servers overwriting each other):
 
 ```
-Coins, Tokens{Target,Drive,Hazard},
+Coins, Tokens{Target,Drive,Hazard,Bank,Gates},
 Owned{Skins{},Trails{},Knockouts{},Arrows{}}, Equipped{Skins,Trails,Knockouts,Arrows},
 Keys{Skins,Trails,Knockouts,Arrows}, Login{Day,LastClaim},
 Celebration, Upgrades{Power,Control,Bounce},

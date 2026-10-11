@@ -295,12 +295,57 @@ local function practiceRun(pad, sinkIt)
 	Sim.run(0.5)
 	return ok
 end
-local okT = practiceRun(pads[1], false)
-local okD = practiceRun(pads[3], false)
-local tokens0 = Data.profile(p1).Tokens.Hazard
-local okH = practiceRun(pads[5], true)
-local best = Data.profile(p1).PracticeBest
-flow("practice stations: a run on Target, Drive and Hazard lanes, tokens + best scores", okT and okD and okH and #pads == 6 and Data.profile(p1).Tokens.Hazard > tokens0 and best.Hazard > 0 and errs() == e0, string.format("pads=%d tokens Hazard %d -> %d best=%s/%s/%s", #pads, tokens0, Data.profile(p1).Tokens.Hazard, tostring(best.Target), tostring(best.Drive), tostring(best.Hazard)))
+-- Make each game live in turn (jump to the start of its 20-minute slot) and play a run.
+local Minigames = Sim.module("server", "Minigames")
+local Practice = Sim.module("server", "Practice")
+local function goLive(id)
+	for _ = 1, #Minigames.List do
+		if Minigames.active().Id == id then
+			return
+		end
+		local now = Sim.EPOCH + math.floor(Sim.now)
+		Sim.EPOCH += Minigames.RotationSeconds - (now % Minigames.RotationSeconds) + 5
+		Sim.run(1)
+	end
+end
+local results = {}
+local allRuns = true
+local tokensUp = 0
+local iceLanes = false
+local ground = {}
+for k, m in Minigames.List do
+	goLive(m.Id)
+	local liveOk = Practice.live().Id == m.Id
+	local t0 = Data.profile(p1).Tokens[m.Id] or 0
+	local stroke = m.LowerIsBetter == true
+	local ok = practiceRun(pads[(k - 1) % #pads + 1], stroke)
+	allRuns = allRuns and ok and liveOk
+	if (Data.profile(p1).Tokens[m.Id] or 0) > t0 then
+		tokensUp += 1
+	end
+	local lane = find(lobbyModel, function(x, d)
+		return d.props.Name == "LaneSurface"
+	end)[1]
+	if m.Id == "Bank" then
+		iceLanes = lane ~= nil and lane:GetAttribute("Surface") == "Ice"
+	end
+	local g = find(lobbyModel, function(x, d)
+		return d.props.Name == "RangeGround"
+	end)[1]
+	ground[m.Id] = g and g.Material.Name or "?"
+	table.insert(results, m.Id .. "=" .. tostring(Data.profile(p1).PracticeBest[m.Id]))
+end
+local biomesDiffer = ground.Target ~= ground.Bank and ground.Bank ~= ground.Gates
+local tvText = ""
+for _, x in find(lobbyModel, function(x, d)
+	return d.cls == "TextLabel"
+end) do
+	if string.find(tostring(x.Text), "starts in", 1, true) then
+		tvText = x.Text
+	end
+end
+flow("practice rotation: each of 5 games goes live, biome changes, runs pay tokens", allRuns and #pads == 6 and tokensUp >= 2 and iceLanes and biomesDiffer and tvText ~= "" and errs() == e0,
+	string.format("pads=%d best %s tokensUp=%d ice=%s ground=%s/%s/%s sign=%q", #pads, table.concat(results, " "), tokensUp, tostring(iceLanes), ground.Target, ground.Bank, ground.Gates, tvText))
 -- in-range attribute for the token HUD
 local southRoom = lobbyModel:FindFirstChild("SouthRoom")
 Sim.setRoot(p1, pads[1].Position + V(0, 3, -6))

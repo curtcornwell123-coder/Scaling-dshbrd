@@ -599,6 +599,10 @@ function WorldFx.start()
 			if root then
 				celebrate(root.Position, if payload.Grand then "Fireworks" else "Confetti", payload.Grand)
 			end
+		elseif kind == "practiceRotated" then
+			if player:GetAttribute("InPractice") then
+				Hud.toast(string.format("Practice range: %s is live now (%s)", payload.Minigame, payload.Biome), payload.Color)
+			end
 		elseif kind == "practice" then
 			Hud.toast(string.format("%s finished · +%d %s", payload.Minigame, payload.Tokens, payload.Token), if payload.Tokens > 0 then T.Primary else T.Muted)
 		end

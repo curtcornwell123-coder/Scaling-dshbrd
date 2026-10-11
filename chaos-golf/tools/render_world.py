@@ -167,7 +167,8 @@ def parse_dump(path):
                 })
             elif tag == "@T":
                 cur.texts.append({"id": int(f[1]), "face": f[2], "rgb": _v3(f[3]), "font": f[4],
-                                  "text": "|".join(f[5:]).replace("\\n", "\n")})
+                                  # RichText tags render as formatting in Roblox; drop them here.
+                                  "text": re.sub(r"<[^>]+>", "", "|".join(f[5:]).replace("\\n", "\n"))})
             elif tag == "@G":
                 cur.grads.append({"id": int(f[1]), "face": f[2], "c0": _v3(f[3]), "c1": _v3(f[4]),
                                   "rot": float(f[5])})

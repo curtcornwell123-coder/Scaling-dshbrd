@@ -152,6 +152,16 @@ add("hazard_stripe", "Hazard Stripe", "Rare", "#FFB703", M.Foil, "Token:Hazard",
 add("daredevil", "Daredevil", "Epic", "#FB5607", M.Glass, "Token:Hazard", glow("#FFD0B0", { Aura = hex("#FFD0B0"), Design = { Pattern = "Hazard" } }))
 add("untouchable", "Untouchable", "Legendary", "#8338EC", M.Glass, "Token:Hazard", { Pulse = hex("#3A86FF"), Light = true, Design = { Emblem = "◆" } })
 
+add("rink", "Rink", "Common", "#E8F4FA", M.SmoothPlastic, "Token:Bank", { Design = { Pattern = "Pinstripe", Accent = hex("#2A6F97"), Number = "3" } })
+add("slapshot", "Slapshot", "Rare", "#1B263B", M.SmoothPlastic, "Token:Bank", { Reflect = 0.1, Design = { Accent = hex("#5BC0EB"), Emblem = "◆" } })
+add("glacier", "Glacier", "Epic", "#9AD1F5", M.Ice, "Token:Bank", { Aura = hex("#E0F7FF"), Design = { Pattern = "Track", Accent = hex("#1D5C86") } })
+add("polar_crown", "Polar Crown", "Legendary", "#DDF3FF", M.Glass, "Token:Bank", glow("#FFFFFF", { Pulse = hex("#5BC0EB"), Light = true, Design = { Emblem = "★", Ink = hex("#1D5C86") } }))
+
+add("sandstone", "Sandstone", "Common", "#D9A066", M.SmoothPlastic, "Token:Gates", { Design = { Accent = hex("#7A3E12") } })
+add("mesa", "Mesa", "Rare", "#B5542C", M.SmoothPlastic, "Token:Gates", { Design = { Pattern = "Pinstripe", Accent = hex("#F2D0A4") } })
+add("sidewinder", "Sidewinder", "Epic", "#C9A227", M.Foil, "Token:Gates", { Aura = hex("#FFE3A3"), Design = { Pattern = "Track", Emblem = "▲" } })
+add("sun_temple", "Sun Temple", "Legendary", "#E07A2F", M.Glass, "Token:Gates", glow("#FFD36B", { Pulse = hex("#FFB000"), Light = true, Design = { Emblem = "●" } }))
+
 -- Ranked tier rewards ----------------------------------------------------
 add("rank_gold", "Gilded", "Rare", "#E8B021", M.Foil, "Ranked:Gold", { Design = { Brand = "RANKED", Emblem = "◆", Accent = hex("#5B3A00") } })
 add("rank_diamond", "Diamond Cut", "Epic", "#9BE7FF", M.Glass, "Ranked:Diamond", { Light = true, Design = { Brand = "RANKED", Emblem = "◆" } })
