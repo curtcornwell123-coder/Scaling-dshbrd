@@ -66,7 +66,7 @@ check(Ranks.delta(1000, 1000, 0, false) == -16, "equal loss -16")
 -- Maps: distinct picks
 local seen = {}
 for _, m in Maps.pickDistinct(3, Random.new(7)) do check(not seen[m.Id], "dup map pick"); seen[m.Id] = true end
-check(#Maps.List == 12, "12 maps")
+check(#Maps.List >= 20, "20+ maps")
 
 -- Skins: rotation size, no mythic, deterministic
 local rot = Skins.shopRotation(20000, 12)
