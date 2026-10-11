@@ -1,7 +1,9 @@
 # Game descriptions (Creator Hub → experience → Configure → Description)
 
 Each block is ready to paste (Roblox limit: 1,000 characters). They only describe features that are
-confirmed in the games. Passes are left out until they're on sale.
+confirmed in the games; passes are left out until they're on sale. Put your Discord link in Creator Hub →
+Configure → Social Links: the last line of every bio points players there (the word "Discord" itself
+tends to get filtered in descriptions).
 
 ## Ultimate Golf
 
@@ -20,7 +22,7 @@ Smash rivals off the course, use chaos abilities and climb the Ranked ladder.
 🏹 PRACTICE ZONE – New minigame every 20 minutes with exclusive token skins.
 👥 Play with friends for +15% coins!
 
-👍 Like and ⭐ Favorite to get notified about new courses and events!
+👍 Like, ⭐ Favorite and join the Corny Games community (see Social Links below) for updates, codes and events!
 ```
 
 ## Brainrot Heist
@@ -39,7 +41,7 @@ Sneak into rival bases, grab their rarest brainrots and get out before you get c
 ⭐ VIP – Exclusive VIP boosts and items to become the master of brainrots!
 
 🔓 Steal. Mutate. Defend. Repeat.
-👍 Like, ⭐ Favorite and join our community to get notified about new updates and events!
+👍 Like, ⭐ Favorite and join the Corny Games community (see Social Links below) for updates, codes and events!
 ```
 
 ## Merge A Egg
@@ -53,7 +55,7 @@ Steal eggs, merge them and hatch the rarest eggs in the game!
 🔀 MERGE TO EVOLVE – Put eggs in the mergers at your base and combine them into better ones.
 🏆 Merge your way up to the rarest eggs!
 
-👍 Like and ⭐ Favorite to get notified about updates!
+👍 Like, ⭐ Favorite and join the Corny Games community (see Social Links below) for updates, codes and events!
 ```
 
 ## Cyber Swarm
@@ -66,7 +68,7 @@ Reverse tower defense: YOU are the robots!
 💥 BREAK THE DEFENSE – Overwhelm the towers before they stop you.
 🤖 UNLEASH THE SWARM – Get your robots all the way through!
 
-👍 Like and ⭐ Favorite to get notified about updates!
+👍 Like, ⭐ Favorite and join the Corny Games community (see Social Links below) for updates, codes and events!
 ```
 
 ## Brainrot Heist: original description (backup)

@@ -25,54 +25,43 @@ def rim_lights(a, b, key=1600, rim=2600, target=(0, 0, 0)):
 # Brainrot Heist: masked thief grinning beside a stolen glowing brainrot capsule ---------------------
 
 def brainrot():
-    kit.world_gradient("#3A0A1E", "#08020A")
-    kit.backdrop("#1A0610", "#7A0F2E", glow=0.9)
-    vault_c = (-3.2, 7.5, 3.6)
-    sc.vault(vault_c, 3.0)
-    for a, b in (((-9, 4, 0.5), (9, 4, 6.5)), ((-9, 4, 6.0), (9, 4, 1.0)), ((-9, 5, 3.4), (9, 5, 4.6))):
-        sc.laser(a, b)
+    kit.world_gradient("#4A0B24", "#0A020C")
+    kit.backdrop("#16050E", "#6A0C2A", glow=0.7)
+    sc.vault((0, 4.5, 3.6), 3.3)                                   # round vault door framing the head
+    red = kit.mat_emit("laserRed", "#FF1E3C", 9)
+    for a, b in (((-8, 2.6, 0.8), (8, 2.6, 6.6)), ((-8, 2.6, 6.4), (8, 2.6, 1.2))):
+        kit.tube([a, b], 0.03, red)
 
     skin = kit.mat_plastic("skin", "#FFC98F", 0.45, 0.25)
-    mask = kit.mat_plastic("mask", "#14121C", 0.35, 0.6)
-    beanie = kit.mat_plastic("beanie", "#2B2E3F", 0.7, 0.1)
-    white = kit.mat_plastic("eyeWhite", "#FFFFFF", 0.2, 0.6)
+    mask = kit.mat_plastic("mask", "#121019", 0.4, 0.5)
+    beanie = kit.mat_plastic("beanie", "#1E2030", 0.75, 0.1)
+    white = kit.mat_plastic("eyeWhite", "#FFFFFF", 0.25, 0.5)
     dark = kit.mat_plastic("pupil", "#0B0A10", 0.2, 0.8)
     hx, hy, hz = 0.0, 0.0, 3.0
-    head = kit.box((hx, hy, hz), (2.6, 2.4, 2.5), skin, bevel=0.7)
-    band = kit.box((hx, hy, hz + 0.22), (2.66, 2.46, 0.85), mask, bevel=0.3)
-    for o in (head, band):
-        o.rotation_euler = (0, 0, R(-14))
-    kit.cyl((hx, hy, hz + 1.25), 1.36, 0.75, beanie, bevel=0.25)
-    kit.torus((hx, hy, hz + 0.98), 1.33, 0.17, beanie)
-    kit.sphere((hx, hy, hz + 1.85), 0.3, kit.mat_plastic("pom", "#E8304A", 0.8, 0.0))
-    # Eyes look sideways at the loot.
-    for ex in (-0.5, 0.5):
-        x = hx + ex * math.cos(R(14)) - 0.12
-        y = hy - 1.24 - ex * math.sin(R(14)) * 0.3
-        kit.sphere((x, y, hz + 0.24), 0.3, white, scale=(1, 0.35, 0.95))
-        kit.sphere((x + 0.12, y - 0.07, hz + 0.22), 0.13, dark, scale=(1, 0.4, 1))
-        kit.sphere((x + 0.17, y - 0.12, hz + 0.29), 0.04, kit.mat_emit("glint", "#FFFFFF", 4))
+    kit.box((hx, hy, hz), (2.6, 2.4, 2.5), skin, bevel=0.7)
+    kit.box((hx, hy, hz + 0.22), (2.66, 2.46, 0.85), mask, bevel=0.3)
+    kit.cyl((hx, hy, hz + 1.22), 1.36, 0.7, beanie, bevel=0.25)
+    kit.torus((hx, hy, hz + 0.96), 1.33, 0.17, beanie)
+    for ex in (-0.52, 0.52):                                       # sly glance toward the loot
+        kit.sphere((hx + ex, hy - 1.24, hz + 0.24), 0.31, white, scale=(1, 0.3, 0.95))
+        kit.sphere((hx + ex + 0.13, hy - 1.32, hz + 0.21), 0.14, dark, scale=(1, 0.35, 1))
+        kit.sphere((hx + ex + 0.18, hy - 1.37, hz + 0.29), 0.045, kit.mat_emit("glint", "#FFFFFF", 3))
     brow = kit.mat_plastic("brow", "#0B0A10", 0.5, 0.2)
-    for ex, tilt in ((-0.5, -16), (0.5, 22)):
-        kit.box((hx + ex - 0.1, hy - 1.27, hz + 0.78), (0.55, 0.08, 0.13), brow, bevel=0.04, rot=(0, R(tilt), 0))
-    smirk = [(hx - 0.55, hy - 1.24, hz - 0.62), (hx - 0.05, hy - 1.27, hz - 0.78), (hx + 0.45, hy - 1.24, hz - 0.62),
-             (hx + 0.7, hy - 1.18, hz - 0.42)]
+    for ex, tilt in ((-0.55, -14), (0.55, 20)):
+        kit.box((hx + ex, hy - 1.27, hz + 0.8), (0.58, 0.08, 0.13), brow, bevel=0.04, rot=(0, R(tilt), 0))
+    smirk = [(hx - 0.5, hy - 1.24, hz - 0.6), (hx - 0.02, hy - 1.27, hz - 0.76), (hx + 0.42, hy - 1.24, hz - 0.62),
+             (hx + 0.66, hy - 1.18, hz - 0.42)]
     kit.tube(smirk, 0.07, dark)
 
-    # Loot: glowing brainrot capsule (right) and a money bag (left).
-    sc.capsule((2.55, -1.3, 2.0), "#39FF88", h=2.0, r=0.62, mark="?")
-    kit.light_point((2.55, -2.2, 2.2), 260, "#39FF88", radius=0.6)
+    # Loot, close to the camera: money bag (left) and a glowing brainrot capsule (right).
     sack = kit.mat_plastic("sack", "#C98A4B", 0.7, 0.0)
-    kit.sphere((-2.55, -1.3, 1.2), 0.95, sack, scale=(1, 0.9, 1.0))
-    kit.cyl((-2.55, -1.3, 2.18), 0.24, 0.32, kit.mat_plastic("tie", "#E8B021", 0.4, 0.3), bevel=0.03)
-    kit.text3d("$", (-2.55, -2.18, 1.15), 0.95, kit.mat_metal("dollar", "#FFC83D", 0.2), extrude=0.08)
-    coin = kit.mat_metal("coin", "#FFC83D", 0.2)
-    rnd = random.Random(3)
-    for _ in range(9):
-        kit.cyl((rnd.uniform(-3.6, 3.6), rnd.uniform(-2.6, -1.4), rnd.uniform(0.08, 0.25)), 0.32, 0.08, coin,
-                bevel=0.02, rot=(rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5), 0))
-    rim_lights("#FF2440", "#39FF88", target=(0, 0, 2.6))
-    kit.camera((0, -13.5, 3.4), (0, 0, 3.9), lens=50, dof_target=(0, -1.2, 3.0), fstop=6)
+    kit.sphere((-2.35, -1.6, 1.35), 0.95, sack, scale=(1, 0.9, 1.0))
+    kit.cyl((-2.35, -1.6, 2.33), 0.24, 0.32, kit.mat_plastic("tie", "#E8B021", 0.4, 0.3), bevel=0.03)
+    kit.text3d("$", (-2.35, -2.48, 1.3), 0.95, kit.mat_metal("dollar", "#FFC83D", 0.2), extrude=0.08)
+    sc.capsule((2.35, -1.6, 1.95), "#39FF88", h=1.9, r=0.6, mark="?")
+    kit.light_point((2.35, -2.5, 2.1), 200, "#39FF88", radius=0.6)
+    rim_lights("#FF2440", "#39FF88", key=1400, target=(0, 0, 2.8))
+    kit.camera((0, -12.5, 3.3), (0, 0, 4.0), lens=62, dof_target=(0, -1.25, 3.0), fstop=4)
 
 
 # Cyber Swarm: hero robot charging forward, swarm behind, tower laser ---------------------------------

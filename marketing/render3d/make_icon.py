@@ -21,7 +21,7 @@ ICONS = {
     "merge": ("icon_render.png", None, [("MERGE A", "merge2", 320, 300), ("EGG", "merge", 500, 650)]),
 }
 
-BLOOM = {"cyber": 0.12, "merge": 0.3}   # bright white/gold subjects bloom over their own faces otherwise
+BLOOM = {"cyber": 0.12, "merge": 0.3, "brainrot": 0.3}   # bright white/gold subjects bloom over their own faces otherwise
 
 
 def make(game):
