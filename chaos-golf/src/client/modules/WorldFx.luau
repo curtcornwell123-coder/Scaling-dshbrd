@@ -561,10 +561,8 @@ function WorldFx.start()
 				sound(Config.Sounds.Sink, nil, 0.9)
 			end
 		elseif kind == "lipOut" then
-			-- Ran over the cup too fast and popped off the far rim.
-			burst(payload.Position, Color3.new(1, 1, 1), 10, 6, 0.3)
-			ring(payload.Position - Vector3.new(0, 0.6, 0), Color3.new(1, 1, 1), 1, 4, 0.3)
-			floatingText(payload.Position + Vector3.new(0, 2.4, 0), "LIP OUT!", Color3.fromRGB(255, 170, 60), 26)
+			-- Ran over (or round) the cup and out again: just a quiet call, like a commentator's.
+			floatingText(payload.Position + Vector3.new(0, 2.2, 0), "Lip out", Color3.fromRGB(255, 196, 120), 20)
 		elseif kind == "hit" then
 			WorldFx.knockout(payload.Effect, payload.Position, 0.55)
 		elseif kind == "knockout" then

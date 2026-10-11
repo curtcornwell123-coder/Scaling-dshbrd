@@ -12,12 +12,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Crates = require(Shared:WaitForChild("Crates"))
+local Minigames = require(Shared:WaitForChild("Minigames"))
 local Skins = require(Shared:WaitForChild("Skins"))
 local Parts = require(script.Parent:WaitForChild("Parts"))
 local LobbyKit = require(script.Parent:WaitForChild("LobbyKit"))
 local Fountain = require(script.Parent:WaitForChild("Fountain"))
 local CourseNature = require(script.Parent:WaitForChild("CourseNature"))
 local LobbyTypes = require(script.Parent:WaitForChild("LobbyTypes"))
+local CupHole = require(script.Parent:WaitForChild("CupHole"))
 
 type Props = Parts.Props
 
@@ -1303,12 +1305,15 @@ end
 
 local LANES = 6
 local LANE_W, LANE_L, LANE_PITCH = 9, 48, 10.8
+local LANE_END = 10 -- the lane floor's last stretch (over the cup wells) is its own part
 
 local function buildLane(parent: Instance, R: CFrame, index: number, x: number, u0: number, col: Color3): LobbyTypes.Lane
 	local lm = Parts.model(parent, "Lane" .. index)
 	local origin = along(R, x, 0, u0)
 	local W, L = LANE_W, LANE_L
-	local surface = Parts.block(lm, origin * CFrame.new(0, -0.09, -L / 2), Vector3.new(W, 0.22, L), mat(LANE_GREEN, M.Fabric, "LaneSurface"))
+	local split = L - LANE_END
+	local surface = Parts.block(lm, origin * CFrame.new(0, -0.09, -split / 2), Vector3.new(W, 0.22, split), mat(LANE_GREEN, M.Fabric, "LaneSurface"))
+	local laneEnd = Parts.block(lm, origin * CFrame.new(0, -0.09, -(split + L) / 2), Vector3.new(W, 0.22, LANE_END), mat(LANE_GREEN, M.Fabric, "LaneSurface"))
 	Parts.block(lm, origin * CFrame.new(0, 0.03, -0.2), Vector3.new(W - 0.02, 0.04, 0.3), deco(WHITE, "TeeLine"))
 	local rails: { BasePart }, caps: { BasePart } = {}, {}
 	for _, s in { -1, 1 } do
@@ -1326,6 +1331,7 @@ local function buildLane(parent: Instance, R: CFrame, index: number, x: number, 
 		Props = Parts.folder(lm, "Props"),
 		Screen = scr,
 		Surface = surface,
+		End = laneEnd,
 		Rails = rails,
 		Caps = caps,
 		Back = back,
@@ -1395,6 +1401,28 @@ local function buildSouth(room: Model, R: CFrame, W: number, D: number, rng: Ran
 		table.insert(lanes, buildLane(m, R, k, x, u0, accent))
 	end
 
+	-- Wells under the lane ends round every cup spot, so the cup games' cups are real holes
+	-- (CupHole): the oak floor and the range ground are cut round them, and the lane ends
+	-- cover them while no cup is out.
+	local cupR = Config.Physics.CupRadius + 0.4
+	local wx0, wx1, wd0, wd1 = math.huge, -math.huge, math.huge, -math.huge
+	for _, spot in Minigames.CupSpots do
+		wx0, wx1 = math.min(wx0, spot.X - cupR), math.max(wx1, spot.X + cupR)
+		wd0, wd1 = math.min(wd0, spot.D - cupR), math.max(wd1, spot.D + cupR)
+	end
+	local wells: { CupHole.Opening } = {}
+	for _, lane in lanes do
+		local cf = lane.Origin * CFrame.new((wx0 + wx1) / 2, 0, -(LANE_L - (wd0 + wd1) / 2))
+		table.insert(wells, { CFrame = cf, Size = Vector2.new(wx1 - wx0, wd1 - wd0) })
+		Parts.block(m, cf * CFrame.new(0, -2.35, 0), Vector3.new(wx1 - wx0 + 0.6, 0.3, wd1 - wd0 + 0.6), solid(STEEL, "WellFloor"))
+	end
+	local shell = room:FindFirstChild("Shell")
+	local oak = shell and shell:FindFirstChild("Floor")
+	if oak and oak:IsA("BasePart") then
+		CupHole.cutRects(oak, wells)
+	end
+	local groundParts = CupHole.cutRects(ground, wells)
+
 	-- Gantry over the lane heads: steel posts, an I-beam and the live-game header screen.
 	local gm = Parts.model(m, "Gantry")
 	for _, x in { -span / 2 - 0.6, 0, span / 2 + 0.6 } do
@@ -1441,7 +1469,8 @@ local function buildSouth(room: Model, R: CFrame, W: number, D: number, rng: Ran
 		Header = header,
 		TV = tv,
 		LobbyTVs = {},
-		Ground = ground,
+		Ground = groundParts[1],
+		GroundParts = groundParts,
 		Backdrop = backdrop,
 		Biome = biome,
 		Hut = hut,

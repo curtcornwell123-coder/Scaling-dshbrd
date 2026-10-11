@@ -110,6 +110,13 @@ Minigames.Gates = {
 }
 Minigames.GateStopLine = 42 -- a shot only counts if the ball stops before this distance
 
+-- Where each cup game's cup sits on a lane: D studs back from the lane end, X across it. The
+-- lane ends have wells under these spots so the cups can be real holes (CupHole).
+Minigames.CupSpots = {
+	Hazard = { D = 5, X = 0 },
+	Bank = { D = 7, X = -2.2 },
+} :: { [string]: { D: number, X: number } }
+
 -- Token payout tables -----------------------------------------------------
 
 function Minigames.tokensFor(id: string, score: number): number

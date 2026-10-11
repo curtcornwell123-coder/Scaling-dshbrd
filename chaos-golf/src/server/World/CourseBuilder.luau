@@ -29,6 +29,7 @@ local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared
 local Maps = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Maps"))
 local Parts = require(script.Parent:WaitForChild("Parts"))
 local CourseNature = require(script.Parent:WaitForChild("CourseNature"))
+local CupHole = require(script.Parent:WaitForChild("CupHole"))
 
 local CourseBuilder = {}
 
@@ -1095,11 +1096,17 @@ local function buildTee(ctx: Ctx, holeModel: Model, parent: Instance, teeTop: Ve
 	end
 end
 
-local function buildCup(ctx: Ctx, parent: Instance, cup: Vector3, approach: Vector3)
+-- A real cup cut into the green (CupHole: the floor and the layers under it are cut round
+-- it, a white liner and a dark bottom), the flag just behind it.
+local function buildCup(ctx: Ctx, hole: Instance, parent: Instance, cup: Vector3, approach: Vector3)
 	local theme = ctx.Theme
 	local d = 2 * CUP_R + 0.2
-	Parts.disc(parent, cup + up(0.04), d, 0.02, { Name = "Cup", Color = Color3.fromRGB(8, 8, 12), CanCollide = false, CanQuery = false, CastShadow = false })
-	Parts.disc(parent, cup + up(0.015), d + 0.7, 0.02, { Name = "CupRing", Color = WHITE, CanCollide = false, CanQuery = false })
+	if CupHole.carve(hole, cup) > 0 then
+		CupHole.build(parent, cup)
+	else
+		-- Not on a flat floor block (never for generated holes): painted cup, judged on the flat.
+		Parts.disc(parent, cup + up(0.04), d, 0.02, { Name = "Cup", Color = Color3.fromRGB(8, 8, 12), CanCollide = false, CanQuery = false, CastShadow = false })
+	end
 	local pole = cup + approach * (d / 2 + 0.15)
 	local flagProps: Parts.Props = { Name = "Flag", Color = theme.Accent, Material = Enum.Material.Fabric, CanCollide = false, CanQuery = false }
 	Parts.cylinder(parent, CFrame.new(pole + up(3.6)), 7.2, 0.18, { Name = "FlagPole", Color = Color3.fromRGB(240, 240, 245), CanCollide = false, CanQuery = false })
@@ -1261,7 +1268,7 @@ local function buildHole(ctx: Ctx, parent: Instance, index: number, plan: HolePl
 	local cup = centres[n] + up(last.Entry)
 	local backFree = byCell[cellKey(first.X - DIRS[first.Out][1], first.Z - DIRS[first.Out][2])] == nil
 	buildTee(ctx, model, dressing, teeTop, look, index, plan.Par, backFree)
-	buildCup(ctx, dressing, cup, dirVec(last.In))
+	buildCup(ctx, model, dressing, cup, dirVec(last.In))
 
 	local overview = overviewFor(ctx, tops, tee, look)
 	model.WorldPivot = CFrame.lookAt(tee, tee + look)

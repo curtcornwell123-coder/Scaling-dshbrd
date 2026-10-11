@@ -297,8 +297,10 @@ function PracticeBiomes.apply(south: South, biome: string, seed: number)
 	local look = LOOKS[biome] or LOOKS.Park
 	local rng = Random.new(seed)
 	south.Biome:ClearAllChildren()
-	south.Ground.Color = look.Ground
-	south.Ground.Material = look.GroundMat
+	for _, g in south.GroundParts do
+		g.Color = look.Ground
+		g.Material = look.GroundMat
+	end
 	for _, child in south.Backdrop:GetChildren() do
 		if child:IsA("SurfaceGui") then
 			child:Destroy()
@@ -307,9 +309,18 @@ function PracticeBiomes.apply(south: South, biome: string, seed: number)
 	south.Backdrop.Color = look.SkyBottom
 	Parts.gradientFace(south.Backdrop, Enum.NormalId.Front, look.SkyTop, look.SkyBottom, 90)
 	for _, lane in south.Lanes do
-		lane.Surface.Color = look.Lane
-		lane.Surface.Material = look.LaneMat
-		lane.Surface:SetAttribute("Surface", look.LaneSurface)
+		-- The lane floor: main stretch, end stretch and any cup-cut copy of the end (LaneFloor).
+		local floors: { BasePart } = { lane.Surface, lane.End }
+		for _, d in lane.Props:GetDescendants() do
+			if d:IsA("BasePart") and d:GetAttribute("LaneFloor") then
+				table.insert(floors, d)
+			end
+		end
+		for _, f in floors do
+			f.Color = look.Lane
+			f.Material = look.LaneMat
+			f:SetAttribute("Surface", look.LaneSurface)
+		end
 		for _, r in lane.Rails do
 			r.Color = look.Rail
 			r.Material = look.RailMat

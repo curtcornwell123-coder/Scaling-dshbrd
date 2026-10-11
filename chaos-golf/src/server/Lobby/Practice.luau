@@ -24,6 +24,7 @@ local UIKit = require(Shared:WaitForChild("UIKit"))
 local Server = script.Parent.Parent
 local LobbyTypes = require(Server:WaitForChild("World"):WaitForChild("LobbyTypes"))
 local Parts = require(Server:WaitForChild("World"):WaitForChild("Parts"))
+local CupHole = require(Server:WaitForChild("World"):WaitForChild("CupHole"))
 local PracticeBiomes = require(Server:WaitForChild("World"):WaitForChild("PracticeBiomes"))
 local Activity = require(Server:WaitForChild("Services"):WaitForChild("Activity"))
 local Data = require(Server:WaitForChild("Services"):WaitForChild("Data"))
@@ -39,7 +40,6 @@ local T = UIKit.Theme
 local TARGET_RINGS = { { Radius = 1.4, Points = 10 }, { Radius = 2.8, Points = 5 }, { Radius = 4.2, Points = 2 } }
 local RAMP_START = 12
 local RAMP_ANGLE = math.rad(28)
-local BANK_CUP = { D = 7, X = -2.2 } -- distance from the lane end, lateral offset
 local GATE_SLACK = 0.2 -- the ball's centre must pass this far inside a gate's posts
 
 type LaneState = {
@@ -81,16 +81,36 @@ end
 
 local DARK = Color3.fromRGB(30, 34, 46)
 
-local function cup(folder: Folder, pos: Vector3, flag: Color3)
-	Parts.cylinder(folder, CFrame.new(pos + Vector3.new(0, 0.02, 0)), 0.04, Config.Physics.CupRadius * 2 + 0.2, { Color = Color3.fromRGB(14, 16, 22), CanCollide = false, CanQuery = false, Name = "Cup" })
+-- The lane end over the cup wells: shown plain, or hidden while a cut copy holds the cup.
+local function showLaneEnd(lane: LobbyTypes.Lane, on: boolean)
+	lane.End.Transparency = if on then 0 else 1
+	lane.End.CanCollide = on
+	lane.End.CanQuery = on
+end
+
+-- A real cup (CupHole) at a cup spot of this game: the lane end is swapped for a copy with
+-- the hole cut in (over the well beneath), the flag beside it. Returns the rim centre.
+local function cup(state: LaneState, spot: { D: number, X: number }, flag: Color3): Vector3
+	local lane = state.Lane
+	local folder = lane.Props
+	local pos = laneCF(state, lane.Length - spot.D, 0, spot.X).Position
+	pos = Vector3.new(pos.X, lane.End.Position.Y + lane.End.Size.Y / 2, pos.Z) -- the lane's top
+	local live = lane.End:Clone()
+	live:SetAttribute("LaneFloor", true)
+	live.Parent = folder
+	showLaneEnd(lane, false)
+	CupHole.cut(live, pos)
+	CupHole.build(folder, pos)
 	Parts.rod(folder, pos + Vector3.new(1.4, 0, 0), pos + Vector3.new(1.4, 5, 0), 0.15, { Color = Color3.new(1, 1, 1), CanCollide = false, CanQuery = false })
 	Parts.block(folder, CFrame.new(pos + Vector3.new(2.2, 4.4, 0)), Vector3.new(1.6, 1, 0.1), { Color = flag, CanCollide = false, CanQuery = false, Name = "Flag" })
+	return pos
 end
 
 local function buildProps(state: LaneState)
 	local lane = state.Lane
 	local folder = lane.Props
 	folder:ClearAllChildren()
+	showLaneEnd(lane, true)
 	local W, L = lane.Width, lane.Length
 	local id = state.Def.Id
 	state.Cup = nil
@@ -163,9 +183,7 @@ local function buildProps(state: LaneState)
 				end)
 			end
 		end
-		local pos = laneCF(state, L - 5, 0).Position
-		state.Cup = pos
-		cup(folder, pos, state.Def.Color)
+		state.Cup = cup(state, Minigames.CupSpots.Hazard, state.Def.Color)
 	elseif id == "Bank" then
 		-- An ice wall from the left rail across most of the lane hides the cup: go through the
 		-- gap on the right and bank off the end boards (the lane is slippery ice).
@@ -185,9 +203,7 @@ local function buildProps(state: LaneState)
 			Color = Color3.fromHex("#F4F7FA"),
 		})
 		def.CustomPhysicalProperties = PhysicalProperties.new(1, 0.05, 0.85)
-		local pos = laneCF(state, L - BANK_CUP.D, 0, BANK_CUP.X).Position
-		state.Cup = pos
-		cup(folder, pos, state.Def.Color)
+		state.Cup = cup(state, Minigames.CupSpots.Bank, state.Def.Color)
 	elseif id == "Gates" then
 		local sand, dark = Color3.fromHex("#C98F5A"), Color3.fromHex("#8F4A2B")
 		for i, g in Minigames.Gates do

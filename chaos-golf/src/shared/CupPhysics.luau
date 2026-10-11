@@ -1,6 +1,9 @@
 --!strict
--- Cup physics. The cup is painted on a flat green, so whether a ball drops in, lips out or
--- hops the hole is decided here from its path over the cup (flat, cup-relative x/z):
+-- Cup physics on the flat. Real cups are holes cut in the green (CupHole) and real physics
+-- drops balls in or bounces them out; this module judges a ball rolling over a cup it can't
+-- physically fall into - a Tiny-Cup ball on the cup's lid, or a cup painted on a floor that
+-- couldn't be cut - from its path over the cup (flat, cup-relative x/z). Its lip pull also
+-- runs on real cups (`lip`):
 --   * swept: the path since the last step is tested, so a fast ball or a slow server frame
 --     can't skip over the cup;
 --   * how fast a ball can drop depends on its line: dead centre drops up to MaxSinkSpeed, a
@@ -75,7 +78,6 @@ end
 -- Returns: sink, new vx, new vz, hop (upward speed to add, 0 = none), lip (teetering or
 -- being drawn in - keep it from coming to rest).
 function CupPhysics.step(s: State, x0: number, z0: number, x1: number, z1: number, vx: number, vz: number, grounded: boolean, dt: number, now: number, R: number): (boolean, number, number, number, boolean)
-	local P = Config.Physics
 	local speed = math.sqrt(vx * vx + vz * vz)
 	local dist = math.sqrt(x1 * x1 + z1 * z1)
 	-- A teleport (placing, a reset) is not a path.
@@ -114,21 +116,32 @@ function CupPhysics.step(s: State, x0: number, z0: number, x1: number, z1: numbe
 		return false, nvx, nvz, hop, false
 	end
 
+	local nvx, nvz, lip = CupPhysics.lip(s, x1, z1, vx, vz, grounded, dt, now, R)
+	return false, nvx, nvz, 0, lip
+end
+
+-- Half on the hole: a slow, grounded ball whose centre is within the lip zone past the rim is
+-- drawn in (harder the further it hangs over); one that stops right on the lip teeters for
+-- CupLipHang seconds first. Returns new vx, vz and whether it is on the lip (keep it from
+-- coming to rest).
+function CupPhysics.lip(s: State, x: number, z: number, vx: number, vz: number, grounded: boolean, dt: number, now: number, R: number): (number, number, boolean)
+	local P = Config.Physics
+	local speed = math.sqrt(vx * vx + vz * vz)
+	local dist = math.sqrt(x * x + z * z)
 	local zone = CupPhysics.lipZone(R)
-	if grounded and dist < R + zone and speed < P.CupLipSpeed then
+	if grounded and dist >= R and dist < R + zone and speed < P.CupLipSpeed then
 		if s.Hang == 0 and speed < 1.2 then
 			s.Hang = now + P.CupLipHang
 		end
 		if s.Hang > now then
-			return false, vx * 0.5, vz * 0.5, 0, true -- teetering on the edge
+			return vx * 0.5, vz * 0.5, true -- teetering on the edge
 		end
-		-- Drawn toward the centre, harder the further it hangs over.
 		local k = 1 - (dist - R) / zone
 		local pull = (30 + 40 * k) * (1 - speed / P.CupLipSpeed) * dt / dist
-		return false, vx - x1 * pull, vz - z1 * pull, 0, true
+		return vx - x * pull, vz - z * pull, true
 	end
 	s.Hang = 0
-	return false, vx, vz, 0, false
+	return vx, vz, false
 end
 
 return CupPhysics

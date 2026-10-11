@@ -39,7 +39,11 @@ Config.Physics = {
 	BoostSpeed = 70,
 	CupRadius = 1.3,
 	CupMagnetRadius = 7,
-	MaxSinkSpeed = 24, -- fastest a dead-centre ball drops in (see CupPhysics)
+	-- Fastest a dead-centre ball drops in when judged on the flat (CupPhysics: Tiny-Cup balls).
+	-- Matches what a real cup gives physically: the ball must fall below the rim before it
+	-- meets the far wall, (2R - r) * sqrt(g / 2r) = 21 studs/s for this cup and ball
+	-- (Penner, "The physics of putting": 1.63 m/s for a real hole).
+	MaxSinkSpeed = 21,
 	CupEdgeSink = 0.45, -- a line grazing the rim drops only up to this fraction of MaxSinkSpeed
 	CupLipZone = 0.3, -- studs past the rim where a slow ball hanging over the hole tips in
 	CupLipSpeed = 9, -- slower than this on the lip and the ball is drawn in

@@ -18,6 +18,8 @@ local Skins = require(Shared:WaitForChild("Skins"))
 local Abilities = require(Shared:WaitForChild("Abilities"))
 local CupPhysics = require(Shared:WaitForChild("CupPhysics"))
 
+local CupHole = require(script.Parent.Parent:WaitForChild("World"):WaitForChild("CupHole"))
+
 local BallService = {}
 
 export type Context = {
@@ -45,6 +47,7 @@ export type Ball = {
 	CupScale: number,
 	TinyCupUntil: number,
 	CupState: CupPhysics.State, -- running over / hanging on the lip of the cup
+	RealCup: boolean, -- the cup is a real hole (CupHole): physics drops the ball in
 	PrevPos: Vector3?, -- position last step (the cup test sweeps the path between)
 	OOBY: number,
 	Upgrades: { [string]: number },
@@ -70,6 +73,11 @@ local KNOCKOUT_WINDOW = 5 -- seconds after a hit in which going out of bounds is
 local GROUP_SOLID = "GolfBalls"
 local GROUP_GHOST = "GolfGhostBalls"
 local GROUP_CHARACTERS = "GolfCharacters"
+-- While Tiny Cup is on, a ball moves to the matching group that also stands on cup lids.
+local GROUP_SOLID_TINY = "GolfBallsTiny"
+local GROUP_GHOST_TINY = "GolfGhostBallsTiny"
+local GROUP_LID = CupHole.LidGroup
+local CAPTURE_DROP = 0.3 -- centre this far below the rim inside a real cup = holed (it can't climb out)
 
 local balls: { [Player]: Ball } = {}
 local folder: Folder
@@ -78,16 +86,49 @@ local rayParams = RaycastParams.new()
 rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local function registerGroups()
-	for _, g in { GROUP_SOLID, GROUP_GHOST, GROUP_CHARACTERS } do
+	for _, g in { GROUP_SOLID, GROUP_GHOST, GROUP_CHARACTERS, GROUP_SOLID_TINY, GROUP_GHOST_TINY, GROUP_LID } do
 		pcall(function()
 			PhysicsService:RegisterCollisionGroup(g)
 		end)
 	end
-	PhysicsService:CollisionGroupSetCollidable(GROUP_SOLID, GROUP_CHARACTERS, false)
-	PhysicsService:CollisionGroupSetCollidable(GROUP_GHOST, GROUP_CHARACTERS, false)
-	PhysicsService:CollisionGroupSetCollidable(GROUP_GHOST, GROUP_GHOST, false)
-	PhysicsService:CollisionGroupSetCollidable(GROUP_GHOST, GROUP_SOLID, false)
-	PhysicsService:CollisionGroupSetCollidable(GROUP_CHARACTERS, GROUP_CHARACTERS, true)
+	local function set(a: string, b: string, on: boolean)
+		PhysicsService:CollisionGroupSetCollidable(a, b, on)
+	end
+	set(GROUP_CHARACTERS, GROUP_CHARACTERS, true)
+	-- Solid balls hit each other; ghost balls pass through every ball; no ball hits characters.
+	for _, solid in { GROUP_SOLID, GROUP_SOLID_TINY } do
+		set(solid, GROUP_CHARACTERS, false)
+		for _, other in { GROUP_SOLID, GROUP_SOLID_TINY } do
+			set(solid, other, true)
+		end
+		for _, ghost in { GROUP_GHOST, GROUP_GHOST_TINY } do
+			set(solid, ghost, false)
+		end
+	end
+	for _, ghost in { GROUP_GHOST, GROUP_GHOST_TINY } do
+		set(ghost, GROUP_CHARACTERS, false)
+		for _, other in { GROUP_GHOST, GROUP_GHOST_TINY } do
+			set(ghost, other, false)
+		end
+	end
+	-- Cup lids hold up Tiny-Cup balls and feet only (default queries go straight through).
+	set(GROUP_LID, "Default", false)
+	set(GROUP_LID, GROUP_SOLID, false)
+	set(GROUP_LID, GROUP_GHOST, false)
+	set(GROUP_LID, GROUP_SOLID_TINY, true)
+	set(GROUP_LID, GROUP_GHOST_TINY, true)
+	set(GROUP_LID, GROUP_CHARACTERS, true)
+end
+
+local function isGhost(part: BasePart): boolean
+	return part.CollisionGroup == GROUP_GHOST or part.CollisionGroup == GROUP_GHOST_TINY
+end
+
+-- Tiny Cup on/off: the ball stands on cup lids while it lasts.
+local function setTiny(ball: Ball, on: boolean)
+	local ghost = isGhost(ball.Part)
+	ball.Part.CollisionGroup = if on then (if ghost then GROUP_GHOST_TINY else GROUP_SOLID_TINY) else (if ghost then GROUP_GHOST else GROUP_SOLID)
+	CupPhysics.reset(ball.CupState)
 end
 
 local function setCharacterGroup(character: Model)
@@ -203,6 +244,7 @@ function BallService.create(player: Player, opts: CreateOpts): Ball
 		CupScale = 1,
 		TinyCupUntil = 0,
 		CupState = CupPhysics.newState(),
+		RealCup = opts.Cup ~= nil and CupHole.lidAt(opts.Cup) ~= nil,
 		PrevPos = nil,
 		OOBY = opts.OOBY,
 		Upgrades = upgrades,
@@ -360,18 +402,43 @@ local function sink(ball: Ball)
 	local cup = ball.Cup :: Vector3
 	part.CanCollide = false
 	ball.PrevPos = nil
-	-- Over the centre and dipping, then down the hole.
-	local lip = Vector3.new(cup.X, cup.Y + Config.Ball.Diameter / 2 - 0.3, cup.Z)
-	TweenService:Create(part, TweenInfo.new(0.1, Enum.EasingStyle.Linear), { CFrame = CFrame.new(lip) }):Play()
-	task.delay(0.1, function()
-		if not part.Parent then
-			return
+	local r = Config.Ball.Diameter / 2
+	if CupHole.lidAt(cup) then
+		-- A real hole: settle on the bottom (sliding to the centre first if it was judged on
+		-- the lid), stay in the cup for a moment, then slip away under the bottom.
+		local from = part.Position
+		local dropFrom = if from.Y > cup.Y then Vector3.new(cup.X, cup.Y + r - 0.2, cup.Z) else from
+		local floorPos = Vector3.new(from.X + (cup.X - from.X) * 0.4, cup.Y - CupHole.Depth + r, from.Z + (cup.Z - from.Z) * 0.4)
+		local slide = if from.Y > cup.Y then 0.1 else 0
+		if slide > 0 then
+			TweenService:Create(part, TweenInfo.new(slide, Enum.EasingStyle.Linear), { CFrame = CFrame.new(dropFrom) }):Play()
 		end
-		TweenService:Create(part, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			CFrame = CFrame.new(cup - Vector3.new(0, 1.2, 0)),
-			Transparency = 1,
-		}):Play()
-	end)
+		task.delay(slide, function()
+			if part.Parent then
+				TweenService:Create(part, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = CFrame.new(floorPos) }):Play()
+			end
+		end)
+		task.delay(slide + 1.6, function()
+			if part.Parent then
+				TweenService:Create(part, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					CFrame = CFrame.new(floorPos - Vector3.new(0, 1.8, 0)),
+				}):Play()
+			end
+		end)
+	else
+		-- Painted cup: over the centre and dipping, then down and away.
+		local lip = Vector3.new(cup.X, cup.Y + r - 0.3, cup.Z)
+		TweenService:Create(part, TweenInfo.new(0.1, Enum.EasingStyle.Linear), { CFrame = CFrame.new(lip) }):Play()
+		task.delay(0.1, function()
+			if not part.Parent then
+				return
+			end
+			TweenService:Create(part, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+				CFrame = CFrame.new(cup - Vector3.new(0, 1.2, 0)),
+				Transparency = 1,
+			}):Play()
+		end)
+	end
 	sound(part, Config.Sounds.Sink, 0.9)
 	Net.event("Fx"):FireAllClients("sink", { Position = cup, Player = ball.Player, Strokes = ball.Strokes })
 	BallService.refresh(ball)
@@ -421,9 +488,8 @@ local function rest(ball: Ball)
 	end
 end
 
--- The ball met the far rim too fast: a clink, and everyone sees the lip-out.
+-- The ball ran over (or round) the cup and out again: everyone sees the lip-out.
 local function lipOut(ball: Ball, at: Vector3)
-	sound(ball.Part, Config.Sounds.Bonk, 0.35)
 	Net.event("Fx"):FireAllClients("lipOut", { Position = at, Player = ball.Player })
 end
 
@@ -450,6 +516,7 @@ local function step(ball: Ball, dt: number)
 	if ball.TinyCupUntil > 0 and os.clock() > ball.TinyCupUntil then
 		ball.TinyCupUntil = 0
 		ball.CupScale = 1
+		setTiny(ball, false)
 		BallService.refresh(ball)
 	end
 
@@ -546,8 +613,11 @@ local function step(ball: Ball, dt: number)
 		part.AssemblyLinearVelocity = Vector3.new(horizontal.X, vel.Y, horizontal.Z)
 	end
 
-	-- The cup: drop in, lip out / hop the hole, or tip in off the lip (CupPhysics). Rolling
-	-- or low over the green only; a ball flying higher sails over.
+	-- The cup. A real hole (CupHole): physics drops the ball in, or it hits the far rim and
+	-- hops out / lips out; a ball whose centre gets below the rim inside the cup can't climb
+	-- out and is holed. A slow ball hanging half over the rim is drawn in (CupPhysics.lip).
+	-- A Tiny-Cup ball rides the cup's lid and, like a painted cup, is judged on the flat
+	-- (CupPhysics.step: drop speed by line, rim hop, lip). Low over the green only.
 	local onLip = false
 	local cup = ball.Cup
 	local prev = ball.PrevPos
@@ -555,10 +625,31 @@ local function step(ball: Ball, dt: number)
 	if cup then
 		local height = pos.Y - (cup.Y + Config.Ball.Diameter / 2)
 		local x1, z1 = pos.X - cup.X, pos.Z - cup.Z
-		if height > -1.4 and height < 0.9 and x1 * x1 + z1 * z1 < 400 then
+		local d2 = x1 * x1 + z1 * z1
+		local state = ball.CupState
+		if ball.RealCup and ball.CupScale >= 1 then
+			local R = P.CupRadius
+			if d2 < R * R and pos.Y < cup.Y - CAPTURE_DROP then
+				sink(ball)
+				return
+			end
+			if d2 < R * R and height < 0.6 then
+				state.Pass = 1 -- over the hole, low enough to dip into it
+			elseif state.Pass and d2 > (R + 0.4) * (R + 0.4) then
+				state.Pass = nil
+				lipOut(ball, Vector3.new(pos.X, cup.Y + 0.1, pos.Z))
+			end
+			if height > -1.4 and height < 0.9 then
+				local vx, vz, lip = CupPhysics.lip(state, x1, z1, horizontal.X, horizontal.Z, grounded, dt, os.clock(), R)
+				onLip = lip
+				if vx ~= horizontal.X or vz ~= horizontal.Z then
+					part.AssemblyLinearVelocity = Vector3.new(vx, part.AssemblyLinearVelocity.Y, vz)
+				end
+			end
+		elseif height > -1.4 and height < 0.9 and d2 < 400 then
 			local from = prev or pos
 			local R = P.CupRadius * ball.CupScale
-			local sunk, vx, vz, hop, lip = CupPhysics.step(ball.CupState, from.X - cup.X, from.Z - cup.Z, x1, z1, horizontal.X, horizontal.Z, grounded, dt, os.clock(), R)
+			local sunk, vx, vz, hop, lip = CupPhysics.step(state, from.X - cup.X, from.Z - cup.Z, x1, z1, horizontal.X, horizontal.Z, grounded, dt, os.clock(), R)
 			if sunk then
 				sink(ball)
 				return
@@ -573,7 +664,7 @@ local function step(ball: Ball, dt: number)
 				part.AssemblyLinearVelocity = Vector3.new(vx, vy, vz)
 			end
 		else
-			CupPhysics.reset(ball.CupState)
+			CupPhysics.reset(state)
 		end
 	end
 
@@ -606,7 +697,7 @@ local pairCooldown: { [string]: number } = {}
 local function detectHits()
 	local list = {}
 	for _, b in balls do
-		if not b.Sunk and b.Part.Parent and b.Part.CollisionGroup == GROUP_SOLID then
+		if not b.Sunk and b.Part.Parent and (b.Part.CollisionGroup == GROUP_SOLID or b.Part.CollisionGroup == GROUP_SOLID_TINY) then
 			table.insert(list, b)
 		end
 	end
@@ -663,6 +754,7 @@ end
 function BallService.tinyCup(ball: Ball, seconds: number, scale: number)
 	ball.CupScale = scale
 	ball.TinyCupUntil = os.clock() + seconds
+	setTiny(ball, scale < 1)
 	BallService.refresh(ball)
 end
 

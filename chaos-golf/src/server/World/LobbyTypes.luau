@@ -32,6 +32,7 @@ export type Lane = {
 	Props: Folder, -- empty folder: Practice builds the live minigame's props in here
 	Screen: BasePart, -- small per-lane score screen
 	Surface: BasePart, -- lane floor (restyled per biome; attribute Surface = "Ice" on the rink)
+	End: BasePart, -- the lane floor's last stretch, over the cup wells; cup games swap in a copy with the cup cut in
 	Rails: { BasePart }, -- side rails (restyled per biome)
 	Caps: { BasePart }, -- rail caps
 	Back: BasePart, -- end wall
@@ -89,7 +90,8 @@ export type Lobby = {
 		Header: BasePart, -- gantry screen over the lane heads: the live game (Front)
 		TV: BasePart, -- broadcast TV over the lanes: now / next / countdown (Front faces the lane heads)
 		LobbyTVs: { BasePart }, -- signs hung in the atrium's Practice doorway, left = live now (Front faces the hub)
-		Ground: BasePart, -- floor slab under the whole range, restyled per biome
+		Ground: BasePart, -- floor slab under the whole range, restyled per biome (one of GroundParts)
+		GroundParts: { BasePart }, -- the slab is in strips round the cup wells
 		Backdrop: BasePart, -- back wall panel (Front faces the lanes), restyled per biome
 		Biome: Folder, -- runtime biome dressing (PracticeBiomes)
 		Hut: TokenHut,

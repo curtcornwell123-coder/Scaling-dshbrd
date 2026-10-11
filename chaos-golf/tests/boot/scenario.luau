@@ -127,7 +127,7 @@ flow("tutorial hole 1 ball assigned to client", b1 ~= nil, "")
 local function forceSink(p)
 	local ball = BallService.get(p)
 	if ball and ball.Cup and not ball.Sunk then
-		ball.Part.CFrame = Sim.types.CFrame.new(ball.Cup + V(0, 0.75, 0))
+		ball.Part.CFrame = Sim.types.CFrame.new(ball.Cup + V(0, -0.6, 0)) -- dropped into the cup
 		ball.Part.AssemblyLinearVelocity = V(0.5, 0, 0)
 		return true
 	end

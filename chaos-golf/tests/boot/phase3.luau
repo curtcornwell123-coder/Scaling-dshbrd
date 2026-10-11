@@ -248,8 +248,9 @@ end
 flow("coin shop: new set every 10 minutes, countdown board", errs() == e0 and rotated and Skins.rotationSlot() == slot0 + 1 and boardText ~= "", string.format("rotated=%s board=%q first=%s", tostring(rotated), boardText, rot0))
 Sim.removePlayer(fresh)
 
--- c2. cup physics on real balls: a firm centre putt drops, a fast one hops the hole with a
--- lip-out, a ball left hanging over the lip tips in, one just touching the rim stays ---------
+-- c2. flat cup physics (a cup painted on a floor, as Tiny-Cup balls see a real cup) on real
+-- balls: a firm centre putt drops, a fast one hops the hole with a lip-out, a ball left
+-- hanging over the lip tips in, one just touching the rim stays ------------------------------
 e0 = errs()
 local golfer = newPlayer(1089, "Kai")
 local green
@@ -273,26 +274,33 @@ local function lipOuts()
 	end
 	return n
 end
-local function putt(x, z, speed, seconds)
+local function putt(x, z, speed, seconds, at, tiny)
+	at = at or cupAt
 	local b
 	Sim.asSide("server", function()
 		b = BallService.create(golfer, {
-			Position = V(x, 900.75, z),
+			Position = V(at.X + x, at.Y + 0.75, at.Z + z),
 			Context = { CanShoot = function() return false end, OnSink = function() sunkCount += 1 end },
-			Cup = cupAt,
-			OOBY = 880,
+			Cup = at,
+			OOBY = at.Y - 20,
 		})
+		if tiny then
+			BallService.tinyCup(b, 30, tiny)
+		end
 		if speed > 0 then
 			b.AtRest = false
 			b.Part.AssemblyLinearVelocity = V(speed, 0, 0)
 		end
 	end)
-	local before, topY = sunkCount, 0
+	local before, topY, lowY = sunkCount, 0, 0
 	Sim.run(seconds, function()
-		topY = math.max(topY, b.Part.Position.Y - 900.75)
+		if not b.Sunk then
+			topY = math.max(topY, b.Part.Position.Y - (at.Y + 0.75))
+			lowY = math.min(lowY, b.Part.Position.Y - (at.Y + 0.75))
+		end
 		return false
 	end)
-	return sunkCount > before, topY, b
+	return sunkCount > before, topY, b, lowY
 end
 local slowIn = putt(-6, 0, 14, 2)
 local lip0 = lipOuts()
@@ -301,13 +309,68 @@ local lipped = lipOuts() - lip0
 local pastCup = fastBall.Part.Position.X > CR
 local edgeIn = putt(CR + 0.12, 0, 0, 2)
 local touchIn, _, touchBall = putt(CR + 0.6, 0, 0, 2)
+flow("flat cup physics: centre putt drops, fast putt hops with a lip-out, half-on ball tips in", errs() == e0 and slowIn and not fastIn and lipped == 1 and hopY > 0.05 and pastCup and edgeIn and not touchIn and touchBall.AtRest,
+	string.format("slow=%s fast=%s lipFx=%d hop=%.2f past=%s half=%s touch=%s", tostring(slowIn), tostring(fastIn), lipped, hopY, tostring(pastCup), tostring(edgeIn), tostring(touchIn)))
+
+-- c3. a real cup (CupHole) cut through a two-layer green: the opening is clear down to the
+-- bottom, the green is solid round it, balls drop in for real, Tiny-Cup balls ride the lid --
+e0 = errs()
+local CupHole = Sim.module("server", "CupHole")
+local realAt = V(0, 700, 0)
+local turf, soil, cutN, holeModel
+Sim.asSide("server", function()
+	turf = Instance.new("Part")
+	turf.Name = "RealTestTurf"
+	turf.Anchored = true
+	turf.Size = V(120, 1, 40)
+	turf.CFrame = Sim.types.CFrame.new(0, 699.5, 0)
+	turf:SetAttribute("Surface", "Turf")
+	turf.Parent = Sim.workspace
+	soil = turf:Clone()
+	soil.Name = "RealTestSoil"
+	soil.CFrame = Sim.types.CFrame.new(0, 698.5, 0)
+	soil.Parent = Sim.workspace
+	local holder = Instance.new("Model")
+	holder.Parent = Sim.workspace
+	turf.Parent = holder
+	soil.Parent = holder
+	cutN = CupHole.carve(holder, realAt)
+	holeModel = CupHole.build(holder, realAt)
+	green = holder
+end)
+local function down(x, z, group)
+	local p = RaycastParams.new()
+	p.CollisionGroup = group or "Default"
+	local hit = Sim.workspace:Raycast(V(x, 705, z), V(0, -10, 0), p)
+	return hit and (hit.Position.Y - 700), hit and hit.Instance.Name
+end
+local centreY, centreName = down(0, 0)
+local rimY = down(CR + 0.15, 0)
+local lidY = down(0, 0, BallService.Groups.Characters)
+local pieces = 0
+for _, x in Sim.descendants(green) do
+	if D[x].props.Name == "RealTestTurf" then
+		pieces += 1
+	end
+end
+lip0 = lipOuts()
+local realSlow = putt(-6, 0, 14, 2, realAt)
+local realFast = putt(-6, 0, 42, 0.8, realAt)
+local realLip = lipOuts() - lip0
+local realHalf = putt(CR + 0.12, 0, 0, 2, realAt)
+local realTouch = putt(CR + 0.6, 0, 0, 2, realAt)
+local tinyIn, _, _, tinyLow = putt(-6, 0, 14, 2, realAt, 0.45)
+local tinyOff, _, _, offLow = putt(-6, 0.9, 14, 2, realAt, 0.45)
 Sim.asSide("server", function()
 	BallService.destroy(golfer)
 	green:Destroy()
 end)
 Sim.removePlayer(golfer)
-flow("cup physics: centre putt drops, fast putt hops with a lip-out, half-on ball tips in", errs() == e0 and slowIn and not fastIn and lipped == 1 and hopY > 0.05 and pastCup and edgeIn and not touchIn and touchBall.AtRest,
-	string.format("slow=%s fast=%s lipFx=%d hop=%.2f past=%s half=%s touch=%s", tostring(slowIn), tostring(fastIn), lipped, hopY, tostring(pastCup), tostring(edgeIn), tostring(touchIn)))
+flow("real cup: hole cut clear to the bottom, real drops and lip-outs, Tiny Cup rides the lid", errs() == e0 and cutN == 2 and pieces >= 40
+		and centreName == "CupBottom" and centreY and centreY < -1.8 and rimY and math.abs(rimY) < 0.01 and lidY and math.abs(lidY) < 0.01
+		and realSlow and not realFast and realLip == 1 and realHalf and not realTouch and tinyIn and tinyLow > -0.2 and not tinyOff and offLow > -0.2,
+	string.format("cut=%s turf=%d centre=%s@%s rim=%s lid=%s slow=%s fast=%s lip=%d half=%s touch=%s tiny=%s/%.2f tinyOff=%s/%.2f",
+		tostring(cutN), pieces, tostring(centreName), tostring(centreY), tostring(rimY), tostring(lidY), tostring(realSlow), tostring(realFast), realLip, tostring(realHalf), tostring(realTouch), tostring(tinyIn), tinyLow, tostring(tinyOff), offLow))
 
 -- d. shutdown ---------------------------------------------------------------------------------
 e0 = errs()
