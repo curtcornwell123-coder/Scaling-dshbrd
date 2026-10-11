@@ -793,9 +793,9 @@ def _cam(pos, target, fov=70.0, hide=()):
 
 
 LOBBY_VIEWS = {
-    # Inside the dome, high over the north wall, looking across the whole hub.
-    "lobby_overview": _cam((0, 82, -58), (0, 0, 12), 78),
-    # Outside, high aerial of the whole complex (dome, rooms, roofs).
+    # High over the north wall, looking across the whole garden plaza.
+    "lobby_overview": _cam((0, 70, -66), (0, 0, 10), 72),
+    # High aerial of the whole complex (plaza, clubhouses, roofs, meadow).
     "lobby_aerial": _cam((150, 230, 210), (0, 10, 0), 50),
     # Spawn POV: standing on the spawn pad (0,3,-25), facing south toward the fountain.
     "spawn": _cam((0, 8, -25), (0, 5, 10), 70),
@@ -803,17 +803,19 @@ LOBBY_VIEWS = {
     "spawn_3p": _cam((0, 9.5, -38), (0, 5, -10), 70),
     "fountain": _cam((19, 9, -21), (0, 4.5, 0), 60),
     "arch_north": _cam((0, 10, -40), (0, 14, -88), 70),
+    # Standing on the lawn by the east gate, looking back across the plaza.
+    "lawn": _cam((30, 6, 18), (-20, 8, -40), 70),
     "room_north": _cam((0, 9, -90), (0, 8, -150), 80),
     "room_east": _cam((90, 9, 0), (150, 8, 0), 80),
     "room_south": _cam((0, 9, 90), (0, 8, 150), 80),
     "room_west": _cam((-90, 9, 0), (-150, 8, 0), 80),
-    "room_north_back": _cam((0, 15, -148), (0, 7, -92), 80),
-    "room_east_back": _cam((148, 15, 0), (92, 7, 0), 80),
-    "room_south_back": _cam((0, 15, 148), (0, 7, 92), 80),
-    "room_west_back": _cam((-148, 15, 0), (-92, 7, 0), 80),
+    "room_north_back": _cam((0, 15, -130), (0, 7, -76), 80),
+    "room_east_back": _cam((130, 15, 0), (76, 7, 0), 80),
+    "room_south_back": _cam((0, 15, 130), (0, 7, 76), 80),
+    "room_west_back": _cam((-130, 15, 0), (-76, 7, 0), 80),
 }
 
-DEFAULT_LOBBY = ["lobby_overview", "lobby_aerial", "spawn", "spawn_3p", "fountain", "room_north", "room_east",
+DEFAULT_LOBBY = ["lobby_overview", "lobby_aerial", "spawn", "spawn_3p", "fountain", "lawn", "arch_north", "room_north", "room_east",
                  "room_south", "room_west", "room_east_back", "room_north_back"]
 
 
