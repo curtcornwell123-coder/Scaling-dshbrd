@@ -27,6 +27,7 @@ Conventions
 """
 import argparse
 import math
+import re
 import os
 import sys
 import time
@@ -894,7 +895,8 @@ def main(argv):
             print(f"{k:28s} {s}")
         return
     wanted = []
-    for tok in [t for t in args.views.split(",") if t]:
+    # Split on commas that start a new view (custom specs contain commas inside coordinates).
+    for tok in [t for t in re.split(r",(?=[A-Za-z])", args.views) if t]:
         if ":" in tok and "=" in tok:
             name, sv = parse_custom(tok)
             views[name] = sv

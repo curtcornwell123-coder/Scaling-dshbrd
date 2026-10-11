@@ -279,6 +279,19 @@ local function trackSpin(part: Instance)
 	end
 end
 
+-- Display crates (tag "Bob"): bob and turn locally; only near the camera.
+local bobbers: { [Model]: CFrame } = {}
+
+local function trackBob(inst: Instance)
+	if inst:IsA("Model") then
+		task.defer(function()
+			if inst.Parent then
+				bobbers[inst] = inst:GetPivot()
+			end
+		end)
+	end
+end
+
 local function trackPulse(part: Instance)
 	if part:IsA("BasePart") then
 		pulsers[part] = true
@@ -452,6 +465,15 @@ function WorldFx.start()
 			spinners[p] = nil
 		end
 	end)
+	for _, m in CollectionService:GetTagged("Bob") do
+		trackBob(m)
+	end
+	CollectionService:GetInstanceAddedSignal("Bob"):Connect(trackBob)
+	CollectionService:GetInstanceRemovedSignal("Bob"):Connect(function(m)
+		if m:IsA("Model") then
+			bobbers[m] = nil
+		end
+	end)
 	for _, p in CollectionService:GetTagged("SkinFx") do
 		trackPulse(p)
 	end
@@ -478,6 +500,17 @@ function WorldFx.start()
 			else
 				local speed = (part:GetAttribute("SpinSpeed") :: number?) or 1.5
 				part.CFrame = CFrame.new(part.Position) * (base - base.Position) * CFrame.Angles(0, t * speed, 0)
+			end
+		end
+		local camera = workspace.CurrentCamera
+		local camPos = if camera then camera.CFrame.Position else Vector3.zero
+		for model, base in bobbers do
+			if not model.Parent then
+				bobbers[model] = nil
+			elseif (base.Position - camPos).Magnitude < 160 then
+				local amp = (model:GetAttribute("BobAmp") :: number?) or 0.22
+				local turn = (model:GetAttribute("BobTurn") :: number?) or 0.45
+				model:PivotTo(base * CFrame.new(0, math.sin(t * 1.6) * amp, 0) * CFrame.Angles(0, t * turn, 0))
 			end
 		end
 		for part in pulsers do

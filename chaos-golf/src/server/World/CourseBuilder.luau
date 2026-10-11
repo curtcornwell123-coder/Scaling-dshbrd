@@ -24,6 +24,7 @@ local CollectionService = game:GetService("CollectionService")
 local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Config"))
 local Maps = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Maps"))
 local Parts = require(script.Parent:WaitForChild("Parts"))
+local CourseNature = require(script.Parent:WaitForChild("CourseNature"))
 
 local CourseBuilder = {}
 
@@ -57,7 +58,7 @@ local HALF = TILE / 2
 local SLOT = 130 -- hole spacing along +X
 local HALL_END = 26 -- hall margin beyond the first/last slot
 local HALL_HALF_Z = 92
-local CEILING = 46 -- ceiling underside, studs above level 0
+local CEILING = 140 -- open sky: only caps how high hole overview cameras may sit
 local RAIL_W = 1
 local RAIL_BODY = 1.1 -- rail block height; the 1-stud rod on top makes the rail ~1.6 tall
 local RAIL_IN = HALF - RAIL_W / 2 -- rail centre line offset from the tile centre
@@ -68,7 +69,9 @@ local PUSH_OFFSET = 1.65 -- pusher centre travels between -OFFSET and +OFFSET ac
 local PUSH_PERIOD = 2
 local BALL_R = Config.Ball.Diameter / 2
 local CUP_R = Config.Physics.CupRadius
-local NEON = Enum.Material.Neon
+local NEON = Enum.Material.Neon -- only for things that really glow (lava)
+local TURF = Enum.Material.Fabric
+local WOOD = Enum.Material.Wood
 local WHITE = Color3.new(1, 1, 1)
 local BLACK = Color3.new(0, 0, 0)
 
@@ -384,6 +387,7 @@ type Ctx = {
 	LightBoost: number,
 	Unanchored: { BasePart },
 	Pushers: { Pusher },
+	Terrain: { CourseNature.Region },
 }
 
 type HoleInfo = {
@@ -398,13 +402,6 @@ type HoleInfo = {
 local TUTORIAL_THEME: Maps.Theme = table.clone(Maps.Themes.Arcade)
 TUTORIAL_THEME.Id = "Tutorial"
 TUTORIAL_THEME.Name = "Tutorial"
-TUTORIAL_THEME.Floor = Color3.fromHex("#3E4780")
-TUTORIAL_THEME.FloorAlt = Color3.fromHex("#4B5592")
-TUTORIAL_THEME.Rail = Color3.fromHex("#262B55")
-TUTORIAL_THEME.Wall = Color3.fromHex("#22274E")
-TUTORIAL_THEME.WallAlt = Color3.fromHex("#2E3566")
-TUTORIAL_THEME.Ceiling = Color3.fromHex("#1A1E3E")
-TUTORIAL_THEME.Light = Color3.fromHex("#E4FAFF")
 
 local function dirVec(d: number): Vector3
 	return Vector3.new(DIRS[d][1], 0, DIRS[d][2])
@@ -420,22 +417,6 @@ local function alignedSize(d: number, along: number, height: number, across: num
 		return Vector3.new(along, height, across)
 	end
 	return Vector3.new(across, height, along)
-end
-
--- Decoration props: never collide, never hit by raycasts.
-local function deco(color: Color3, neon: boolean?, transparency: number?): Parts.Props
-	return {
-		Name = "Decor",
-		Color = color,
-		Material = if neon then NEON else nil,
-		Transparency = transparency,
-		CanCollide = false,
-		CanQuery = false,
-	}
-end
-
-local function pick<T>(rng: Random, list: { T }): T
-	return list[rng:NextInteger(1, #list)]
 end
 
 local function wedge(parent: Instance, cf: CFrame, size: Vector3, props: Parts.Props, reflectance: number?): WedgePart
@@ -507,12 +488,16 @@ local function buildFloor(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3): 
 		color = theme.Sand
 	elseif t.Feature == "Ice" then
 		color = theme.Ice
-	elseif t.Feature == "Bridge" then
-		color = theme.FloorAlt:Lerp(theme.Accent, 0.18)
 	end
-	local props: Parts.Props = { Name = "Floor", Color = color }
+	local props: Parts.Props = { Name = "Floor", Color = color, Material = TURF }
 	if t.Feature == "Ice" then
-		props.Reflectance = 0.22
+		props.Material = Enum.Material.Ice
+		props.Reflectance = 0.12
+	elseif t.Feature == "Sand" then
+		props.Material = Enum.Material.Sand
+	elseif t.Feature == "Bridge" then
+		props.Material = Enum.Material.WoodPlanks
+		props.Color = theme.Rail:Lerp(Color3.new(1, 1, 1), 0.12)
 	end
 	local floor: Part
 	if t.Ramp then
@@ -543,10 +528,8 @@ local function buildRail(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3, d:
 	local theme = ctx.Theme
 	local e = dirVec(d)
 	local edge = c + e * RAIL_IN
-	local body: Parts.Props = { Name = "Rail", Color = theme.Rail }
-	local rodProps: Parts.Props = { Name = "Rail", Color = theme.Rail:Lerp(WHITE, 0.12) }
-	local trim: Parts.Props = { Name = "RailTrim", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false }
-	local trimLift = up(0.42)
+	local body: Parts.Props = { Name = "Rail", Color = theme.Rail, Material = WOOD }
+	local rodProps: Parts.Props = { Name = "Rail", Color = theme.Trim }
 	if not t.Ramp then
 		local level = t.Entry
 		local bottom = if t.Feature == "Bridge" then level - PIT_DEPTH else level
@@ -556,7 +539,6 @@ local function buildRail(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3, d:
 		local a = edge - p * HALF + up(top)
 		local b = edge + p * HALF + up(top)
 		railLike(Parts.rod(parent, a, b, RAIL_W, rodProps))
-		Parts.rod(parent, a + trimLift, b + trimLift, 0.28, trim)
 	else
 		-- Side rail of a ramp: block up to the low level + wedge up to the high level,
 		-- so both ends are vertical and line up exactly with the neighbouring rails.
@@ -568,37 +550,43 @@ local function buildRail(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3, d:
 		local a = edge - f * HALF + up(t.Entry + RAIL_BODY)
 		local b = edge + f * HALF + up(t.Exit + RAIL_BODY)
 		railLike(Parts.rod(parent, a, b, RAIL_W, rodProps))
-		Parts.rod(parent, a + trimLift, b + trimLift, 0.28, trim)
 	end
 end
 
 local function buildPost(ctx: Ctx, parent: Instance, x: number, z: number, level: number, diameter: number)
 	local bottom, top = level - 0.2, level + RAIL_BODY + RAIL_W / 2
-	railLike(Parts.cylinder(parent, CFrame.new(x, (bottom + top) / 2, z), top - bottom, diameter, { Name = "RailPost", Color = ctx.Theme.Rail }))
-	railLike(Parts.ball(parent, Vector3.new(x, top, z), diameter + 0.25, { Name = "RailPost", Color = ctx.Theme.Trim, Material = NEON }))
+	railLike(Parts.cylinder(parent, CFrame.new(x, (bottom + top) / 2, z), top - bottom, diameter, { Name = "RailPost", Color = ctx.Theme.Rail, Material = WOOD }))
+	railLike(Parts.ball(parent, Vector3.new(x, top, z), diameter + 0.25, { Name = "RailPost", Color = ctx.Theme.Trim }))
 end
 
 local function buildSupport(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3)
 	local theme = ctx.Theme
 	local lo, hi = math.min(t.Entry, t.Exit), math.max(t.Entry, t.Exit)
-	local isBridge = t.Feature == "Bridge"
-	local across = if isBridge then BRIDGE_W - 1 else TILE - 1
-	local skirtTop, skirtH = lo - 1, 2.2
-	local props: Parts.Props = { Name = "Support", Color = theme.WallAlt, CanQuery = false }
-	Parts.block(parent, CFrame.new(c + up(skirtTop - skirtH / 2)), alignedSize(t.Out, TILE - 1, skirtH, across), props)
+	local top = lo - 1
+	local floorRel = ctx.HallFloorY - ctx.Origin.Y
+	if t.Feature == "Bridge" then
+		-- Wooden piles down into the water/ground.
+		local f = dirVec(t.Out)
+		for _, k in { -1, 1 } do
+			local p = c + f * (k * HALF * 0.6)
+			local h = top - floorRel + 1
+			Parts.cylinder(parent, CFrame.new(p + up(top - h / 2)), h, 1.1, { Name = "Support", Color = theme.Rail:Lerp(BLACK, 0.2), Material = WOOD, CanQuery = false })
+		end
+		return
+	end
+	local span = TILE - 0.3
+	local lip: Parts.Props = { Name = "Support", Color = theme.FloorAlt:Lerp(BLACK, 0.2), Material = Enum.Material.Grass, CanQuery = false }
+	local dirt: Parts.Props = { Name = "Support", Color = theme.Wall, Material = Enum.Material.Ground, CanQuery = false }
+	-- A grass lip right under the turf, then earth all the way down to the ground.
+	Parts.block(parent, CFrame.new(c + up(top - 0.5)), alignedSize(t.Out, span, 1, span), lip)
+	local h = (top - 1) - (floorRel - 1.5)
+	if h > 0.2 then
+		Parts.block(parent, CFrame.new(c + up(top - 1 - h / 2)), alignedSize(t.Out, span - 0.5, h, span - 0.5), dirt)
+	end
 	if t.Ramp then
 		local f = dirVec(t.Out)
 		local hiDir = if t.Exit > t.Entry then f else -f
-		slopeWedge(parent, c + up(skirtTop + (hi - lo) / 2), hiDir, across, hi - lo, TILE, props)
-	end
-	local floorRel = ctx.HallFloorY - ctx.Origin.Y
-	local pillarTop = skirtTop - skirtH
-	local h = pillarTop - floorRel
-	if h > 0.5 then
-		local dia = if isBridge then 2.4 else 3.6
-		Parts.cylinder(parent, CFrame.new(c + up(floorRel + h / 2)), h, dia, { Name = "Pillar", Color = theme.Wall:Lerp(theme.Rail, 0.4), CanQuery = false })
-		Parts.cylinder(parent, CFrame.new(c + up(pillarTop - 0.9)), 0.35, dia + 0.3, { Name = "PillarTrim", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false })
-		Parts.cylinder(parent, CFrame.new(c + up(floorRel + 0.4)), 0.8, dia + 3, { Name = "PillarFoot", Color = theme.WallAlt, CanQuery = false })
+		slopeWedge(parent, c + up(top + (hi - lo) / 2), hiDir, span, hi - lo, TILE, dirt)
 	end
 end
 
@@ -611,16 +599,17 @@ local function buildBumpers(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector
 		local body = Parts.cylinder(parent, CFrame.new(p + up(1.25)), 2.5, 2, { Name = "Bumper", Color = theme.Accent })
 		body.CustomPhysicalProperties = BUMPER_PHYS
 		body:SetAttribute("Bumper", true)
-		Parts.cylinder(parent, CFrame.new(p + up(2.55)), 0.2, 1.6, { Name = "BumperCap", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false })
-		Parts.cylinder(parent, CFrame.new(p + up(0.08)), 0.12, 2.6, { Name = "BumperRing", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false })
+		Parts.cylinder(parent, CFrame.new(p + up(2.55)), 0.2, 1.6, { Name = "BumperCap", Color = theme.Trim, CanCollide = false, CanQuery = false })
+		Parts.cylinder(parent, CFrame.new(p + up(1.25)), 0.5, 2.08, { Name = "BumperBand", Color = theme.Trim, CanCollide = false, CanQuery = false })
+		Parts.cylinder(parent, CFrame.new(p + up(0.08)), 0.12, 2.6, { Name = "BumperRing", Color = theme.Rail, Material = WOOD, CanCollide = false, CanQuery = false })
 	end
 end
 
 local function buildSpinner(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
 	local theme = ctx.Theme
 	local f = dirVec(t.Out)
-	local hub = Parts.cylinder(parent, CFrame.new(top + up(1.1)), 2.2, 1.2, { Name = "SpinnerHub", Color = theme.Rail })
-	Parts.ball(parent, top + up(2.25), 1.3, { Name = "SpinnerCap", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false })
+	local hub = Parts.cylinder(parent, CFrame.new(top + up(1.1)), 2.2, 1.2, { Name = "SpinnerHub", Color = theme.Rail, Material = WOOD })
+	Parts.ball(parent, top + up(2.25), 1.3, { Name = "SpinnerCap", Color = theme.Trim, CanCollide = false, CanQuery = false })
 
 	local barPos = top + up(0.15 + 0.6)
 	local barCF = CFrame.lookAt(barPos, barPos + f) -- bar length (X) runs across the lane
@@ -629,7 +618,6 @@ local function buildSpinner(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector
 	local stripe = Parts.block(parent, barCF * CFrame.new(0, 0.61, 0), Vector3.new(8.2, 0.08, 0.34), {
 		Name = "SpinnerStripe",
 		Color = theme.Trim,
-		Material = NEON,
 		CanCollide = false,
 		CanQuery = false,
 		Anchored = false,
@@ -637,7 +625,7 @@ local function buildSpinner(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector
 	stripe.Massless = true
 	weld(stripe, bar)
 	for _, s in { -1, 1 } do
-		local cap = Parts.cylinder(parent, barCF * CFrame.new(s * 4.5, 0, 0), 1.2, 0.8, { Name = "SpinnerEnd", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false, Anchored = false })
+		local cap = Parts.cylinder(parent, barCF * CFrame.new(s * 4.5, 0, 0), 1.2, 0.8, { Name = "SpinnerEnd", Color = theme.Trim, CanCollide = false, CanQuery = false, Anchored = false })
 		cap.Massless = true
 		weld(cap, bar)
 	end
@@ -677,7 +665,7 @@ local function buildPusher(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3
 	local trackCF = CFrame.lookAt(trackPos, trackPos + f) -- X runs across the lane
 	local track = Parts.block(parent, trackCF, Vector3.new(TILE - 2, 0.06, PUSH_D + 0.8), { Name = "PusherTrack", Color = theme.WallAlt, CanCollide = false, CanQuery = false })
 	for _, s in { -1, 1 } do
-		Parts.block(parent, trackCF * CFrame.new(0, 0.01, s * (PUSH_D / 2 + 0.3)), Vector3.new(TILE - 2, 0.07, 0.14), { Name = "PusherTrackTrim", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false })
+		Parts.block(parent, trackCF * CFrame.new(0, 0.01, s * (PUSH_D / 2 + 0.3)), Vector3.new(TILE - 2, 0.07, 0.14), { Name = "PusherTrackTrim", Color = theme.Trim, CanCollide = false, CanQuery = false })
 	end
 
 	local centre = top + up(0.12 + PUSH_H / 2)
@@ -688,7 +676,6 @@ local function buildPusher(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3
 	local stripe = Parts.block(parent, blockCF * CFrame.new(0, PUSH_H / 2 + 0.02, 0), Vector3.new(PUSH_W - 0.4, 0.08, 0.5), {
 		Name = "PusherStripe",
 		Color = theme.Trim,
-		Material = NEON,
 		CanCollide = false,
 		CanQuery = false,
 		Anchored = false,
@@ -720,12 +707,11 @@ local function buildPusher(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3
 end
 
 local function buildBoost(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
-	local theme = ctx.Theme
 	local f = dirVec(t.Out)
 	local lat = Vector3.new(-f.Z, 0, f.X)
 	local padPos = top + up(0.025)
-	Parts.block(parent, CFrame.lookAt(padPos, padPos + f), Vector3.new(6.4, 0.05, 10), { Name = "BoostPad", Color = theme.Rail, CanCollide = false, CanQuery = false })
-	local neon: Parts.Props = { Name = "BoostChevron", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false }
+	Parts.block(parent, CFrame.lookAt(padPos, padPos + f), Vector3.new(6.4, 0.05, 10), { Name = "BoostPad", Color = Color3.fromRGB(58, 62, 70), Material = Enum.Material.Concrete, CanCollide = false, CanQuery = false })
+	local neon: Parts.Props = { Name = "BoostChevron", Color = Color3.fromRGB(255, 210, 63), CanCollide = false, CanQuery = false }
 	for k = -1, 1 do
 		local base = top + f * (k * 2.8) + up(0.06)
 		local tip = base + f * 1.1
@@ -741,8 +727,8 @@ local function buildBridge(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3)
 	Parts.block(parent, CFrame.new(c + up(t.Entry - 3)), alignedSize(t.Out, TILE, 0.2, TILE - 2 * RAIL_W), {
 		Name = "Water",
 		Color = theme.Water,
-		Material = NEON,
-		Transparency = 0.3,
+		Material = if theme.Decor == "Volcano" then NEON else Enum.Material.Glass,
+		Transparency = if theme.Decor == "Volcano" then 0 else 0.3,
 		CanCollide = false,
 		CanQuery = false,
 		CanTouch = false,
@@ -751,7 +737,6 @@ local function buildBridge(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3)
 		Parts.block(parent, CFrame.new(c + lat * (s * (BRIDGE_W / 2 + 0.05)) + up(t.Entry - 0.22)), alignedSize(t.Out, TILE, 0.3, 0.1), {
 			Name = "BridgeTrim",
 			Color = theme.Trim,
-			Material = NEON,
 			CanCollide = false,
 			CanQuery = false,
 		})
@@ -759,18 +744,33 @@ local function buildBridge(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3)
 end
 
 local function buildChaosBox(ctx: Ctx, parent: Instance, top: Vector3): BasePart
-	local box = Parts.block(parent, CFrame.new(top + up(1.6)), Vector3.one * 2.4, {
+	-- Golden mystery box. Matches hide it with Transparency 1 after a pickup and show it
+	-- again with ShowTransparency; the "?" marks follow the box's visibility.
+	local box = Parts.block(parent, CFrame.new(top + up(1.6)), Vector3.one * 2.2, {
 		Name = "ChaosBox",
-		Color = ctx.Theme.Trim,
-		Material = NEON,
-		Transparency = 0.15,
+		Color = Color3.fromRGB(242, 178, 52),
 		CanCollide = false,
 		CanQuery = false,
 		CanTouch = false,
 	})
+	box.Reflectance = 0.08
 	box:SetAttribute("ChaosBox", true)
+	box:SetAttribute("ShowTransparency", 0)
 	CollectionService:AddTag(box, "Spin")
-	Parts.light(box, ctx.Theme.Trim, 10, 1.2)
+	local marks: { SurfaceGui } = {}
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Left, Enum.NormalId.Right, Enum.NormalId.Top } do
+		local label = Parts.label(box, face, "?", { TextColor = WHITE, Stroke = Color3.fromRGB(150, 90, 10), PixelsPerStud = 40 })
+		local gui = label:FindFirstAncestorOfClass("SurfaceGui")
+		if gui then
+			table.insert(marks, gui)
+		end
+	end
+	box:GetPropertyChangedSignal("Transparency"):Connect(function()
+		for _, g in marks do
+			g.Enabled = box.Transparency < 0.9
+		end
+	end)
+	Parts.light(box, Color3.fromRGB(255, 214, 120), 9, 0.9)
 	return box
 end
 
@@ -784,7 +784,7 @@ local function leaningBoard(parent: Instance, teeTop: Vector3, look: Vector3, di
 	local centre = bottom + upDir * (size.Y / 2)
 	local cf = CFrame.lookAt(centre, centre - look) * CFrame.Angles(tilt, 0, 0)
 	local board = Parts.block(parent, cf, Vector3.new(size.X, size.Y, 0.35), props)
-	local trim: Parts.Props = { Name = "SignTrim", Color = props.Color, Material = NEON, CanCollide = false, CanQuery = false }
+	local trim: Parts.Props = { Name = "SignTrim", Color = Color3.fromRGB(196, 158, 110), Material = WOOD, CanCollide = false, CanQuery = false }
 	for _, s in { -1, 1 } do
 		Parts.block(parent, cf * CFrame.new(0, s * size.Y / 2, 0), Vector3.new(size.X + 0.2, 0.16, 0.45), trim)
 	end
@@ -799,7 +799,7 @@ end
 local function buildTee(ctx: Ctx, holeModel: Model, parent: Instance, teeTop: Vector3, look: Vector3, index: number, par: number, backFree: boolean)
 	local theme = ctx.Theme
 	local padPos = teeTop + up(0.04)
-	Parts.trimmedSlab(parent, CFrame.lookAt(padPos, padPos + look), Vector3.new(4.4, 0.05, 4.4), 0.9, theme.WallAlt, theme.Trim, {
+	Parts.trimmedSlab(parent, CFrame.lookAt(padPos, padPos + look), Vector3.new(4.4, 0.05, 4.4), 0.9, theme.Floor:Lerp(BLACK, 0.22), theme.Trim, {
 		Name = "TeePad",
 		CanCollide = false,
 		CanQuery = false,
@@ -809,12 +809,12 @@ local function buildTee(ctx: Ctx, holeModel: Model, parent: Instance, teeTop: Ve
 		return
 	end
 	local text = string.format("HOLE %d · PAR %d", index, par)
-	local labelOpts: Parts.LabelOpts = { TextColor = Config.Colors.Text, Stroke = theme.Trim, Glow = true, PixelsPerStud = 36 }
+	local labelOpts: Parts.LabelOpts = { TextColor = WHITE, Stroke = Color3.fromRGB(40, 26, 14), PixelsPerStud = 36 }
 	if ctx.Tutorial then
 		local tilt = math.rad(58)
 		local size = Vector2.new(12, 4.4)
-		local sign = leaningBoard(holeModel, teeTop, look, 11.2, -0.2, size, tilt, { Name = "InstructionSign", Color = theme.Rail, CanCollide = false, CanQuery = false })
-		Parts.label(sign, Enum.NormalId.Front, "", { TextColor = Config.Colors.Text, Stroke = BLACK, Glow = true, PixelsPerStud = 30 })
+		local sign = leaningBoard(holeModel, teeTop, look, 11.2, -0.2, size, tilt, { Name = "InstructionSign", Color = theme.Rail, Material = WOOD, CanCollide = false, CanQuery = false })
+		Parts.label(sign, Enum.NormalId.Front, "", { TextColor = WHITE, Stroke = Color3.fromRGB(40, 26, 14), PixelsPerStud = 30 })
 		-- Header strip in the same plane, just above the instruction board.
 		local header = Parts.block(parent, sign.CFrame * CFrame.new(0, size.Y / 2 + 0.75, 0), Vector3.new(size.X, 1.1, 0.35), {
 			Name = "HoleSign",
@@ -823,11 +823,11 @@ local function buildTee(ctx: Ctx, holeModel: Model, parent: Instance, teeTop: Ve
 			CanQuery = false,
 		})
 		Parts.label(header, Enum.NormalId.Front, text, labelOpts)
-		signDeck(parent, teeTop, look, HALF, 11.6, 12.6, -0.6, theme.WallAlt)
+		signDeck(parent, teeTop, look, HALF, 11.6, 12.6, -0.6, theme.Wall)
 	else
-		local sign = leaningBoard(parent, teeTop, look, 7.6, 0.3, Vector2.new(7, 2.4), math.rad(35), { Name = "HoleSign", Color = theme.Rail, CanCollide = false, CanQuery = false })
+		local sign = leaningBoard(parent, teeTop, look, 7.6, 0.3, Vector2.new(7, 2.4), math.rad(35), { Name = "HoleSign", Color = theme.Rail, Material = WOOD, CanCollide = false, CanQuery = false })
 		Parts.label(sign, Enum.NormalId.Front, text, labelOpts)
-		signDeck(parent, teeTop, look, HALF, 8.2, 8, 0, theme.WallAlt)
+		signDeck(parent, teeTop, look, HALF, 8.2, 8, 0, theme.Wall)
 	end
 end
 
@@ -835,15 +835,14 @@ local function buildCup(ctx: Ctx, parent: Instance, cup: Vector3, approach: Vect
 	local theme = ctx.Theme
 	local d = 2 * CUP_R + 0.2
 	Parts.disc(parent, cup + up(0.04), d, 0.02, { Name = "Cup", Color = Color3.fromRGB(8, 8, 12), CanCollide = false, CanQuery = false, CastShadow = false })
-	Parts.disc(parent, cup + up(0.015), d + 0.7, 0.02, { Name = "CupRing", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false })
+	Parts.disc(parent, cup + up(0.015), d + 0.7, 0.02, { Name = "CupRing", Color = WHITE, CanCollide = false, CanQuery = false })
 	local pole = cup + approach * (d / 2 + 0.15)
-	local flagProps: Parts.Props = { Name = "Flag", Color = theme.Accent, CanCollide = false, CanQuery = false }
+	local flagProps: Parts.Props = { Name = "Flag", Color = theme.Accent, Material = Enum.Material.Fabric, CanCollide = false, CanQuery = false }
 	Parts.cylinder(parent, CFrame.new(pole + up(3.6)), 7.2, 0.18, { Name = "FlagPole", Color = Color3.fromRGB(240, 240, 245), CanCollide = false, CanQuery = false })
 	local side = Vector3.new(-approach.Z, 0, approach.X)
 	local flagPos = pole + up(6.3) + side * 1.32
 	Parts.block(parent, CFrame.lookAt(flagPos, flagPos + approach), Vector3.new(2.5, 1.6, 0.08), flagProps)
-	local tip = Parts.ball(parent, pole + up(7.3), 0.42, { Name = "FlagTip", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false })
-	Parts.light(tip, theme.Trim, 14, 1.2 * ctx.LightBoost)
+	Parts.ball(parent, pole + up(7.3), 0.42, { Name = "FlagTip", Color = Color3.fromRGB(230, 190, 80), Material = Enum.Material.Metal, CanCollide = false, CanQuery = false })
 end
 
 local function overviewFor(ctx: Ctx, tops: { Vector3 }, tee: Vector3, look: Vector3): CFrame
@@ -1019,254 +1018,46 @@ end
 
 -- Hall -------------------------------------------------------------------------
 
-local function buildHall(ctx: Ctx, parent: Instance, infos: { HoleInfo })
-	local theme = ctx.Theme
-	local x0, x1, z0, z1 = ctx.X0, ctx.X1, ctx.Z0, ctx.Z1
-	local fy, cy = ctx.HallFloorY, ctx.CeilingY
-	local mx, mz = (x0 + x1) / 2, (z0 + z1) / 2
-	local w, d, h = x1 - x0, z1 - z0, cy - fy
-	local neonFlat: Parts.Props = { Name = "HallTrim", Color = theme.Trim, Material = NEON, CanCollide = false, CanQuery = false }
-
-	-- Shell: floor, ceiling, four walls (CanQuery on so cameras can't poke outside).
-	Parts.block(parent, CFrame.new(mx, fy - 1, mz), Vector3.new(w + 8, 2, d + 8), { Name = "HallFloor", Color = theme.Wall })
-	Parts.block(parent, CFrame.new(mx, cy + 1, mz), Vector3.new(w + 8, 2, d + 8), { Name = "HallCeiling", Color = theme.Ceiling })
-	local wall: Parts.Props = { Name = "HallWall", Color = theme.Wall }
-	Parts.block(parent, CFrame.new(mx, (fy + cy) / 2, z0 - 1), Vector3.new(w + 8, h + 4, 2), wall)
-	Parts.block(parent, CFrame.new(mx, (fy + cy) / 2, z1 + 1), Vector3.new(w + 8, h + 4, 2), wall)
-	Parts.block(parent, CFrame.new(x0 - 1, (fy + cy) / 2, mz), Vector3.new(2, h + 4, d + 8), wall)
-	Parts.block(parent, CFrame.new(x1 + 1, (fy + cy) / 2, mz), Vector3.new(2, h + 4, d + 8), wall)
-
-	-- Wall panels with neon seams and base/top trim lines.
-	local panelLo, panelHi = fy + 4, cy - 6
-	local ph, py = panelHi - panelLo, (panelLo + panelHi) / 2
-	local runs: { { Vector3 } } = {
-		{ Vector3.new(x0, 0, z0), Vector3.new(x1, 0, z0), Vector3.zAxis },
-		{ Vector3.new(x1, 0, z1), Vector3.new(x0, 0, z1), -Vector3.zAxis },
-		{ Vector3.new(x0, 0, z1), Vector3.new(x0, 0, z0), Vector3.xAxis },
-		{ Vector3.new(x1, 0, z0), Vector3.new(x1, 0, z1), -Vector3.xAxis },
-	}
-	for _, run in runs do
-		local a, b, inward = run[1], run[2], run[3]
-		local len = (b - a).Magnitude
-		local axis = (b - a).Unit
-		local count = math.max(1, math.floor(len / 30 + 0.5))
-		local step = len / count
-		for k = 0, count - 1 do
-			local m = a + axis * (step * (k + 0.5)) + inward * 0.3
-			local pos = Vector3.new(m.X, py, m.Z)
-			Parts.block(parent, CFrame.lookAt(pos, pos + inward), Vector3.new(step - 2.4, ph, 0.6), { Name = "WallPanel", Color = theme.WallAlt, CanQuery = false })
-		end
-		for k = 0, count do
-			local s = a + axis * (step * k) + inward * 0.3
-			local pos = Vector3.new(s.X, py, s.Z)
-			Parts.block(parent, CFrame.lookAt(pos, pos + inward), Vector3.new(0.5, ph, 0.5), neonFlat)
-		end
-		for _, y in { fy + 1.6, cy - 3 } do
-			local m = (a + b) / 2 + inward * 0.2
-			local pos = Vector3.new(m.X, y, m.Z)
-			Parts.block(parent, CFrame.lookAt(pos, pos + inward), Vector3.new(len, 0.45, 0.4), neonFlat)
-		end
-	end
-
-	-- Ceiling beams with neon undersides.
-	local beams = math.max(2, math.floor(w / 32))
-	for k = 0, beams do
-		local x = x0 + w * k / beams
-		Parts.block(parent, CFrame.new(x, cy - 1.2, mz), Vector3.new(2.4, 2.4, d), { Name = "CeilingBeam", Color = theme.WallAlt, CanQuery = false })
-		Parts.block(parent, CFrame.new(x, cy - 2.45, mz), Vector3.new(0.6, 0.12, d - 6), neonFlat)
-	end
-
-	-- Light panels hanging under the beams: two over each hole, two over the decor bands.
-	local panelY = cy - 2.9
+-- Is (x, z) at least r studs from every hole footprint and overview camera?
+local function clearOfHoles(infos: { HoleInfo }, x: number, z: number, r: number): boolean
 	for _, info in infos do
-		for _, off in { Vector3.new(-24, 0, 0), Vector3.new(24, 0, 0), Vector3.new(0, 0, -62), Vector3.new(0, 0, 62) } do
-			local main = off.Z == 0
-			local panel = Parts.block(parent, CFrame.new(info.SlotX + off.X, panelY, mz + off.Z), if main then Vector3.new(14, 0.4, 34) else Vector3.new(30, 0.4, 8), {
-				Name = "LightPanel",
-				Color = theme.Light,
-				Material = NEON,
-				CanCollide = false,
-				CanQuery = false,
-			})
-			Parts.light(panel, theme.Light, 60, (if main then 2.2 else 1.3) * ctx.LightBoost, "Surface")
+		for _, rc in info.Rects do
+			local dx = math.max(rc[1] - x, 0, x - rc[2])
+			local dz = math.max(rc[3] - z, 0, z - rc[4])
+			if dx * dx + dz * dz < (r + 5) ^ 2 then
+				return false
+			end
+		end
+		local cam = info.Camera
+		if (Vector3.new(cam.X - x, 0, cam.Z - z)).Magnitude < r + 12 then
+			return false
 		end
 	end
+	return true
+end
 
-	-- Floor: neon guide lines, slot dividers and a pad (or a lava lake) under each hole.
-	for _, z in { z0 + 8, z1 - 8 } do
-		Parts.block(parent, CFrame.new(mx, fy + 0.05, z), Vector3.new(w - 16, 0.1, 0.6), neonFlat)
-	end
-	for k = 1, #infos + 1 do
-		Parts.block(parent, CFrame.new(ctx.Origin.X + (k - 1.5) * SLOT, fy + 0.05, mz), Vector3.new(0.6, 0.1, d - 16), neonFlat)
-	end
-	for _, info in infos do
-		local size = Vector3.new(info.HalfX * 2 + 18, 0.6, info.HalfZ * 2 + 18)
-		if theme.Decor == "Lava" then
-			local lake = Parts.roundedBox(parent, CFrame.new(info.Centre.X, fy + 0.2, info.Centre.Z), Vector3.new(size.X - 4, 0.3, size.Z - 4), 7, {
-				Name = "LavaLake",
-				Color = theme.Water,
-				Material = NEON,
-				CanCollide = false,
-				CanQuery = false,
-			})
-			Parts.light(lake, theme.Water, 40, 1.4)
-		else
-			Parts.trimmedSlab(parent, CFrame.new(info.Centre.X, fy + 0.3, info.Centre.Z), size, 4, theme.WallAlt, theme.Trim, { Name = "HolePad", CanQuery = false })
-		end
-	end
+-- Open-air landscape under and around the holes (terrain), instead of a hall.
+local function buildLandscape(ctx: Ctx, infos: { HoleInfo }, rng: Random)
+	local cx, cz = (ctx.X0 + ctx.X1) / 2, (ctx.Z0 + ctx.Z1) / 2
+	local boothTop = ctx.HallFloorY - 17
+	local keep = { { CFrame = CFrame.new(cx, boothTop + 4, cz), Size = Vector3.new(16, 14, 16) } }
+	ctx.Terrain = CourseNature.landscape(ctx.Theme.Decor, {
+		X0 = ctx.X0,
+		X1 = ctx.X1,
+		Z0 = ctx.Z0,
+		Z1 = ctx.Z1,
+		GroundY = ctx.HallFloorY - 0.5,
+	}, rng, function(x, z, r)
+		return clearOfHoles(infos, x, z, r)
+	end, keep)
 end
 
 -- Decor ------------------------------------------------------------------------
 
-type DecorKind = { Name: string, Weight: number, Radius: number }
-
-local DECOR_KINDS: { [string]: { DecorKind } } = {
-	Arcade = { { Name = "NeonPillar", Weight = 3, Radius = 3 }, { Name = "Cabinet", Weight = 3, Radius = 4 }, { Name = "Ring", Weight = 2, Radius = 6 } },
-	Candy = { { Name = "Lollipop", Weight = 3, Radius = 4 }, { Name = "Gumdrop", Weight = 3, Radius = 4 }, { Name = "Cane", Weight = 2, Radius = 5 } },
-	Frost = { { Name = "Crystal", Weight = 3, Radius = 4 }, { Name = "Mound", Weight = 2, Radius = 7 }, { Name = "FrostPipe", Weight = 2, Radius = 10 } },
-	Lava = { { Name = "Pool", Weight = 2, Radius = 9 }, { Name = "LavaPipe", Weight = 3, Radius = 3 }, { Name = "Vent", Weight = 1, Radius = 10 } },
-	Jungle = { { Name = "StonePillar", Weight = 3, Radius = 4 }, { Name = "Tree", Weight = 3, Radius = 6 }, { Name = "Idol", Weight = 2, Radius = 5 } },
-	Space = { { Name = "Planet", Weight = 2, Radius = 9 }, { Name = "Antenna", Weight = 3, Radius = 3 } },
-}
-
-local function horizontalPipe(parent: Instance, base: Vector3, axis: Vector3, height: number, len: number, body: Color3, joint: Color3, leg: Color3)
-	local a = base - axis * (len / 2) + up(height)
-	local b = base + axis * (len / 2) + up(height)
-	Parts.rod(parent, a, b, 2.2, deco(body))
-	for _, p in { a, (a + b) / 2, b } do
-		Parts.rod(parent, p - axis * 0.45, p + axis * 0.45, 2.8, deco(joint, true))
-	end
-	for _, p in { a + axis * 2, b - axis * 2 } do
-		Parts.rod(parent, p - up(height), p, 1, deco(leg))
-	end
-end
-
-local function buildProp(ctx: Ctx, parent: Instance, kind: string, base: Vector3, face: Vector3, rng: Random)
-	local theme = ctx.Theme
-	local palette = { theme.Accent, theme.Trim, theme.Water, theme.Sand, theme.Ice }
-	local facing = CFrame.lookAt(base, base + face)
-	if kind == "NeonPillar" then
-		local h = rng:NextNumber(16, 26)
-		Parts.cylinder(parent, CFrame.new(base + up(h / 2)), h, 3.4, deco(theme.WallAlt))
-		for k = 1, 3 do
-			Parts.cylinder(parent, CFrame.new(base + up(h * k / 4)), 0.5, 3.7, deco(if k % 2 == 0 then theme.Accent else theme.Trim, true))
-		end
-		local cap = Parts.cylinder(parent, CFrame.new(base + up(h + 0.3)), 0.6, 4, deco(theme.Trim, true))
-		Parts.light(cap, theme.Trim, 18, 1.5)
-	elseif kind == "Cabinet" then
-		Parts.block(parent, facing * CFrame.new(0, 3.5, 0), Vector3.new(4.4, 7, 3.4), deco(theme.WallAlt))
-		Parts.block(parent, facing * CFrame.new(0, 4.7, -1.62) * CFrame.Angles(math.rad(-12), 0, 0), Vector3.new(3.4, 2.4, 0.2), deco(pick(rng, palette), true))
-		Parts.block(parent, facing * CFrame.new(0, 6.6, -1.62), Vector3.new(4.4, 0.8, 0.3), deco(theme.Accent, true))
-		Parts.block(parent, facing * CFrame.new(0, 3, -2.2), Vector3.new(4.4, 0.6, 1.4), deco(theme.Wall))
-	elseif kind == "Ring" then
-		local cf = CFrame.new(base + up(rng:NextNumber(20, 28))) * CFrame.Angles(rng:NextNumber(0, math.pi), rng:NextNumber(0, math.pi), 0)
-		Parts.hoop(parent, cf, 4.5, 0.55, 0.55, 14, deco(pick(rng, { theme.Trim, theme.Accent }), true))
-	elseif kind == "Lollipop" then
-		local h, dia = rng:NextNumber(9, 15), rng:NextNumber(5, 7)
-		Parts.cylinder(parent, CFrame.new(base + up(h / 2)), h, 0.7, deco(WHITE))
-		local c = base + up(h + dia / 2 - 0.5)
-		Parts.ball(parent, c, dia, deco(pick(rng, palette)))
-		Parts.cylinder(parent, CFrame.new(c) * CFrame.Angles(math.pi / 2, rng:NextNumber(0, math.pi), 0), 0.7, dia + 0.08, deco(WHITE))
-	elseif kind == "Gumdrop" then
-		local dia = rng:NextNumber(4.5, 6.5)
-		local color = pick(rng, palette)
-		Parts.cylinder(parent, CFrame.new(base + up(1)), 2, dia, deco(color, false, 0.05))
-		Parts.ball(parent, base + up(2), dia, deco(color, false, 0.05))
-	elseif kind == "Cane" then
-		local seg, count = 2.2, rng:NextInteger(5, 7)
-		for k = 0, count - 1 do
-			Parts.cylinder(parent, CFrame.new(base + up(seg * (k + 0.5))), seg, 2.4, deco(if k % 2 == 0 then WHITE else theme.Trim))
-		end
-		local r = 2.4
-		local top = base + up(seg * count)
-		local prev = top
-		for k = 1, 5 do
-			local a = math.pi * k / 5
-			local p = top + face * (r - r * math.cos(a)) + up(r * math.sin(a))
-			local color = if k % 2 == 0 then WHITE else theme.Trim
-			Parts.rod(parent, prev, p, 2.4, deco(color))
-			Parts.ball(parent, p, 2.4, deco(color))
-			prev = p
-		end
-	elseif kind == "Crystal" then
-		local props: Parts.Props = { Name = "Decor", Color = theme.Ice, Transparency = 0.15, CanCollide = false, CanQuery = false }
-		for _ = 1, 3 do
-			local h, wid = rng:NextNumber(5, 11), rng:NextNumber(1.8, 2.8)
-			local tilt = rng:NextNumber(-0.35, 0.35)
-			local off = Vector3.new(rng:NextNumber(-1.5, 1.5), 0, rng:NextNumber(-1.5, 1.5))
-			local cf = CFrame.new(base + off) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0) * CFrame.Angles(tilt, 0, tilt * 0.5) * CFrame.new(0, h / 2 - 0.5, 0)
-			wedge(parent, cf * CFrame.new(0, 0, -wid / 4), Vector3.new(wid * 0.6, h, wid / 2), props, 0.3)
-			wedge(parent, cf * CFrame.Angles(0, math.pi, 0) * CFrame.new(0, 0, -wid / 4), Vector3.new(wid * 0.6, h, wid / 2), props, 0.3)
-		end
-		Parts.disc(parent, base + up(0.1), 6, 0.2, deco(theme.Trim, true, 0.3))
-	elseif kind == "Mound" then
-		for _ = 1, rng:NextInteger(2, 3) do
-			local dia = rng:NextNumber(6, 11)
-			Parts.ball(parent, base + Vector3.new(rng:NextNumber(-3, 3), -dia * 0.2, rng:NextNumber(-3, 3)), dia, deco(Color3.fromRGB(244, 250, 255)))
-		end
-	elseif kind == "FrostPipe" then
-		horizontalPipe(parent, base, Vector3.new(-face.Z, 0, face.X), rng:NextNumber(4, 8), 16, theme.Rail, theme.Trim, theme.WallAlt)
-	elseif kind == "Vent" then
-		horizontalPipe(parent, base, Vector3.new(-face.Z, 0, face.X), rng:NextNumber(3, 6), 16, theme.Rail, theme.Water, theme.Rail)
-	elseif kind == "Pool" then
-		local dia = rng:NextNumber(10, 17)
-		Parts.disc(parent, base + up(0.15), dia + 2, 0.3, deco(theme.Rail))
-		local pool = Parts.disc(parent, base + up(0.25), dia, 0.3, deco(theme.Water, true))
-		Parts.light(pool, theme.Water, 16, 1.6)
-	elseif kind == "LavaPipe" then
-		local height = ctx.CeilingY - base.Y
-		Parts.cylinder(parent, CFrame.new(base + up(height / 2)), height, 2.6, deco(theme.Rail))
-		local y, k = 6, 0
-		while y < height - 3 do
-			local joint = Parts.cylinder(parent, CFrame.new(base + up(y)), 0.9, 3.3, deco(if k % 2 == 0 then theme.Trim else theme.Water, true))
-			if k == 0 then
-				Parts.light(joint, theme.Trim, 14, 1.2)
-			end
-			y += 11
-			k += 1
-		end
-	elseif kind == "StonePillar" then
-		local h = rng:NextNumber(10, 18)
-		Parts.block(parent, CFrame.new(base + up(0.6)), Vector3.new(5.6, 1.2, 5.6), deco(theme.Wall))
-		Parts.cylinder(parent, CFrame.new(base + up(h / 2)), h, 3.8, deco(theme.WallAlt))
-		Parts.cylinder(parent, CFrame.new(base + up(h * 0.7)), 0.5, 4.1, deco(theme.Trim, true))
-		Parts.block(parent, CFrame.new(base + up(h + 0.6)), Vector3.new(5.6, 1.2, 5.6), deco(theme.Wall))
-	elseif kind == "Tree" then
-		local h = rng:NextNumber(13, 20)
-		Parts.cylinder(parent, CFrame.new(base + up(h / 2)), h, 2.4, deco(theme.Rail))
-		local greens = { theme.Floor, theme.FloorAlt, theme.Floor:Lerp(BLACK, 0.25) }
-		for k = 1, 3 do
-			local off = Vector3.new(rng:NextNumber(-2.5, 2.5), rng:NextNumber(-1, 2), rng:NextNumber(-2.5, 2.5))
-			Parts.ball(parent, base + up(h) + off, rng:NextNumber(7, 11), deco(greens[k]))
-		end
-	elseif kind == "Idol" then
-		local stone = theme.Wall:Lerp(theme.Rail, 0.35)
-		Parts.block(parent, facing * CFrame.new(0, 4, 0), Vector3.new(6, 8, 5.4), deco(stone))
-		Parts.block(parent, facing * CFrame.new(0, 6.2, 0), Vector3.new(6.4, 1, 5.8), deco(theme.Accent))
-		for _, s in { -1, 1 } do
-			Parts.block(parent, facing * CFrame.new(s * 1.4, 4.9, -2.75), Vector3.new(1.4, 0.7, 0.2), deco(theme.Trim, true))
-		end
-		Parts.block(parent, facing * CFrame.new(0, 2.4, -2.72), Vector3.new(3, 0.8, 0.2), deco(theme.Wall:Lerp(BLACK, 0.5)))
-		Parts.block(parent, facing * CFrame.new(0, 3.6, -2.95), Vector3.new(1, 1.6, 0.8), deco(stone))
-	elseif kind == "Planet" then
-		local dia = rng:NextNumber(8, 15)
-		local c = Vector3.new(base.X, ctx.CeilingY - dia / 2 - rng:NextNumber(5, 12), base.Z)
-		Parts.ball(parent, c, dia, deco(pick(rng, palette)))
-		local ringCF = CFrame.new(c) * CFrame.Angles(rng:NextNumber(-0.5, 0.5), rng:NextNumber(0, math.pi), rng:NextNumber(-0.5, 0.5))
-		Parts.cylinder(parent, ringCF, 0.25, dia * 1.9, deco(theme.Trim, true, 0.35))
-	elseif kind == "Antenna" then
-		local h = rng:NextNumber(10, 16)
-		Parts.block(parent, CFrame.new(base + up(0.75)), Vector3.new(3, 1.5, 3), deco(theme.WallAlt))
-		Parts.cylinder(parent, CFrame.new(base + up(h / 2)), h, 0.5, deco(theme.Rail))
-		Parts.cylinder(parent, facing * CFrame.new(0, h * 0.65, 0) * CFrame.Angles(-0.6, 0, 0), 0.35, 4, deco(theme.Rail))
-		local tip = Parts.ball(parent, base + up(h + 0.4), 0.9, deco(theme.Accent, true))
-		Parts.light(tip, theme.Accent, 12, 1.4)
-	end
-end
-
 local function buildDecor(ctx: Ctx, parent: Instance, infos: { HoleInfo }, rng: Random)
 	local theme = ctx.Theme
-	local kinds = DECOR_KINDS[theme.Decor] or DECOR_KINDS.Arcade
+	local kinds = CourseNature.Kinds[theme.Decor] or CourseNature.Kinds.Meadow
+	local palette: CourseNature.Palette = { Foliage = theme.Foliage, Accent = theme.Accent, Rock = theme.WallAlt, Trim = theme.Trim, Water = theme.Water }
 	local total = 0
 	for _, k in kinds do
 		total += k.Weight
@@ -1276,18 +1067,8 @@ local function buildDecor(ctx: Ctx, parent: Instance, infos: { HoleInfo }, rng: 
 		if x - r < ctx.X0 + 3 or x + r > ctx.X1 - 3 or z - r < ctx.Z0 + 3 or z + r > ctx.Z1 - 3 then
 			return false
 		end
-		for _, info in infos do
-			for _, rc in info.Rects do
-				local dx = math.max(rc[1] - x, 0, x - rc[2])
-				local dz = math.max(rc[3] - z, 0, z - rc[4])
-				if dx * dx + dz * dz < (r + 5) ^ 2 then
-					return false
-				end
-			end
-			local cam = info.Camera
-			if (Vector3.new(cam.X - x, 0, cam.Z - z)).Magnitude < r + 12 then
-				return false
-			end
+		if not clearOfHoles(infos, x, z, r) then
+			return false
 		end
 		for _, q in placed do
 			if (Vector3.new(q[1] - x, 0, q[2] - z)).Magnitude < r + q[3] + 6 then
@@ -1297,11 +1078,11 @@ local function buildDecor(ctx: Ctx, parent: Instance, infos: { HoleInfo }, rng: 
 		return true
 	end
 
-	local floorY = ctx.HallFloorY
+	local groundY = ctx.HallFloorY - 0.5
 	for _, info in infos do
 		local count = 0
 		for _ = 1, 60 do
-			if count >= 9 then
+			if count >= 12 then
 				break
 			end
 			local roll = rng:NextNumber() * total
@@ -1318,21 +1099,55 @@ local function buildDecor(ctx: Ctx, parent: Instance, infos: { HoleInfo }, rng: 
 			if free(x, z, kind.Radius) then
 				table.insert(placed, { x, z, kind.Radius })
 				count += 1
-				local base = Vector3.new(x, floorY, z)
+				local base = Vector3.new(x, groundY, z)
 				local toHole = Vector3.new(info.Centre.X - x, 0, info.Centre.Z - z)
 				local face = if toHole.Magnitude > 0.1 then toHole.Unit else Vector3.zAxis
-				buildProp(ctx, parent, kind.Name, base, face, rng)
+				CourseNature.prop(parent, kind.Name, base, face, rng, palette)
 			end
 		end
 	end
 
-	if theme.Decor == "Space" then
-		-- Star lights scattered high under the ceiling.
-		for k = 1, 40 do
-			local p = Vector3.new(rng:NextNumber(ctx.X0 + 4, ctx.X1 - 4), ctx.CeilingY - rng:NextNumber(4, 14), rng:NextNumber(ctx.Z0 + 4, ctx.Z1 - 4))
-			local star = Parts.ball(parent, p, rng:NextNumber(0.6, 1.5), deco(pick(rng, { theme.Light, WHITE, theme.Trim }), true))
-			if k % 6 == 0 then
-				Parts.light(star, theme.Light, 10, 0.8)
+	-- Planting around the foot of every green: small props hugging the plateau edges.
+	local small = CourseNature.Small[theme.Decor] or CourseNature.Small.Meadow
+	local function insideAny(x: number, z: number, margin: number): boolean
+		for _, info in infos do
+			for _, rc in info.Rects do
+				if x > rc[1] - margin and x < rc[2] + margin and z > rc[3] - margin and z < rc[4] + margin then
+					return true
+				end
+			end
+		end
+		return false
+	end
+	for _, info in infos do
+		for _, rc in info.Rects do
+			local edges = {
+				{ Vector3.new(rc[1], 0, rc[3]), Vector3.new(rc[2], 0, rc[3]), Vector3.new(0, 0, -1) },
+				{ Vector3.new(rc[1], 0, rc[4]), Vector3.new(rc[2], 0, rc[4]), Vector3.new(0, 0, 1) },
+				{ Vector3.new(rc[1], 0, rc[3]), Vector3.new(rc[1], 0, rc[4]), Vector3.new(-1, 0, 0) },
+				{ Vector3.new(rc[2], 0, rc[3]), Vector3.new(rc[2], 0, rc[4]), Vector3.new(1, 0, 0) },
+			}
+			for _, e in edges do
+				local a, b, out = e[1], e[2], e[3]
+				do
+					local p = a:Lerp(b, rng:NextNumber(0.3, 0.7)) + out * rng:NextNumber(2, 3.5)
+					if rng:NextNumber() < 0.45 and not insideAny(p.X, p.Z, 1) then
+						CourseNature.prop(parent, small[rng:NextInteger(1, #small)], Vector3.new(p.X, groundY, p.Z), -out, rng, palette)
+					end
+				end
+			end
+		end
+	end
+
+	-- Two loose bands of trees (or rock spires) framing the course on its long sides.
+	local backdrop = CourseNature.Backdrop[theme.Decor] or "Oak"
+	for band = 1, 2 do
+		for x = ctx.X0 + 4, ctx.X1 - 4, 13 do
+			for _, side in { -1, 1 } do
+				if not (theme.Decor == "Tropical" and side > 0) and rng:NextNumber() < 0.8 then
+					local z = (if side < 0 then ctx.Z0 else ctx.Z1) + side * (band * 13 + rng:NextNumber(-5, 7))
+					CourseNature.prop(parent, backdrop, Vector3.new(x + rng:NextNumber(-6, 6), groundY, z), Vector3.new(0, 0, -side), rng, palette, true)
+				end
 			end
 		end
 	end
@@ -1369,7 +1184,9 @@ local function assemble(theme: Maps.Theme, plans: { HolePlan }, origin: Vector3,
 		Theme = theme,
 		Origin = origin,
 		-- Below every hole's out-of-bounds line, with margin for the ball radius.
-		HallFloorY = origin.Y + math.min(-14, lowest - Config.Physics.OOBDepth - 5),
+		-- Ground level: just under every hole's out-of-bounds line (a ball resting on the
+		-- ground is already OOB), so greens sit on low natural plateaus.
+		HallFloorY = origin.Y + math.min(-10, lowest - Config.Physics.OOBDepth - 3),
 		CeilingY = origin.Y + CEILING,
 		X0 = origin.X - SLOT / 2 - HALL_END,
 		X1 = origin.X + (n - 1) * SLOT + SLOT / 2 + HALL_END,
@@ -1380,6 +1197,7 @@ local function assemble(theme: Maps.Theme, plans: { HolePlan }, origin: Vector3,
 		LightBoost = if tutorial then 1.35 else 1,
 		Unanchored = {},
 		Pushers = {},
+		Terrain = {},
 	}
 
 	local model = Instance.new("Model")
@@ -1392,7 +1210,7 @@ local function assemble(theme: Maps.Theme, plans: { HolePlan }, origin: Vector3,
 		holes[i] = hole
 		infos[i] = info
 	end
-	buildHall(ctx, Parts.model(model, "Hall"), infos)
+	buildLandscape(ctx, infos, Random.new(decorSeed + 1))
 	buildDecor(ctx, Parts.model(model, "Decor"), infos, Random.new(decorSeed))
 	local booth = buildBooth(ctx, Parts.model(model, "Booth"))
 	model.WorldPivot = CFrame.new(origin)
@@ -1431,6 +1249,7 @@ local function assemble(theme: Maps.Theme, plans: { HolePlan }, origin: Vector3,
 			end
 			alive = false
 			model:Destroy()
+			CourseNature.clear(ctx.Terrain)
 		end,
 	}
 end

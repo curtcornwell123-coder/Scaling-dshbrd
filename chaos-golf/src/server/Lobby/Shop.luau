@@ -409,7 +409,7 @@ end
 local function buildMythic()
 	local shrine = lobby.East.Mythic
 	local crate = Crates.get("Featured") :: Crates.Crate
-	local model = Displays.crate(propsFolder, Displays.anchorPoint(shrine.Pedestal), crate.Color, 4)
+	local model = Displays.crate(propsFolder, Displays.anchorPoint(shrine.Pedestal), crate.Color, 3.6, "chest")
 	Displays.bob(model)
 	local coinPrompt = Parts.prompt(shrine.Pedestal, "Open · " .. UIKit.formatNumber(crate.Price) .. " coins", crate.Name, { Name = "OpenPrompt", Hold = 0.6, Distance = 10 })
 	coinPrompt.Triggered:Connect(function(player)
