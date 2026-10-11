@@ -95,15 +95,12 @@ function RobotModels.build(def: Types.RobotDef): Model
 	-- Head on a short neck, with a visor and a glowing eye strip (only the eye glows).
 	local headSize = Vector3.new(size.X * 0.55, size.Y * 0.38, size.Z * 0.5)
 	local headY = size.Y * 0.5 + headSize.Y * 0.5 + 0.1
-	addPart(
-		model,
-		{
-			name = "Neck",
-			size = Vector3.new(size.X * 0.2, 0.3, size.Z * 0.2),
-			cframe = CFrame.new(0, size.Y * 0.5, 0),
-			color = dark,
-		}
-	)
+	addPart(model, {
+		name = "Neck",
+		size = Vector3.new(size.X * 0.2, 0.3, size.Z * 0.2),
+		cframe = CFrame.new(0, size.Y * 0.5, 0),
+		color = dark,
+	})
 	addPart(model, { name = "Head", size = headSize, cframe = CFrame.new(0, headY, 0), color = visual.color })
 	addPart(model, {
 		name = "Visor",
@@ -135,16 +132,13 @@ function RobotModels.build(def: Types.RobotDef): Model
 	local armSize = Vector3.new(math.max(0.35, size.X * 0.18), size.Y * 0.65, math.max(0.35, size.Z * 0.22))
 	for _, side in { -1, 1 } do
 		local armX = side * (size.X * 0.5 + armSize.X * 0.5 + 0.05)
-		addPart(
-			model,
-			{
-				name = "Arm",
-				size = armSize,
-				cframe = CFrame.new(armX, 0, 0),
-				color = dark,
-				material = Enum.Material.Metal,
-			}
-		)
+		addPart(model, {
+			name = "Arm",
+			size = armSize,
+			cframe = CFrame.new(armX, 0, 0),
+			color = dark,
+			material = Enum.Material.Metal,
+		})
 		addPart(model, {
 			name = "Barrel",
 			size = Vector3.new(armSize.X * 0.6, armSize.X * 0.6, size.Z * 0.7),
@@ -180,6 +174,35 @@ function RobotModels.build(def: Types.RobotDef): Model
 			cframe = CFrame.new(size.X * 0.42, 0, -size.Z * 0.7),
 			color = visual.accent,
 		})
+	elseif builder == "Overlord" then
+		-- Crown fins and three escort drones (they orbit on display mannequins).
+		for _, side in { -1, 1 } do
+			addPart(model, {
+				name = "Fin",
+				size = Vector3.new(0.2, headSize.Y * 0.9, headSize.Z * 0.8),
+				cframe = CFrame.new(side * headSize.X * 0.55, headY + headSize.Y * 0.35, 0)
+					* CFrame.Angles(0, 0, math.rad(side * -20)),
+				color = visual.accent,
+			})
+		end
+		for index = 1, 3 do
+			local angle = (index - 1) / 3 * math.pi * 2
+			local drone = addPart(model, {
+				name = "Drone",
+				size = Vector3.new(0.9, 0.35, 0.9),
+				cframe = CFrame.new(math.cos(angle) * size.X * 0.95, size.Y * 0.7, math.sin(angle) * size.Z * 1.1),
+				color = Theme.Colors.MetalDark,
+				material = Enum.Material.Metal,
+			})
+			drone:SetAttribute("OrbitIndex", index)
+			addPart(model, {
+				name = "DroneEye",
+				size = Vector3.new(0.3, 0.12, 0.3),
+				cframe = drone.CFrame * CFrame.new(0, -0.2, 0),
+				color = visual.accent,
+				material = Enum.Material.Neon,
+			}):SetAttribute("OrbitIndex", index)
+		end
 	elseif builder == "Walker" then
 		-- Antenna mast.
 		addPart(model, {

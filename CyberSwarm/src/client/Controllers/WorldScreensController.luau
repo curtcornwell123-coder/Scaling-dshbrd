@@ -32,7 +32,6 @@ local Calendar = require(ReplicatedStorage.Shared.Logic.Calendar)
 local Requirements = require(ReplicatedStorage.Shared.Logic.Requirements)
 local QuestRules = require(ReplicatedStorage.Shared.Logic.QuestRules)
 local SupplyRules = require(ReplicatedStorage.Shared.Logic.SupplyRules)
-local SeasonRules = require(ReplicatedStorage.Shared.Logic.SeasonRules)
 local RankMath = require(ReplicatedStorage.Shared.Logic.RankMath)
 local TroopRotation = require(ReplicatedStorage.Shared.Logic.TroopRotation)
 local RobotModels = require(ReplicatedStorage.Shared.Visual.RobotModels)
@@ -51,6 +50,8 @@ type ScreenView = {
 	kind: string,
 	title: TextLabel,
 	body: TextLabel,
+	header: Frame?,
+	stroke: UIStroke,
 }
 
 type Plinth = {
@@ -138,9 +139,9 @@ local function textFor(view: ScreenView): (string, string, Color3?)
 	if kind == Screen.Event then
 		local remaining = EventConfig.EndsAt - now()
 		if remaining <= 0 then
-			return EventConfig.AfterTitle, "", Theme.Areas.HubRing
+			return EventConfig.AfterTitle, "New unit unlocked!", EventConfig.Accent
 		end
-		return EventConfig.Title, Calendar.formatDuration(remaining), Theme.Areas.HubRing
+		return EventConfig.Title, Calendar.formatDuration(remaining), EventConfig.Accent
 	elseif kind == Screen.Supply then
 		if profile == nil then
 			return "DAILY SUPPLY", "", nil
@@ -250,7 +251,7 @@ local function textFor(view: ScreenView): (string, string, Color3?)
 		if profile == nil then
 			return SeasonConfig.DisplayName, "", nil
 		end
-		local tier = SeasonRules.tierForXp(profile.season.xp, SeasonConfig.XpPerTier, SeasonConfig.TierCount)
+		local tier = if profile.season.seasonId == SeasonConfig.SeasonId then profile.season.tier else 0
 		local remaining = SeasonConfig.EndsAt - now()
 		local ends = if remaining > 0
 			then `Ends in {Calendar.formatDuration(remaining)}`
@@ -272,6 +273,9 @@ local function textFor(view: ScreenView): (string, string, Color3?)
 	return "", "", nil
 end
 
+-- Plain-text screens with no title use the whole face.
+local BARE_SCREENS = { [Screen.DuelsStatus] = true, [Screen.Currency] = true }
+
 local function buildView(part: BasePart, kind: string): ScreenView
 	local gui = Instance.new("SurfaceGui")
 	gui.Name = "LiveScreen"
@@ -280,31 +284,77 @@ local function buildView(part: BasePart, kind: string): ScreenView
 	gui.PixelsPerStud = PIXELS_PER_STUD
 	gui.LightInfluence = 0
 	gui.Adornee = part
+
+	-- Glassy panel with a soft gradient and a glowing edge.
+	local panel = Instance.new("Frame")
+	panel.Size = UDim2.new(1, -16, 1, -16)
+	panel.Position = UDim2.fromOffset(8, 8)
+	panel.BackgroundColor3 = Color3.new(1, 1, 1)
+	panel.BorderSizePixel = 0
+	panel.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 18)
+	corner.Parent = panel
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(Theme.UI.WindowTop, Theme.UI.WindowBottom)
+	gradient.Rotation = 90
+	gradient.Parent = panel
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 4
+	stroke.Color = Theme.Colors.Primary
+	stroke.Transparency = 0.2
+	stroke.Parent = panel
+
+	local bare = BARE_SCREENS[kind] == true
+	local header: Frame? = nil
 	local title = Instance.new("TextLabel")
 	title.BackgroundTransparency = 1
-	title.Size = UDim2.fromScale(0.94, 0.28)
-	title.Position = UDim2.fromScale(0.03, 0.03)
 	title.Font = Theme.Fonts.Title
 	title.TextScaled = true
-	title.TextColor3 = Theme.Colors.Text
-	title.Parent = gui
+	title.TextColor3 = Color3.fromRGB(16, 18, 30)
+	if not bare then
+		local strip = Instance.new("Frame")
+		strip.Size = UDim2.new(1, 0, 0.27, 0)
+		strip.BackgroundColor3 = Theme.Colors.Primary
+		strip.BorderSizePixel = 0
+		strip.Parent = panel
+		local stripCorner = Instance.new("UICorner")
+		stripCorner.CornerRadius = UDim.new(0, 18)
+		stripCorner.Parent = strip
+		-- Square off the strip's bottom corners so it reads as a header bar.
+		local filler = Instance.new("Frame")
+		filler.Size = UDim2.new(1, 0, 0.4, 0)
+		filler.Position = UDim2.fromScale(0, 0.6)
+		filler.BackgroundColor3 = Color3.new(1, 1, 1)
+		filler.BorderSizePixel = 0
+		filler.Parent = strip
+		local stripGradient = Instance.new("UIGradient")
+		stripGradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(205, 205, 205))
+		stripGradient.Rotation = 90
+		stripGradient.Parent = strip
+		title.Size = UDim2.new(0.92, 0, 0.8, 0)
+		title.Position = UDim2.fromScale(0.04, 0.1)
+		title.Parent = strip
+		header = strip
+	else
+		title.Visible = false
+		title.Parent = panel
+	end
+
 	local body = Instance.new("TextLabel")
 	body.BackgroundTransparency = 1
-	body.Size = UDim2.fromScale(0.94, 0.62)
-	body.Position = UDim2.fromScale(0.03, 0.34)
+	body.Size = if bare then UDim2.fromScale(0.92, 0.84) else UDim2.fromScale(0.92, 0.62)
+	body.Position = if bare then UDim2.fromScale(0.04, 0.08) else UDim2.fromScale(0.04, 0.32)
 	body.Font = Theme.Fonts.Body
 	body.TextScaled = true
 	body.TextWrapped = true
-	body.TextColor3 = Theme.Colors.Text
-	body.Parent = gui
-	-- Plain-text screens with no title use the whole face.
-	if kind == Screen.DuelsStatus or kind == Screen.Currency or kind == Screen.Event then
-		title.Size = UDim2.fromScale(0.94, 0.45)
-		body.Size = UDim2.fromScale(0.94, if kind == Screen.Event then 0.45 else 0.9)
-		body.Position = UDim2.fromScale(0.03, if kind == Screen.Event then 0.5 else 0.05)
-	end
+	body.TextColor3 = Color3.fromRGB(232, 238, 255)
+	body.Parent = panel
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = 120
+	limit.Parent = body
 	gui.Parent = part
-	return { part = part, kind = kind, title = title, body = body }
+	return { part = part, kind = kind, title = title, body = body, header = header, stroke = stroke }
 end
 
 local function render(view: ScreenView)
@@ -315,7 +365,19 @@ local function render(view: ScreenView)
 	if view.body.Text ~= body then
 		view.body.Text = body
 	end
-	view.title.TextColor3 = accent or Theme.Colors.Text
+	local color = accent or Theme.Colors.Primary
+	view.stroke.Color = color
+	local header = view.header
+	if header ~= nil then
+		header.BackgroundColor3 = color
+		for _, child in header:GetChildren() do
+			if child:IsA("Frame") then
+				child.BackgroundColor3 = color
+			end
+		end
+	else
+		view.body.TextColor3 = color
+	end
 end
 
 local function renderRings()
@@ -358,7 +420,7 @@ local function refreshPlinths()
 			plinth.model = model
 		end
 		for _, sibling in (plinth.part.Parent :: Instance):GetChildren() do
-			if sibling.Name == "RarityTrim" and sibling:IsA("BasePart") then
+			if sibling:IsA("BasePart") and sibling.Name == "RarityTrim" then
 				sibling.Color = if robot ~= nil then Theme.rarityColor(robot.rarity) else Theme.World.RingUnlit
 				sibling.Material = Enum.Material.Neon
 			end
@@ -366,7 +428,72 @@ local function refreshPlinths()
 	end
 end
 
+type Spinner = { part: BasePart, base: CFrame, speed: number }
+type Orbiter = { parts: { BasePart }, offsets: { Vector3 }, center: Vector3, index: number }
+
+local spinners: { Spinner } = {}
+local orbiters: { Orbiter } = {}
+local clockTime = 0
+
+local function animateDisplays(dt: number)
+	clockTime += dt
+	for _, spinner in spinners do
+		spinner.part.CFrame = spinner.base * CFrame.Angles(0, math.rad(clockTime * spinner.speed), 0)
+	end
+	-- Mannequin drones circle their robot, bobbing slightly.
+	for _, orbiter in orbiters do
+		local angle = clockTime * 1.4 + (orbiter.index - 1) / 3 * math.pi * 2
+		local radius = Vector3.new(orbiter.offsets[1].X, 0, orbiter.offsets[1].Z).Magnitude
+		local height = orbiter.offsets[1].Y + math.sin(clockTime * 2 + orbiter.index) * 0.4
+		local position = orbiter.center + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius)
+		for partIndex, part in orbiter.parts do
+			local relative = orbiter.offsets[partIndex] - orbiter.offsets[1]
+			part.CFrame = CFrame.lookAt(
+				position + relative,
+				position + relative + Vector3.new(-math.sin(angle), 0, math.cos(angle))
+			)
+		end
+	end
+end
+
+local function collectDisplays()
+	for _, instance in CollectionService:GetTagged(Constants.Tags.Spinner) do
+		if instance:IsA("BasePart") and not CollectionService:HasTag(instance, Constants.Tags.TroopTable) then
+			local speed = instance:GetAttribute(Attributes.SpinSpeed)
+			table.insert(
+				spinners,
+				{ part = instance, base = instance.CFrame, speed = if type(speed) == "number" then speed else 40 }
+			)
+		end
+	end
+	for _, instance in CollectionService:GetTagged(Constants.Tags.Mannequin) do
+		if instance:IsA("Model") then
+			local center = instance:GetPivot().Position
+			local groups: { [number]: { BasePart } } = {}
+			for _, descendant in instance:GetDescendants() do
+				local index = descendant:GetAttribute("OrbitIndex")
+				if descendant:IsA("BasePart") and type(index) == "number" then
+					groups[index] = groups[index] or {}
+					table.insert(groups[index], descendant)
+				end
+			end
+			for index, parts in groups do
+				-- Body part first so the group orbits around its own centre.
+				table.sort(parts, function(a: BasePart, b: BasePart)
+					return a.Name < b.Name
+				end)
+				local offsets: { Vector3 } = {}
+				for _, part in parts do
+					table.insert(offsets, part.Position - center)
+				end
+				table.insert(orbiters, { parts = parts, offsets = offsets, center = center, index = index })
+			end
+		end
+	end
+end
+
 local function spin(dt: number)
+	animateDisplays(dt)
 	spinAngle = (spinAngle + dt * 40) % 360
 	local turn = CFrame.Angles(0, math.rad(spinAngle), 0)
 	for _, plinth in plinths do
@@ -393,6 +520,10 @@ local function onPrompt(prompt: ProximityPrompt)
 		PanelsController.open("Shop")
 	elseif terminal == "Pass" then
 		PanelsController.open("Pass")
+	elseif terminal == "RobuxPasses" then
+		PanelsController.open("Shop", "Passes")
+	elseif terminal == "RobuxSpecials" then
+		PanelsController.open("Shop", "Specials")
 	end
 	-- "Supply" is claimed by the server's own prompt handler.
 end
@@ -418,6 +549,7 @@ function WorldScreensController.init()
 			rings[modeId] = segments
 		end
 	end
+	collectDisplays()
 	for _, instance in CollectionService:GetTagged(Constants.Tags.TroopTable) do
 		local index = instance:GetAttribute(Attributes.TableIndex)
 		if instance:IsA("BasePart") and type(index) == "number" then

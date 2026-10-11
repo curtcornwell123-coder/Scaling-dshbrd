@@ -61,6 +61,14 @@ local products: { [string]: Types.ShopProduct } = {
 		reward = { coins = 1000, gems = 40, troopId = "Medic" },
 		description = "1,000 coins, 40 gems and the Medic troop",
 	},
+	OverlordTroop = {
+		id = "OverlordTroop",
+		productId = 0,
+		name = "Drone Overlord",
+		kind = "Troop",
+		reward = { troopId = "Overlord" },
+		description = "Exclusive troop with an orbiting drone escort. Casual modes only (never ranked). Set the price to 150 Robux.",
+	},
 	SeasonPremium = {
 		id = "SeasonPremium",
 		productId = 0,
@@ -73,7 +81,50 @@ local products: { [string]: Types.ShopProduct } = {
 ShopConfig.Products = products
 
 -- Display order in the Robux shop (SeasonPremium is sold from the Season Pass bay).
-ShopConfig.Order = { "StarterBundle", "CoinsSmall", "CoinsMedium", "CoinsLarge", "GemsSmall", "GemsLarge" }
+ShopConfig.Order =
+	{ "StarterBundle", "CoinsSmall", "CoinsMedium", "CoinsLarge", "GemsSmall", "GemsLarge", "OverlordTroop" }
+
+-- Shop sections; the "+" next to Coins / Gems opens its section.
+ShopConfig.Sections = {
+	Coins = { "CoinsSmall", "CoinsMedium", "CoinsLarge" },
+	Gems = { "GemsSmall", "GemsLarge" },
+	Specials = { "StarterBundle", "OverlordTroop" },
+} :: { [string]: { string } }
+
+-- Game passes shown on the Market podiums. gamePassId 0 = not set up yet.
+-- None of them affect ranked: ranked payouts and ratings ignore every pass.
+local gamePasses: { [string]: Types.GamePassDef } = {
+	VIP = {
+		id = "VIP",
+		gamePassId = 0,
+		name = "VIP",
+		description = "Gold VIP tag and +25% match coins in casual modes.",
+		color = Color3.fromRGB(242, 193, 0),
+	},
+	SpeedBoost = {
+		id = "SpeedBoost",
+		gamePassId = 0,
+		name = "Speed Boost",
+		description = "Move 30% faster in the lobby.",
+		color = Color3.fromRGB(64, 196, 226),
+	},
+	DoubleCash = {
+		id = "DoubleCash",
+		gamePassId = 0,
+		name = "2x Cash",
+		description = "Double match coins in casual modes.",
+		color = Color3.fromRGB(86, 214, 146),
+	},
+	DoubleXP = {
+		id = "DoubleXP",
+		gamePassId = 0,
+		name = "2x XP",
+		description = "Season Pass tier quests progress twice as fast.",
+		color = Color3.fromRGB(176, 92, 255),
+	},
+}
+ShopConfig.GamePasses = gamePasses
+ShopConfig.GamePassOrder = { "VIP", "SpeedBoost", "DoubleCash", "DoubleXP" }
 
 -- Optional: a game pass that also unlocks premium (0 = not used).
 ShopConfig.PremiumGamePassId = 0

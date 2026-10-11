@@ -47,6 +47,23 @@ Theme.World = {
 	EmblemWhite = Color3.fromRGB(236, 232, 224),
 }
 
+-- Lobby UI: glassy navy windows with soft gradients and one accent colour per window.
+Theme.UI = {
+	WindowTop = Color3.fromRGB(30, 38, 66),
+	WindowBottom = Color3.fromRGB(12, 16, 32),
+	Card = Color3.fromRGB(36, 44, 76),
+	CardBottom = Color3.fromRGB(22, 28, 52),
+	CardLocked = Color3.fromRGB(20, 22, 34),
+	Edge = Color3.fromRGB(255, 255, 255),
+	Shadow = Color3.fromRGB(0, 0, 0),
+	TrackBack = Color3.fromRGB(10, 12, 24),
+	Gold = Color3.fromRGB(255, 200, 60),
+	Gem = Color3.fromRGB(96, 214, 255),
+	Pink = Color3.fromRGB(255, 92, 170),
+	Green = Color3.fromRGB(86, 224, 146),
+	Purple = Color3.fromRGB(176, 108, 255),
+}
+
 -- Neon accent per lobby area.
 Theme.Areas = {
 	HubRing = Color3.fromRGB(242, 193, 0),

@@ -34,6 +34,7 @@ local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local ModeConfig = require(ReplicatedStorage.Shared.Config.ModeConfig)
 local MapConfig = require(ReplicatedStorage.Shared.Config.MapConfig)
 local RobotConfig = require(ReplicatedStorage.Shared.Config.RobotConfig)
+local TroopConfig = require(ReplicatedStorage.Shared.Config.TroopConfig)
 local WaveConfig = require(ReplicatedStorage.Shared.Config.WaveConfig)
 local ServerTypes = require(script.Parent.Parent.ServerTypes)
 local Notifier = require(script.Parent.Parent.Notifier)
@@ -142,9 +143,13 @@ local function createMatchPlayer(match: Match, player: Player, arena: Arena): Ma
 	if source ~= nil then
 		for _, robotId in source do
 			local robot = RobotConfig.Robots[robotId]
+			local troop = TroopConfig.Troops[robotId]
+			-- Robux-exclusive troops stay home in ranked: purchases never decide ranked games.
+			local banned = match.mode.ranked and troop ~= nil and troop.robuxOnly
 			if
 				robot ~= nil
 				and not robot.locked
+				and not banned
 				and not table.find(loadout, robotId)
 				and #loadout < Constants.MAX_LOADOUT
 			then

@@ -7,6 +7,7 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
 
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local Theme = require(ReplicatedStorage.Shared.Theme)
@@ -43,6 +44,19 @@ local bannerTitle: TextLabel
 local bannerText: TextLabel
 local bannerStroke: UIStroke
 local bannerHideThread: thread? = nil
+local celebrateFrame: Frame
+local celebrateTitle: TextLabel
+local celebrateText: TextLabel
+local confetti: { Frame } = {}
+local celebrateQueue: { { title: string, text: string } } = {}
+local celebrating = false
+local CONFETTI_COLORS = {
+	Color3.fromRGB(255, 200, 60),
+	Color3.fromRGB(96, 214, 255),
+	Color3.fromRGB(255, 92, 170),
+	Color3.fromRGB(86, 224, 146),
+	Color3.fromRGB(176, 108, 255),
+}
 
 local function toneColor(tone: Types.NoticeTone): Color3
 	if tone == "Success" then
@@ -117,6 +131,97 @@ function UIController.showBanner(title: string, text: string, tone: Types.Notice
 		shrink.Completed:Wait()
 		banner.Visible = false
 	end)
+end
+
+local playNextCelebration: () -> ()
+
+playNextCelebration = function()
+	local entry = table.remove(celebrateQueue, 1)
+	if entry == nil then
+		celebrating = false
+		return
+	end
+	celebrating = true
+	celebrateTitle.Text = entry.title
+	celebrateText.Text = entry.text
+	celebrateFrame.Size = UDim2.fromScale(0.3, 0.12)
+	celebrateFrame.Visible = true
+	UIKit.tween(celebrateFrame, Theme.Tween.Pop, { Size = UDim2.fromScale(0.4, 0.2) })
+	local random = Random.new()
+	for _, piece in confetti do
+		piece.Position = UDim2.fromScale(0.5, 0.5)
+		piece.Rotation = 0
+		piece.Visible = true
+		local goal = UDim2.fromScale(random:NextNumber(-0.25, 1.25), random:NextNumber(-0.9, 1.9))
+		UIKit.tween(piece, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = goal,
+			Rotation = random:NextNumber(-360, 360),
+		})
+	end
+	local sound = Instance.new("Sound")
+	sound.SoundId = "rbxasset://sounds/victory.wav"
+	sound.Volume = 0.5
+	SoundService:PlayLocalSound(sound)
+	task.delay(3, function()
+		sound:Destroy()
+		for _, piece in confetti do
+			piece.Visible = false
+		end
+		local shrink = UIKit.tween(celebrateFrame, Theme.Tween.Normal, { Size = UDim2.fromScale(0.3, 0) })
+		shrink.Completed:Wait()
+		celebrateFrame.Visible = false
+		playNextCelebration()
+	end)
+end
+
+-- Big centre-screen congratulations with confetti (pass tier, new troop, purchases).
+function UIController.celebrate(title: string, text: string)
+	table.insert(celebrateQueue, { title = title, text = text })
+	if not celebrating then
+		playNextCelebration()
+	end
+end
+
+local function buildCelebrate(overlay: Frame)
+	celebrateFrame = UIKit.frame({
+		Name = "Celebrate",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.38),
+		Size = UDim2.fromScale(0.4, 0.2),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		Visible = false,
+		ZIndex = 40,
+		Parent = overlay,
+	})
+	UIKit.corner(celebrateFrame, UDim.new(0, 22))
+	UIKit.gradient(celebrateFrame, Theme.UI.WindowTop, Theme.UI.WindowBottom, 90)
+	UIKit.stroke(celebrateFrame, Theme.UI.Gold, 3)
+	celebrateTitle = UIKit.label({
+		Size = UDim2.fromScale(0.92, 0.5),
+		Position = UDim2.fromScale(0.04, 0.08),
+		Font = Theme.Fonts.Title,
+		TextColor3 = Theme.UI.Gold,
+		ZIndex = 41,
+		Parent = celebrateFrame,
+	}, 60)
+	celebrateText = UIKit.label({
+		Size = UDim2.fromScale(0.92, 0.28),
+		Position = UDim2.fromScale(0.04, 0.62),
+		Font = Theme.Fonts.Body,
+		ZIndex = 41,
+		Parent = celebrateFrame,
+	}, 26)
+	for index = 1, 28 do
+		local piece = UIKit.frame({
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Size = UDim2.fromOffset(10, 16),
+			BackgroundColor3 = CONFETTI_COLORS[(index % #CONFETTI_COLORS) + 1],
+			Visible = false,
+			ZIndex = 42,
+			Parent = celebrateFrame,
+		})
+		table.insert(confetti, piece)
+	end
 end
 
 -- Lobby and HUD are mutually exclusive; modals close when a match starts.
@@ -194,7 +299,9 @@ local function onNotice(payload: Types.NoticePayload)
 	if code ~= nil then
 		text = Constants.NoticeText[code] or code
 	end
-	if payload.style == "Banner" then
+	if payload.style == "Celebrate" then
+		UIController.celebrate(payload.title or "", text or "")
+	elseif payload.style == "Banner" then
 		UIController.showBanner(payload.title or "", text or "", payload.tone)
 	elseif text ~= nil then
 		UIController.showToast(text, payload.tone)
@@ -216,6 +323,7 @@ function UIController.init()
 
 	buildToasts(layers.Overlay)
 	buildBanner(layers.Overlay)
+	buildCelebrate(layers.Overlay)
 
 	maid:give(Remotes.Notify:connect(onNotice))
 	maid:give(ClientState.matchChanged:connect(function()

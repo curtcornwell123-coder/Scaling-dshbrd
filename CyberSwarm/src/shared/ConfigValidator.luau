@@ -585,6 +585,14 @@ function ConfigValidator.setupWarnings(): { string }
 			)
 		end
 	end
+	for passId, pass in ShopConfig.GamePasses do
+		if pass.gamePassId == 0 then
+			table.insert(
+				warnings,
+				`ShopConfig.GamePasses.{passId}.gamePassId is 0; create the game pass and paste its id`
+			)
+		end
+	end
 	if ShopConfig.PremiumGamePassId == 0 then
 		table.insert(warnings, "ShopConfig.PremiumGamePassId is 0; Season Premium is sold only as a developer product")
 	end

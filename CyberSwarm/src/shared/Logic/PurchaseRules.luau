@@ -27,6 +27,9 @@ function PurchaseRules.check(context: Context): string
 	if troop.comingSoon then
 		return "COMING_SOON"
 	end
+	if troop.robuxOnly then
+		return "NOT_IN_STOCK"
+	end
 	if table.find(context.progress.owned, troop.id) ~= nil then
 		return "ALREADY_OWNED"
 	end

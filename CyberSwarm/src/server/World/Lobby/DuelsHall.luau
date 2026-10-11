@@ -85,6 +85,7 @@ local function buildShell(model: Model, center: CFrame)
 		)
 	end
 	-- Grated ceiling truss: a ring and spokes with spotlights over the bays.
+	Kit.roundRoof(model, center, radius + 3, 16, WALL_HEIGHT)
 	local trussHeight = WALL_HEIGHT - 3
 	for _, degrees in { -60, -20, 20, 60 } do
 		local from = (center * CFrame.new(0, trussHeight, 0)).Position

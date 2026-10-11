@@ -35,7 +35,6 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local ModeConfig = require(ReplicatedStorage.Shared.Config.ModeConfig)
 local RankConfig = require(ReplicatedStorage.Shared.Config.RankConfig)
-local RobotConfig = require(ReplicatedStorage.Shared.Config.RobotConfig)
 local QueueRules = require(ReplicatedStorage.Shared.Logic.QueueRules)
 local Matchmaker = require(ReplicatedStorage.Shared.Logic.Matchmaker)
 local Requirements = require(ReplicatedStorage.Shared.Logic.Requirements)
@@ -208,26 +207,12 @@ local function observe(player: Player, now: number)
 	end
 end
 
-local function powerOf(player: Player): number
-	local data = DataService.getData(player)
-	if data == nil then
-		return 0
-	end
-	local total = 0
-	for _, robotId in data.equippedLoadout do
-		local robot = RobotConfig.Robots[robotId]
-		if robot ~= nil then
-			total += robot.health + robot.damage * 4
-		end
-	end
-	return total
-end
-
 -- Queue entries for one mode in arrival order. Party leaders carry their free members.
 local function buildEntries(queue: PadQueue): { Matchmaker.Entry }
 	local mode = queue.mode
 	local entries: { Matchmaker.Entry } = {}
-	local ratingKey = RankConfig.RatingKeys[mode.id]
+	-- Skill-based matchmaking everywhere: ranked rating in ranked, hidden casual rating otherwise.
+	local ratingKey = RankConfig.RatingKeys[mode.id] or RankConfig.CasualKey
 	local maxSize = Matchmaker.maxEntrySize(mode)
 
 	for _, key in QueueRules.members(tracker, mode.id) do
@@ -276,7 +261,7 @@ local function buildEntries(queue: PadQueue): { Matchmaker.Entry }
 
 		local values: { number } = {}
 		for _, member in members do
-			table.insert(values, if ratingKey ~= nil then RankService.ratingFor(member, ratingKey) else powerOf(member))
+			table.insert(values, RankService.ratingFor(member, ratingKey))
 		end
 		local total = 0
 		for _, value in values do
@@ -320,13 +305,7 @@ end
 
 local function selectMatches(queue: PadQueue, entries: { Matchmaker.Entry }, now: number): { Matchmaker.Selection }
 	local mode = queue.mode
-	return Matchmaker.selectAll(
-		entries,
-		shape(mode),
-		now,
-		if mode.ranked then RankConfig.Window else nil,
-		if mode.ranked then blockedPair else nil
-	)
+	return Matchmaker.selectAll(entries, shape(mode), now, RankConfig.Window, if mode.ranked then blockedPair else nil)
 end
 
 local function launch(queue: PadQueue, selection: Matchmaker.Selection, now: number)

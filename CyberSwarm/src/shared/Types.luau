@@ -222,6 +222,8 @@ export type TroopDef = {
 	builderId: string,
 	description: string,
 	comingSoon: boolean,
+	-- Sold only for Robux (ShopConfig product); never in the depot and never usable in ranked.
+	robuxOnly: boolean,
 }
 
 export type TroopRotation = {
@@ -249,6 +251,10 @@ export type QuestData = {
 	claimed: { string },
 	-- Distinct troops tried today in the Test Realm (for TryTroops quests).
 	tried: { string },
+	-- Weekly tasks (week number = Calendar.weekNumber).
+	week: number,
+	weeklyProgress: { [string]: number },
+	weeklyClaimed: { string },
 }
 
 export type SupplyData = {
@@ -263,17 +269,37 @@ export type SeasonData = {
 	premium: boolean,
 	claimedFree: { number },
 	claimedPremium: { number },
+	-- Pass tiers are earned by completing each tier's quest in order.
+	tier: number,
+	tierProgress: number,
+}
+
+export type TierQuest = {
+	kind: QuestKind,
+	target: number,
+	description: string,
 }
 
 export type SeasonTier = {
 	tier: number,
+	-- Complete this to reach the tier (each tier's quest is harder than the last).
+	quest: TierQuest,
 	free: Reward?,
 	premium: Reward?,
 }
 
 export type PassTrack = "Free" | "Premium" | "Ranked"
 
-export type ProductKind = "Coins" | "Gems" | "Bundle" | "SeasonPremium"
+export type ProductKind = "Coins" | "Gems" | "Bundle" | "SeasonPremium" | "Troop"
+
+export type GamePassDef = {
+	id: string,
+	gamePassId: number,
+	name: string,
+	description: string,
+	-- Display colour of its podium and card.
+	color: Color3,
+}
 
 export type ShopProduct = {
 	id: string,
@@ -326,6 +352,8 @@ export type PlayerData = {
 	supply: SupplyData,
 	codes: { string },
 	rank: RankData,
+	-- Game passes owned (ShopConfig.GamePasses ids), refreshed from Roblox on every join.
+	passes: { string },
 }
 
 export type LeaderboardEntry = {
@@ -465,7 +493,7 @@ export type QueueSnapshot = {
 	viaParty: boolean,
 }
 
-export type NoticeStyle = "Toast" | "Banner"
+export type NoticeStyle = "Toast" | "Banner" | "Celebrate"
 export type NoticeTone = "Info" | "Success" | "Error" | "Mutation"
 
 export type NoticePayload = {

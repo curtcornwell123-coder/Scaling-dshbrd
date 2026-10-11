@@ -14,6 +14,8 @@ export type QuestSettings = {
 	regularPerDay: number,
 	testRealmPerDay: number,
 	seed: number,
+	weeklyPool: { string }?,
+	weeklyPerWeek: number?,
 }
 
 local QuestRules = {}
@@ -24,6 +26,47 @@ function QuestRules.dailyQuests(day: number, settings: QuestSettings): { string 
 		table.insert(list, questId)
 	end
 	return list
+end
+
+function QuestRules.weeklyQuests(week: number, settings: QuestSettings): { string }
+	local pool = settings.weeklyPool
+	if pool == nil then
+		return {}
+	end
+	return Calendar.pickDaily(pool, settings.weeklyPerWeek or 0, settings.seed + 7, week)
+end
+
+-- Starts fresh weekly progress when the stored data is from an earlier week.
+function QuestRules.normalizeWeekly(data: Types.QuestData, week: number)
+	if data.week ~= week then
+		data.week = week
+		data.weeklyProgress = {}
+		data.weeklyClaimed = {}
+	end
+end
+
+-- Weekly progress, capped at the target. Returns true when the value changed.
+function QuestRules.addWeeklyProgress(data: Types.QuestData, quest: Types.QuestDef, amount: number): boolean
+	local current = data.weeklyProgress[quest.id] or 0
+	local nextValue = math.min(quest.target, current + math.max(0, amount))
+	if nextValue == current then
+		return false
+	end
+	data.weeklyProgress[quest.id] = nextValue
+	return true
+end
+
+function QuestRules.checkWeeklyClaim(data: Types.QuestData, quest: Types.QuestDef?, thisWeek: { string }): string
+	if quest == nil or table.find(thisWeek, quest.id) == nil then
+		return "QUEST_UNKNOWN"
+	end
+	if table.find(data.weeklyClaimed, quest.id) ~= nil then
+		return "ALREADY_CLAIMED"
+	end
+	if (data.weeklyProgress[quest.id] or 0) < quest.target then
+		return "QUEST_INCOMPLETE"
+	end
+	return "OK"
 end
 
 -- Starts a fresh day's progress when the stored data is from an earlier day.

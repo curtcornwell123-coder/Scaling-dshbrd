@@ -153,15 +153,20 @@ local function selectTeams(
 		end
 		local limit = math.huge
 		local maxGap = math.huge
-		if mode.ranked and window ~= nil then
+		-- Skill window: ranked rating in ranked modes, the hidden casual rating otherwise.
+		if window ~= nil then
 			limit = Matchmaker.windowFor(now - anchor.joinedAt, window)
 			maxGap = window.maxGap
 		end
 		local chosen: { Entry } = { anchor }
 		local count = #anchor.members
-		for index = anchorIndex + 1, #entries do
+		-- Everyone else in queue order (older entries too: they may fit this anchor's window).
+		for index = 1, #entries do
 			if count == needed then
 				break
+			end
+			if index == anchorIndex then
+				continue
 			end
 			local candidate = entries[index]
 			local size = #candidate.members

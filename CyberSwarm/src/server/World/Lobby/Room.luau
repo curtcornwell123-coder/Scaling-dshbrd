@@ -115,7 +115,16 @@ function Room.build(
 		color,
 		Enum.Material.Concrete
 	)
-	-- Ceiling beams (the rooms are open to the sky between them).
+	-- Roof with a glass skylight over the middle of the room.
+	Kit.roof(
+		model,
+		frame,
+		width + thickness * 2,
+		depth + thickness * 2,
+		height,
+		Vector2.new(width * 0.45, depth * 0.45)
+	)
+	-- Ceiling beams under the roof.
 	local beams = math.max(2, math.floor(depth / 10))
 	for index = 0, beams do
 		local z = -depth * 0.5 + index * depth / beams

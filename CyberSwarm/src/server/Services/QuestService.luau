@@ -21,7 +21,6 @@ local Constants = require(ReplicatedStorage.Shared.Constants)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local QuestConfig = require(ReplicatedStorage.Shared.Config.QuestConfig)
-local SeasonConfig = require(ReplicatedStorage.Shared.Config.SeasonConfig)
 local QuestRules = require(ReplicatedStorage.Shared.Logic.QuestRules)
 local Calendar = require(ReplicatedStorage.Shared.Logic.Calendar)
 local TableUtil = require(ReplicatedStorage.Shared.Util.TableUtil)
@@ -40,6 +39,8 @@ local settings: QuestRules.QuestSettings = {
 	regularPerDay = QuestConfig.RegularPerDay,
 	testRealmPerDay = QuestConfig.TestRealmPerDay,
 	seed = QuestConfig.Seed,
+	weeklyPool = QuestConfig.WeeklyPool,
+	weeklyPerWeek = QuestConfig.WeeklyPerWeek,
 }
 
 type SandboxProgress = Types.QuestData
@@ -54,8 +55,27 @@ local function today(): number
 	return Calendar.dayNumber(os.time())
 end
 
+local function thisWeek(): number
+	return Calendar.weekNumber(os.time())
+end
+
 function QuestService.todaysQuests(): { string }
 	return QuestRules.dailyQuests(today(), settings)
+end
+
+function QuestService.weeksQuests(): { string }
+	return QuestRules.weeklyQuests(thisWeek(), settings)
+end
+
+local function weeklyOfKind(kind: Types.QuestKind): { Types.QuestDef }
+	local list: { Types.QuestDef } = {}
+	for _, questId in QuestService.weeksQuests() do
+		local quest = QuestConfig.Quests[questId]
+		if quest ~= nil and quest.kind == kind then
+			table.insert(list, quest)
+		end
+	end
+	return list
 end
 
 local function questsOfKind(kind: Types.QuestKind, testRealm: boolean): { Types.QuestDef }
@@ -70,30 +90,40 @@ local function questsOfKind(kind: Types.QuestKind, testRealm: boolean): { Types.
 end
 
 local function emptyProgress(): SandboxProgress
-	return { day = today(), progress = {}, claimed = {}, tried = {} }
+	return { day = today(), progress = {}, claimed = {}, tried = {}, week = 0, weeklyProgress = {}, weeklyClaimed = {} }
 end
 
 -- Regular progress: straight into saved data.
 local function addRegular(player: Player, kind: Types.QuestKind, amount: number)
 	local quests = questsOfKind(kind, false)
+	local weekly = weeklyOfKind(kind)
 	local data = DataService.getData(player)
-	if #quests == 0 or data == nil then
+	if (#quests == 0 and #weekly == 0) or data == nil then
 		return
 	end
 	-- Skip the save-and-push when every matching task is already complete (or claimed).
-	local open = data.quests.day ~= today()
+	local open = data.quests.day ~= today() or data.quests.week ~= thisWeek()
 	for _, quest in quests do
 		if (data.quests.progress[quest.id] or 0) < quest.target then
+			open = true
+		end
+	end
+	for _, quest in weekly do
+		if (data.quests.weeklyProgress[quest.id] or 0) < quest.target then
 			open = true
 		end
 	end
 	if not open then
 		return
 	end
-	DataService.update(player, function(data)
-		QuestRules.normalize(data.quests, today())
+	DataService.update(player, function(profile)
+		QuestRules.normalize(profile.quests, today())
+		QuestRules.normalizeWeekly(profile.quests, thisWeek())
 		for _, quest in quests do
-			QuestRules.addProgress(data.quests, quest, amount)
+			QuestRules.addProgress(profile.quests, quest, amount)
+		end
+		for _, quest in weekly do
+			QuestRules.addWeeklyProgress(profile.quests, quest, amount)
 		end
 	end)
 end
@@ -194,19 +224,22 @@ local function claim(player: Player, questId: string): string
 		return ErrorCode.Sandbox
 	end
 	local quest = QuestConfig.Quests[questId]
-	local todays = QuestService.todaysQuests()
+	local weekly = table.find(QuestConfig.WeeklyPool, questId) ~= nil
 	local code = ErrorCode.DataNotLoaded
 	local granted: Types.Reward? = nil
 	DataService.update(player, function(data)
-		QuestRules.normalize(data.quests, today())
-		code = QuestRules.checkClaim(data.quests, quest, todays)
+		if weekly then
+			QuestRules.normalizeWeekly(data.quests, thisWeek())
+			code = QuestRules.checkWeeklyClaim(data.quests, quest, QuestService.weeksQuests())
+		else
+			QuestRules.normalize(data.quests, today())
+			code = QuestRules.checkClaim(data.quests, quest, QuestService.todaysQuests())
+		end
 		if code ~= ErrorCode.Ok or quest == nil then
 			return
 		end
-		table.insert(data.quests.claimed, quest.id)
-		local reward = table.clone(quest.reward)
-		reward.xp = (reward.xp or 0) + SeasonConfig.XpSources.quest
-		granted = Rewards.apply(data, reward)
+		table.insert(if weekly then data.quests.weeklyClaimed else data.quests.claimed, quest.id)
+		granted = Rewards.apply(data, quest.reward)
 	end)
 	local final = granted
 	if final ~= nil then
@@ -285,6 +318,7 @@ function QuestService.start()
 	DataService.profileLoaded:connect(function(player: Player)
 		DataService.update(player, function(data)
 			QuestRules.normalize(data.quests, today())
+			QuestRules.normalizeWeekly(data.quests, thisWeek())
 		end)
 		task.spawn(pullSandboxProgress, player)
 	end)

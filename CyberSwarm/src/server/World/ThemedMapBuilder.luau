@@ -31,27 +31,31 @@ export type Theme = {
 
 local ThemedMapBuilder = {}
 
-local function lanePoints(z: number): { Vector3 }
-	local jog = if z == 0 then 16 else z * 0.4
-	return {
+-- Each lane keeps its own band of the map and only meets the others at the final merge in
+-- front of the HQ, so roads never cross or overlap.
+local function lanePoints(z: number, jog: number): { Vector3 }
+	local points = {
 		Vector3.new(-86, 0, z),
-		Vector3.new(-40, 0, z),
-		Vector3.new(-40, 0, jog),
-		Vector3.new(20, 0, jog),
-		Vector3.new(20, 0, z * 0.2),
-		Vector3.new(60, 0, z * 0.2),
-		Vector3.new(60, 0, 0),
-		Vector3.new(76, 0, 0),
+		Vector3.new(-46, 0, z),
+		Vector3.new(-46, 0, z + jog),
+		Vector3.new(14, 0, z + jog),
+		Vector3.new(14, 0, z),
+		Vector3.new(62, 0, z),
 	}
+	if z ~= 0 then
+		table.insert(points, Vector3.new(62, 0, 0))
+	end
+	table.insert(points, Vector3.new(76, 0, 0))
+	return points
 end
 
-local function laneOffsets(count: number): { number }
+local function laneLayout(count: number): { { z: number, jog: number } }
 	if count <= 1 then
-		return { 0 }
+		return { { z = 0, jog = 18 } }
 	elseif count == 2 then
-		return { -36, 36 }
+		return { { z = -38, jog = 13 }, { z = 38, jog = -13 } }
 	end
-	return { -46, 0, 46 }
+	return { { z = -52, jog = 13 }, { z = 0, jog = 14 }, { z = 52, jog = -13 } }
 end
 
 local function part(
@@ -85,17 +89,19 @@ function ThemedMapBuilder.build(theme: Theme): Model
 	local waypoints = Instance.new("Folder")
 	waypoints.Name = Layout.WAYPOINTS
 	waypoints.Parent = model
-	for laneIndex, z in laneOffsets(theme.lanes) do
+	for laneIndex, lane in laneLayout(theme.lanes) do
 		local folder = Instance.new("Folder")
 		folder.Name = Layout.LANE_PREFIX .. laneIndex
 		folder.Parent = waypoints
-		local points = lanePoints(z)
+		local points = lanePoints(lane.z, lane.jog)
 		for index, position in points do
 			PartFactory.marker(Layout.WAYPOINT_PREFIX .. index, CFrame.new(position), Vector3.one, folder)
 			local nextPoint = points[index + 1]
 			if nextPoint ~= nil then
 				local length = (nextPoint - position).Magnitude
 				local frame = CFrame.lookAt((position + nextPoint) * 0.5, nextPoint)
+				-- Road pieces overlap by a lane width so corners are filled; kerbs stop short of each
+				-- corner so edge lines never stack into a grid where pieces meet.
 				part(
 					scenery,
 					"Road",
@@ -104,16 +110,19 @@ function ThemedMapBuilder.build(theme: Theme): Model
 					theme.road,
 					Enum.Material.Concrete
 				)
-				for _, side in { -1, 1 } do
-					part(
-						scenery,
-						"Kerb",
-						Vector3.new(0.5, 0.3, length + LANE_WIDTH),
-						frame * CFrame.new(side * (LANE_WIDTH * 0.5 - 0.25), 0.15, 0),
-						theme.kerb,
-						Enum.Material.SmoothPlastic,
-						false
-					)
+				local kerbLength = length - LANE_WIDTH
+				if kerbLength > 0 then
+					for _, side in { -1, 1 } do
+						part(
+							scenery,
+							"Kerb",
+							Vector3.new(0.4, 0.25, kerbLength),
+							frame * CFrame.new(side * (LANE_WIDTH * 0.5 + 0.2), 0.12, 0),
+							theme.kerb,
+							Enum.Material.Slate,
+							false
+						)
+					end
 				end
 			end
 		end
@@ -122,18 +131,32 @@ function ThemedMapBuilder.build(theme: Theme): Model
 	local slots = Instance.new("Folder")
 	slots.Name = Layout.TOWER_SLOTS
 	slots.Parent = model
-	local slotPositions = {
-		Vector3.new(0, 0, 0),
-		Vector3.new(40, 0, -12),
-		Vector3.new(40, 0, 12),
-		Vector3.new(-14, 0, -24),
-		Vector3.new(-14, 0, 24),
-		Vector3.new(72, 0, -14),
-		Vector3.new(72, 0, 14),
-		Vector3.new(-60, 0, 0),
-		Vector3.new(4, 0, -58),
-		Vector3.new(4, 0, 58),
-	}
+	-- Slots sit between the lane bands, never on a road.
+	local slotPositions: { Vector3 } = if theme.lanes >= 3
+		then {
+			Vector3.new(-16, 0, -26),
+			Vector3.new(-16, 0, 28),
+			Vector3.new(36, 0, -26),
+			Vector3.new(36, 0, 28),
+			Vector3.new(76, 0, -16),
+			Vector3.new(76, 0, 16),
+			Vector3.new(-66, 0, -26),
+			Vector3.new(-66, 0, 28),
+			Vector3.new(36, 0, -72),
+			Vector3.new(-16, 0, 72),
+		}
+		else {
+			Vector3.new(-20, 0, 0),
+			Vector3.new(36, 0, 0),
+			Vector3.new(-66, 0, 0),
+			Vector3.new(76, 0, -14),
+			Vector3.new(76, 0, 14),
+			Vector3.new(-16, 0, -58),
+			Vector3.new(-16, 0, 58),
+			Vector3.new(40, 0, -58),
+			Vector3.new(40, 0, 58),
+			Vector3.new(0, 0, 14),
+		}
 	for index, position in slotPositions do
 		local slot = part(
 			slots,
@@ -183,7 +206,7 @@ function ThemedMapBuilder.build(theme: Theme): Model
 	local rng = Random.new(#theme.name * 7919)
 	for index = 1, 22 do
 		local x = rng:NextNumber(-95, 95)
-		local z = if rng:NextNumber() < 0.5 then rng:NextNumber(-92, -64) else rng:NextNumber(64, 72)
+		local z = if rng:NextNumber() < 0.5 then rng:NextNumber(-94, -82) else rng:NextNumber(88, 94)
 		if math.abs(x) < 26 and z > 0 then
 			continue
 		end
@@ -217,7 +240,7 @@ ThemedMapBuilder.Themes = {
 		ground = Color3.fromRGB(70, 72, 76),
 		groundMaterial = Enum.Material.DiamondPlate,
 		road = Color3.fromRGB(46, 48, 52),
-		kerb = Color3.fromRGB(242, 193, 0),
+		kerb = Color3.fromRGB(190, 152, 20),
 		prop = Color3.fromRGB(120, 92, 60),
 		propMaterial = Enum.Material.CorrodedMetal,
 		glow = Color3.fromRGB(255, 150, 40),
@@ -249,8 +272,8 @@ ThemedMapBuilder.Themes = {
 		name = "VolcanoCore",
 		ground = Color3.fromRGB(46, 30, 26),
 		groundMaterial = Enum.Material.Slate,
-		road = Color3.fromRGB(70, 50, 44),
-		kerb = Color3.fromRGB(255, 90, 30),
+		road = Color3.fromRGB(78, 62, 56),
+		kerb = Color3.fromRGB(120, 60, 36),
 		prop = Color3.fromRGB(60, 40, 34),
 		propMaterial = Enum.Material.Slate,
 		glow = Color3.fromRGB(255, 80, 20),

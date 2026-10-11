@@ -31,6 +31,8 @@ Constants.Tags = {
 	PartyPad = "CyberSwarm_PartyPad",
 	TestRealmPortal = "CyberSwarm_TestRealmPortal",
 	TestRealmReturn = "CyberSwarm_TestRealmReturn",
+	-- Display robots in the lobby (clients animate them, e.g. orbiting drones).
+	Mannequin = "CyberSwarm_Mannequin",
 }
 
 Constants.Attributes = {

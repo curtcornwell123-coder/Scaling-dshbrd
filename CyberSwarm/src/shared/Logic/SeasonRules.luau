@@ -20,7 +20,7 @@ function SeasonRules.check(
 	reward: Types.Reward?,
 	now: number,
 	endsAt: number,
-	xpPerTier: number,
+	_xpPerTier: number,
 	tierCount: number
 ): string
 	if now >= endsAt then
@@ -29,7 +29,7 @@ function SeasonRules.check(
 	if reward == nil then
 		return "INVALID_REQUEST"
 	end
-	if tier > SeasonRules.tierForXp(season.xp, xpPerTier, tierCount) then
+	if tier > math.min(season.tier, tierCount) then
 		return "TIER_LOCKED"
 	end
 	if track == "Premium" then
@@ -56,7 +56,39 @@ function SeasonRules.normalize(season: Types.SeasonData, seasonId: string): bool
 	season.premium = false
 	table.clear(season.claimedFree)
 	table.clear(season.claimedPremium)
+	season.tier = 0
+	season.tierProgress = 0
 	return true
+end
+
+-- Adds progress to the current tier's quest when `kind` matches it, rolling over into the next
+-- tiers. Returns the number of tiers gained.
+function SeasonRules.addTierProgress(
+	season: Types.SeasonData,
+	kind: Types.QuestKind,
+	amount: number,
+	tiers: { Types.SeasonTier },
+	tierCount: number
+): number
+	local gained = 0
+	local remaining = math.max(0, math.floor(amount))
+	while remaining > 0 and season.tier < tierCount do
+		local nextTier = tiers[season.tier + 1]
+		if nextTier == nil or nextTier.quest.kind ~= kind then
+			break
+		end
+		local needed = nextTier.quest.target - season.tierProgress
+		if remaining >= needed then
+			remaining -= needed
+			season.tier += 1
+			season.tierProgress = 0
+			gained += 1
+		else
+			season.tierProgress += remaining
+			remaining = 0
+		end
+	end
+	return gained
 end
 
 -- XP is only added while the season is running.

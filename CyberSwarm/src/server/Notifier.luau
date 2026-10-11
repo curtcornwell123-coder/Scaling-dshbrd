@@ -28,4 +28,9 @@ function Notifier.banner(players: { Player }, tone: Types.NoticeTone, title: str
 	Remotes.Notify:fireClients(players, { style = "Banner", tone = tone, title = title, text = text })
 end
 
+-- Big centre-screen congratulations (pass tier reached, new troop, etc.).
+function Notifier.celebrate(players: { Player }, title: string, text: string)
+	Remotes.Notify:fireClients(players, { style = "Celebrate", tone = "Success", title = title, text = text })
+end
+
 return Notifier

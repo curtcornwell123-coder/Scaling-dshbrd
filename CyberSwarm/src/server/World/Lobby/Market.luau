@@ -11,11 +11,16 @@
 	- A collectible statue on a glowing pedestal near the entrance.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local Theme = require(ReplicatedStorage.Shared.Theme)
 local SeasonConfig = require(ReplicatedStorage.Shared.Config.SeasonConfig)
+local ShopConfig = require(ReplicatedStorage.Shared.Config.ShopConfig)
+local RobotConfig = require(ReplicatedStorage.Shared.Config.RobotConfig)
+local RobotModels = require(ReplicatedStorage.Shared.Visual.RobotModels)
+local PartFactory = require(script.Parent.Parent.PartFactory)
 local Kit = require(script.Parent.Kit)
 local Layout = require(script.Parent.Layout)
 local Room = require(script.Parent.Room)
@@ -97,19 +102,51 @@ local function buildRobuxBay(model: Model, bay: CFrame)
 		nil,
 		Theme.Fonts.Title
 	)
-	-- Product stands: three short plinths with display crates.
-	for index, x in { -6, 0, 6 } do
-		local stand = bay * CFrame.new(x, 1.2, -5)
-		Kit.block(
+	-- Four game pass podiums with floating holo-labels; stepping up opens the pass shop.
+	for index, passId in ShopConfig.GamePassOrder do
+		local pass = ShopConfig.GamePasses[passId]
+		local stand = bay * CFrame.new(-7.5 + (index - 1) * 5, 1.2, -5)
+		local podium = Kit.disc(
 			stage,
-			`Stand_{index}`,
-			Vector3.new(3, 2.4, 3),
+			`Podium_{passId}`,
+			1.8,
+			2.4,
 			stand * CFrame.new(0, 1.2, 0),
-			World.SteelLight,
+			World.Steel,
 			Enum.Material.Metal
 		)
-		Kit.glow(stage, `StandTop_{index}`, Vector3.new(3.1, 0.15, 3.1), stand * CFrame.new(0, 2.45, 0), Areas.Market)
-		Kit.crate(stage, stand * CFrame.new(0, 2.5, 0) * CFrame.Angles(0, math.rad(25 * index), 0), 1.6)
+		Kit.ring(
+			stage,
+			`PodiumGlow_{passId}`,
+			stand * CFrame.new(0, 2.42, 0),
+			1.6,
+			0.3,
+			0.06,
+			20,
+			pass.color,
+			Enum.Material.Neon
+		)
+		local core = Kit.glow(
+			stage,
+			`PassCore_{passId}`,
+			Vector3.new(1.2, 1.2, 1.2),
+			stand * CFrame.new(0, 3.6, 0) * CFrame.Angles(math.rad(45), math.rad(45), 0),
+			pass.color
+		)
+		core:SetAttribute(Constants.Attributes.SpinSpeed, 60)
+		CollectionService:AddTag(core, Constants.Tags.Spinner)
+		local _, label =
+			PartFactory.billboard(core, string.upper(pass.name), pass.color, Vector2.new(4.4, 1.2), 1.6, 60)
+		label.Font = Theme.Fonts.Title
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.ActionText = "View"
+		prompt.ObjectText = pass.name
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 10
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = podium
+		podium:SetAttribute(Constants.Attributes.Terminal, "RobuxPasses")
+		CollectionService:AddTag(podium, Constants.Tags.Terminal)
 	end
 	-- Stanchions with a rope line in front of the stage.
 	for index = 0, 4 do
@@ -217,7 +254,7 @@ local function buildPassBay(model: Model, bay: CFrame)
 	end
 	Kit.truss(set, (bay * CFrame.new(-12.5, 18, -9)).Position, (bay * CFrame.new(12.5, 18, -9)).Position, 4)
 	-- Pass board with tiers and the season countdown (client drawn).
-	Kit.screen(set, "PassBoard", bay * CFrame.new(0, 5.5, -0.8), Vector2.new(14, 6), Screen.Pass)
+	Kit.screen(set, "PassBoard", bay * CFrame.new(0, 5.2, -0.8), Vector2.new(16, 6.6), Screen.Pass)
 	Kit.sign(
 		set,
 		"PassBanner",
@@ -306,6 +343,60 @@ local function buildPassBay(model: Model, bay: CFrame)
 	set.Parent = model
 end
 
+-- Display model of a troop on a glowing pedestal. Mannequins are tagged so clients can animate
+-- them (the Overlord's drones orbit it).
+local function mannequin(
+	model: Model,
+	floor: CFrame,
+	robotId: string,
+	scale: number,
+	accent: Color3,
+	title: string,
+	terminal: string?
+)
+	local display = Instance.new("Model")
+	display.Name = "Mannequin_" .. robotId
+	Kit.disc(display, "Pedestal", 3.2, 2.2, floor * CFrame.new(0, 1.1, 0), World.Steel, Enum.Material.Metal)
+	Kit.ring(display, "PedestalGlow", floor * CFrame.new(0, 2.22, 0), 3, 0.35, 0.06, 24, accent, Enum.Material.Neon)
+	local robot = RobotModels.build(RobotConfig.Robots[robotId])
+	robot:ScaleTo(scale)
+	local _, size = robot:GetBoundingBox()
+	robot:PivotTo(floor * CFrame.new(0, 2.2 + size.Y * 0.5 + 0.2, 0))
+	robot:SetAttribute(Constants.Attributes.TroopId, robotId)
+	CollectionService:AddTag(robot, Constants.Tags.Mannequin)
+	robot.Parent = display
+	local plate = Kit.sign(
+		display,
+		"Plate",
+		floor * CFrame.new(0, 1.2, -3.25),
+		Vector2.new(6.2, 1.3),
+		title,
+		accent,
+		World.Steel,
+		accent,
+		Theme.Fonts.Title
+	)
+	if terminal ~= nil then
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.ActionText = "Buy"
+		prompt.ObjectText = title
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = 10
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = plate
+		plate:SetAttribute(Constants.Attributes.Terminal, terminal)
+		CollectionService:AddTag(plate, Constants.Tags.Terminal)
+	end
+	local light = Instance.new("SpotLight")
+	light.Face = Enum.NormalId.Top
+	light.Angle = 50
+	light.Range = 16
+	light.Brightness = 2
+	light.Color = accent
+	light.Parent = display:FindFirstChild("Pedestal")
+	display.Parent = model
+end
+
 local function buildStatue(model: Model, floor: CFrame)
 	local statue = Instance.new("Model")
 	statue.Name = "CollectibleStatue"
@@ -373,6 +464,26 @@ function Market.build(parent: Instance, origin: CFrame)
 	buildRobuxBay(model, frame * CFrame.new(width * 0.5, 0, 4) * CFrame.Angles(0, math.rad(90), 0))
 	buildPassBay(model, frame * CFrame.new(-width * 0.5, 0, 4) * CFrame.Angles(0, math.rad(-90), 0))
 	buildStatue(model, frame * CFrame.new(10, 0, -(depth * 0.5 - 9)))
+	-- Robux exclusive: the Drone Overlord with its escort drones circling it.
+	mannequin(
+		model,
+		frame * CFrame.new(width * 0.5 - 18, 0, 20) * CFrame.Angles(0, math.rad(90), 0),
+		"Overlord",
+		1.5,
+		Color3.fromRGB(242, 193, 0),
+		"DRONE OVERLORD  R$150",
+		"RobuxSpecials"
+	)
+	-- Season Pass showcase: the tier 30 premium troop.
+	mannequin(
+		model,
+		frame * CFrame.new(-(width * 0.5 - 18), 0, 20) * CFrame.Angles(0, math.rad(-90), 0),
+		"Phantom",
+		1.8,
+		Color3.fromRGB(96, 214, 255),
+		"PASS TIER 30 REWARD",
+		"Pass"
+	)
 	model.Parent = parent
 end
 

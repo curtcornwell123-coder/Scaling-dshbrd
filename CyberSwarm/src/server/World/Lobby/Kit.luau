@@ -405,28 +405,507 @@ function Kit.truss(parent: Instance, from: Vector3, to: Vector3, lights: number,
 	end
 end
 
--- Props ---------------------------------------------------------------------------------------
-
-function Kit.crate(parent: Instance, floorCFrame: CFrame, size: number)
-	local body = Kit.block(
-		parent,
-		"Crate",
-		Vector3.one * size,
-		floorCFrame * CFrame.new(0, size * 0.5, 0),
-		Color3.fromRGB(132, 108, 70)
-	)
-	body.Material = Enum.Material.WoodPlanks
-	for _, y in { 0.15, 0.85 } do
+-- Flat concrete roof over a rectangular area with a framed glass skylight in the middle.
+-- `frame` is the floor centre; width runs along local X, depth along local Z.
+function Kit.roof(parent: Instance, frame: CFrame, width: number, depth: number, height: number, skylight: Vector2?)
+	local thickness = 1.4
+	local y = height + thickness * 0.5
+	local window = skylight or Vector2.zero
+	if window.X <= 0 or window.Y <= 0 then
 		Kit.block(
 			parent,
-			"CrateBand",
-			Vector3.new(size + 0.1, 0.25, size + 0.1),
-			floorCFrame * CFrame.new(0, size * y, 0),
+			"Roof",
+			Vector3.new(width, thickness, depth),
+			frame * CFrame.new(0, y, 0),
+			World.ConcreteMid,
+			Enum.Material.Concrete
+		)
+	else
+		local sideWidth = (width - window.X) * 0.5
+		local endDepth = (depth - window.Y) * 0.5
+		for _, sign in { -1, 1 } do
+			Kit.block(
+				parent,
+				"Roof",
+				Vector3.new(sideWidth, thickness, depth),
+				frame * CFrame.new(sign * (window.X * 0.5 + sideWidth * 0.5), y, 0),
+				World.ConcreteMid,
+				Enum.Material.Concrete
+			)
+			Kit.block(
+				parent,
+				"Roof",
+				Vector3.new(window.X, thickness, endDepth),
+				frame * CFrame.new(0, y, sign * (window.Y * 0.5 + endDepth * 0.5)),
+				World.ConcreteMid,
+				Enum.Material.Concrete
+			)
+		end
+		local glass = Kit.block(
+			parent,
+			"Skylight",
+			Vector3.new(window.X, 0.3, window.Y),
+			frame * CFrame.new(0, y, 0),
+			Color3.fromRGB(170, 214, 240),
+			Enum.Material.Glass
+		)
+		glass.Transparency = 0.65
+		glass.CastShadow = false
+		local mullions = math.max(1, math.floor(window.X / 8))
+		for index = 1, mullions - 1 do
+			Kit.block(
+				parent,
+				"Mullion",
+				Vector3.new(0.5, 0.6, window.Y),
+				frame * CFrame.new(-window.X * 0.5 + index * window.X / mullions, y + 0.2, 0),
+				World.Steel,
+				Enum.Material.Metal,
+				false
+			)
+		end
+		Kit.block(
+			parent,
+			"Mullion",
+			Vector3.new(window.X, 0.6, 0.5),
+			frame * CFrame.new(0, y + 0.2, 0),
 			World.Steel,
 			Enum.Material.Metal,
 			false
 		)
 	end
+	-- Warm ceiling lights so covered rooms never go dark.
+	for _, offset in { Vector3.new(-width * 0.3, 0, 0), Vector3.new(width * 0.3, 0, 0) } do
+		local lamp = Kit.block(
+			parent,
+			"CeilingLamp",
+			Vector3.new(2.4, 0.4, 2.4),
+			frame * CFrame.new(offset + Vector3.new(0, height - 0.3, 0)),
+			World.Steel,
+			Enum.Material.Metal,
+			false
+		)
+		local light = Instance.new("PointLight")
+		light.Range = math.max(width, depth) * 0.6
+		light.Brightness = 1
+		light.Color = Color3.fromRGB(255, 240, 220)
+		light.Parent = lamp
+		Kit.glow(
+			parent,
+			"LampGlow",
+			Vector3.new(2, 0.08, 2),
+			frame * CFrame.new(offset + Vector3.new(0, height - 0.55, 0)),
+			Color3.fromRGB(255, 244, 228)
+		)
+	end
+end
+
+-- Ring roof on a round hall with a round glass skylight in the centre.
+function Kit.roundRoof(parent: Instance, center: CFrame, outer: number, skylightRadius: number, height: number)
+	local segments = 32
+	local width = outer - skylightRadius
+	for index = 0, segments - 1 do
+		local angle = (index + 0.5) / segments * math.pi * 2
+		local frame = center
+			* CFrame.Angles(0, -angle, 0)
+			* CFrame.new(0, height + 0.7, -(skylightRadius + width * 0.5))
+		Kit.block(
+			parent,
+			"Roof",
+			Vector3.new(2 * math.pi * outer / segments * 1.05, 1.4, width),
+			frame,
+			World.ConcreteMid,
+			Enum.Material.Concrete
+		)
+		if index % 4 == 0 then
+			local lamp = Kit.block(
+				parent,
+				"CeilingLamp",
+				Vector3.new(2.4, 0.4, 2.4),
+				frame * CFrame.new(0, -1, -width * 0.2),
+				World.Steel,
+				Enum.Material.Metal,
+				false
+			)
+			local light = Instance.new("PointLight")
+			light.Range = 30
+			light.Brightness = 1.1
+			light.Color = Color3.fromRGB(255, 240, 220)
+			light.Parent = lamp
+		end
+	end
+	local glass = Kit.disc(
+		parent,
+		"Skylight",
+		skylightRadius + 0.5,
+		0.3,
+		center * CFrame.new(0, height + 0.7, 0),
+		Color3.fromRGB(170, 214, 240),
+		Enum.Material.Glass
+	)
+	glass.Transparency = 0.65
+	glass.CastShadow = false
+	Kit.ring(
+		parent,
+		"SkylightFrame",
+		center * CFrame.new(0, height + 0.7, 0),
+		skylightRadius,
+		1,
+		1.5,
+		28,
+		World.Steel,
+		Enum.Material.Metal
+	)
+end
+
+-- Props ---------------------------------------------------------------------------------------
+
+local WOOD = Color3.fromRGB(150, 118, 76)
+local WOOD_DARK = Color3.fromRGB(104, 78, 48)
+local CRATE_LABELS = { "FRAGILE", "PARTS", "AMMO", "HANDLE WITH CARE", "SUPPLY", "SERVO UNITS" }
+
+-- Text painted on a part face (stencils, labels).
+function Kit.stencil(part: BasePart, face: Enum.NormalId, text: string, color: Color3)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = face
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 30
+	gui.Adornee = part
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(0.86, 0.36)
+	label.Position = UDim2.fromScale(0.07, 0.32)
+	label.Font = Enum.Font.Code
+	label.TextScaled = true
+	label.TextColor3 = color
+	label.TextTransparency = 0.15
+	label.Text = text
+	label.Parent = gui
+	gui.Parent = part
+end
+
+-- A wooden shipping crate: planked body, darker edge battens, cross braces, and a stencil.
+function Kit.crate(parent: Instance, floorCFrame: CFrame, size: number, seed: number?)
+	local model = Instance.new("Model")
+	model.Name = "Crate"
+	local center = floorCFrame * CFrame.new(0, size * 0.5, 0)
+	local body = Kit.block(model, "Body", Vector3.one * (size - 0.08), center, WOOD, Enum.Material.WoodPlanks)
+	local half = size * 0.5
+	local batten = math.max(0.18, size * 0.09)
+	-- Twelve edge battens.
+	for _, axis in { "X", "Y", "Z" } do
+		for _, a in { -1, 1 } do
+			for _, b in { -1, 1 } do
+				local offset: Vector3
+				local blockSize: Vector3
+				if axis == "X" then
+					offset = Vector3.new(0, a * (half - batten * 0.5), b * (half - batten * 0.5))
+					blockSize = Vector3.new(size, batten, batten)
+				elseif axis == "Y" then
+					offset = Vector3.new(a * (half - batten * 0.5), 0, b * (half - batten * 0.5))
+					blockSize = Vector3.new(batten, size, batten)
+				else
+					offset = Vector3.new(a * (half - batten * 0.5), b * (half - batten * 0.5), 0)
+					blockSize = Vector3.new(batten, batten, size)
+				end
+				Kit.block(model, "Batten", blockSize, center * CFrame.new(offset), WOOD_DARK, Enum.Material.Wood, false)
+			end
+		end
+	end
+	-- Diagonal braces on the front and back faces.
+	for _, z in { -1, 1 } do
+		Kit.block(
+			model,
+			"Brace",
+			Vector3.new(size * 1.25, batten * 0.8, batten * 0.5),
+			center * CFrame.new(0, 0, z * (half + 0.02)) * CFrame.Angles(0, 0, math.rad(45)),
+			WOOD_DARK,
+			Enum.Material.Wood,
+			false
+		)
+	end
+	local label = CRATE_LABELS[((seed or 1) % #CRATE_LABELS) + 1]
+	Kit.stencil(body, Enum.NormalId.Right, label, Color3.fromRGB(40, 30, 20))
+	model.Parent = parent
+end
+
+-- Oil drum with rims and a painted band.
+function Kit.barrel(parent: Instance, floorCFrame: CFrame, color: Color3)
+	local model = Instance.new("Model")
+	model.Name = "Barrel"
+	Kit.disc(model, "Drum", 1.4, 4, floorCFrame * CFrame.new(0, 2, 0), color, Enum.Material.Metal)
+	for _, y in { 0.15, 2, 3.85 } do
+		Kit.disc(
+			model,
+			"Rim",
+			1.48,
+			0.18,
+			floorCFrame * CFrame.new(0, y, 0),
+			color:Lerp(Color3.new(0, 0, 0), 0.35),
+			Enum.Material.Metal
+		)
+	end
+	Kit.disc(
+		model,
+		"Cap",
+		0.25,
+		0.1,
+		floorCFrame * CFrame.new(0.6, 4.02, 0.4),
+		Color3.fromRGB(40, 40, 44),
+		Enum.Material.Metal
+	)
+	model.Parent = parent
+end
+
+-- Wooden pallet, optionally stacked with sacks.
+function Kit.pallet(parent: Instance, floorCFrame: CFrame, loaded: boolean)
+	local model = Instance.new("Model")
+	model.Name = "Pallet"
+	for _, x in { -1.8, 0, 1.8 } do
+		Kit.block(
+			model,
+			"Stringer",
+			Vector3.new(0.5, 0.5, 4.4),
+			floorCFrame * CFrame.new(x, 0.25, 0),
+			WOOD_DARK,
+			Enum.Material.Wood
+		)
+	end
+	for index = -2, 2 do
+		Kit.block(
+			model,
+			"Deck",
+			Vector3.new(4.4, 0.18, 0.7),
+			floorCFrame * CFrame.new(0, 0.59, index * 0.9),
+			WOOD,
+			Enum.Material.WoodPlanks
+		)
+	end
+	if loaded then
+		for row = 0, 1 do
+			for index = -1, 1 do
+				local sack = Kit.block(
+					model,
+					"Sack",
+					Vector3.new(1.3, 0.8, 3.6),
+					floorCFrame
+						* CFrame.new(index * 1.35, 1.1 + row * 0.8, 0)
+						* CFrame.Angles(0, math.rad((index + row) * 4), 0),
+					Color3.fromRGB(196, 178, 140),
+					Enum.Material.Fabric
+				)
+				sack.Shape = Enum.PartType.Block
+			end
+		end
+	end
+	model.Parent = parent
+end
+
+-- Red rolling toolbox with drawers.
+function Kit.toolbox(parent: Instance, floorCFrame: CFrame)
+	local model = Instance.new("Model")
+	model.Name = "Toolbox"
+	local red = Color3.fromRGB(176, 40, 40)
+	Kit.block(model, "Cabinet", Vector3.new(3.2, 3.2, 1.8), floorCFrame * CFrame.new(0, 2, 0), red, Enum.Material.Metal)
+	for index = 0, 3 do
+		Kit.block(
+			model,
+			"Handle",
+			Vector3.new(2.2, 0.12, 0.12),
+			floorCFrame * CFrame.new(0, 1.0 + index * 0.75, -0.96),
+			Color3.fromRGB(200, 200, 205),
+			Enum.Material.Metal,
+			false
+		)
+	end
+	for _, x in { -1.3, 1.3 } do
+		for _, z in { -0.6, 0.6 } do
+			Kit.disc(
+				model,
+				"Caster",
+				0.2,
+				0.2,
+				floorCFrame * CFrame.new(x, 0.2, z) * CFrame.Angles(math.rad(90), 0, 0),
+				Color3.fromRGB(30, 30, 32),
+				Enum.Material.SmoothPlastic
+			)
+		end
+	end
+	Kit.block(
+		model,
+		"Wrench",
+		Vector3.new(1.6, 0.12, 0.35),
+		floorCFrame * CFrame.new(0.2, 3.66, 0.1) * CFrame.Angles(0, math.rad(25), 0),
+		Color3.fromRGB(170, 170, 176),
+		Enum.Material.Metal,
+		false
+	)
+	model.Parent = parent
+end
+
+-- Traffic cone with reflective bands.
+function Kit.cone(parent: Instance, floorCFrame: CFrame)
+	local model = Instance.new("Model")
+	model.Name = "Cone"
+	local orange = Color3.fromRGB(240, 110, 30)
+	Kit.block(
+		model,
+		"Base",
+		Vector3.new(1.4, 0.15, 1.4),
+		floorCFrame * CFrame.new(0, 0.08, 0),
+		Color3.fromRGB(30, 30, 32),
+		Enum.Material.SmoothPlastic
+	)
+	for index, radius in { 0.55, 0.45, 0.35, 0.25 } do
+		Kit.disc(
+			model,
+			"Cone",
+			radius,
+			0.5,
+			floorCFrame * CFrame.new(0, 0.15 + (index - 0.5) * 0.5, 0),
+			if index == 2 then Color3.fromRGB(235, 235, 235) else orange,
+			Enum.Material.SmoothPlastic
+		)
+	end
+	model.Parent = parent
+end
+
+-- Row of steel lockers.
+function Kit.lockers(parent: Instance, floorCFrame: CFrame, count: number)
+	local model = Instance.new("Model")
+	model.Name = "Lockers"
+	for index = 1, count do
+		local x = (index - (count + 1) * 0.5) * 1.9
+		local door = Kit.block(
+			model,
+			"Locker",
+			Vector3.new(1.8, 6, 1.8),
+			floorCFrame * CFrame.new(x, 3, 0),
+			Color3.fromRGB(70, 96, 112),
+			Enum.Material.Metal
+		)
+		for row = 0, 2 do
+			Kit.block(
+				model,
+				"Vent",
+				Vector3.new(1, 0.08, 0.05),
+				floorCFrame * CFrame.new(x, 5.1 + row * 0.2, -0.92),
+				Color3.fromRGB(40, 54, 64),
+				Enum.Material.Metal,
+				false
+			)
+		end
+		Kit.block(
+			model,
+			"Latch",
+			Vector3.new(0.12, 0.6, 0.1),
+			floorCFrame * CFrame.new(x + 0.6, 3.2, -0.95),
+			Color3.fromRGB(190, 190, 196),
+			Enum.Material.Metal,
+			false
+		)
+		door.Name = `Locker_{index}`
+	end
+	model.Parent = parent
+end
+
+-- Gas cylinders chained to a frame.
+function Kit.gasCylinders(parent: Instance, floorCFrame: CFrame)
+	local model = Instance.new("Model")
+	model.Name = "GasCylinders"
+	for index, color in { Color3.fromRGB(60, 150, 70), Color3.fromRGB(200, 200, 205), Color3.fromRGB(60, 90, 170) } do
+		local x = (index - 2) * 1.1
+		Kit.disc(model, "Cylinder", 0.5, 4.2, floorCFrame * CFrame.new(x, 2.1, 0), color, Enum.Material.Metal)
+		Kit.disc(
+			model,
+			"Valve",
+			0.22,
+			0.5,
+			floorCFrame * CFrame.new(x, 4.45, 0),
+			Color3.fromRGB(170, 150, 60),
+			Enum.Material.Metal
+		)
+	end
+	Kit.block(
+		model,
+		"Chain",
+		Vector3.new(3.6, 0.15, 0.15),
+		floorCFrame * CFrame.new(0, 3, -0.55),
+		Color3.fromRGB(150, 150, 156),
+		Enum.Material.Metal,
+		false
+	)
+	Kit.block(
+		model,
+		"Rack",
+		Vector3.new(3.8, 4.6, 0.3),
+		floorCFrame * CFrame.new(0, 2.3, 0.7),
+		World.Steel,
+		Enum.Material.Metal
+	)
+	model.Parent = parent
+end
+
+-- Stack covered by a tarp with ropes.
+function Kit.tarpStack(parent: Instance, floorCFrame: CFrame, color: Color3)
+	local model = Instance.new("Model")
+	model.Name = "TarpStack"
+	local tarp = Kit.block(
+		model,
+		"Tarp",
+		Vector3.new(6, 3.6, 4.4),
+		floorCFrame * CFrame.new(0, 1.8, 0),
+		color,
+		Enum.Material.Fabric
+	)
+	tarp.Shape = Enum.PartType.Block
+	Kit.wedge(
+		model,
+		"TarpPeak",
+		Vector3.new(6, 0.8, 2.2),
+		floorCFrame * CFrame.new(0, 4, -1.1) * CFrame.Angles(0, math.pi, 0),
+		color
+	)
+	Kit.wedge(model, "TarpPeak", Vector3.new(6, 0.8, 2.2), floorCFrame * CFrame.new(0, 4, 1.1), color)
+	for _, x in { -1.8, 1.8 } do
+		Kit.block(
+			model,
+			"Rope",
+			Vector3.new(0.12, 0.12, 4.6),
+			floorCFrame * CFrame.new(x, 3.62, 0),
+			Color3.fromRGB(196, 170, 120),
+			Enum.Material.Fabric,
+			false
+		)
+	end
+	model.Parent = parent
+end
+
+-- Cable spool on its side.
+function Kit.spool(parent: Instance, floorCFrame: CFrame)
+	local model = Instance.new("Model")
+	model.Name = "Spool"
+	local axis = floorCFrame * CFrame.new(0, 1.6, 0)
+	for _, z in { -0.9, 0.9 } do
+		Kit.disc(
+			model,
+			"Flange",
+			1.6,
+			0.2,
+			axis * CFrame.new(0, 0, z) * CFrame.Angles(math.rad(90), 0, 0),
+			WOOD,
+			Enum.Material.WoodPlanks
+		)
+	end
+	Kit.disc(
+		model,
+		"Core",
+		1.05,
+		1.6,
+		axis * CFrame.Angles(math.rad(90), 0, 0),
+		Color3.fromRGB(30, 30, 34),
+		Enum.Material.Fabric
+	)
+	model.Parent = parent
 end
 
 function Kit.sandbags(parent: Instance, floorCFrame: CFrame, length: number)

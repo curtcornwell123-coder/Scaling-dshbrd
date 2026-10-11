@@ -23,15 +23,19 @@ WaveConfig.maxWaveDuration = 150
 WaveConfig.spawnSpacing = 0.6
 
 -- Coins each player starts a match with.
-WaveConfig.startingCoins = 120
+WaveConfig.startingCoins = 170
 
 local rewards: Types.WaveRewards = {
-	perSurvivor = 5,
-	perBaseDamage = 0.5,
-	completionBonus = 30,
-	completionBonusPerWave = 6,
+	perSurvivor = 8,
+	perBaseDamage = 0.8,
+	completionBonus = 45,
+	completionBonusPerWave = 9,
 }
 WaveConfig.Rewards = rewards
+
+-- Safety net against going bankrupt: after every cleared wave a player is topped up to at least
+-- this many coins (plus their completion bonus), so a bad wave never ends the run by itself.
+WaveConfig.minimumCoinsAfterWave = 60
 
 -- Wave size: how many robots one player may queue per wave.
 local robotCap: Types.RobotCapRules = {

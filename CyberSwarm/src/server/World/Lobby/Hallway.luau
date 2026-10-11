@@ -91,6 +91,7 @@ function Hallway.build(
 			Enum.Material.Metal
 		)
 	end
+	Kit.roof(model, frame, width + 6, length, height, nil)
 	-- Direction sign hanging near the hub end, readable from the hub.
 	local signFrame = frame * CFrame.new(0, height - 4.5, length * 0.5 - 4) * CFrame.Angles(0, math.pi, 0)
 	Kit.sign(

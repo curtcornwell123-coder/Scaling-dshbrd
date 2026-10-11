@@ -20,6 +20,7 @@ type ShopEntry = {
 	currency: Types.Currency,
 	unlock: Types.UnlockRequirement,
 	builderId: string,
+	robuxOnly: boolean?,
 }
 
 local NONE: Types.UnlockRequirement = { kind = "None", value = 0 }
@@ -64,6 +65,14 @@ local shopEntries: { [string]: ShopEntry } = {
 	},
 	Crawler = { role = "Swarmer", price = 300, currency = "Coins", unlock = NONE, builderId = "Walker" },
 	Juggernaut = { role = "Siege", price = 1200, currency = "Coins", unlock = NONE, builderId = "Heavy" },
+	Overlord = {
+		role = "Commander",
+		price = 0,
+		currency = "Gems",
+		unlock = NONE,
+		builderId = "Overlord",
+		robuxOnly = true,
+	},
 	Hornet = { role = "Gunship", price = 80, currency = "Gems", unlock = NONE, builderId = "Hover" },
 }
 
@@ -89,6 +98,7 @@ for robotId, entry in shopEntries do
 		builderId = entry.builderId,
 		description = robot.description,
 		comingSoon = robot.locked,
+		robuxOnly = entry.robuxOnly == true,
 	}
 end
 TroopConfig.Troops = troops
@@ -117,6 +127,6 @@ TroopConfig.RotatingCount = 3
 TroopConfig.RotationSeed = 7919
 
 -- Model builders the shared RobotModels module knows how to make.
-TroopConfig.Builders = { "Orb", "Heavy", "Walker", "Hover", "Lancer" }
+TroopConfig.Builders = { "Orb", "Heavy", "Walker", "Hover", "Lancer", "Overlord" }
 
 return TableUtil.deepFreeze(TroopConfig)

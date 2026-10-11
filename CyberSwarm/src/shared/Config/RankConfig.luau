@@ -27,6 +27,9 @@ RankConfig.RatingKeys = {
 	SquadRanked = "Squad",
 } :: { [string]: string }
 
+-- Hidden skill rating used to matchmake casual team modes (never shown, never on boards).
+RankConfig.CasualKey = "Casual"
+
 RankConfig.RatingKeyNames = {
 	Duel = "1v1",
 	Squad = "3v3",

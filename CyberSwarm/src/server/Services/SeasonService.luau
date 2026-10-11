@@ -26,17 +26,37 @@ local Rewards = require(script.Parent.Parent.Rewards)
 local Notifier = require(script.Parent.Parent.Notifier)
 local DataService = require(script.Parent.DataService)
 local MatchService = require(script.Parent.MatchService)
+local Passes = require(script.Parent.Parent.Passes)
 
 local ErrorCode = Constants.ErrorCode
-local XP = SeasonConfig.XpSources
 
 local SeasonService = {}
 
-local function addXp(player: Player, amount: number)
-	DataService.update(player, function(data)
-		SeasonRules.normalize(data.season, SeasonConfig.SeasonId)
-		SeasonRules.addXp(data.season, amount, os.time(), SeasonConfig.StartsAt, SeasonConfig.EndsAt)
+-- Progress on the current tier's quest. Only touches saved data when the event matches it.
+local function addProgress(player: Player, kind: Types.QuestKind, amount: number)
+	local now = os.time()
+	if now < SeasonConfig.StartsAt or now >= SeasonConfig.EndsAt or DataService.isSandboxed(player) then
+		return
+	end
+	local data = DataService.getData(player)
+	if data == nil then
+		return
+	end
+	local current = if data.season.seasonId == SeasonConfig.SeasonId then data.season.tier else 0
+	local nextTier = SeasonConfig.Tiers[current + 1]
+	if nextTier == nil or nextTier.quest.kind ~= kind then
+		return
+	end
+	local scaled = amount * (if Passes.has(player, "DoubleXP") then 2 else 1)
+	local gained = 0
+	DataService.update(player, function(profile)
+		SeasonRules.normalize(profile.season, SeasonConfig.SeasonId)
+		gained = SeasonRules.addTierProgress(profile.season, kind, scaled, SeasonConfig.Tiers, SeasonConfig.TierCount)
 	end)
+	if gained > 0 then
+		local reached = (DataService.getData(player) :: Types.PlayerData).season.tier
+		Notifier.celebrate({ player }, `PASS TIER {reached}!`, "New Season Pass reward ready to claim.")
+	end
 end
 
 local function claimRanked(player: Player): string
@@ -101,10 +121,27 @@ function SeasonService.start()
 			return
 		end
 		for player, matchPlayer in match.players do
-			if matchPlayer.connected and not DataService.isSandboxed(player) then
-				local won = outcome.winner ~= nil and matchPlayer.arena == outcome.winner
-				addXp(player, (if won then XP.win else XP.loss) + XP.perWave * match.wavesCompleted)
+			if matchPlayer.connected then
+				addProgress(player, "PlayMatches", 1)
+				if outcome.winner ~= nil and matchPlayer.arena == outcome.winner then
+					addProgress(player, "WinMatches", 1)
+				end
 			end
+		end
+	end)
+	MatchService.waveCleared:connect(function(match: ServerTypes.Match)
+		if match.sandbox ~= nil or not match.mode.rewardsEnabled then
+			return
+		end
+		for player, matchPlayer in match.players do
+			if matchPlayer.connected then
+				addProgress(player, "CompleteWaves", 1)
+			end
+		end
+	end)
+	MatchService.robotQueued:connect(function(match: ServerTypes.Match, matchPlayer: ServerTypes.MatchPlayer)
+		if match.sandbox == nil and match.mode.rewardsEnabled then
+			addProgress(matchPlayer.player, "DeployRobots", 1)
 		end
 	end)
 

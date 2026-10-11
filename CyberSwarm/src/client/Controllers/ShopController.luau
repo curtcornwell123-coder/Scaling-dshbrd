@@ -1,11 +1,12 @@
 --!strict
 --[[
 	ShopController
-	The Troop Shop (opened from the Troop Depot terminal or the side rail): every catalog troop
-	with its price, currency, stock state (permanent or today's rotation), and unlock requirement.
-	The client never decides a purchase; it sends RequestBuyTroop with the troop id only and the
-	server answers with an ActionResult. On success `purchased` fires so the Loadout panel opens
-	as the equip slot picker.
+	The Troop Shop (Troop Depot terminal, or the TROOPS bar's shop button): today's six troops
+	(three always in stock, three on the daily rotation) as big 3D cards with stats, role,
+	abilities and price, then every other troop greyed out as "back another day".
+	The client never decides a purchase: it sends RequestBuyTroop with the troop id only and the
+	server answers with an ActionResult. On success a celebration plays and `purchased` fires so
+	the Loadout window opens as the equip slot picker.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,21 +22,14 @@ local RobotConfig = require(ReplicatedStorage.Shared.Config.RobotConfig)
 local TroopConfig = require(ReplicatedStorage.Shared.Config.TroopConfig)
 local TroopRotation = require(ReplicatedStorage.Shared.Logic.TroopRotation)
 local Requirements = require(ReplicatedStorage.Shared.Logic.Requirements)
+local Calendar = require(ReplicatedStorage.Shared.Logic.Calendar)
 local UIKit = require(script.Parent.Parent.UI.UIKit)
+local Widgets = require(script.Parent.Parent.UI.Widgets)
 local ClientState = require(script.Parent.Parent.ClientState)
 local UIController = require(script.Parent.UIController)
 
-local ROW_HEIGHT = 120
--- The Armory opens beside the lobby's side rail, like the Play and Loadout panels.
-local PANEL_X = 0.135
-local PANEL_SLIDE_FROM = 0.115
-local ROW_GAP = 10
-
-type Row = {
-	robotId: string,
-	button: TextButton,
-	stroke: UIStroke,
-}
+local UI = Theme.UI
+local ACCENT = UI.Purple
 
 local ROTATION: TroopRotation.RotationSettings = {
 	permanent = TroopConfig.Permanent,
@@ -48,154 +42,148 @@ local ShopController = {}
 ShopController.rotationSettings = ROTATION
 -- Fires with the troop id after the server confirms a purchase.
 ShopController.purchased = Signal.new() :: Signal.Signal<string>
-
--- Fires when the panel closes (its X button or another panel opening), so the rail can update.
 ShopController.closed = Signal.new() :: Signal.Signal<()>
 
 local maid = Maid.new()
-local panel: Frame
-local coinsLabel: TextLabel
-local rows: { Row } = {}
+local contentMaid = Maid.new()
+local window: Widgets.Window
 
--- A one-line summary of what makes a robot special, derived from its config.
+-- A short summary of what makes a robot special, derived from its config.
 function ShopController.describeRobot(robot: Types.RobotDef): string
-	local parts = { `HP {robot.health}`, `SPD {robot.speed}`, `DMG {robot.damage}`, `COST {robot.cost}` }
+	local parts: { string } = {}
 	if robot.flying then
 		table.insert(parts, "FLYING")
 	end
 	for _, ability in robot.abilities do
 		table.insert(parts, string.upper(ability.kind))
 	end
-	return table.concat(parts, "  |  ")
-end
-
-local function refresh(profile: Types.PlayerData?)
-	local coins = if profile ~= nil then profile.coins else 0
-	local rotation = TroopRotation.forTime(workspace:GetServerTimeNow(), ROTATION)
-	UIKit.setText(coinsLabel, `COINS {MathUtil.formatCount(coins)}`)
-	for _, row in rows do
-		local robot = RobotConfig.Robots[row.robotId]
-		local owned = profile ~= nil and table.find(profile.unlockedRobots, row.robotId) ~= nil
-		if robot.locked then
-			UIKit.setText(row.button, "COMING SOON")
-			row.button.BackgroundColor3 = Theme.Colors.PanelDark
-			row.button.TextColor3 = Theme.Colors.TextDim
-			row.stroke.Color = Theme.Colors.TextDim
-		elseif owned then
-			UIKit.setText(row.button, "OWNED")
-			row.button.BackgroundColor3 = Theme.Colors.PanelDark
-			row.button.TextColor3 = Theme.Colors.Success
-			row.stroke.Color = Theme.Colors.Success
-		else
-			local troop = TroopConfig.Troops[row.robotId]
-			local inStock = TroopRotation.inStock(rotation, row.robotId)
-			local balance = if troop.currency == "Gems" then (if profile ~= nil then profile.gems else 0) else coins
-			local met = profile ~= nil and Requirements.isMet(troop.unlock, Requirements.progressOf(profile))
-			local affordable = inStock and met and balance >= troop.price
-			local priceText =
-				`{MathUtil.formatCount(troop.price)} {if troop.currency == "Gems" then "GEMS" else "COINS"}`
-			UIKit.setText(
-				row.button,
-				if not inStock then "NOT IN STOCK" elseif not met then "LOCKED" else `BUY  {priceText}`
-			)
-			row.button.BackgroundColor3 = if affordable then Theme.Colors.Primary else Theme.Colors.PanelLight
-			row.button.TextColor3 = if affordable then Theme.Colors.PanelDark else Theme.Colors.TextDim
-			row.stroke.Color = Theme.Colors.Primary
+	local immunities = robot.immunities
+	if immunities ~= nil then
+		for _, immunity in immunities do
+			table.insert(parts, `NO {string.upper(immunity)}`)
 		end
 	end
+	return if #parts > 0 then table.concat(parts, "  ") else "NO SPECIAL ABILITY"
 end
 
-local function buildRow(list: ScrollingFrame, robotId: string, order: number)
-	local robot = RobotConfig.Robots[robotId]
-	local rarityColor = Theme.rarityColor(robot.rarity)
+local function priceText(troop: Types.TroopDef): string
+	return `{MathUtil.formatCount(troop.price)} {if troop.currency == "Gems" then "GEMS" else "COINS"}`
+end
 
-	local frame = UIKit.frame({
-		Name = robotId,
-		LayoutOrder = order,
-		Size = UDim2.new(1, -12, 0, ROW_HEIGHT),
-		BackgroundColor3 = Theme.Colors.PanelLight,
-		Parent = list,
-	})
-	UIKit.corner(frame)
-	UIKit.stroke(frame, rarityColor, 1.5, 0.3)
-
-	UIKit.frame({
-		Name = "RarityBar",
-		Size = UDim2.new(0, 8, 1, 0),
-		BackgroundColor3 = rarityColor,
-		Parent = frame,
-	})
-	UIKit.label({
-		Size = UDim2.fromScale(0.5, 0.32),
-		Position = UDim2.fromScale(0.04, 0.08),
+local function buildCard(parent: Instance, order: number, troopId: string, inStock: boolean, profile: Types.PlayerData)
+	local robot = RobotConfig.Robots[troopId]
+	local troop = TroopConfig.Troops[troopId]
+	local rarity = Theme.rarityColor(robot.rarity)
+	local owned = table.find(profile.unlockedRobots, troopId) ~= nil
+	local card =
+		Widgets.card(parent, rarity, { LayoutOrder = order, Size = UDim2.new(1, 0, 0, 150) }, not inStock and not owned)
+	Widgets.robotViewport(card, robot, { Size = UDim2.fromOffset(130, 130), Position = UDim2.fromOffset(10, 10) })
+	Widgets.label(card, string.upper(robot.displayName), {
+		Size = UDim2.new(1, -160, 0, 26),
+		Position = UDim2.fromOffset(150, 10),
 		Font = Theme.Fonts.Title,
-		Text = string.upper(robot.displayName),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = frame,
-	}, Theme.Text.HEADER_MAX)
-	UIKit.label({
-		Size = UDim2.fromScale(0.2, 0.22),
-		Position = UDim2.fromScale(0.5, 0.12),
-		Text = string.upper(robot.rarity),
-		TextColor3 = rarityColor,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = frame,
-	}, Theme.Text.SMALL_MAX)
-	UIKit.label({
-		Size = UDim2.fromScale(0.66, 0.26),
-		Position = UDim2.fromScale(0.04, 0.42),
-		Font = Theme.Fonts.Light,
-		Text = robot.description,
-		TextColor3 = Theme.Colors.TextDim,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = frame,
-	}, Theme.Text.SMALL_MAX)
-	UIKit.label({
-		Size = UDim2.fromScale(0.66, 0.2),
-		Position = UDim2.fromScale(0.04, 0.72),
-		Text = ShopController.describeRobot(robot),
-		TextColor3 = Theme.Colors.Primary,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = frame,
-	}, Theme.Text.SMALL_MAX)
+	}, 24)
+	Widgets.chip(card, string.upper(robot.rarity), rarity, { Position = UDim2.fromOffset(150, 40) })
+	Widgets.chip(
+		card,
+		string.upper(troop.role),
+		UI.Gem,
+		{ Position = UDim2.fromOffset(248, 40), Size = UDim2.fromOffset(120, 22) }
+	)
+	Widgets.label(card, `HP {robot.health}   SPD {robot.speed}   DMG {robot.damage}   COST {robot.cost}`, {
+		Size = UDim2.new(1, -160, 0, 18),
+		Position = UDim2.fromOffset(150, 68),
+		TextColor3 = Color3.fromRGB(190, 198, 228),
+	}, 16)
+	Widgets.label(card, ShopController.describeRobot(robot), {
+		Size = UDim2.new(1, -160, 0, 16),
+		Position = UDim2.fromOffset(150, 88),
+		TextColor3 = rarity,
+		Font = Theme.Fonts.Title,
+	}, 14)
 
-	local button = UIKit.button({
-		Size = UDim2.fromScale(0.25, 0.5),
-		Position = UDim2.fromScale(0.72, 0.25),
-		Parent = frame,
-	}, Theme.Text.BODY_MAX)
-	local stroke = UIKit.stroke(button, Theme.Colors.Primary)
-	UIKit.bindButton(button, maid, function()
-		local profile = ClientState.profile
-		if robot.locked or profile == nil or table.find(profile.unlockedRobots, robotId) ~= nil then
-			return
+	local met = Requirements.isMet(troop.unlock, Requirements.progressOf(profile))
+	local balance = if troop.currency == "Gems" then profile.gems else profile.coins
+	local text: string
+	local enabled = false
+	if owned then
+		text = "OWNED"
+	elseif troop.comingSoon then
+		text = "COMING SOON"
+	elseif not inStock then
+		text = "BACK ANOTHER DAY"
+	elseif not met then
+		local _, reason = Requirements.check({ troop.unlock }, Requirements.progressOf(profile), "to unlock")
+		text = string.upper(reason)
+	else
+		text = `BUY  {priceText(troop)}`
+		enabled = balance >= troop.price
+		if not enabled then
+			text = `NEED {priceText(troop)}`
 		end
-		Remotes.RequestBuyTroop:fire(robotId)
-	end)
-
-	table.insert(rows, { robotId = robotId, button = button, stroke = stroke })
+	end
+	local button = Widgets.button(
+		card,
+		text,
+		if troop.currency == "Gems" then UI.Gem else UI.Gold,
+		{
+			Size = UDim2.new(1, -164, 0, Widgets.TOUCH),
+			Position = UDim2.new(0, 150, 1, -(Widgets.TOUCH + 10)),
+		},
+		contentMaid,
+		function()
+			if enabled then
+				Remotes.RequestBuyTroop:fire(troopId)
+			end
+		end
+	)
+	Widgets.setButton(
+		button,
+		text,
+		if owned then UI.Green elseif troop.currency == "Gems" then UI.Gem else UI.Gold,
+		enabled or owned
+	)
 end
 
-function ShopController.open()
-	if panel.Visible then
+local function section(parent: Instance, order: number, text: string)
+	Widgets.label(parent, text, {
+		LayoutOrder = order,
+		Size = UDim2.new(1, 0, 0, 26),
+		Font = Theme.Fonts.Title,
+		TextColor3 = ACCENT,
+	}, 20)
+end
+
+local function refresh()
+	local profile = ClientState.profile
+	if profile == nil or not window.isOpen() then
 		return
 	end
-	refresh(ClientState.profile)
-	panel.Position = UDim2.fromScale(PANEL_SLIDE_FROM, 0.5)
-	panel.Visible = true
-	UIKit.tween(panel, Theme.Tween.Normal, { Position = UDim2.fromScale(PANEL_X, 0.5) })
-end
-
-function ShopController.close()
-	if not panel.Visible then
-		return
+	contentMaid:cleanup()
+	window.clear()
+	local now = workspace:GetServerTimeNow()
+	local rotation = TroopRotation.forTime(now, ROTATION)
+	UIKit.setText(
+		window.subtitle,
+		`COINS {MathUtil.formatCount(profile.coins)}   GEMS {MathUtil.formatCount(profile.gems)}   -   new troops in {Calendar.formatDuration(
+			rotation.resetsAt - now
+		)}`
+	)
+	section(window.body, 1, "IN STOCK TODAY")
+	local order = 2
+	for _, troopId in TroopRotation.tables(rotation) do
+		buildCard(window.body, order, troopId, true, profile)
+		order += 1
 	end
-	panel.Visible = false
-	ShopController.closed:fire()
-end
-
-function ShopController.isOpen(): boolean
-	return panel.Visible
+	section(window.body, order, "OTHER TROOPS")
+	order += 1
+	for _, troopId in TroopConfig.Order do
+		local troop = TroopConfig.Troops[troopId]
+		if troop ~= nil and not TroopRotation.inStock(rotation, troopId) and not troop.robuxOnly then
+			buildCard(window.body, order, troopId, false, profile)
+			order += 1
+		end
+	end
 end
 
 local function onActionResult(result: Types.ActionResult)
@@ -203,11 +191,7 @@ local function onActionResult(result: Types.ActionResult)
 		return
 	end
 	local troop = TroopConfig.Troops[result.id :: string]
-	UIController.showBanner(
-		"TROOP UNLOCKED",
-		if troop ~= nil then `{troop.name} joined your swarm. Pick a slot.` else "",
-		"Success"
-	)
+	UIController.celebrate("NEW TROOP!", if troop ~= nil then `{troop.name} joined your swarm. Pick a slot.` else "")
 	local sound = Instance.new("Sound")
 	sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
 	sound.Volume = 0.6
@@ -219,70 +203,38 @@ local function onActionResult(result: Types.ActionResult)
 	ShopController.purchased:fire(result.id :: string)
 end
 
+function ShopController.open()
+	window.open()
+	refresh()
+end
+
+function ShopController.close()
+	window.close()
+end
+
+function ShopController.isOpen(): boolean
+	return window.isOpen()
+end
+
 function ShopController.init()
-	maid:give(Remotes.ActionResult:connect(onActionResult))
-	local modal = UIController.getLayer("Modal")
-	panel = UIKit.frame({
-		Name = "Armory",
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.fromScale(PANEL_X, 0.5),
-		Size = UDim2.fromScale(0.5, 0.78),
-		BackgroundColor3 = Theme.Colors.Panel,
-		BackgroundTransparency = 0.04,
-		Visible = false,
-		Parent = modal,
+	window = Widgets.window({
+		name = "TroopShop",
+		title = "TROOP SHOP",
+		accent = ACCENT,
+		side = "Right",
+		width = 0.36,
+		height = 0.78,
+		parent = UIController.getLayer("Modal"),
+		maid = maid,
+		onClose = function()
+			contentMaid:cleanup()
+			ShopController.closed:fire()
+		end,
 	})
-	UIKit.corner(panel)
-	UIKit.stroke(panel, Theme.Colors.Secondary, 3)
-
-	UIKit.label({
-		Size = UDim2.fromScale(0.5, 0.08),
-		Position = UDim2.fromScale(0.04, 0.03),
-		Font = Theme.Fonts.Title,
-		Text = "TROOP SHOP",
-		TextColor3 = Theme.Colors.Secondary,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = panel,
-	}, Theme.Text.TITLE_MAX)
-	coinsLabel = UIKit.label({
-		Size = UDim2.fromScale(0.3, 0.05),
-		Position = UDim2.fromScale(0.52, 0.045),
-		Text = "COINS 0",
-		TextColor3 = Theme.Colors.Warning,
-		TextXAlignment = Enum.TextXAlignment.Right,
-		Parent = panel,
-	}, Theme.Text.HEADER_MAX)
-
-	local closeButton = UIKit.button({
-		Size = UDim2.fromScale(0.08, 0.08),
-		Position = UDim2.fromScale(0.88, 0.03),
-		Text = "X",
-		BackgroundColor3 = Theme.Colors.PanelLight,
-		Parent = panel,
-	}, Theme.Text.HEADER_MAX)
-	UIKit.aspect(closeButton, 1)
-	UIKit.bindButton(closeButton, maid, ShopController.close)
-
-	local list = UIKit.create("ScrollingFrame", {
-		Name = "Robots",
-		Size = UDim2.fromScale(0.92, 0.82),
-		Position = UDim2.fromScale(0.04, 0.14),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		ScrollBarThickness = 6,
-		ScrollBarImageColor3 = Theme.Colors.Primary,
-		Parent = panel,
-	}) :: ScrollingFrame
-	UIKit.list(list, Enum.FillDirection.Vertical, UDim.new(0, ROW_GAP))
-
-	for order, robotId in RobotConfig.Order do
-		buildRow(list, robotId, order)
-	end
-
-	maid:give(ClientState.profileChanged:connect(refresh))
-	refresh(ClientState.profile)
+	maid:give(Remotes.ActionResult:connect(onActionResult))
+	maid:give(ClientState.profileChanged:connect(function()
+		refresh()
+	end))
 end
 
 return ShopController

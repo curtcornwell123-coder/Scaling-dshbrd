@@ -17,6 +17,15 @@ function Calendar.dayNumber(unixTime: number): number
 	return math.floor(unixTime / SECONDS_PER_DAY)
 end
 
+-- Weeks start Monday 00:00 UTC (unix day 0 was a Thursday).
+function Calendar.weekNumber(unixTime: number): number
+	return (Calendar.dayNumber(unixTime) + 3) // 7
+end
+
+function Calendar.nextWeeklyResetAt(unixTime: number): number
+	return ((Calendar.weekNumber(unixTime) + 1) * 7 - 3) * SECONDS_PER_DAY
+end
+
 function Calendar.nextResetAt(unixTime: number): number
 	return (Calendar.dayNumber(unixTime) + 1) * SECONDS_PER_DAY
 end

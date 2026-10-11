@@ -103,8 +103,19 @@ local function defaultData(): Types.PlayerData
 			premium = false,
 			claimedFree = {},
 			claimedPremium = {},
+			tier = 0,
+			tierProgress = 0,
 		},
-		quests = { day = 0, progress = {}, claimed = {}, tried = {} },
+		quests = {
+			day = 0,
+			progress = {},
+			claimed = {},
+			tried = {},
+			week = 0,
+			weeklyProgress = {},
+			weeklyClaimed = {},
+		},
+		passes = {},
 		supply = { day = 0, claims = 0, lastClaimAt = 0 },
 		codes = {},
 		rank = {
@@ -265,14 +276,18 @@ local function sanitize(raw: any): Types.PlayerData
 	local quests: any = if TableUtil.isTable(stored.quests) then stored.quests else {}
 	local supply: any = if TableUtil.isTable(stored.supply) then stored.supply else {}
 
-	local questProgress: { [string]: number } = {}
-	if TableUtil.isTable(quests.progress) then
-		for questId, value in quests.progress do
-			if type(questId) == "string" and type(value) == "number" then
-				questProgress[questId] = math.max(0, math.floor(value))
+	local function progressMap(raw: any): { [string]: number }
+		local map: { [string]: number } = {}
+		if TableUtil.isTable(raw) then
+			for questId, value in raw do
+				if type(questId) == "string" and type(value) == "number" then
+					map[questId] = math.max(0, math.floor(value))
+				end
 			end
 		end
+		return map
 	end
+	local questProgress = progressMap(quests.progress)
 
 	return {
 		coins = math.max(0, math.floor(numberOr(stored.coins, defaults.coins))),
@@ -298,13 +313,19 @@ local function sanitize(raw: any): Types.PlayerData
 			premium = season.premium == true,
 			claimedFree = numberList(season.claimedFree, 200),
 			claimedPremium = numberList(season.claimedPremium, 200),
+			tier = math.max(0, math.floor(numberOr(season.tier, 0))),
+			tierProgress = math.max(0, math.floor(numberOr(season.tierProgress, 0))),
 		},
 		quests = {
 			day = numberOr(quests.day, 0),
 			progress = questProgress,
 			claimed = stringList(quests.claimed, 50),
 			tried = stringList(quests.tried, 50),
+			week = numberOr(quests.week, 0),
+			weeklyProgress = progressMap(quests.weeklyProgress),
+			weeklyClaimed = stringList(quests.weeklyClaimed, 50),
 		},
+		passes = stringList(stored.passes, 20),
 		supply = {
 			day = numberOr(supply.day, 0),
 			claims = math.max(0, math.floor(numberOr(supply.claims, 0))),

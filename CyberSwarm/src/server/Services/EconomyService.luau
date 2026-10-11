@@ -14,6 +14,7 @@ local RobotConfig = require(ReplicatedStorage.Shared.Config.RobotConfig)
 local WaveMath = require(ReplicatedStorage.Shared.Logic.WaveMath)
 local ServerTypes = require(script.Parent.Parent.ServerTypes)
 local DataService = require(script.Parent.DataService)
+local Passes = require(script.Parent.Parent.Passes)
 
 local EconomyService = {}
 
@@ -47,6 +48,11 @@ end
 
 function EconomyService.rewardWaveCompletion(matchPlayer: ServerTypes.MatchPlayer, waveNumber: number): number
 	local amount = WaveMath.completionBonus(waveNumber, matchPlayer.sentThisWave, WaveConfig.Rewards)
+	-- Bankruptcy safety net: never leave a player unable to field a small swarm.
+	local floor = WaveConfig.minimumCoinsAfterWave
+	if matchPlayer.coins + amount < floor then
+		amount = floor - matchPlayer.coins
+	end
 	EconomyService.grant(matchPlayer, amount)
 	return amount
 end
@@ -63,7 +69,9 @@ function EconomyService.payoutMatch(player: Player, mode: Types.ModeDef, won: bo
 	if not mode.rewardsEnabled or DataService.isSandboxed(player) then
 		return 0
 	end
-	local payout = WaveMath.matchPayout(won, wavesCompleted, mode.rewards)
+	-- Game passes boost casual payouts only; ranked is never affected by Robux purchases.
+	local payout =
+		math.floor(WaveMath.matchPayout(won, wavesCompleted, mode.rewards) * Passes.coinMultiplier(player, mode.ranked))
 	local saved = DataService.update(player, function(data)
 		data.coins += payout
 		if won then

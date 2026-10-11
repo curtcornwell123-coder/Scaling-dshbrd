@@ -24,7 +24,6 @@ local ClientState = require(script.Parent.Parent.ClientState)
 local UIController = require(script.Parent.UIController)
 
 local MAX_LANE_BUTTONS = 3
-local MUTATION_ROW_HEIGHT = 0.1
 
 type Slot = {
 	frame: Frame,
@@ -82,11 +81,12 @@ local resultStats: TextLabel
 
 local function panel(name: string, props: { [string]: any }, accent: Color3): Frame
 	props.Name = name
-	props.BackgroundColor3 = Theme.Colors.PanelDark
-	props.BackgroundTransparency = 0.12
+	props.BackgroundColor3 = Color3.new(1, 1, 1)
+	props.BackgroundTransparency = 0.06
 	local frame = UIKit.frame(props)
-	UIKit.corner(frame)
-	UIKit.stroke(frame, accent, 2, 0.25)
+	UIKit.corner(frame, UDim.new(0, 16))
+	UIKit.gradient(frame, Theme.UI.WindowTop, Theme.UI.WindowBottom, 90)
+	UIKit.stroke(frame, accent, 2, 0.3)
 	return frame
 end
 
@@ -373,60 +373,62 @@ local function buildTop(layer: Frame)
 end
 
 local function buildMutations(layer: Frame)
+	-- Sizes itself to its rows, so it is a small card early on instead of a big empty box.
 	local listPanel = panel("Mutations", {
 		Position = UDim2.fromScale(0.02, 0.16),
-		Size = UDim2.fromScale(0.2, 0.5),
+		Size = UDim2.new(0.2, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
 		Parent = layer,
 	}, Theme.Military.Amber)
+	UIKit.create("UIPadding", {
+		PaddingTop = UDim.new(0, 12),
+		PaddingBottom = UDim.new(0, 12),
+		PaddingLeft = UDim.new(0, 14),
+		PaddingRight = UDim.new(0, 14),
+		Parent = listPanel,
+	})
+	UIKit.list(listPanel, Enum.FillDirection.Vertical, UDim.new(0, 6), Enum.HorizontalAlignment.Left)
 	UIKit.label({
-		Size = UDim2.fromScale(0.9, 0.07),
-		Position = UDim2.fromScale(0.05, 0.02),
+		LayoutOrder = 0,
+		Size = UDim2.new(1, 0, 0, 24),
 		Font = Theme.Fonts.Title,
 		Text = "DEFENSE MUTATIONS",
 		TextColor3 = Theme.Military.Amber,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = listPanel,
-	}, Theme.Text.BODY_MAX)
+	}, 20)
 	mutationEmpty = UIKit.label({
-		Size = UDim2.fromScale(0.9, 0.06),
-		Position = UDim2.fromScale(0.05, 0.11),
+		LayoutOrder = 1,
+		Size = UDim2.new(1, 0, 0, 18),
 		Font = Theme.Fonts.Light,
 		Text = "None yet. They grow after every wave.",
 		TextColor3 = Theme.Colors.TextDim,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		Parent = listPanel,
-	}, Theme.Text.SMALL_MAX)
-
-	local list = UIKit.frame({
-		Size = UDim2.fromScale(0.9, 0.88),
-		Position = UDim2.fromScale(0.05, 0.1),
-		BackgroundTransparency = 1,
-		Parent = listPanel,
-	})
-	UIKit.list(list, Enum.FillDirection.Vertical, UDim.new(0.005, 0), Enum.HorizontalAlignment.Left)
+	}, 15)
 	for index = 1, #MutationConfig.Order do
 		local row = UIKit.frame({
 			Name = "Row" .. index,
-			LayoutOrder = index,
-			Size = UDim2.fromScale(1, MUTATION_ROW_HEIGHT),
+			LayoutOrder = 1 + index,
+			Size = UDim2.new(1, 0, 0, 40),
 			BackgroundTransparency = 1,
 			Visible = false,
-			Parent = list,
+			Parent = listPanel,
 		})
 		local nameLabel = UIKit.label({
-			Size = UDim2.fromScale(1, 0.5),
+			Size = UDim2.new(1, 0, 0, 20),
 			Font = Theme.Fonts.Title,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = row,
-		}, Theme.Text.SMALL_MAX)
+		}, 17)
 		local descriptionLabel = UIKit.label({
-			Size = UDim2.fromScale(1, 0.48),
-			Position = UDim2.fromScale(0, 0.5),
+			Size = UDim2.new(1, 0, 0, 18),
+			Position = UDim2.fromOffset(0, 21),
 			Font = Theme.Fonts.Light,
 			TextColor3 = Theme.Colors.TextDim,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			Parent = row,
-		}, Theme.Text.SMALL_MAX)
+		}, 14)
 		table.insert(mutationRows, { frame = row, nameLabel = nameLabel, descriptionLabel = descriptionLabel })
 	end
 

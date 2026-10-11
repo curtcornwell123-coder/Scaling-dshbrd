@@ -36,6 +36,7 @@ local Notifier = require(script.Parent.Parent.Notifier)
 local DataService = require(script.Parent.DataService)
 local MatchService = require(script.Parent.MatchService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
+local Passes = require(script.Parent.Parent.Passes)
 
 type SnapshotEntry = {
 	rating: number,
@@ -193,6 +194,28 @@ local function applyResult(player: Player, match: ServerTypes.Match, score: numb
 	local now = os.time()
 	local result: Types.RankResult? = nil
 
+	if snapshot.ratingKey == RankConfig.CasualKey then
+		-- Hidden casual skill: quiet update, no penalties, no boards, no messages.
+		DataService.update(player, function(data)
+			if table.find(data.rank.appliedMatches, match.key) ~= nil then
+				return
+			end
+			table.insert(data.rank.appliedMatches, match.key)
+			while #data.rank.appliedMatches > RankConfig.AppliedMatchHistory do
+				table.remove(data.rank.appliedMatches, 1)
+			end
+			local rating = ratingData(data, RankConfig.CasualKey)
+			local won: boolean? = if score >= 1 then true elseif score <= 0 then false else nil
+			RankMath.apply(
+				rating,
+				RankMath.delta(entry.rating, opponentRating, score, entry.played, settings),
+				won,
+				settings
+			)
+		end)
+		return
+	end
+
 	DataService.update(player, function(data)
 		local rank = data.rank
 		if table.find(rank.appliedMatches, match.key) ~= nil then
@@ -256,13 +279,12 @@ local function applyResult(player: Player, match: ServerTypes.Match, score: numb
 end
 
 local function onMatchStarted(match: ServerTypes.Match)
-	if not match.mode.ranked or match.sandbox ~= nil then
+	if match.sandbox ~= nil or match.mode.teams < 2 then
 		return
 	end
-	local ratingKey = RankService.ratingKeyFor(match.mode.id)
-	if ratingKey == nil then
-		return
-	end
+	-- Ranked modes use their own rating; casual team modes feed the hidden casual skill rating
+	-- that casual matchmaking uses.
+	local ratingKey = RankService.ratingKeyFor(match.mode.id) or RankConfig.CasualKey
 	local snapshot: Snapshot = { ratingKey = ratingKey, players = {} }
 	for player, matchPlayer in match.players do
 		local data = DataService.getData(player)
@@ -305,8 +327,8 @@ local function normalizeSeason(player: Player)
 	DataService.update(player, function(profile)
 		local rank = profile.rank
 		local best: number? = nil
-		for _, rating in rank.ratings do
-			if rating.played > 0 and (best == nil or rating.rating > best) then
+		for ratingKey, rating in rank.ratings do
+			if ratingKey ~= RankConfig.CasualKey and rating.played > 0 and (best == nil or rating.rating > best) then
 				best = rating.rating
 			end
 		end
@@ -328,7 +350,10 @@ function RankService.badgeFor(player: Player): (string, Color3)
 		return "", Color3.new(1, 1, 1)
 	end
 	local best: number? = nil
-	for _, rating in data.rank.ratings do
+	for ratingKey, rating in data.rank.ratings do
+		if ratingKey == RankConfig.CasualKey then
+			continue
+		end
 		if rating.played > 0 and (best == nil or rating.rating > best) then
 			best = rating.rating
 		end
@@ -381,6 +406,13 @@ function RankService.refreshNameplate(player: Player)
 		billboard.Parent = head
 		gui = billboard
 	end
+	-- VIP game pass: gold tag in front of the name (cosmetic only).
+	local nameLabel = (gui :: Instance):FindFirstChild("PlayerName")
+	if nameLabel ~= nil and nameLabel:IsA("TextLabel") then
+		local vip = Passes.has(player, "VIP")
+		nameLabel.Text = if vip then `[VIP] {player.DisplayName}` else player.DisplayName
+		nameLabel.TextColor3 = if vip then Color3.fromRGB(242, 193, 0) else Color3.new(1, 1, 1)
+	end
 	local label = (gui :: Instance):FindFirstChild("Rank")
 	if label ~= nil and label:IsA("TextLabel") then
 		local text, color = RankService.badgeFor(player)
@@ -390,6 +422,9 @@ function RankService.refreshNameplate(player: Player)
 end
 
 local function watchPlayer(player: Player)
+	player:GetAttributeChangedSignal(Passes.attributeName("VIP")):Connect(function()
+		RankService.refreshNameplate(player)
+	end)
 	player.CharacterAdded:Connect(function(character: Model)
 		character:WaitForChild("Head", 10)
 		-- Hide the default name so the custom plate is the only one.
@@ -422,6 +457,9 @@ function RankService.start()
 		local data = DataService.getData(player)
 		if data ~= nil then
 			for ratingKey, rating in data.rank.ratings do
+				if ratingKey == RankConfig.CasualKey then
+					continue
+				end
 				if rating.played > 0 then
 					submitBoard(player, ratingKey, rating.rating)
 				end

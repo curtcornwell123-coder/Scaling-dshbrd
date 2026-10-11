@@ -28,6 +28,7 @@ local SeasonRules = require(ReplicatedStorage.Shared.Logic.SeasonRules)
 local Rewards = require(script.Parent.Parent.Rewards)
 local Notifier = require(script.Parent.Parent.Notifier)
 local DataService = require(script.Parent.DataService)
+local Passes = require(script.Parent.Parent.Passes)
 
 local ProductService = {}
 
@@ -97,31 +98,54 @@ local function processReceipt(receipt: any): Enum.ProductPurchaseDecision
 	return GRANTED
 end
 
-local function checkGamePass(player: Player)
-	local passId = ShopConfig.PremiumGamePassId
-	if passId == 0 or DataService.isSandboxed(player) then
+-- Refreshes every game pass this player owns (profile + "Pass_<id>" attributes).
+local function refreshPasses(player: Player)
+	local owned: { string } = {}
+	for _, passId in ShopConfig.GamePassOrder do
+		local def = ShopConfig.GamePasses[passId]
+		if def.gamePassId ~= 0 then
+			local ok, owns = pcall(function(): boolean
+				return MarketplaceService:UserOwnsGamePassAsync(player.UserId, def.gamePassId)
+			end)
+			if ok and owns then
+				table.insert(owned, passId)
+			end
+		end
+	end
+	-- Season Premium may also be sold as a game pass.
+	local premiumPass = ShopConfig.PremiumGamePassId
+	local premium = false
+	if premiumPass ~= 0 then
+		local ok, owns = pcall(function(): boolean
+			return MarketplaceService:UserOwnsGamePassAsync(player.UserId, premiumPass)
+		end)
+		premium = ok and owns
+	end
+	if player.Parent == nil then
 		return
 	end
-	local ok, owns = pcall(function(): boolean
-		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
-	end)
-	if ok and owns then
-		DataService.update(player, function(data)
+	for _, passId in ShopConfig.GamePassOrder do
+		player:SetAttribute(Passes.attributeName(passId), table.find(owned, passId) ~= nil)
+	end
+	DataService.update(player, function(data)
+		data.passes = owned
+		if premium then
 			SeasonRules.normalize(data.season, SeasonConfig.SeasonId)
 			data.season.premium = true
-		end)
-	end
+		end
+	end)
 end
 
 function ProductService.start()
 	MarketplaceService.ProcessReceipt = processReceipt
 	DataService.profileLoaded:connect(function(player: Player)
-		task.spawn(checkGamePass, player)
+		task.spawn(refreshPasses, player)
 	end)
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(
-		function(player: Player, passId: number, purchased: boolean)
-			if purchased and passId == ShopConfig.PremiumGamePassId then
-				checkGamePass(player)
+		function(player: Player, _passId: number, purchased: boolean)
+			if purchased then
+				refreshPasses(player)
+				Notifier.celebrate({ player }, "PASS UNLOCKED", "Thanks for supporting the game!")
 			end
 		end
 	)

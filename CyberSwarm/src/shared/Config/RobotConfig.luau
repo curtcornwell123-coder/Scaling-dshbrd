@@ -27,9 +27,9 @@ local Robots: { [string]: Types.RobotDef } = {
 		description = "Cheap and fast. Floods the lane before towers can react.",
 		rarity = "Common",
 		cost = 10,
-		health = 32,
-		speed = 15,
-		damage = 5,
+		health = 44,
+		speed = 17,
+		damage = 7,
 		flying = false,
 		abilities = {},
 		modelPath = "Robots/Scout",
@@ -308,6 +308,31 @@ local Robots: { [string]: Types.RobotDef } = {
 		locked = false,
 		upgradeCosts = { 90, 180, 360 },
 	},
+	-- Robux-exclusive (ShopConfig.OverlordTroop). Never allowed in ranked loadouts.
+	Overlord = {
+		id = "Overlord",
+		displayName = "Drone Overlord",
+		description = "Commander mech escorted by three attack drones that zap towers and shield allies.",
+		rarity = "Epic",
+		cost = 60,
+		health = 320,
+		speed = 9,
+		damage = 25,
+		flying = false,
+		abilities = {
+			{ kind = "Strike", radius = 16, damage = 12, cooldown = 1.4 },
+			{ kind = "Guard", radius = 10, reduction = 0.2 },
+		},
+		modelPath = "Robots/Overlord",
+		visual = {
+			size = Vector3.new(3.6, 4, 3),
+			color = Color3.fromRGB(30, 32, 40),
+			accent = Color3.fromRGB(242, 193, 0),
+			shape = "Block",
+		},
+		locked = false,
+		upgradeCosts = { 80, 160, 320 },
+	},
 	Hornet = {
 		id = "Hornet",
 		displayName = "Hornet",
@@ -351,6 +376,7 @@ RobotConfig.Order = {
 	"Crawler",
 	"Juggernaut",
 	"Hornet",
+	"Overlord",
 	"MegaMech",
 }
 
