@@ -45,8 +45,51 @@ local s1, s2 = Data.get(p1), Data.get(p2)
 flow("profiles load offline (Studio fallback)", s1 ~= nil and s2 ~= nil and s1.Offline and s2.Offline, string.format("s1=%s s2=%s", tostring(s1 and s1.Offline), tostring(s2 and s2.Offline)))
 flow("client receives Profile + Coins", #Sim.clientEvents("Profile", p1) > 0 and #Sim.clientEvents("Coins", p1) > 0, "")
 
--- 3. tutorial: new players land in the lobby with a one-time invite, then choose Play
+-- 3. first join: "what are you playing on?" first, then the one-time tutorial invite
 Sim.run(3.5)
+local function tutorialEvents(p, kind)
+	local n = 0
+	for _, e in Sim.clientEvents("Tutorial", p) do
+		if e.args[1] == kind then
+			n += 1
+		end
+	end
+	return n
+end
+local function clickButton(b)
+	Sim.asSide("client", function()
+		for _, ev in { "MouseEnter", "MouseButton1Down", "MouseButton1Up", "MouseLeave" } do
+			Sim.getSignal(b, D[b], ev):_fire()
+		end
+		Sim.getSignal(b, D[b], "Activated"):_fire(nil, 1)
+	end)
+end
+local function guiFind(root, pred)
+	local out = {}
+	for _, x in Sim.descendants(root) do
+		if not D[x].destroyed and pred(x, D[x]) then
+			table.insert(out, x)
+		end
+	end
+	return out
+end
+local pg1 = p1:FindFirstChild("PlayerGui")
+local askedFirst = tutorialEvents(p1, "device") == 1 and tutorialEvents(p2, "device") == 1 and tutorialEvents(p1, "invite") == 0
+local pickerCards = guiFind(pg1, function(x, d)
+	return d.cls == "TextButton" and (d.props.Name == "Console" or d.props.Name == "Touch" or d.props.Name == "Keyboard")
+end)
+for _, c in pickerCards do
+	if D[c].props.Name == "Keyboard" then
+		clickButton(c)
+	end
+end
+Sim.fireServerAs(p2, "ShopAction", "setDevice", "Console")
+Sim.run(0.8)
+local pickerGone = #guiFind(pg1, function(x, d)
+	return d.props.Name == "DevicePicker"
+end) == 0
+flow("first join asks for the device (3 cards), saves it, closes", askedFirst and #pickerCards == 3 and pickerGone and Data.profile(p1).Device == "Keyboard" and Data.profile(p2).Device == "Console",
+	string.format("asked=%s cards=%d gone=%s devices=%s/%s", tostring(askedFirst), #pickerCards, tostring(pickerGone), tostring(Data.profile(p1).Device), tostring(Data.profile(p2).Device)))
 local function invites(p)
 	local n = 0
 	for _, e in Sim.clientEvents("Tutorial", p) do
@@ -120,15 +163,55 @@ end)
 Sim.fireServerAs(p2, "LeaveActivity")
 Sim.run(2)
 flow("LeaveActivity skips tutorial", Activity.get(p1) == nil and Activity.get(p2) == nil and Data.profile(p1).TutorialDone, "")
-local guides = Sim.clientEvents("Guide", p1)
-flow("Guide fired after tutorial", #guides > 0 and guides[#guides].args[1] ~= nil, "")
--- walk to the stand point -> ClaimDirectory
-local stand = guides[#guides] and guides[#guides].args[1]
-if stand then
-	Sim.setRoot(p1, stand)
-	Sim.run(0.5)
+-- Player guide: every tab has content, the device switch saves, Close shuts it.
+local eg = errCount()
+local GuideUi = Sim.module("client", "GuideUi")
+Sim.asSide("client", function()
+	GuideUi.open()
+end)
+Sim.run(0.3)
+local guideGui = pg1:FindFirstChild("GuideUi")
+local tabsWithContent, cards = 0, 0
+for _, name in { "Controls", "Modes", "Power-ups", "Balls & Skins", "Practice", "Rewards", "Shop" } do
+	for _, b in guiFind(guideGui, function(x, d)
+		return d.cls == "TextButton" and x.Text == name
+	end) do
+		clickButton(b)
+	end
+	Sim.run(0.1)
+	local content = guiFind(guideGui, function(x, d)
+		return d.props.Name == "Content"
+	end)[1]
+	local n = 0
+	for _, c in content and content:GetChildren() or {} do
+		if c:IsA("Frame") then
+			n += 1
+		end
+	end
+	cards += n
+	if n > 0 then
+		tabsWithContent += 1
+	end
 end
-flow("directory claim (client arrow -> ClaimDirectory)", Data.profile(p1).DirectoryDone == true, "")
+local saved = {}
+for _, prefix in { "🎮", "📱", "⌨️" } do
+	for _, b in guiFind(guideGui, function(x, d)
+		return d.cls == "TextButton" and string.sub(x.Text, 1, #prefix) == prefix
+	end) do
+		clickButton(b)
+		Sim.run(0.4)
+		table.insert(saved, tostring(Data.profile(p1).Device))
+	end
+end
+for _, b in guiFind(guideGui, function(x, d)
+	return d.cls == "TextButton" and string.sub(x.Text, 1, 5) == "Close"
+end) do
+	clickButton(b)
+end
+Sim.run(0.2)
+local closed = not GuideUi.isOpen()
+flow("player guide: 7 tabs with content, 3 device tutorials saved, closes", errCount() == eg and tabsWithContent == 7 and table.concat(saved, ",") == "Console,Touch,Keyboard" and closed,
+	string.format("tabs=%d cards=%d saved=%s closed=%s", tabsWithContent, cards, table.concat(saved, ","), tostring(closed)))
 Sim.setRoot(p1, V(0, 3, -25))
 Sim.setRoot(p2, V(4, 3, -25))
 

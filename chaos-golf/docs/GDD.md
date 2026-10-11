@@ -141,13 +141,14 @@ Adding a map is one line in `src/shared/Maps.luau`.
 | Arrow Skins | 12 | 6 styles, pulse on Epic+ | Arrow Crate, login |
 | Celebrations | 4 | Cup-sink effect | Celebration Pack pass |
 
-**14-day login calendar** (claim at the board near spawn; missing a day restarts the streak): coins, keys for all four crates, the Daily Spark trail, Sunrise Chevron arrow, Daily Fireworks knockout, and on **Day 14 the exclusive Legendary "Eternal Dawn" ball** (unique golden ray aura) plus 1,500 coins.
+**14-day login calendar** (claim at the Rewards station; missing a day restarts the streak): coins, keys for all four crates, the Daily Spark trail, Sunrise Chevron arrow, Daily Fireworks knockout, and on **Day 14 the exclusive Legendary "Eternal Dawn" ball** (unique golden ray aura) plus 1,500 coins.
 
 ## 7. Onboarding
 
-1. First join: a private 3-hole **tutorial** (aim & power → bank shots → Chaos Box + Cup Magnet) with in-world instruction signs. It can be skipped anytime and pays 200 coins + the Rookie skin on first completion.
-2. Back in the lobby, a **walking arrow** with glowing footprints leads to the direction sign in front of spawn, then disappears for good.
-3. The Daily Rewards board reminds you when a claim is ready.
+1. First join: **"What are you playing on?"** with three big cards (Console, Phone/Tablet, Keyboard & Mouse). The choice is saved in the profile, and every control hint (tutorial checklist, guide) uses it; a connected controller always wins.
+2. Then a one-time invite: play the private 3-hole **tutorial** (aim & power → bank shots → Chaos Box + Cup Magnet), skip it, or read the guide first. The tutorial can be skipped anytime and pays 200 coins + the Rookie skin on first completion. Replay it from the pad in the Practice Range.
+3. The **Player Guide** (HUD button, G, or Select/View on a controller) explains everything in 7 tabs: Controls (one tutorial each for Console, Phone & Tablet, Keyboard & Mouse, switchable), Modes, Power-ups (how many you start with in each mode and how you earn more), Balls & Skins, Practice, Rewards and Shop. Its text is generated from the game config, so numbers stay correct.
+4. Menus work on every device: buttons are controller-selectable, open panels focus their first button on a controller, B closes the top panel, and the guide scales and scrolls on phones.
 
 ## 8. Social & CCU
 
@@ -166,7 +167,7 @@ Keys{Skins,Trails,Knockouts,Arrows}, Login{Day,LastClaim},
 Celebration, Upgrades{Power,Control,Bounce},
 Stats{Wins,Matches,Sabotages,Knockouts,CoinsEarned,HoleInOnes,Holes},
 Ranked{MMR,Wins,Losses,Draws,Played,Peak},
-Creator, TutorialDone, DirectoryDone, Pity{crateId=n}, Receipts[], Lock
+Creator, TutorialDone, Device, GroupClaimed, PracticeBest{}, Serials{skinId=n}, Pity{crateId=n}, Receipts[], Lock
 ```
 
 Other stores: `_Public` (equipped skin, trail and MMR, for podiums), `_Global` (Mythic stock), `_CreatorSales`, and `_LB_<Stat>_<D|W|A>` ordered stores.

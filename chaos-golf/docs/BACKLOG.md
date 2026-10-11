@@ -20,8 +20,9 @@ Read this first when resuming.
 - Limited edition "Corny Games Studio" ball: 500 copies worldwide (global stock), 10,000 coins, each printed with its serial ("137 OF 500"); museum vault case with velvet ropes in the middle of the shop, lobby-wide announcement on every sale.
 - Coin Shop: balls in glass display cases with brass plaques; new balanced set every 10 minutes (5 Common, 4 Rare, 2 Epic, 1 Legendary), countdown on the hanging board by the entrance.
 
+- Onboarding: device picker on first join (Console / Phone-Tablet / Keyboard, saved), then the tutorial invite; 7-tab Player Guide (HUD button, G, Select) with one controls tutorial per device; controller-friendly menus (focus on open, B closes, LB/RB tabs) and phone scaling. Directory totem removed; group reward moved into the Rewards station (with the daily calendar) on the atrium wall.
+
 ## Next (owner's order, one step at a time, place file after each)
-- Tutorial guide UI + device picker on first join (Console / Tablet-Phone / Keyboard), console + mobile friendly; remove the Directory totem; move the group reward out of the middle.
 - Practice: back to a 20-minute rotation with a TV screen (now / next / countdown), every practice its own biome, extra practices.
 - Ocean map with ramps + boost pads to jump across water; boost-jump obstacle on other maps; boost screen effect.
 

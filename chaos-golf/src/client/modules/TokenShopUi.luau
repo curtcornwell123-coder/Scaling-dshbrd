@@ -14,6 +14,7 @@ local Net = require(Shared:WaitForChild("Net"))
 local Skins = require(Shared:WaitForChild("Skins"))
 local UIKit = require(Shared:WaitForChild("UIKit"))
 
+local Pad = require(script.Parent:WaitForChild("Pad"))
 local State = require(script.Parent:WaitForChild("State"))
 
 local TokenShopUi = {}
@@ -86,6 +87,7 @@ local function close()
 	end
 	panel = nil
 	openId = nil
+	Pad.closed("TokenShop")
 end
 
 local function open(id: string)
@@ -169,6 +171,9 @@ local function open(id: string)
 	end
 	render()
 	panelConn = State.ProfileChanged:Connect(render)
+	Pad.opened("TokenShop", close)
+	local firstButton = buttons.crate
+	Pad.focus(if firstButton then firstButton.Button else nil)
 end
 
 function TokenShopUi.start()

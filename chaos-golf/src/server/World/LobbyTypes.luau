@@ -57,12 +57,8 @@ export type Lobby = {
 	Model: Model,
 	Spawn: SpawnLocation,
 	SpawnCFrame: CFrame, -- character CFrame on spawn, facing south toward the fountain
-	Directory: {
-		Sign: BasePart, -- solid (non-neon) 4-way direction sign in front of spawn
-		StandPoint: Vector3, -- where the first-join arrow leads
-	},
 	Daily: { Screen: BasePart, Button: BasePart }, -- 14-day login calendar (atrium station)
-	Group: { Board: BasePart, Button: BasePart }, -- one-time group reward totem by the spawn
+	Group: { Board: BasePart, Button: BasePart }, -- one-time group reward at the Rewards station (Board has a Display attachment)
 	Stations: { -- service stations at the atrium edges
 		Locker: LockerStation,
 		Upgrades: UpgradeStation,

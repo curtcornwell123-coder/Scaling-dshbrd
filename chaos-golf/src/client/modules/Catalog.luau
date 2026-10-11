@@ -17,6 +17,7 @@ local Skins = require(Shared:WaitForChild("Skins"))
 local UIKit = require(Shared:WaitForChild("UIKit"))
 
 local Hud = require(script.Parent:WaitForChild("Hud"))
+local Pad = require(script.Parent:WaitForChild("Pad"))
 local State = require(script.Parent:WaitForChild("State"))
 local Previews = require(script.Parent:WaitForChild("Previews"))
 
@@ -379,9 +380,11 @@ local function mountScreen(screen: BasePart)
 	local sizeLimit = Instance.new("UISizeConstraint")
 	sizeLimit.MaxSize = Vector2.new(940, 580)
 	sizeLimit.Parent = holder
-	view = build(holder, function()
+	local function closeOverlay()
 		gui.Enabled = false
-	end)
+		Pad.closed("Catalog")
+	end
+	view = build(holder, closeOverlay)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = "Open shop"
 	prompt.ObjectText = "Catalog"
@@ -391,6 +394,9 @@ local function mountScreen(screen: BasePart)
 	prompt.Triggered:Connect(function()
 		gui.Enabled = true
 		render()
+		Pad.opened("Catalog", closeOverlay)
+		local v = view
+		Pad.focus(if v then v.Tabs[activeTab] else nil)
 	end)
 end
 

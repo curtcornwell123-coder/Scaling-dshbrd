@@ -587,18 +587,6 @@ local function buildLounge(parent: Instance, deg: number)
 	LobbyKit.pendant(m, (F * CFrame.new(0, 0, -0.4)).Position, HUB_H, 4.2, KIT, 16)
 end
 
--- Slim monolith facing the spawn: marble base, steel frame, walnut face.
-local function totem(parent: Instance, name: string, base: Vector3, faceTo: Vector3): (Model, CFrame)
-	local m = Parts.model(parent, name)
-	local cf = CFrame.lookAt(base, Vector3.new(faceTo.X, 0, faceTo.Z))
-	Parts.roundedBox(m, cf * CFrame.new(0, 0.35, 0.2), Vector3.new(7.6, 0.7, 3), 0.6, solid(MARBLE, "Base"))
-	Parts.block(m, cf * CFrame.new(0, 0.74, 0.2), Vector3.new(7, 0.08, 2.4), deco(BRASS, "BaseInlay"))
-	Parts.block(m, cf * CFrame.new(0, 6.5, 0.45), Vector3.new(7, 11.6, 0.6), solid(STEEL, "Frame"))
-	Parts.block(m, cf * CFrame.new(0, 6.5, 0.1), Vector3.new(6.4, 11, 0.2), solid(WALNUT, "Face"))
-	Parts.block(m, cf * CFrame.new(0, 12.45, 0.45), Vector3.new(7.4, 0.3, 1), solid(STEEL, "Cap"))
-	return m, cf
-end
-
 local SPAWN_POS = Vector3.new(0, 0.5, -31)
 
 local function buildSpawn(parent: Instance): SpawnLocation
@@ -623,52 +611,6 @@ local function buildSpawn(parent: Instance): SpawnLocation
 	spawn.Duration = 0
 	spawn.Parent = m
 	return spawn
-end
-
--- Directory totem (front-left of the spawn). Arrow directions are as seen from the
--- spawn looking south: +X (East) is to the player's left.
-local function buildDirectory(parent: Instance): (BasePart, Vector3)
-	local m, cf = totem(parent, "Directory", Vector3.new(12.5, 0, -21.5), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
-	local sign = Parts.block(m, cf * CFrame.new(0, 6.5, 0.02), Vector3.new(6.2, 10.8, 0.1), { Name = "DirectorySign", Color = WALNUT, Transparency = 1, CanCollide = false })
-	text(m, cf * CFrame.new(0, 11.2, -0.05), 5.6, 1.3, "WHERE TO?", BRASS:Lerp(WHITE, 0.25))
-	Parts.block(m, cf * CFrame.new(0, 10.35, -0.02), Vector3.new(3, 0.08, 0.06), deco(BRASS, "Rule"))
-	local arrows = {
-		{ Text = "▲  PRACTICE RANGE", Color = C.South },
-		{ Text = "◀  PRO SHOP", Color = C.East },
-		{ Text = "LEADERBOARDS  ▶", Color = C.West },
-		{ Text = "▼  MATCHMAKING", Color = C.North },
-	}
-	for i, a in arrows do
-		local y = 10.3 - i * 2.05
-		Parts.block(m, cf * CFrame.new(-2.75, y, -0.04), Vector3.new(0.18, 1.3, 0.06), deco(a.Color, "Accent"))
-		text(m, cf * CFrame.new(0.15, y, -0.06), 5.4, 1.2, a.Text, WHITE)
-	end
-	return sign, (cf * CFrame.new(0, 3, -5)).Position
-end
-
--- Group reward totem (front-right of the spawn) with a claim button in front of it.
-local function buildGroup(parent: Instance): (BasePart, BasePart)
-	local m, cf = totem(parent, "GroupReward", Vector3.new(-12.5, 0, -21.5), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
-	local board = Parts.block(m, cf * CFrame.new(0, 6.5, 0.02), Vector3.new(6.2, 10.8, 0.1), { Name = "GroupBoard", Color = WALNUT, Transparency = 1, CanCollide = false })
-	text(m, cf * CFrame.new(0, 11.2, -0.05), 5.6, 1.3, "CORNY GAMES", BRASS:Lerp(WHITE, 0.25))
-	Parts.block(m, cf * CFrame.new(0, 10.35, -0.02), Vector3.new(3, 0.08, 0.06), deco(BRASS, "Rule"))
-	text(m, cf * CFrame.new(0, 9.3, -0.06), 5.6, 1.1, "GROUP REWARD", WHITE)
-	text(m, cf * CFrame.new(0, 7.7, -0.06), 5.6, 1.5, string.format("%d COINS", Config.Group.Coins), BRASS:Lerp(WHITE, 0.25))
-	text(m, cf * CFrame.new(0, 6.3, -0.06), 5.6, 1.1, "+ " .. string.upper(Skins.get(Config.Group.Skin).Name) .. " BALL", WHITE)
-	Parts.ball(m, (cf * CFrame.new(0, 4.4, -0.35)).Position, 1.4, solid(Skins.get(Config.Group.Skin).Color, "KernelBall"))
-	text(m, cf * CFrame.new(0, 2.6, -0.06), 5.6, 1.3, "Join the group, then claim", WHITE, nil, false, Config.FontBody)
-	-- Claim button on a small turned plinth toward the spawn.
-	local base = (cf * CFrame.new(0, 0, -3.2)).Position
-	LobbyKit.lathe(m, base, {
-		Vector2.new(1.2, 0),
-		Vector2.new(0.85, 0.5),
-		Vector2.new(0.8, 2.3),
-		Vector2.new(1.15, 2.7),
-	}, 18, 0.22, deco(MARBLE, "ButtonPlinth"))
-	Parts.cylinder(m, CFrame.new(base + UP * 1.35), 2.7, 1.7, solid(MARBLE, "ButtonCore"))
-	Parts.cylinder(m, CFrame.new(base + UP * 2.78), 0.1, 2.4, deco(BRASS, "ButtonRing"))
-	local button = Parts.cylinder(m, CFrame.new(base + UP * 2.95), 0.45, 1.8, solid(hex("#FFD447"), "GroupButton"))
-	return board, button
 end
 
 -- Stations ---------------------------------------------------------------------
@@ -759,23 +701,44 @@ local function buildCreator(parent: Instance, rng: Random): LobbyTypes.CreatorSt
 	return { Screen = scr }
 end
 
-local function buildDaily(parent: Instance, rng: Random): (BasePart, BasePart)
-	local m, F = stationShell(parent, 135, "DAILY REWARDS", rng)
-	local scr = screen(m, "DailyScreen", F * CFrame.new(0, 6.5, 2.5), 13, 7.5)
-	-- Claim button on a turned marble plinth in front of the wall.
-	local base = (F * CFrame.new(0, 0.4, -3.4)).Position
+-- Rewards station: the 14-day calendar screen and its claim button, and beside it the
+-- Corny Games group reward (panel with the Kernel ball and its own claim button).
+-- Visitor's left = F's +X.
+local function claimPlinth(m: Instance, base: Vector3, s: number, color: Color3, name: string): BasePart
 	LobbyKit.lathe(m, base, {
-		Vector2.new(1.5, 0),
-		Vector2.new(1.25, 0.4),
-		Vector2.new(0.95, 1.2),
-		Vector2.new(1.0, 2.4),
-		Vector2.new(1.45, 2.85),
+		Vector2.new(1.5 * s, 0),
+		Vector2.new(1.25 * s, 0.4),
+		Vector2.new(0.95 * s, 1.2),
+		Vector2.new(1.0 * s, 2.4),
+		Vector2.new(1.45 * s, 2.85),
 	}, 20, 0.25, deco(MARBLE, "ButtonPlinth"))
-	Parts.cylinder(m, CFrame.new(base + UP * 1.45), 2.9, 2, solid(MARBLE, "ButtonCore"))
-	Parts.cylinder(m, CFrame.new(base + UP * 2.95), 0.12, 2.9, deco(BRASS, "ButtonRing"))
-	local button = Parts.cylinder(m, CFrame.new(base + UP * 3.15), 0.5, 2.1, solid(GOLD, "DailyButton"))
-	text(m, CFrame.lookAt(base + UP * 1.6, base + UP * 1.6 + F.LookVector) * CFrame.new(0, 0, -1.02), 1.8, 0.8, "CLAIM", BRASS:Lerp(WHITE, 0.4))
-	return scr, button
+	Parts.cylinder(m, CFrame.new(base + UP * 1.45), 2.9, 2 * s, solid(MARBLE, "ButtonCore"))
+	Parts.cylinder(m, CFrame.new(base + UP * 2.95), 0.12, 2.9 * s, deco(BRASS, "ButtonRing"))
+	return Parts.cylinder(m, CFrame.new(base + UP * 3.15), 0.5, 2.1 * s, solid(color, name))
+end
+
+local function buildRewards(parent: Instance, rng: Random): (BasePart, BasePart, BasePart, BasePart)
+	local m, F = stationShell(parent, 135, "REWARDS", rng)
+	local DX, GX = 2.6, -6.4
+	local scr = screen(m, "DailyScreen", F * CFrame.new(DX, 6.5, 2.5), 11.6, 7.5)
+	local base = (F * CFrame.new(DX, 0.4, -3.4)).Position
+	local button = claimPlinth(m, base, 1, GOLD, "DailyButton")
+	text(m, CFrame.lookAt(base + UP * 1.6, base + UP * 1.6 + F.LookVector) * CFrame.new(0, 0, -1.02), 1.8, 0.8, "DAILY", BRASS:Lerp(WHITE, 0.4))
+	-- Group panel: walnut board in a brass frame, the Kernel ball floating in front.
+	local gcf = F * CFrame.new(GX, 6.4, 2.45)
+	Parts.block(m, gcf * CFrame.new(0, 0, 0.12), Vector3.new(5.9, 7.9, 0.2), deco(BRASS, "GroupFrame"))
+	local board = Parts.block(m, gcf, Vector3.new(5.6, 7.6, 0.2), { Name = "GroupBoard", Color = WALNUT_DARK, CanCollide = false })
+	text(m, gcf * CFrame.new(0, 3.1, -0.12), 5, 1.0, "CORNY GAMES", BRASS:Lerp(WHITE, 0.25))
+	Parts.block(m, gcf * CFrame.new(0, 2.45, -0.11), Vector3.new(2.4, 0.06, 0.04), deco(BRASS, "Rule"))
+	text(m, gcf * CFrame.new(0, 1.85, -0.12), 5, 0.8, "GROUP REWARD", WHITE)
+	text(m, gcf * CFrame.new(0, 0.95, -0.12), 5, 1.0, string.format("%d COINS", Config.Group.Coins), BRASS:Lerp(WHITE, 0.25))
+	text(m, gcf * CFrame.new(0, 0.15, -0.12), 5, 0.75, "+ " .. string.upper(Skins.get(Config.Group.Skin).Name) .. " BALL", WHITE)
+	display(board, (gcf * CFrame.new(0, -1.55, -1.1)).Position)
+	text(m, gcf * CFrame.new(0, -3.25, -0.12), 5, 0.7, "Join the group, then claim", WHITE, nil, false, Config.FontBody)
+	local gbase = (F * CFrame.new(GX, 0.4, -3.4)).Position
+	local groupButton = claimPlinth(m, gbase, 0.8, hex("#FFD447"), "GroupButton")
+	text(m, CFrame.lookAt(gbase + UP * 1.6, gbase + UP * 1.6 + F.LookVector) * CFrame.new(0, 0, -0.84), 1.5, 0.7, "GROUP", BRASS:Lerp(WHITE, 0.4))
+	return scr, button, board, groupButton
 end
 
 -- Painted outline hugging a w x h face centred on cf.
@@ -1677,15 +1640,12 @@ function LobbyBuilder.build(): LobbyTypes.Lobby
 
 	local stations = Parts.model(model, "Stations")
 	local spawn = buildSpawn(model)
-	local sign, stand = buildDirectory(model)
-	local dailyScreen, dailyButton = buildDaily(stations, rng)
-	local groupBoard, groupButton = buildGroup(model)
+	local dailyScreen, dailyButton, groupBoard, groupButton = buildRewards(stations, rng)
 
 	local lobby: LobbyTypes.Lobby = {
 		Model = model,
 		Spawn = spawn,
 		SpawnCFrame = CFrame.lookAt(SPAWN_POS + Vector3.new(0, 2.5, 0), Vector3.new(0, 3, 0)),
-		Directory = { Sign = sign, StandPoint = stand },
 		Daily = { Screen = dailyScreen, Button = dailyButton },
 		Group = { Board = groupBoard, Button = groupButton },
 		Stations = {

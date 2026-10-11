@@ -12,6 +12,8 @@ local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local UIKit = require(Shared:WaitForChild("UIKit"))
 
+local Pad = require(script.Parent:WaitForChild("Pad"))
+
 local RewardsUi = {}
 
 local T = UIKit.Theme
@@ -52,6 +54,7 @@ local function closePanel()
 		panel = nil
 		rows = {}
 	end
+	Pad.closed("Gifts")
 end
 
 local function openPanel()
@@ -92,6 +95,8 @@ local function openPanel()
 	end
 	UIKit.button("Close", "Ghost", { Size = UDim2.new(1, 0, 0, 28), TextSize = 14, LayoutOrder = 100, ZIndex = 21, Parent = card }, closePanel)
 	panel = card
+	Pad.opened("Gifts", closePanel)
+	Pad.focus(rows[1] and rows[1].Button)
 end
 
 local function render()

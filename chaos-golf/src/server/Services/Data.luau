@@ -30,7 +30,7 @@ export type Profile = {
 	Ranked: { MMR: number, Wins: number, Losses: number, Draws: number, Played: number, Peak: number },
 	Creator: string?,
 	TutorialDone: boolean,
-	DirectoryDone: boolean,
+	Device: string, -- "" until chosen on first join: "Console" | "Touch" | "Keyboard"
 	GroupClaimed: boolean, -- one-time Corny Games group reward
 	PracticeBest: { [string]: number }, -- per minigame: best points / studs / fewest strokes (0 = none)
 	Serials: { [string]: number }, -- limited skin id -> this player's copy number
@@ -95,7 +95,7 @@ local function defaultProfile(): Profile
 		Ranked = { MMR = Config.Ranked.StartMMR, Wins = 0, Losses = 0, Draws = 0, Played = 0, Peak = Config.Ranked.StartMMR },
 		Creator = nil,
 		TutorialDone = false,
-		DirectoryDone = false,
+		Device = "",
 		GroupClaimed = false,
 		PracticeBest = { Target = 0, Drive = 0, Hazard = 0 },
 		Serials = {},
@@ -153,7 +153,7 @@ function Data.snapshot(session: Session): { [string]: any }
 		Ranked = p.Ranked,
 		Creator = p.Creator,
 		TutorialDone = p.TutorialDone,
-		DirectoryDone = p.DirectoryDone,
+		Device = p.Device,
 		GroupClaimed = p.GroupClaimed,
 		PracticeBest = p.PracticeBest,
 		Serials = p.Serials,

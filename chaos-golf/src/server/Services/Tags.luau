@@ -31,7 +31,6 @@ function Tags.apply(lobby: LobbyTypes.Lobby)
 	tag(lobby.Daily.Screen, "DailyScreen")
 	tag(lobby.Daily.Button, "DailyButton")
 	tag(lobby.North.InviteKiosk, "InviteKiosk")
-	tag(lobby.Directory.Sign, "DirectorySign")
 	for i, sign in lobby.North.VoteSigns do
 		tag(sign.Pad, "VotePad", { Index = i })
 		tag(sign.Display, "VoteDisplay", { Index = i })

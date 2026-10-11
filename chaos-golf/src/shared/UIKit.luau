@@ -214,17 +214,22 @@ function UIKit.button(text: string, variant: ButtonVariant, props: Props?, onCli
 
 	local info = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	local hoverBg = bg:Lerp(Color3.new(1, 1, 1), if variant == "Primary" then 0.12 else 0.06)
-	b.MouseEnter:Connect(function()
+	local function hover()
 		if b:GetAttribute("Variant") == "Disabled" then
 			return
 		end
 		TweenService:Create(scale, info, { Scale = 1.04 }):Play()
 		TweenService:Create(b, info, { BackgroundColor3 = hoverBg }):Play()
-	end)
-	b.MouseLeave:Connect(function()
+	end
+	local function leave()
 		TweenService:Create(scale, info, { Scale = 1 }):Play()
 		TweenService:Create(b, info, { BackgroundColor3 = bg }):Play()
-	end)
+	end
+	-- Mouse hover and gamepad selection look the same.
+	b.MouseEnter:Connect(hover)
+	b.MouseLeave:Connect(leave)
+	b.SelectionGained:Connect(hover)
+	b.SelectionLost:Connect(leave)
 	b.MouseButton1Down:Connect(function()
 		if b:GetAttribute("Variant") ~= "Disabled" then
 			TweenService:Create(scale, info, { Scale = 0.97 }):Play()

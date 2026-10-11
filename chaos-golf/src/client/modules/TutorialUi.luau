@@ -1,7 +1,8 @@
 --!strict
 -- Tutorial on screen: the one-time welcome card (Play / Skip) for new players and,
 -- during the tutorial, a coach card with the current lesson as a checklist that
--- ticks as the server reports progress. Wording follows the device in use.
+-- ticks as the server reports progress. Wording follows the player's device (picked on
+-- first join, or a controller in use). Controller friendly: A plays, B skips.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,6 +12,9 @@ local UserInputService = game:GetService("UserInputService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Net = require(Shared:WaitForChild("Net"))
 local UIKit = require(Shared:WaitForChild("UIKit"))
+
+local GuideUi = require(script.Parent:WaitForChild("GuideUi"))
+local Pad = require(script.Parent:WaitForChild("Pad"))
 
 local TutorialUi = {}
 
@@ -48,14 +52,7 @@ local coach: Frame? = nil
 local lastSteps: any = nil
 
 local function device(): Device
-	local last = UserInputService:GetLastInputType()
-	if string.sub(last.Name, 1, 7) == "Gamepad" then
-		return "pad"
-	end
-	if last == Enum.UserInputType.Touch or (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled) then
-		return "touch"
-	end
-	return "pc"
+	return Pad.device()
 end
 
 local function stepText(key: string): string
@@ -80,6 +77,7 @@ local function closeInvite()
 	if card and card.Parent then
 		(card.Parent :: Instance):Destroy() -- the dim overlay holding the card
 	end
+	Pad.closed("TutorialInvite")
 end
 
 local function showInvite(payload: any)
@@ -147,7 +145,7 @@ local function showInvite(payload: any)
 		Net.event("TutorialChoice"):FireServer(choice)
 		closeInvite()
 	end
-	UIKit.button("Play Tutorial", "Primary", {
+	local play = UIKit.button("Play Tutorial", "Primary", {
 		Size = UDim2.new(0.6, -5, 1, 0),
 		TextSize = 17,
 		Parent = row,
@@ -163,6 +161,14 @@ local function showInvite(payload: any)
 	}, function()
 		choose("skip")
 	end)
+	UIKit.button("📖  Read the Player Guide first", "Ghost", {
+		Size = UDim2.new(1, 0, 0, 34),
+		TextSize = 15,
+		LayoutOrder = 5,
+		Parent = card,
+	}, function()
+		GuideUi.open("Controls")
+	end)
 	UIKit.text({
 		Text = "You can replay it anytime from the pad in the Practice room.",
 		TextSize = 13,
@@ -171,10 +177,14 @@ local function showInvite(payload: any)
 		TextXAlignment = Enum.TextXAlignment.Center,
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		LayoutOrder = 5,
+		LayoutOrder = 6,
 		Parent = card,
 	})
 	invite = card
+	Pad.opened("TutorialInvite", function()
+		choose("skip")
+	end)
+	Pad.focus(play)
 	local info = TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	TweenService:Create(overlay, TweenInfo.new(0.25), { BackgroundTransparency = 0.45 }):Play()
 	TweenService:Create(scale, info, { Scale = 1 }):Play()

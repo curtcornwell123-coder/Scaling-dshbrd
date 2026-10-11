@@ -7,9 +7,9 @@
 --   UseAbility(slot: number)
 --   LeaveActivity()                           skip the tutorial / quit a practice lane
 --   ShopAction(action: string, a: any, b: any) "buySkin" | "equip" | "openCrate" | "upgrade" |
---                                             "buyTokenSkin" | "celebration" | "buyPass" | "buyProduct" | "claimDaily"
+--                                             "buyTokenSkin" | "celebration" | "buyPass" | "buyProduct" | "claimDaily" |
+--                                             "buyLimited" | "claimGift" | "claimGroup" | "setDevice"
 --   SubmitCreatorCode(code: string)
---   ClaimDirectory()                          first-join arrow reached the sign
 --   TutorialChoice(choice: string)            answer to the first-join invite: "play" | "skip"
 -- Server -> client
 --   Profile(profile)                          full profile snapshot after any change
@@ -21,8 +21,8 @@
 --   CrateReveal(crateId, category, itemId, isNew, refund)
 --   Leaderboards(data)                        all boards (client pages them locally)
 --   Vote(choiceIndex: number?)                your current vote (for the local confirmation)
---   Guide(target: Vector3?)                   first-join walking arrow
---   Tutorial(kind: string, payload)           "invite" | "steps" {Hole, Holes, Title, Steps={{Key, Done}}} | "done"
+--   Tutorial(kind: string, payload)           "device" (first join: pick a device) | "invite" |
+--                                             "steps" {Hole, Holes, Title, Steps={{Key, Done}}} | "done"
 -- Functions
 --   GetProfile() -> profile
 
@@ -37,7 +37,6 @@ Net.Events = {
 	"LeaveActivity",
 	"ShopAction",
 	"SubmitCreatorCode",
-	"ClaimDirectory",
 	"TutorialChoice",
 	"Profile",
 	"Coins",
@@ -48,7 +47,6 @@ Net.Events = {
 	"CrateReveal",
 	"Leaderboards",
 	"Vote",
-	"Guide",
 	"Tutorial",
 }
 

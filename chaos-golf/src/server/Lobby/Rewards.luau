@@ -19,6 +19,7 @@ local Server = script.Parent.Parent
 local LobbyTypes = require(Server:WaitForChild("World"):WaitForChild("LobbyTypes"))
 local Parts = require(Server:WaitForChild("World"):WaitForChild("Parts"))
 local Data = require(Server:WaitForChild("Services"):WaitForChild("Data"))
+local Displays = require(script.Parent:WaitForChild("Displays"))
 local Shop = require(script.Parent:WaitForChild("Shop"))
 
 local Rewards = {}
@@ -125,6 +126,9 @@ function Rewards.start(lobby: LobbyTypes.Lobby)
 	Shop.handle("claimGroup", function(player)
 		Rewards.claimGroup(player)
 	end)
+	-- The group's ball, printed and spinning in front of the group panel.
+	local ball = Displays.ball(lobby.Model, Displays.anchorPoint(lobby.Group.Board), Config.Group.Skin, 1.8)
+	ball.Name = "GroupRewardBall"
 	local prompt = Parts.prompt(lobby.Group.Button, "Claim reward", Config.Group.Name .. " group", { Distance = 10, Name = "GroupPrompt" })
 	prompt.Triggered:Connect(function(player)
 		Rewards.claimGroup(player)

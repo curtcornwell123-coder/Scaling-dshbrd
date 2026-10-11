@@ -1,9 +1,10 @@
 --!strict
 -- Tutorial: a private 3-hole course (aim & power, banking, chaos abilities).
--- New players spawn in the lobby and get a one-time invite (Play / Skip); the
--- course explains itself on screen (a step checklist that ticks as you go) and
--- on its signs. Skippable at any time, replayable from the pad in the Practice
--- room. Afterwards, first-timers get a walking arrow to the direction sign.
+-- First join: the player picks their device (Console / Touch / Keyboard, saved in the
+-- profile, so every hint shows the right buttons), then gets a one-time invite
+-- (Play / Skip / read the Guide). The course explains itself on screen (a step
+-- checklist that ticks as you go) and on its signs. Skippable at any time,
+-- replayable from the pad in the Practice room.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,6 +21,7 @@ local Data = require(Server:WaitForChild("Services"):WaitForChild("Data"))
 local Zones = require(Server:WaitForChild("Services"):WaitForChild("Zones"))
 local AbilityService = require(Server:WaitForChild("Golf"):WaitForChild("AbilityService"))
 local BallService = require(Server:WaitForChild("Golf"):WaitForChild("BallService"))
+local Shop = require(script.Parent:WaitForChild("Shop"))
 
 local Tutorial = {}
 
@@ -102,17 +104,6 @@ local function setSign(hole: CourseBuilder.Hole, text: string)
 	end
 end
 
-local function guide(player: Player)
-	local profile = Data.profile(player)
-	if profile and not profile.DirectoryDone then
-		task.delay(1.5, function()
-			if player.Parent then
-				Net.event("Guide"):FireClient(player, lobby.Directory.StandPoint)
-			end
-		end)
-	end
-end
-
 local function finish(run: Run, completed: boolean)
 	if run.Ended then
 		return
@@ -147,7 +138,6 @@ local function finish(run: Run, completed: boolean)
 	Net.event("BallAssigned"):FireClient(player, nil, { Context = "None" })
 	Net.event("MatchEvent"):FireClient(player, "end", {})
 	padBlocked[player] = true
-	guide(player)
 end
 
 local function playHole(run: Run, index: number)
@@ -293,6 +283,18 @@ function Tutorial.leave(player: Player): boolean
 	return true
 end
 
+local DEVICES = { Console = true, Touch = true, Keyboard = true }
+local awaitingDevice: { [Player]: boolean } = {}
+
+-- New players land in the lobby and choose; nothing starts on its own.
+local function invite(player: Player)
+	local profile = Data.profile(player)
+	if profile and not profile.TutorialDone and player.Parent == Players then
+		invited[player] = true
+		Net.event("Tutorial"):FireClient(player, "invite", { Coins = REWARD_COINS })
+	end
+end
+
 function Tutorial.start(l: LobbyTypes.Lobby)
 	lobby = l
 	Net.event("LeaveActivity").OnServerEvent:Connect(function(player)
@@ -314,15 +316,21 @@ function Tutorial.start(l: LobbyTypes.Lobby)
 			Data.markDirty(player)
 			Data.push(player)
 		end
-		guide(player)
 	end)
-	Net.event("ClaimDirectory").OnServerEvent:Connect(function(player)
+	-- Device choice (first join, or switched later in the Guide).
+	Shop.handle("setDevice", function(player, choice)
 		local profile = Data.profile(player)
-		if profile and not profile.DirectoryDone then
-			profile.DirectoryDone = true
+		if not profile or not DEVICES[choice] then
+			return
+		end
+		if profile.Device ~= choice then
+			profile.Device = choice
 			Data.markDirty(player)
 			Data.push(player)
-			Net.event("Guide"):FireClient(player, nil)
+		end
+		if awaitingDevice[player] then
+			awaitingDevice[player] = nil
+			invite(player)
 		end
 	end)
 	Data.Loaded:Connect(function(player: Player, session: Data.Session)
@@ -333,12 +341,12 @@ function Tutorial.start(l: LobbyTypes.Lobby)
 			if player.Parent ~= Players then
 				return
 			end
-			if not session.Profile.TutorialDone then
-				-- New players land in the lobby and choose; nothing starts on its own.
-				invited[player] = true
-				Net.event("Tutorial"):FireClient(player, "invite", { Coins = REWARD_COINS })
+			if session.Profile.Device == "" then
+				-- First: what are you playing on? The invite follows the answer.
+				awaitingDevice[player] = true
+				Net.event("Tutorial"):FireClient(player, "device", {})
 			else
-				guide(player)
+				invite(player)
 			end
 		end)
 	end)
@@ -349,6 +357,7 @@ function Tutorial.start(l: LobbyTypes.Lobby)
 		end
 		padBlocked[player] = nil
 		invited[player] = nil
+		awaitingDevice[player] = nil
 	end)
 	-- Replay pad in the Practice room.
 	task.spawn(function()
