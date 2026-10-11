@@ -100,7 +100,61 @@ local clientCamera = Sim.newInstance("Camera")
 D[clientCamera].props.Name = "Camera"
 Sim.clientCamera = clientCamera
 Sim.workspace = workspace
-impl("Terrain").methods.Clear = function() end
+-- Terrain: fills are recorded (Sim.terrainFills) for world dumps/renders; materials are validated
+-- against the real terrain material list.
+Sim.terrainFills = {}
+local TERRAIN_MATERIALS = {
+	Air = true, Asphalt = true, Basalt = true, Brick = true, Cobblestone = true, Concrete = true, CrackedLava = true,
+	Glacier = true, Grass = true, Ground = true, Ice = true, LeafyGrass = true, Limestone = true, Mud = true,
+	Pavement = true, Rock = true, Salt = true, Sand = true, Sandstone = true, Slate = true, Snow = true,
+	WoodPlanks = true, Water = true,
+}
+local function terrainMaterial(m, fn)
+	local name = if Sim.typeof(m) == "EnumItem" then m.Name else nil
+	if not name or not TERRAIN_MATERIALS[name] or tostring(m):sub(1, 14) ~= "Enum.Material." then
+		Sim.misuse("Terrain:" .. fn .. ": " .. tostring(m) .. " is not a valid terrain material")
+	end
+	return name
+end
+local function need(v, t, fn, i)
+	if Sim.typeof(v) ~= t then
+		Sim.misuse(string.format("Terrain:%s argument #%d: %s expected, got %s", fn, i, t, Sim.typeof(v)))
+	end
+end
+local TER = impl("Terrain")
+TER.methods.Clear = function()
+	table.clear(Sim.terrainFills)
+end
+TER.methods.FillBlock = function(self, cf, size, material)
+	need(cf, "CFrame", "FillBlock", 1)
+	need(size, "Vector3", "FillBlock", 2)
+	table.insert(Sim.terrainFills, { Kind = "Block", CFrame = cf, Size = size, Material = terrainMaterial(material, "FillBlock") })
+end
+TER.methods.FillWedge = function(self, cf, size, material)
+	need(cf, "CFrame", "FillWedge", 1)
+	need(size, "Vector3", "FillWedge", 2)
+	table.insert(Sim.terrainFills, { Kind = "Wedge", CFrame = cf, Size = size, Material = terrainMaterial(material, "FillWedge") })
+end
+TER.methods.FillBall = function(self, center, radius, material)
+	need(center, "Vector3", "FillBall", 1)
+	need(radius, "number", "FillBall", 2)
+	table.insert(Sim.terrainFills, { Kind = "Ball", CFrame = CFrame.new(center), Radius = radius, Material = terrainMaterial(material, "FillBall") })
+end
+TER.methods.FillCylinder = function(self, cf, height, radius, material)
+	need(cf, "CFrame", "FillCylinder", 1)
+	need(height, "number", "FillCylinder", 2)
+	need(radius, "number", "FillCylinder", 3)
+	table.insert(Sim.terrainFills, { Kind = "Cylinder", CFrame = cf, Height = height, Radius = radius, Material = terrainMaterial(material, "FillCylinder") })
+end
+local terrainColors = {}
+TER.methods.SetMaterialColor = function(self, material, color)
+	need(color, "Color3", "SetMaterialColor", 2)
+	terrainColors[terrainMaterial(material, "SetMaterialColor")] = color
+end
+TER.methods.GetMaterialColor = function(self, material)
+	return terrainColors[terrainMaterial(material, "GetMaterialColor")] or Color3.new(0.5, 0.5, 0.5)
+end
+Sim.terrainColors = terrainColors
 local WS = impl("Workspace")
 WS.get.CurrentCamera = function()
 	return if currentSide() == "client" then clientCamera else serverCamera

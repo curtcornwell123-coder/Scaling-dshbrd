@@ -84,6 +84,50 @@ class Scene:
         self.holes = []
         self.origin = None
         self.by_id = {}
+        self.tfills = []
+        self.tcolors = {}
+
+
+# Roblox's default terrain material colours (Terrain:SetMaterialColor overrides arrive as @TC).
+TERRAIN_RGB = {
+    "Grass": "#6A7F3F", "LeafyGrass": "#73843E", "Ground": "#66583F", "Mud": "#3A2E24", "Rock": "#666C6F",
+    "Sand": "#8F7E5F", "Sandstone": "#89593E", "Snow": "#C3C7DA", "Glacier": "#65B0EA", "Ice": "#81C2E0",
+    "Water": "#0C5470", "Basalt": "#1E1E25", "CrackedLava": "#E89C4A", "Slate": "#3F7F6B", "Cobblestone": "#847B5A",
+    "Limestone": "#CEAD94", "Salt": "#C6BDB5", "Asphalt": "#737B6B", "Pavement": "#94948C", "Concrete": "#7F6847",
+    "Brick": "#8A5646", "WoodPlanks": "#8B6D4F",
+}
+
+
+def _hex_rgb(h):
+    h = h.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
+
+
+def terrain_parts(scene):
+    """Approximate terrain fills as solid parts (Air carving is not subtracted)."""
+    out = []
+    for f in scene.tfills:
+        mat = f["mat"]
+        if mat == "Air":
+            continue
+        rgb = scene.tcolors.get(mat) or _hex_rgb(TERRAIN_RGB.get(mat, "#808080"))
+        base = {"cls": "Part", "shape": "Block", "pos": f["pos"], "right": f["right"], "up": f["up"],
+                "back": f["back"], "rgb": rgb, "mat": "Ice" if mat in ("Glacier", "Ice") else mat,
+                "t": 0.35 if mat == "Water" else 0.0, "shadow": mat != "Water", "name": "Terrain_" + mat}
+        k, d = f["kind"], f["dims"]
+        if k == "Block":
+            base["size"] = d
+        elif k == "Wedge":
+            base["cls"], base["size"] = "WedgePart", d
+        elif k == "Ball":
+            base["shape"], base["size"] = "Ball", (2 * d[0],) * 3
+        elif k == "Cylinder":
+            # Terrain cylinders run along their CFrame's Up axis; part cylinders along Right.
+            r, u = f["right"], f["up"]
+            base["shape"], base["right"], base["up"] = "Cylinder", u, (-r[0], -r[1], -r[2])
+            base["size"] = (d[0], 2 * d[1], 2 * d[1])
+        out.append(base)
+    return out
 
 
 def parse_dump(path):
@@ -123,6 +167,12 @@ def parse_dump(path):
             elif tag == "@G":
                 cur.grads.append({"id": int(f[1]), "face": f[2], "c0": _v3(f[3]), "c1": _v3(f[4]),
                                   "rot": float(f[5])})
+            elif tag == "@TF":
+                cur.tfills.append({"kind": f[1], "mat": f[2], "pos": _v3(f[3]), "right": _v3(f[4]),
+                                   "up": _v3(f[5]), "back": _v3(f[6]),
+                                   "dims": tuple(float(x) for x in f[7].split(","))})
+            elif tag == "@TC":
+                cur.tcolors[f[1]] = _v3(f[2])
             elif tag == "@ORIGIN":
                 cur.origin = _v3(f[1])
             elif tag == "@HOLE":
@@ -873,7 +923,7 @@ def main(argv):
         t0 = time.time()
         setup_render(args)
         TEMPLATES.clear()
-        n, skipped = build_parts(s.parts, hide)
+        n, skipped = build_parts(s.parts + terrain_parts(s), hide)
         build_gradients(s)
         if not args.no_text:
             build_texts(s)

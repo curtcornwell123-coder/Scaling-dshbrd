@@ -39,6 +39,21 @@ do (function()
 			end
 		end
 	end
+	local fillMark = 1
+	local function dumpTerrain()
+		for i = fillMark, #Sim.terrainFills do
+			local f = Sim.terrainFills[i]
+			local c = f.CFrame
+			local dims = if f.Kind == "Block" or f.Kind == "Wedge" then f3(f.Size)
+				elseif f.Kind == "Ball" then string.format("%.4f", f.Radius)
+				else string.format("%.4f,%.4f", f.Height, f.Radius)
+			print(string.format("@TF|%s|%s|%s|%s|%s|%s|%s", f.Kind, f.Material, f3(c.Position), f3(c.RightVector), f3(c.UpVector), f3(-c.LookVector), dims))
+		end
+		fillMark = #Sim.terrainFills + 1
+		for name, color in Sim.terrainColors do
+			print(string.format("@TC|%s|%s", name, col(color)))
+		end
+	end
 	local which = Sim.dumpWhich or "all"
 	Sim.runScript(Sim.mainServer, "server")
 	Sim.run(7)
@@ -50,6 +65,7 @@ do (function()
 				dumpTree(x)
 			end
 		end
+		dumpTerrain()
 	end
 	if which == "all" or which == "courses" then
 		Sim.asSide("server", function()
@@ -61,6 +77,7 @@ do (function()
 				if not seen[map.Theme] or map.Id == Sim.dumpMap then
 					seen[map.Theme] = true
 					i += 1
+					fillMark = #Sim.terrainFills + 1
 					local course = CourseBuilder.build(map, Vector3.new(4000 + i * 1100, 0, 4000), { ChaosBoxes = true })
 					print("@SCENE|course_" .. map.Id)
 					print(string.format("@ORIGIN|%s", f3(Vector3.new(4000 + i * 1100, 0, 4000))))
@@ -68,9 +85,12 @@ do (function()
 						print(string.format("@HOLE|%d|%s|%s|%s|%s|%s|%s", hi, f3(h.Tee), f3(h.Cup), f3(h.Overview.Position), f3(h.Overview.RightVector), f3(h.Overview.UpVector), f3(-h.Overview.LookVector)))
 					end
 					dumpTree(course.Model)
+					dumpTerrain()
 					course.Destroy()
+					fillMark = #Sim.terrainFills + 1
 				end
 			end
+			fillMark = #Sim.terrainFills + 1
 			local tut = CourseBuilder.buildTutorial(Vector3.new(-4000, 0, 4000))
 			print("@SCENE|tutorial")
 			print(string.format("@ORIGIN|%s", f3(Vector3.new(-4000, 0, 4000))))
@@ -78,6 +98,7 @@ do (function()
 				print(string.format("@HOLE|%d|%s|%s|%s|%s|%s|%s", hi, f3(h.Tee), f3(h.Cup), f3(h.Overview.Position), f3(h.Overview.RightVector), f3(h.Overview.UpVector), f3(-h.Overview.LookVector)))
 			end
 			dumpTree(tut.Model)
+			dumpTerrain()
 		end)
 	end
 	print("@END")
