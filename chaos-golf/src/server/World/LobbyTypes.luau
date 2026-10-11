@@ -88,7 +88,7 @@ export type Lobby = {
 		Lanes: { Lane }, -- six lanes, all playing the live minigame
 		Header: BasePart, -- gantry screen over the lane heads: the live game (Front)
 		TV: BasePart, -- broadcast TV over the lanes: now / next / countdown (Front faces the lane heads)
-		LobbyTVs: { BasePart }, -- signage either side of the atrium's Practice doorway (Front faces the hub)
+		LobbyTVs: { BasePart }, -- signs hung in the atrium's Practice doorway, left = live now (Front faces the hub)
 		Ground: BasePart, -- floor slab under the whole range, restyled per biome
 		Backdrop: BasePart, -- back wall panel (Front faces the lanes), restyled per biome
 		Biome: Folder, -- runtime biome dressing (PracticeBiomes)

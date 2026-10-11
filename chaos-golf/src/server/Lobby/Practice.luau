@@ -677,9 +677,10 @@ local function buildBroadcast()
 
 	-- Atrium signs: left = now playing, right = up next.
 	local function sign(part: BasePart, heading: string): { Name: TextLabel, Sub: TextLabel }
-		local g = UIKit.surface(part, { PixelsPerStud = 50, Name = "SignUI" })
+		-- Hung overhead in the doorway: fewer pixels per stud reads larger from across the hub.
+		local g = UIKit.surface(part, { PixelsPerStud = 42, Name = "SignUI" })
 		local root = UIKit.screen(g)
-		UIKit.list(root, 4, false, Enum.HorizontalAlignment.Center)
+		UIKit.list(root, 4, false, Enum.HorizontalAlignment.Center).VerticalAlignment = Enum.VerticalAlignment.Center
 		UIKit.text({ Text = heading, TextSize = 22, Font = T.FontHeavy, TextColor3 = T.Muted, TextXAlignment = Enum.TextXAlignment.Center, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = 1, Parent = root })
 		local name = UIKit.text({ Text = "", TextSize = 40, Font = T.FontHeavy, TextScaled = true, TextXAlignment = Enum.TextXAlignment.Center, Size = UDim2.new(1, 0, 0, 70), LayoutOrder = 2, Parent = root })
 		local sub = UIKit.text({ Text = "", TextSize = 22, Font = T.Font, TextColor3 = T.Gold, TextXAlignment = Enum.TextXAlignment.Center, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = 3, Parent = root })

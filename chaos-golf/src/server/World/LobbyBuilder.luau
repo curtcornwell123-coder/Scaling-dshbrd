@@ -12,7 +12,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Crates = require(Shared:WaitForChild("Crates"))
-local Minigames = require(Shared:WaitForChild("Minigames"))
 local Skins = require(Shared:WaitForChild("Skins"))
 local Parts = require(script.Parent:WaitForChild("Parts"))
 local LobbyKit = require(script.Parent:WaitForChild("LobbyKit"))
@@ -312,14 +311,17 @@ local function buildGrounds(rng: Random)
 		local size = Vector3.new(rng:NextNumber(14, 30), 1.4, rng:NextNumber(14, 30))
 		terrain:FillBlock(CFrame.new(p) * CFrame.Angles(0, rng:NextNumber(0, PI), 0), size, M.LeafyGrass)
 	end
-	-- Stone paving round the building, then carve the top layer out under the floors.
-	terrain:FillCylinder(CFrame.new(0, -2, 0), 4, HUB_OUT + 2, M.Pavement)
+	-- Under the whole building the terrain is stone paving all the way down (grass blades
+	-- grow through floors, paving has none), with the top layer carved out under the floors.
+	terrain:FillCylinder(CFrame.new(0, -6, 0), 12, HUB_OUT + 2, M.Pavement)
 	terrain:FillCylinder(CFrame.new(0, -2, 0), 4, LOBBY_R + WALL_T, M.Air)
 	for _, quad in QUADS do
 		local R = roomFrame(quad)
-		terrain:FillBlock(R * CFrame.new(0, -2, 0), Vector3.new(2 * quad.W + 12, 4, 2 * quad.D + 12), M.Pavement)
+		local hall = along(quad.Frame, 0, -6, (LOBBY_R + NEAR_WALL) / 2)
+		terrain:FillBlock(R * CFrame.new(0, -6, 0), Vector3.new(2 * quad.W + 12, 12, 2 * quad.D + 12), M.Pavement)
+		terrain:FillBlock(hall, Vector3.new(HALL_HALF * 2 + 12, 12, NEAR_WALL - LOBBY_R + 12), M.Pavement)
 		terrain:FillBlock(R * CFrame.new(0, -2, 0), Vector3.new(2 * quad.W + 2, 4, 2 * quad.D + 2), M.Air)
-		terrain:FillBlock(along(quad.Frame, 0, -2, (LOBBY_R + NEAR_WALL) / 2), Vector3.new(HALL_HALF * 2 + 2, 4, NEAR_WALL - LOBBY_R + 2), M.Air)
+		terrain:FillBlock(hall * CFrame.new(0, 4, 0), Vector3.new(HALL_HALF * 2 + 2, 4, NEAR_WALL - LOBBY_R + 2), M.Air)
 	end
 	terrain:FillCylinder(CFrame.new(POND + Vector3.new(0, -2, 0)), 3.4, 10, M.Water)
 	for i = 0, 17 do
@@ -582,7 +584,8 @@ local function buildLounge(parent: Instance, deg: number)
 	LobbyKit.sofa(m, F * CFrame.new(0, 0, 2.8), KIT, 8)
 	LobbyKit.coffeeTable(m, (F * CFrame.new(0, 0, -0.4)).Position, 3.6, KIT)
 	for _, s in { -1, 1 } do
-		LobbyKit.armchair(m, F * CFrame.new(s * 3.2, 0, -3.4) * CFrame.Angles(0, PI + s * 0.5, 0), KIT)
+		-- Turned round to face the table (+Z of F), splayed in toward its centre.
+		LobbyKit.armchair(m, F * CFrame.new(s * 3.2, 0, -3.4) * CFrame.Angles(0, PI - s * 0.5, 0), KIT)
 	end
 	LobbyKit.pendant(m, (F * CFrame.new(0, 0, -0.4)).Position, HUB_H, 4.2, KIT, 16)
 end
@@ -696,8 +699,8 @@ end
 local function buildCreator(parent: Instance, rng: Random): LobbyTypes.CreatorStation
 	local m, F = stationShell(parent, 315, "CREATOR CODE", rng)
 	local scr = screen(m, "CreatorScreen", F * CFrame.new(0, 6.6, 2.5), 11, 6.5)
-	LobbyKit.armchair(m, F * CFrame.new(-4.5, 0.4, -3) * CFrame.Angles(0, PI - 0.35, 0), KIT)
-	LobbyKit.armchair(m, F * CFrame.new(4.5, 0.4, -3) * CFrame.Angles(0, PI + 0.35, 0), KIT)
+	LobbyKit.armchair(m, F * CFrame.new(-4.5, 0.4, -3) * CFrame.Angles(0, PI + 0.35, 0), KIT)
+	LobbyKit.armchair(m, F * CFrame.new(4.5, 0.4, -3) * CFrame.Angles(0, PI - 0.35, 0), KIT)
 	return { Screen = scr }
 end
 
@@ -758,20 +761,20 @@ end
 
 -- Atrium ----------------------------------------------------------------------------
 
--- Free-standing digital sign: marble foot, twin black-steel posts, a screen and a brass cap.
-local function signStand(parent: Instance, cf: CFrame, w: number, h: number): BasePart
-	local m = Parts.model(parent, "SignStand")
-	Parts.roundedBox(m, cf * CFrame.new(0, 0.25, 0), Vector3.new(w * 0.7, 0.5, 2), 0.4, solid(MARBLE, "Foot"))
-	Parts.block(m, cf * CFrame.new(0, 0.52, 0), Vector3.new(w * 0.7 - 0.4, 0.06, 1.6), deco(BRASS, "FootInlay"))
+-- Digital sign hung from the doorway soffit on slim black-steel rods, its Front face to the hub.
+local function hangingSign(parent: Instance, cf: CFrame, w: number, h: number, ceiling: number): BasePart
+	local m = Parts.model(parent, "HangingSign")
+	local scr = screen(m, "SignScreen", cf, w, h)
+	local top = h / 2 + 0.45
+	local drop = ceiling - (cf.Position.Y + top)
 	for _, s in { -1, 1 } do
-		Parts.block(m, cf * CFrame.new(s * (w / 2 - 0.6), 2.4 + h / 4, 0.35), Vector3.new(0.35, 4.8 + h / 2, 0.35), solid(STEEL, "Post"))
+		Parts.block(m, cf * CFrame.new(s * (w / 2 - 0.9), top + drop / 2, 0.35), Vector3.new(0.14, drop, 0.14), solid(STEEL, "Rod"))
+		Parts.block(m, cf * CFrame.new(s * (w / 2 - 0.9), ceiling - cf.Position.Y - 0.04, 0.35), Vector3.new(0.5, 0.08, 0.5), deco(BRASS, "Rose"))
 	end
-	local scr = screen(m, "SignScreen", cf * CFrame.new(0, 2.6 + h / 2, 0), w, h)
-	Parts.block(m, cf * CFrame.new(0, 3.2 + h, 0.35), Vector3.new(w + 1.2, 0.2, 1), deco(BRASS, "Cap"))
 	return scr
 end
 
--- Signs either side of the atrium's Practice doorway (filled in by buildAtrium).
+-- Signs hung side by side in the atrium's Practice doorway (filled in by buildAtrium).
 local practiceSigns: { BasePart } = {}
 
 local function buildAtrium(parent: Instance, rng: Random)
@@ -783,8 +786,13 @@ local function buildAtrium(parent: Instance, rng: Random)
 		buildDoorway(hub, quad)
 		for _, s in { -1, 1 } do
 			if quad.Key == "South" then
-				-- Practice doorway: two digital signs (now playing / up next) facing the hub.
-				table.insert(practiceSigns, signStand(hub, along(quad.Frame, s * 17, 0, LOBBY_R - 3.6, TO_ENTRANCE), 6.4, 3.8))
+				-- Practice doorway: two digital signs (now playing / up next) hung under the
+				-- soffit like departure boards, clear of the walls, lounges and the walkway.
+				-- Left (s = -1 seen from the hub) first.
+				local w, h = 7.6, 4.2
+				local soffit = ARCH_H - 0.3
+				local y = soffit - 0.6 - 0.45 - h / 2
+				table.insert(practiceSigns, hangingSign(hub, along(quad.Frame, s * 5.3, y, LOBBY_R + 0.2, TO_ENTRANCE), w, h, soffit))
 			else
 				LobbyKit.planter(hub, at(quad.Frame, s * 16.5, 0, LOBBY_R - 3.4), KIT, rng, 7.5)
 			end
