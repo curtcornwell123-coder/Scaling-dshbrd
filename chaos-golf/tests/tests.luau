@@ -150,4 +150,69 @@ for _, c in Cosmetics.Categories do check(Cosmetics.get(c, Cosmetics.Defaults[c]
 -- Upgrade costs cover max level
 check(#Config.Upgrades.Costs == Config.Upgrades.MaxLevel, "upgrade costs")
 
+-- Cup physics: roll balls (cup at the origin, heading +X) through CupPhysics with the
+-- server's rolling friction. Returns "sink" | "hop" (lipped/hopped out) | "miss", speed, x, z.
+local Cup = req("CupPhysics")
+local function roll(x, z, vx, vz, dt, seconds)
+	local P = Config.Physics
+	local s, t, air, hopped = Cup.newState(), 0, 0, false
+	local px, pz = x, z
+	while t < seconds do
+		t += dt
+		x += vx * dt
+		z += vz * dt
+		if air > 0 then
+			air -= dt
+		else
+			local sp = math.sqrt(vx * vx + vz * vz)
+			if sp > 0 then
+				local ns = math.max(0, sp - (P.RollResistance + P.Drag * sp) * dt)
+				vx, vz = vx / sp * ns, vz / sp * ns
+			end
+			local sink, nvx, nvz, hop = Cup.step(s, px, pz, x, z, vx, vz, true, dt, t, P.CupRadius)
+			if sink then
+				return "sink", 0, x, z
+			end
+			vx, vz = nvx, nvz
+			if hop > 0 then
+				hopped, air = true, 2 * hop / 196.2
+			end
+		end
+		px, pz = x, z
+	end
+	return (if hopped then "hop" else "miss"), math.sqrt(vx * vx + vz * vz), x, z
+end
+local CR = Config.Physics.CupRadius
+local r1 = roll(-6, 0, 14, 0, 1 / 60, 3)
+check(r1 == "sink", "cup: firm centre putt drops (" .. r1 .. ")")
+local r2, v2 = roll(-6, 0, 40, 0, 1 / 60, 0.5)
+local _, vFree = roll(-6, 30, 40, 0, 1 / 60, 0.5)
+check(r2 == "hop" and v2 < vFree, string.format("cup: too fast hops the hole and loses pace (%s %.1f vs %.1f)", r2, v2, vFree))
+local r3 = roll(-6, 0, 20, 0, 0.15, 3)
+check(r3 == "sink", "cup: slow server frames can't skip the cup (" .. r3 .. ")")
+local r4 = roll(-6, 0.9 * CR, 14, 0, 1 / 60, 3)
+check(r4 == "sink", "cup: off-centre medium pace drops (" .. r4 .. ")")
+local r5, _, _, z5 = roll(-6, 0.9 * CR, 28, 0, 1 / 60, 3)
+check(r5 == "hop" and z5 < 0.9 * CR - 0.05, string.format("cup: off-centre too fast lips out and is turned (%s z=%.2f)", r5, z5))
+local r6 = roll(CR + 0.12, 0, 0, 0, 1 / 60, 3)
+check(r6 == "sink", "cup: ball resting half over the hole tips in (" .. r6 .. ")")
+local r7, _, x7 = roll(CR + 0.6, 0, 0, 0, 1 / 60, 3)
+check(r7 == "miss" and math.abs(x7 - (CR + 0.6)) < 1e-6, "cup: ball just touching the rim stays put (" .. r7 .. ")")
+local r8 = roll(-3, CR + 0.15, 8.5, 0, 1 / 60, 3)
+check(r8 == "sink", "cup: slow ball dying past the lip curls in (" .. r8 .. ")")
+local r9 = roll(-6, CR + 0.15, 20, 0, 1 / 60, 3)
+check(r9 == "miss", "cup: brisk ball past the lip rolls on (" .. r9 .. ")")
+check(Cup.captureSpeed(0, CR) == Config.Physics.MaxSinkSpeed and Cup.captureSpeed(CR, CR) < Cup.captureSpeed(0.5 * CR, CR), "cup: capture speed falls toward the rim")
+-- Fastest putt that still drops, by line (dead centre .. grazing).
+local caps = {}
+for _, f in { 0, 0.5, 0.8, 0.95 } do
+	local lo, hi = 1, 60
+	for _ = 1, 30 do
+		local mid = (lo + hi) / 2
+		if roll(-0.5 - CR, f * CR, mid, 0, 1 / 60, 2) == "sink" then lo = mid else hi = mid end
+	end
+	table.insert(caps, string.format("%.2fR=%.1f", f, lo))
+end
+print("cup capture speeds: " .. table.concat(caps, " "))
+
 print(if fails == 0 then "ALL TESTS PASSED" else fails .. " FAILURES")

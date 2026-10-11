@@ -248,6 +248,67 @@ end
 flow("coin shop: new set every 10 minutes, countdown board", errs() == e0 and rotated and Skins.rotationSlot() == slot0 + 1 and boardText ~= "", string.format("rotated=%s board=%q first=%s", tostring(rotated), boardText, rot0))
 Sim.removePlayer(fresh)
 
+-- c2. cup physics on real balls: a firm centre putt drops, a fast one hops the hole with a
+-- lip-out, a ball left hanging over the lip tips in, one just touching the rim stays ---------
+e0 = errs()
+local golfer = newPlayer(1089, "Kai")
+local green
+Sim.asSide("server", function()
+	green = Instance.new("Part")
+	green.Name = "CupTestGreen"
+	green.Anchored = true
+	green.Size = V(120, 1, 40)
+	green.CFrame = Sim.types.CFrame.new(0, 899.5, 0)
+	green.Parent = Sim.workspace
+end)
+local cupAt = V(0, 900, 0)
+local CR = Config.Physics.CupRadius
+local sunkCount = 0
+local function lipOuts()
+	local n = 0
+	for _, e in Sim.clientEvents("Fx", golfer) do
+		if e.args[1] == "lipOut" then
+			n += 1
+		end
+	end
+	return n
+end
+local function putt(x, z, speed, seconds)
+	local b
+	Sim.asSide("server", function()
+		b = BallService.create(golfer, {
+			Position = V(x, 900.75, z),
+			Context = { CanShoot = function() return false end, OnSink = function() sunkCount += 1 end },
+			Cup = cupAt,
+			OOBY = 880,
+		})
+		if speed > 0 then
+			b.AtRest = false
+			b.Part.AssemblyLinearVelocity = V(speed, 0, 0)
+		end
+	end)
+	local before, topY = sunkCount, 0
+	Sim.run(seconds, function()
+		topY = math.max(topY, b.Part.Position.Y - 900.75)
+		return false
+	end)
+	return sunkCount > before, topY, b
+end
+local slowIn = putt(-6, 0, 14, 2)
+local lip0 = lipOuts()
+local fastIn, hopY, fastBall = putt(-6, 0, 42, 0.8)
+local lipped = lipOuts() - lip0
+local pastCup = fastBall.Part.Position.X > CR
+local edgeIn = putt(CR + 0.12, 0, 0, 2)
+local touchIn, _, touchBall = putt(CR + 0.6, 0, 0, 2)
+Sim.asSide("server", function()
+	BallService.destroy(golfer)
+	green:Destroy()
+end)
+Sim.removePlayer(golfer)
+flow("cup physics: centre putt drops, fast putt hops with a lip-out, half-on ball tips in", errs() == e0 and slowIn and not fastIn and lipped == 1 and hopY > 0.05 and pastCup and edgeIn and not touchIn and touchBall.AtRest,
+	string.format("slow=%s fast=%s lipFx=%d hop=%.2f past=%s half=%s touch=%s", tostring(slowIn), tostring(fastIn), lipped, hopY, tostring(pastCup), tostring(edgeIn), tostring(touchIn)))
+
 -- d. shutdown ---------------------------------------------------------------------------------
 e0 = errs()
 for _, fn in Sim.closeCallbacks do

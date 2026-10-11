@@ -1,7 +1,7 @@
 --!strict
 -- Server-authoritative golf balls. Roblox physics handles collisions; this
 -- module adds rolling resistance, surfaces (sand / ice / boost), rest detection,
--- sinking, out-of-bounds resets and validated shots. Whoever owns a ball (a
+-- sinking (cup physics in CupPhysics), out-of-bounds resets and validated shots. Whoever owns a ball (a
 -- match, a practice lane, the tutorial) supplies a Context with callbacks.
 
 local AssetService = game:GetService("AssetService")
@@ -16,6 +16,7 @@ local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local Skins = require(Shared:WaitForChild("Skins"))
 local Abilities = require(Shared:WaitForChild("Abilities"))
+local CupPhysics = require(Shared:WaitForChild("CupPhysics"))
 
 local BallService = {}
 
@@ -43,6 +44,8 @@ export type Ball = {
 	Cup: Vector3?,
 	CupScale: number,
 	TinyCupUntil: number,
+	CupState: CupPhysics.State, -- running over / hanging on the lip of the cup
+	PrevPos: Vector3?, -- position last step (the cup test sweeps the path between)
 	OOBY: number,
 	Upgrades: { [string]: number },
 	Frost: boolean, -- pending: applies to the next shot
@@ -199,6 +202,8 @@ function BallService.create(player: Player, opts: CreateOpts): Ball
 		Cup = opts.Cup,
 		CupScale = 1,
 		TinyCupUntil = 0,
+		CupState = CupPhysics.newState(),
+		PrevPos = nil,
 		OOBY = opts.OOBY,
 		Upgrades = upgrades,
 		Frost = false,
@@ -255,6 +260,8 @@ function BallService.place(ball: Ball, position: Vector3)
 	ball.RestTimer = 0
 	ball.MovingTime = 0
 	ball.LastRest = position
+	ball.PrevPos = nil
+	CupPhysics.reset(ball.CupState)
 	pcall(function()
 		part:SetNetworkOwner(nil)
 	end)
@@ -352,10 +359,19 @@ local function sink(ball: Ball)
 	part.AssemblyLinearVelocity = Vector3.zero
 	local cup = ball.Cup :: Vector3
 	part.CanCollide = false
-	TweenService:Create(part, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-		CFrame = CFrame.new(cup - Vector3.new(0, 1.2, 0)),
-		Transparency = 1,
-	}):Play()
+	ball.PrevPos = nil
+	-- Over the centre and dipping, then down the hole.
+	local lip = Vector3.new(cup.X, cup.Y + Config.Ball.Diameter / 2 - 0.3, cup.Z)
+	TweenService:Create(part, TweenInfo.new(0.1, Enum.EasingStyle.Linear), { CFrame = CFrame.new(lip) }):Play()
+	task.delay(0.1, function()
+		if not part.Parent then
+			return
+		end
+		TweenService:Create(part, TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			CFrame = CFrame.new(cup - Vector3.new(0, 1.2, 0)),
+			Transparency = 1,
+		}):Play()
+	end)
 	sound(part, Config.Sounds.Sink, 0.9)
 	Net.event("Fx"):FireAllClients("sink", { Position = cup, Player = ball.Player, Strokes = ball.Strokes })
 	BallService.refresh(ball)
@@ -405,6 +421,23 @@ local function rest(ball: Ball)
 	end
 end
 
+-- The ball met the far rim too fast: a clink, and everyone sees the lip-out.
+local function lipOut(ball: Ball, at: Vector3)
+	sound(ball.Part, Config.Sounds.Bonk, 0.35)
+	Net.event("Fx"):FireAllClients("lipOut", { Position = at, Player = ball.Player })
+end
+
+-- At cup level: is the ball inside the cup (resting) or hanging over its lip?
+local function cupContact(ball: Ball, pos: Vector3): ("in" | "lip")?
+	local cup = ball.Cup
+	if not cup or math.abs(pos.Y - (cup.Y + Config.Ball.Diameter / 2)) >= 1.4 then
+		return nil
+	end
+	local R = Config.Physics.CupRadius * ball.CupScale
+	local d = Vector2.new(cup.X - pos.X, cup.Z - pos.Z).Magnitude
+	return if d < R then "in" elseif d < R + CupPhysics.lipZone(R) then "lip" else nil
+end
+
 local function step(ball: Ball, dt: number)
 	local part = ball.Part
 	if ball.Sunk or not part.Parent or part.Anchored then
@@ -432,8 +465,15 @@ local function step(ball: Ball, dt: number)
 	local surface = if hit then hit.Instance:GetAttribute("Surface") else nil
 
 	if ball.AtRest then
+		-- A resting ball inside the cup (e.g. Tiny Cup just wore off) drops in; one left
+		-- hanging over the lip wakes up and tips in.
+		local contact = cupContact(ball, pos)
+		if contact == "in" then
+			sink(ball)
+			return
+		end
 		-- Hold still unless something (a spinner, another ball, an ability) shoves it.
-		if vel.Magnitude > 3.5 or not grounded then
+		if vel.Magnitude > 3.5 or not grounded or contact == "lip" then
 			ball.AtRest = false
 			ball.RestTimer = 0
 			ball.MovingTime = 0
@@ -441,11 +481,7 @@ local function step(ball: Ball, dt: number)
 		else
 			part.AssemblyLinearVelocity = Vector3.zero
 			part.AssemblyAngularVelocity = Vector3.zero
-			-- A resting ball inside the cup (e.g. Tiny Cup just wore off) drops in.
-			local cup = ball.Cup
-			if cup and Vector2.new(cup.X - pos.X, cup.Z - pos.Z).Magnitude < Config.Physics.CupRadius * ball.CupScale then
-				sink(ball)
-			end
+			ball.PrevPos = pos
 			return
 		end
 	end
@@ -506,14 +542,39 @@ local function step(ball: Ball, dt: number)
 				end
 				speed = horizontal.Magnitude
 			end
-			if dist < P.CupRadius * ball.CupScale and math.abs(pos.Y - (cup.Y + Config.Ball.Diameter / 2)) < 1.4 then
-				if speed < P.MaxSinkSpeed then
-					sink(ball)
-					return
-				end
-			end
 		end
 		part.AssemblyLinearVelocity = Vector3.new(horizontal.X, vel.Y, horizontal.Z)
+	end
+
+	-- The cup: drop in, lip out / hop the hole, or tip in off the lip (CupPhysics). Rolling
+	-- or low over the green only; a ball flying higher sails over.
+	local onLip = false
+	local cup = ball.Cup
+	local prev = ball.PrevPos
+	ball.PrevPos = pos
+	if cup then
+		local height = pos.Y - (cup.Y + Config.Ball.Diameter / 2)
+		local x1, z1 = pos.X - cup.X, pos.Z - cup.Z
+		if height > -1.4 and height < 0.9 and x1 * x1 + z1 * z1 < 400 then
+			local from = prev or pos
+			local R = P.CupRadius * ball.CupScale
+			local sunk, vx, vz, hop, lip = CupPhysics.step(ball.CupState, from.X - cup.X, from.Z - cup.Z, x1, z1, horizontal.X, horizontal.Z, grounded, dt, os.clock(), R)
+			if sunk then
+				sink(ball)
+				return
+			end
+			onLip = lip
+			if hop > 0 or vx ~= horizontal.X or vz ~= horizontal.Z then
+				local vy = part.AssemblyLinearVelocity.Y
+				if hop > 0 then
+					vy = math.max(vy, 0) + hop
+					lipOut(ball, pos)
+				end
+				part.AssemblyLinearVelocity = Vector3.new(vx, vy, vz)
+			end
+		else
+			CupPhysics.reset(ball.CupState)
+		end
 	end
 
 	if ball.Context.Tick then
@@ -521,7 +582,7 @@ local function step(ball: Ball, dt: number)
 	end
 
 	local total = part.AssemblyLinearVelocity.Magnitude
-	if grounded and total < P.RestSpeed then
+	if grounded and total < P.RestSpeed and not onLip then
 		ball.RestTimer += dt
 		if ball.RestTimer >= P.RestTime then
 			rest(ball)

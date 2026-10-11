@@ -87,7 +87,7 @@ The aim guide is your equipped **Arrow Skin** (styles: Classic, Chevron, Dotted,
 
 ### Ball physics (server-authoritative)
 
-Roblox physics handles collisions. The server adds rolling resistance (10 studs/s² + 0.55·v), surfaces (sand ×4.5 drag, ice ×0.2, boost pads), rest detection (speed < 1.1 for 0.35 s), cup capture (inside 1.3 studs and slower than 24 studs/s, otherwise it lips out), and out-of-bounds resets (+1 stroke, back to the last rest spot). Shots are validated (rate-limited, ball at rest, your turn, power clamped).
+Roblox physics handles collisions. The server adds rolling resistance (10 studs/s² + 0.55·v), surfaces (sand ×4.5 drag, ice ×0.2, boost pads), rest detection (speed < 1.1 for 0.35 s), cup physics (CupPhysics: the path since the last step is swept, so fast balls and slow server frames never skip the 1.3-stud cup; the drop speed depends on the line, up to 24 studs/s dead centre and 45% of that grazing the rim; too fast, the ball runs over the hole, loses pace on the far rim, pops up and an off-centre ball is turned: a "LIP OUT!"; a slow ball hanging up to 0.3 studs past the rim tips in, and one that stops on the lip teeters for 0.35 s first), and out-of-bounds resets (+1 stroke, back to the last rest spot). Shots are validated (rate-limited, ball at rest, your turn, power clamped).
 
 ### Modes
 
