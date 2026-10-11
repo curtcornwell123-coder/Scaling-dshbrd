@@ -1,6 +1,7 @@
 """Square 512x512 experience icon from a 3D render: post-processed crop + big stacked title.
 
-Usage: python3 make_icon.py golf  ->  marketing/golf/icon.png
+Usage: python3 make_icon.py [game ...]  ->  marketing/<game>/icon.png
+Sources: golf crops its 16:9 hero render; the others use the square icons3d.py render (icon_render.png).
 """
 import os
 import sys
@@ -12,16 +13,22 @@ import overlay as ov
 g, rgb, S = ov.g, ov.rgb, ov.S
 
 ICONS = {
-    # game: (render, crop centre x in the 1920x1080 render, title lines (text, style, size, y) on a 2048 canvas)
-    "golf": ("hero", 1040, [("ULTIMATE", "golf", 300, 300), ("GOLF", "golf2", 470, 640)]),
+    # game: (source image, crop centre x for a 1920x1080 source or None if square,
+    #        title lines (text, style, size, y) on a 2048 canvas)
+    "golf": ("renders/hero.png", 1040, [("ULTIMATE", "golf", 300, 300), ("GOLF", "golf2", 470, 640)]),
+    "brainrot": ("icon_render.png", None, [("BRAINROT", "brainrot", 300, 290), ("HEIST", "brainrot2", 470, 630)]),
+    "cyber": ("icon_render.png", None, [("CYBER", "cyber", 360, 300), ("SWARM", "cyber2", 430, 650)]),
+    "merge": ("icon_render.png", None, [("MERGE A", "merge2", 320, 300), ("EGG", "merge", 500, 650)]),
 }
 
 
 def make(game):
-    scene, cx, lines = ICONS[game]
-    img = ov.post(Image.open(os.path.join(ov.MARKETING, game, "renders", f"{scene}.png")))
-    x0 = max(0, min(1920 - 1080, int(cx - 540)))
-    sq = img.crop((x0, 0, x0 + 1080, 1080)).resize((S, S), Image.LANCZOS)
+    src, cx, lines = ICONS[game]
+    img = ov.post(Image.open(os.path.join(ov.MARKETING, game, src)))
+    if cx is not None:
+        x0 = max(0, min(1920 - 1080, int(cx - 540)))
+        img = img.crop((x0, 0, x0 + 1080, 1080))
+    sq = img.resize((S, S), Image.LANCZOS)
     cv = g.Canvas(color=g.NAVY)
     cv.paste_image(sq, 0, 0)
     ov.legibility(cv, 470, 620, rgb("#05030F"), 0.45)
