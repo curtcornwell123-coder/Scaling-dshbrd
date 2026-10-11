@@ -54,7 +54,7 @@ TITLES = {
 }
 
 
-def post(img):
+def post(img, bloom_strength=0.55):
     """Bloom + filmic-ish grade + vignette + sharpen on the raw render (float 0..1)."""
     a = np.asarray(img.convert("RGB"), np.float32) / 255.0
     lum = a @ np.array([0.2126, 0.7152, 0.0722], np.float32)
@@ -62,7 +62,7 @@ def post(img):
     bloom = np.zeros_like(a)
     for sigma, w in ((6, 0.45), (22, 0.35), (64, 0.3)):
         bloom += w * np.stack([ndimage.gaussian_filter(bright[..., c], sigma) for c in range(3)], -1)
-    a = a + bloom * 0.55
+    a = a + bloom * bloom_strength
     a = 1 - np.exp(-a * 1.35)                       # soft shoulder so bloom never clips harshly
     a = a / (1 - math.exp(-1.35))
     grey = (a @ np.array([0.299, 0.587, 0.114], np.float32))[..., None]

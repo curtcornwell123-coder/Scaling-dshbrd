@@ -21,10 +21,12 @@ ICONS = {
     "merge": ("icon_render.png", None, [("MERGE A", "merge2", 320, 300), ("EGG", "merge", 500, 650)]),
 }
 
+BLOOM = {"cyber": 0.12, "merge": 0.3}   # bright white/gold subjects bloom over their own faces otherwise
+
 
 def make(game):
     src, cx, lines = ICONS[game]
-    img = ov.post(Image.open(os.path.join(ov.MARKETING, game, src)))
+    img = ov.post(Image.open(os.path.join(ov.MARKETING, game, src)), BLOOM.get(game, 0.55))
     if cx is not None:
         x0 = max(0, min(1920 - 1080, int(cx - 540)))
         img = img.crop((x0, 0, x0 + 1080, 1080))

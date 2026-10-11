@@ -92,12 +92,12 @@ def cyber():
 
     metal = kit.mat_plastic("heroMetal", "#EEF2FA", 0.22, 0.9)
     dark = kit.mat_plastic("heroDark", "#1C2036", 0.35, 0.6)
-    cyan = kit.mat_emit("heroGlow", "#00E5FF", 9)
+    cyan = kit.mat_emit("heroGlow", "#00D8FF", 3.2)
     pink = kit.mat_emit("heroPink", "#FF2BD6", 10)
     kit.box((0, 0, 1.0), (3.0, 2.2, 1.4), dark, bevel=0.35)                       # shoulders / body
     kit.box((0, 0, 1.55), (3.05, 2.25, 0.12), pink, bevel=0.04)
     kit.box((0, -0.1, 3.2), (3.2, 2.6, 2.6), metal, bevel=1.0)                    # head
-    kit.box((0, -1.3, 3.25), (2.5, 0.14, 1.25), kit.mat_plastic("visor", "#05060C", 0.3, 0.3), bevel=0.3)
+    kit.box((0, -1.3, 3.25), (2.5, 0.14, 1.25), kit.mat_plastic("visor", "#020207", 0.65, 0.0), bevel=0.3)
     for ex in (-0.66, 0.66):                                                      # angry slanted eyes
         kit.box((ex, -1.43, 3.3), (0.86, 0.06, 0.46), cyan, bevel=0.14, rot=(0, R(16 if ex < 0 else -16), 0))
     for sx in (-1, 1):                                                            # ear discs
