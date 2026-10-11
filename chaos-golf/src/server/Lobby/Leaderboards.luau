@@ -1,8 +1,8 @@
 --!strict
 -- West room Hall of Leaderboards: Wins, Coins earned and Sabotages, each over
 -- Daily / Weekly / All-Time (OrderedDataStores). Clients page the boards
--- locally; the server owns the trophy podiums, which show the current Daily
--- leader's real ball (skin, trail and rank) and refresh every 20 seconds.
+-- locally; the server owns the podiums: each shows its board's exclusive ball
+-- (unlocked by finishing in the weekly top 3) with the current leader's name.
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
@@ -12,6 +12,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local Ranks = require(Shared:WaitForChild("Ranks"))
+local Skins = require(Shared:WaitForChild("Skins"))
 local UIKit = require(Shared:WaitForChild("UIKit"))
 
 local Server = script.Parent.Parent
@@ -43,14 +44,90 @@ local function periodKey(period: string): string
 	return "A"
 end
 
-local function store(stat: string, period: string): OrderedDataStore?
+local function storeFor(stat: string, key: string): OrderedDataStore?
 	if game.PlaceId == 0 then -- unpublished places have no DataStores
 		return nil
 	end
 	local ok, ds = pcall(function()
-		return DataStoreService:GetOrderedDataStore(Config.DataStoreName .. "_LB_" .. stat .. "_" .. periodKey(period))
+		return DataStoreService:GetOrderedDataStore(Config.DataStoreName .. "_LB_" .. stat .. "_" .. key)
 	end)
 	return if ok then ds else nil
+end
+
+local function store(stat: string, period: string): OrderedDataStore?
+	return storeFor(stat, periodKey(period))
+end
+
+-- Weekly board key `offset` weeks back (0 = this week).
+local function weekKey(offset: number): string
+	local day = math.floor(os.time() / 86400)
+	return "W" .. (math.floor((day + 3) / 7) - offset)
+end
+
+-- Board stat -> exclusive ball skin id.
+local REWARDS: { [string]: string } = Config.Leaderboards.Rewards :: any
+
+-- Weekly winners: winners[stat][weekKey] = top-N user ids of that finished week.
+local winners: { [string]: { [string]: { number } } } = {}
+
+local function fetchWinners(): boolean
+	local changed = false
+	for stat in REWARDS do
+		winners[stat] = winners[stat] or {}
+		for offset = 1, Config.Leaderboards.RewardWeeks do
+			local key = weekKey(offset)
+			if winners[stat][key] == nil then
+				local ds = storeFor(stat, key)
+				if not ds then
+					return changed
+				end
+				local ok, pages = pcall(function()
+					return ds:GetSortedAsync(false, Config.Leaderboards.RewardTop)
+				end)
+				local ids: { number } = {}
+				if ok and pages then
+					local pageOk, page = pcall(function()
+						return pages:GetCurrentPage()
+					end)
+					if not pageOk then
+						continue -- try again next refresh
+					end
+					for _, row in page do
+						local userId = tonumber(row.key)
+						if userId and type(row.value) == "number" and row.value > 0 then
+							table.insert(ids, userId)
+						end
+					end
+				else
+					continue
+				end
+				winners[stat][key] = ids
+				changed = true
+			end
+		end
+	end
+	return changed
+end
+
+-- Hands out each board's exclusive ball to a player who finished in its weekly top N.
+local function grantWeekly(player: Player)
+	local session = Data.get(player)
+	if not session or not session.Loaded then
+		return
+	end
+	for stat, skinId in REWARDS do
+		local weeks = winners[stat]
+		if weeks then
+			for _, ids in weeks do
+				local place = table.find(ids, player.UserId)
+				if place and not Data.owns(player, "Skins", skinId) then
+					Data.grantSkin(player, skinId)
+					local skin = Skins.get(skinId)
+					Net.event("Toast"):FireClient(player, string.format("#%d on the weekly %s board! You unlocked the %s ball.", place, stat, skin.Name), Config.Colors.Gold)
+				end
+			end
+		end
+	end
 end
 
 local function nameOf(userId: number): string
@@ -153,31 +230,30 @@ local function buildNameplate(board: LobbyTypes.Board, stat: string): (TextLabel
 end
 
 local function updatePodium(stat: string, podium: Podium)
-	local boards = cache[stat]
-	if not boards then
-		return
-	end
+	local boards: { [string]: { Entry } } = cache[stat] or {}
 	local period = "Daily"
 	local leader = boards.Daily and boards.Daily[1]
 	if not leader then
 		period = "AllTime"
 		leader = boards.AllTime and boards.AllTime[1]
 	end
-	if not leader then
-		return
-	end
-	local pub: { Skin: string?, Trail: string?, MMR: number? } = Data.getPublic(leader.UserId) or { Skin = nil, Trail = nil, MMR = nil }
-	local skin = pub.Skin or "classic_white"
-	local trail = pub.Trail or "none"
-	local key = table.concat({ tostring(leader.UserId), skin, trail, tostring(leader.Value), tostring(pub.MMR) }, "|")
+	-- The podium always shows this board's exclusive ball (weekly top 3 unlock it).
+	local skin = REWARDS[stat] or "classic_white"
+	local pub: { Skin: string?, Trail: string?, MMR: number? } = if leader then Data.getPublic(leader.UserId) or {} else {}
+	local key = table.concat({ if leader then tostring(leader.UserId) else "-", if leader then tostring(leader.Value) else "-", tostring(pub.MMR) }, "|")
 	podium.Title.Text = (if period == "Daily" then "#1 TODAY · " else "#1 ALL-TIME · ") .. string.upper(stat)
 	if podiumState[stat] == key then
 		return
 	end
 	podiumState[stat] = key
 	podium.Folder:ClearAllChildren()
-	local ball = Displays.ball(podium.Folder, Displays.anchorPoint(podium.Board.Podium), skin, 3.2)
-	ball:SetAttribute("ShowcaseTrail", trail)
+	Displays.ball(podium.Folder, Displays.anchorPoint(podium.Board.Podium), skin, 3.2)
+	if not leader then
+		podium.Name.Text = "—"
+		podium.Value.Text = ""
+		podium.Rank.Text = ""
+		return
+	end
 	podium.Name.Text = leader.Name
 	podium.Value.Text = UIKit.formatNumber(leader.Value) .. " " .. string.lower(stat)
 	if pub.MMR then
@@ -216,8 +292,16 @@ function Leaderboards.start(lobby: LobbyTypes.Lobby)
 	task.spawn(function()
 		while true do
 			refresh()
+			if fetchWinners() then
+				for player in Data.sessions() do
+					grantWeekly(player)
+				end
+			end
 			task.wait(Config.Leaderboards.RefreshInterval)
 		end
+	end)
+	Data.Loaded:Connect(function(player)
+		grantWeekly(player)
 	end)
 	task.spawn(function()
 		while true do

@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Crates = require(Shared:WaitForChild("Crates"))
+local Skins = require(Shared:WaitForChild("Skins"))
 local Parts = require(script.Parent:WaitForChild("Parts"))
 local LobbyKit = require(script.Parent:WaitForChild("LobbyKit"))
 local Fountain = require(script.Parent:WaitForChild("Fountain"))
@@ -64,7 +65,6 @@ local HEDGE = hex("#3F6A2E")
 
 -- Names the room builders use.
 local WALL = PLASTER
-local WALL2 = MARBLE
 local WOOD_DARK = WALNUT
 local WOOD = WALNUT_MID
 
@@ -1298,39 +1298,66 @@ end
 -- WEST: Leaderboards ------------------------------------------------------------------
 
 -- One leaderboard unit. F: floor point on the wall face, LookVector into the room.
+-- A walnut-fin feature wall with the board screen and its console on the left, and a
+-- stepped marble podium (the board's exclusive ball) under a spotlight on the right.
 local function buildBoard(parent: Instance, F: CFrame, stat: string, medal: Color3, accent: Color3): LobbyTypes.Board
 	local m = Parts.model(parent, "Board" .. stat)
 	-- vx: viewer's right when facing the wall; dist: distance out from the wall.
 	local function v(vx: number, y: number, dist: number): CFrame
 		return F * CFrame.new(-vx, y, -dist)
 	end
-	heroPanel(m, v(1, 10.4, 0.05), 28, 16, medal:Lerp(WALNUT_DARK, 0.6), WALNUT_DARK)
-	local panel = screen(m, "Panel", v(-4, 11, 0.6), 14, 14, medal)
-	Parts.roundedBox(m, v(-4, 2, 1.6), Vector3.new(12, 4, 2.2), 0.6, solid(WOOD, "Console"))
-	Parts.block(m, v(-4, 3.8, 2.72), Vector3.new(10.6, 0.16, 0.16), deco(accent, "Trim"))
+	local w = 30
+	Parts.block(m, v(0, 9.6, 0.3), Vector3.new(w, 19.2, 0.6), solid(WALNUT_DARK, "Backdrop"))
+	for i = 0, 29 do
+		Parts.block(m, v(-w / 2 + 0.5 + i, 9.4, 0.85), Vector3.new(0.42, 17.8, 0.5), solid(WALNUT, "Fin"))
+	end
+	Parts.block(m, v(0, 0.55, 1.05), Vector3.new(w, 0.12, 0.2), deco(BRASS, "Reveal"))
+	local valance = Parts.block(m, v(0, 19.5, 1.2), Vector3.new(w + 0.6, 0.8, 1.8), solid(STEEL, "Valance"))
+	Parts.block(m, v(0, 19.08, 1.2), Vector3.new(w - 0.6, 0.06, 1.3), lamp())
+	Parts.light(valance, LAMP, 18, 0.8, "Surface")
+	-- Board screen, header and console.
+	local panel = screen(m, "Panel", v(-5, 9.8, 1.4), 14, 13, medal)
+	Parts.block(m, v(-5, 17.8, 1.25), Vector3.new(10, 1.7, 0.3), solid(WALNUT_DARK, "Header"))
+	text(m, v(-5, 17.8, 1.45), 9, 1.3, string.upper(stat), BRASS:Lerp(WHITE, 0.25))
+	Parts.roundedBox(m, v(-5, 1.6, 2.4), Vector3.new(12, 3.2, 2.2), 0.4, solid(WALNUT, "Console"))
+	Parts.roundedBox(m, v(-5, 3.3, 2.4), Vector3.new(12.4, 0.2, 2.6), 0.5, solid(QUARTZ, "ConsoleTop"))
+	Parts.block(m, v(-5, 0.18, 3.35), Vector3.new(11.6, 0.36, 0.4), solid(STEEL, "Kick"))
 	local function button(vx: number, name: string, label: string): Part
-		local b = Parts.cylinder(m, v(vx, 2.4, 2.95) * CFrame.Angles(PI / 2, 0, 0), 0.5, 2.2, solid(WOOD_DARK, name))
-		Parts.cylinder(m, v(vx, 2.4, 2.75) * CFrame.Angles(PI / 2, 0, 0), 0.1, 2.6, deco(accent, "ButtonRing"))
-		text(m, v(vx, 2.4, 3.26), 1.8, 1.8, label, accent, WOOD_DARK)
+		local b = Parts.cylinder(m, v(vx, 2.2, 3.6) * CFrame.Angles(PI / 2, 0, 0), 0.4, 2, solid(WALNUT_DARK, name))
+		Parts.cylinder(m, v(vx, 2.2, 3.5) * CFrame.Angles(PI / 2, 0, 0), 0.08, 2.4, deco(BRASS, "ButtonRing"))
+		text(m, v(vx, 2.2, 3.82), 1.6, 1.6, label, BRASS:Lerp(WHITE, 0.4))
 		return b
 	end
-	local prev = button(-8.5, "Prev", "◀")
-	local nxt = button(0.5, "Next", "▶")
-	local period = roundPanel(m, v(-4, 2.4, 2.95), 4.4, 1.6, 0.5, 0.8, solid(WHITE, "Period"))
+	local prev = button(-9.5, "Prev", "◀")
+	local nxt = button(-0.5, "Next", "▶")
+	local period = roundPanel(m, v(-5, 2.2, 3.6), 4.4, 1.6, 0.4, 0.6, solid(QUARTZ, "Period"))
 	period.Name = "Period"
-	text(m, v(-4, 2.4, 3.26), 4, 1.3, "PERIOD", WOOD_DARK, nil, false)
-	-- Stepped podium with a nameplate on its front.
-	local pc = v(9.5, 0, 5)
-	Parts.trimmedSlab(m, pc * CFrame.new(0, 0.5, 0), Vector3.new(8, 1, 8), 1.6, WOOD_DARK, accent)
-	Parts.trimmedSlab(m, pc * CFrame.new(0, 1.6, 0), Vector3.new(6, 1.2, 6), 1.2, WALL, medal)
-	Parts.roundedBox(m, pc * CFrame.new(0, 3.4, 0), Vector3.new(4.4, 2.4, 4.4), 0.5, solid(WOOD, "Column"))
-	local podium = Parts.roundedBox(m, pc * CFrame.new(0, 4.8, 0), Vector3.new(4.8, 0.4, 4.8), 1, solid(medal, "Podium"))
+	text(m, v(-5, 2.2, 3.84), 4, 1.2, "PERIOD", WALNUT_DARK)
+	-- Stepped marble podium with brass bands; the exclusive ball floats above it.
+	local pc = v(8.5, 0, 6.5)
+	local base = pc.Position
+	for i, t in { { D = 9, Y = 0.3 }, { D = 7.2, Y = 0.9 }, { D = 5.6, Y = 1.5 } } do
+		Parts.cylinder(m, CFrame.new(base + UP * t.Y), 0.6, t.D, solid(if i == 2 then WALNUT else MARBLE, "Step"))
+		LobbyKit.torus(m, base + UP * (t.Y + 0.3), t.D / 2 - 0.05, 0.12, 32, deco(BRASS, "StepBand"), false)
+	end
+	Parts.cylinder(m, CFrame.new(base + UP * 2.85), 2.1, 3.6, solid(MARBLE, "Drum"))
+	local podium = Parts.cylinder(m, CFrame.new(base + UP * 4.05), 0.3, 4.4, solid(QUARTZ, "Podium"))
 	podium.Name = "Podium"
-	display(podium, (pc * CFrame.new(0, 8, 0)).Position)
-	Parts.light(podium, medal, 12, 1)
-	local plateCf = pc * CFrame.new(0, 3.4, -2.31)
-	local plate = Parts.block(m, plateCf, Vector3.new(3.3, 1.6, 0.2), { Name = "Nameplate", Color = SCREEN, CanCollide = false })
-	outline(m, plateCf, 3.3, 1.6, medal)
+	LobbyKit.torus(m, base + UP * 3.9, 2.15, 0.16, 28, deco(medal, "MedalBand"), false)
+	display(podium, base + UP * 7.2)
+	local plateCf = CFrame.lookAt(base + UP * 2.85, base + UP * 2.85 + F.LookVector) * CFrame.new(0, 0, -1.82)
+	local plate = Parts.block(m, plateCf, Vector3.new(3.2, 1.5, 0.12), { Name = "Nameplate", Color = SCREEN, CanCollide = false })
+	outline(m, plateCf * CFrame.new(0, 0, 0.02), 3.2, 1.5, BRASS)
+	local can = Parts.cylinder(m, CFrame.new(base + UP * (ROOM_H - 0.35)), 0.7, 1.4, solid(STEEL, "Downlight"))
+	local spot = Parts.light(can, Color3.fromRGB(255, 236, 205), 26, 2.2, "Spot") :: SpotLight
+	spot.Angle = 38
+	-- Reward plaque above the podium.
+	local skin = Skins.get((Config.Leaderboards.Rewards :: any)[stat])
+	Parts.block(m, v(8.5, 13.6, 1.25), Vector3.new(9.4, 3.4, 0.3), solid(WALNUT_DARK, "Plaque"))
+	Parts.block(m, v(8.5, 13.6, 1.12), Vector3.new(9.8, 3.8, 0.1), deco(BRASS, "PlaqueFrame"))
+	text(m, v(8.5, 14.45, 1.44), 8.4, 0.9, "WEEKLY TOP 3 UNLOCK", WHITE)
+	text(m, v(8.5, 13.25, 1.44), 8.4, 1.5, string.upper(skin.Name) .. " BALL", BRASS:Lerp(WHITE, 0.25))
+	Parts.block(m, v(8.5, 12.2, 1.42), Vector3.new(2.6, 0.1, 0.05), deco(accent, "Accent"))
 	local board: LobbyTypes.Board = {
 		Panel = panel,
 		Prev = prev,
@@ -1346,30 +1373,47 @@ local function buildWest(room: Model, R: CFrame)
 	local m = Parts.model(room, "Leaderboards")
 	local accent = C.West
 	local boards: { [string]: LobbyTypes.Board } = {
-		Wins = buildBoard(m, along(R, -1, 0, ROOM_D, TO_ENTRANCE), "Wins", GOLD, accent),
+		Wins = buildBoard(m, along(R, 0, 0, ROOM_D, TO_ENTRANCE), "Wins", GOLD, accent),
 		Coins = buildBoard(m, along(R, -ROOM_W, 0, 0, TO_PLUS_X), "Coins", SILVER, accent),
 		Sabotages = buildBoard(m, along(R, ROOM_W, 0, 0, TO_MINUS_X), "Sabotages", BRONZE, accent),
 	}
-	-- Central trophy on a limestone medallion.
+	-- Centrepiece: a turned brass championship cup on a marble plinth, on a rug.
 	local tm = Parts.model(m, "Trophy")
 	local c = at(R, 0, 0, 0)
-	local up = Vector3.yAxis
-	Parts.disc(tm, c + up * 0.02, 17.2, 0.08, deco(accent, "MedallionRing"))
-	Parts.disc(tm, c + up * 0.04, 16, 0.08, deco(WALL2, "Medallion"))
-	Parts.disc(tm, c + up * 0.6, 6, 1.2, solid(WOOD_DARK, "Base"))
-	Parts.disc(tm, c + up * 0.9, 6.3, 0.2, deco(accent, "BaseGlow"))
-	Parts.disc(tm, c + up * 1.5, 4.4, 0.6, solid(WOOD, "Step"))
-	Parts.disc(tm, c + up * 3, 1.8, 2.4, solid(GOLD, "Stem"))
-	Parts.disc(tm, c + up * 4.4, 3.2, 0.5, solid(GOLD, "Collar"))
-	local cup = Parts.disc(tm, c + up * 6.2, 5, 3.1, solid(GOLD, "Cup"))
+	LobbyKit.rug(tm, CFrame.new(c), 18, 18, mat(RUG, M.Carpet), mat(RUG_BORDER, M.Carpet))
+	LobbyKit.lathe(tm, c, {
+		Vector2.new(3.4, 0.1),
+		Vector2.new(3.4, 0.6),
+		Vector2.new(2.6, 0.9),
+		Vector2.new(2.2, 1.4),
+		Vector2.new(2.2, 3.6),
+		Vector2.new(2.7, 3.9),
+		Vector2.new(2.8, 4.2),
+	}, 28, 0.3, solid(MARBLE, "Plinth"))
+	Parts.cylinder(tm, CFrame.new(c + UP * 2.15), 4.1, 4.6, solid(MARBLE, "PlinthCore"))
+	LobbyKit.torus(tm, c + UP * 3.7, 2.25, 0.14, 28, deco(BRASS, "PlinthBand"), false)
+	local brass = solid(BRASS, "Cup")
+	LobbyKit.lathe(tm, c, {
+		Vector2.new(1.5, 4.25),
+		Vector2.new(1.2, 4.6),
+		Vector2.new(0.4, 5.0),
+		Vector2.new(0.35, 6.3),
+		Vector2.new(0.9, 6.7),
+		Vector2.new(1.9, 7.6),
+		Vector2.new(2.3, 8.8),
+		Vector2.new(2.2, 9.6),
+		Vector2.new(2.45, 9.8),
+	}, 24, 0.22, brass)
+	Parts.cylinder(tm, CFrame.new(c + UP * 4.4), 0.4, 3, brass)
 	for _, s in { -1, 1 } do
-		Parts.hoop(tm, CFrame.new(c + Vector3.new(s * 2.9, 6.4, 0)), 1.1, 0.35, 0.35, 10, solid(GOLD, "Handle"))
+		Parts.hoop(tm, CFrame.lookAt(c + Vector3.new(s * 2.5, 8.4, 0), c + Vector3.new(s * 2.5, 8.4, 0) + Vector3.zAxis), 0.9, 0.3, 0.3, 14, deco(BRASS, "Handle"))
 	end
-	Parts.ball(tm, c + up * 8.7, 2.2, solid(WHITE, "Ball"))
-	Parts.light(cup, GOLD, 16, 1.2)
+	Parts.ball(tm, c + UP * 9.9, 1.6, solid(QUARTZ, "Ball"))
+	local can = Parts.cylinder(tm, CFrame.new(c + UP * (ROOM_H - 0.35)), 0.7, 1.4, solid(STEEL, "Downlight"))
+	local spot = Parts.light(can, Color3.fromRGB(255, 232, 196), 26, 2, "Spot") :: SpotLight
+	spot.Angle = 34
 	return { Boards = boards }
 end
-
 
 -- Final pass: palette colours become real materials, accent trims lose any glow
 -- (only lamp glass stays emissive) and anything solid keeps plastic physics.

@@ -177,6 +177,11 @@ Config.Leaderboards = {
 	PodiumInterval = 20,
 	PageSize = 10,
 	MaxEntries = 50,
+	-- Each board's exclusive ball: finishing in the weekly top RewardTop unlocks it.
+	-- Winners of the last RewardWeeks weeks receive it whenever they next join.
+	Rewards = { Wins = "lb_champion", Coins = "lb_tycoon", Sabotages = "lb_saboteur" },
+	RewardTop = 3,
+	RewardWeeks = 4,
 }
 
 Config.Practice = {
