@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
 local Crates = require(Shared:WaitForChild("Crates"))
+local Minigames = require(Shared:WaitForChild("Minigames"))
 local Skins = require(Shared:WaitForChild("Skins"))
 local Parts = require(script.Parent:WaitForChild("Parts"))
 local LobbyKit = require(script.Parent:WaitForChild("LobbyKit"))
@@ -272,17 +273,19 @@ type Quad = {
 	Frame: CFrame, -- at the fountain, LookVector toward the room
 	Color: Color3,
 	Arch: string, -- doorway sign
+	W: number, -- room half width
+	D: number, -- room half depth (the entrance wall is always at NEAR_WALL)
 }
 
 local QUADS: { Quad } = {
-	{ Key = "North", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(0, 0, -1)), Color = C.North, Arch = "MATCHMAKING" },
-	{ Key = "East", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(1, 0, 0)), Color = C.East, Arch = "PRO SHOP" },
-	{ Key = "South", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(0, 0, 1)), Color = C.South, Arch = "PRACTICE RANGE" },
-	{ Key = "West", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(-1, 0, 0)), Color = C.West, Arch = "LEADERBOARDS" },
+	{ Key = "North", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(0, 0, -1)), Color = C.North, Arch = "MATCHMAKING", W = ROOM_W, D = ROOM_D },
+	{ Key = "East", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(1, 0, 0)), Color = C.East, Arch = "PRO SHOP", W = ROOM_W, D = ROOM_D },
+	{ Key = "South", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(0, 0, 1)), Color = C.South, Arch = "PRACTICE RANGE", W = 56, D = 40 },
+	{ Key = "West", Frame = CFrame.lookAt(Vector3.zero, Vector3.new(-1, 0, 0)), Color = C.West, Arch = "LEADERBOARDS", W = ROOM_W, D = ROOM_D },
 }
 
 local function roomFrame(quad: Quad): CFrame
-	return quad.Frame * CFrame.new(0, 0, -ROOM_DIST)
+	return quad.Frame * CFrame.new(0, 0, -(NEAR_WALL + quad.D))
 end
 
 -- Grounds (terrain) -------------------------------------------------------------
@@ -314,8 +317,8 @@ local function buildGrounds(rng: Random)
 	terrain:FillCylinder(CFrame.new(0, -2, 0), 4, LOBBY_R + WALL_T, M.Air)
 	for _, quad in QUADS do
 		local R = roomFrame(quad)
-		terrain:FillBlock(R * CFrame.new(0, -2, 0), Vector3.new(2 * ROOM_W + 12, 4, 2 * ROOM_D + 12), M.Pavement)
-		terrain:FillBlock(R * CFrame.new(0, -2, 0), Vector3.new(2 * ROOM_W + 2, 4, 2 * ROOM_D + 2), M.Air)
+		terrain:FillBlock(R * CFrame.new(0, -2, 0), Vector3.new(2 * quad.W + 12, 4, 2 * quad.D + 12), M.Pavement)
+		terrain:FillBlock(R * CFrame.new(0, -2, 0), Vector3.new(2 * quad.W + 2, 4, 2 * quad.D + 2), M.Air)
 		terrain:FillBlock(along(quad.Frame, 0, -2, (LOBBY_R + NEAR_WALL) / 2), Vector3.new(HALL_HALF * 2 + 2, 4, NEAR_WALL - LOBBY_R + 2), M.Air)
 	end
 	terrain:FillCylinder(CFrame.new(POND + Vector3.new(0, -2, 0)), 3.4, 10, M.Water)
@@ -333,7 +336,7 @@ local function openGround(p: Vector3, r: number): boolean
 	end
 	for _, quad in QUADS do
 		local l = roomFrame(quad):PointToObjectSpace(flat)
-		if math.abs(l.X) < ROOM_W + 8 + r and math.abs(l.Z) < ROOM_D + 8 + r then
+		if math.abs(l.X) < quad.W + 8 + r and math.abs(l.Z) < quad.D + 8 + r then
 			return false
 		end
 		local h = quad.Frame:PointToObjectSpace(flat)
@@ -883,8 +886,7 @@ end
 
 -- Outside of a wing: limestone base course, vertical walnut cladding bays between
 -- black-steel posts, tall windows and a flat roof with a deep steel fascia.
-local function buildExterior(m: Instance, R: CFrame, top: number)
-	local W, D = ROOM_W, ROOM_D
+local function buildExterior(m: Instance, R: CFrame, top: number, W: number, D: number)
 	local ox, ou = W + 2, D + 2 -- outside faces
 	local base = solid(STONE, "BaseCourse")
 	Parts.block(m, along(R, 0, 1.75, ou + 0.25), Vector3.new(2 * ox + 1, 3.5, 0.5), base)
@@ -912,16 +914,16 @@ local function buildExterior(m: Instance, R: CFrame, top: number)
 		end
 		Parts.block(m, along(R, s * (HALL_HALF + 0.4), top / 2, -ou - 0.35), Vector3.new(0.8, top, 0.5), solid(STEEL, "Post"))
 	end
-	for _, x in { -34, -22, 22, 34 } do
-		window(m, along(R, x, 10.5, -ou - 0.35, TO_ENTRANCE), 5, 11)
+	for _, f in { -0.77, -0.5, 0.5, 0.77 } do
+		window(m, along(R, f * W, 10.5, -ou - 0.35, TO_ENTRANCE), 5, 11)
 	end
 	for _, s in { -1, 1 } do
-		for _, u in { -22, -11, 0, 11, 22 } do
-			window(m, along(R, s * (ox + 0.35), 10.5, u, if s > 0 then TO_MINUS_X else TO_PLUS_X), 5, 11)
+		for _, f in { -0.69, -0.34, 0, 0.34, 0.69 } do
+			window(m, along(R, s * (ox + 0.35), 10.5, f * D, if s > 0 then TO_MINUS_X else TO_PLUS_X), 5, 11)
 		end
 	end
-	for _, x in { -33, -11, 11, 33 } do
-		window(m, along(R, x, 10.5, ou + 0.35, TO_BACK), 5, 11)
+	for _, f in { -0.75, -0.25, 0.25, 0.75 } do
+		window(m, along(R, f * W, 10.5, ou + 0.35, TO_BACK), 5, 11)
 	end
 	-- Flat roof with a deep overhang and a steel fascia band.
 	local over = 3
@@ -943,7 +945,7 @@ local function buildRoomShell(parent: Instance, quad: Quad, floorStyle: FloorSty
 	local m = Parts.model(parent, quad.Key .. "Room")
 	local R = roomFrame(quad)
 	local accent = quad.Color
-	local W, D, H = ROOM_W, ROOM_D, ROOM_H
+	local W, D, H = quad.W, quad.D, ROOM_H
 	local shell = Parts.model(m, "Shell")
 	-- Floor with a walnut border band and brass inlay.
 	local floorColor = if floorStyle == "Marble" then MARBLE elseif floorStyle == "Walnut" then WALNUT_MID else FLOOR_A
@@ -1001,7 +1003,7 @@ local function buildRoomShell(parent: Instance, quad: Quad, floorStyle: FloorSty
 			LobbyKit.pendant(shell, at(R, x, 0, u), H, 4, KIT, 30, u == 0 or (x > 0) == (u > 0))
 		end
 	end
-	buildExterior(shell, R, top)
+	buildExterior(shell, R, top, W, D)
 	return m, R
 end
 -- NORTH: Matchmaking & voting --------------------------------------------------
@@ -1215,83 +1217,211 @@ local function buildEast(room: Model, R: CFrame)
 end
 
 -- SOUTH: Practice range ------------------------------------------------------------
+-- Three permanent stations side by side, two lanes each, every station dressed for
+-- its game: a putting green (Target), a driving range with nets and floodlights
+-- (Drive) and a striped industrial course with beacons (Hazard). Each has a steel
+-- gantry with lane screens, a token hut at the back and a best-scores board above it.
 
-local function buildSouth(room: Model, R: CFrame)
+local STATIONS = {
+	{ Id = "Target", X = -37.5 },
+	{ Id = "Drive", X = 0 },
+	{ Id = "Hazard", X = 37.5 },
+}
+local LANE_W, LANE_L, LANE_PITCH = 9, 48, 10.8
+local HAZARD_YELLOW = hex("#F2B705")
+local HAZARD_BLACK = hex("#1D1E21")
+
+type LaneStyle = { Surface: Props, Rail: Props, Cap: Props, Back: Props, Surround: Props }
+
+local function laneStyle(id: string): LaneStyle
+	if id == "Drive" then
+		return {
+			Surface = mat(hex("#2F353C"), M.Fabric, "Mat"),
+			Rail = solid(STEEL, "Rail"),
+			Cap = deco(hex("#F2C14E"), "RailCap"),
+			Back = solid(STEEL, "BackWall"),
+			Surround = mat(hex("#24282E"), M.Carpet, "Surround"),
+		}
+	elseif id == "Hazard" then
+		return {
+			Surface = mat(hex("#A4A9AE"), M.Concrete, "Concrete"),
+			Rail = solid(HAZARD_YELLOW, "Rail"),
+			Cap = deco(HAZARD_BLACK, "RailCap"),
+			Back = solid(HAZARD_BLACK, "BackWall"),
+			Surround = mat(hex("#6E7378"), M.Concrete, "Surround"),
+		}
+	end
+	return {
+		Surface = mat(LANE_GREEN, M.Fabric, "Turf"),
+		Rail = solid(QUARTZ, "Rail"),
+		Cap = deco(BRASS, "RailCap"),
+		Back = solid(WALNUT, "BackWall"),
+		Surround = mat(hex("#3E7A3A"), M.Carpet, "Fringe"),
+	}
+end
+
+local function buildLane(parent: Instance, R: CFrame, index: number, x: number, u0: number, id: string, col: Color3, style: LaneStyle): LobbyTypes.Lane
+	local lm = Parts.model(parent, "Lane" .. index)
+	local origin = along(R, x, 0, u0)
+	local W, L = LANE_W, LANE_L
+	Parts.block(lm, origin * CFrame.new(0, -0.09, -L / 2), Vector3.new(W, 0.22, L), style.Surface)
+	Parts.block(lm, origin * CFrame.new(0, 0.03, -0.2), Vector3.new(W - 0.02, 0.04, 0.3), deco(WHITE, "TeeLine"))
+	for _, s in { -1, 1 } do
+		if id == "Hazard" then
+			-- Black and yellow striped rails.
+			local n = 12
+			for k = 0, n - 1 do
+				local seg = L / n
+				local props = if k % 2 == 0 then style.Rail else solid(HAZARD_BLACK, "Rail")
+				Parts.block(lm, origin * CFrame.new(s * (W / 2 + 0.4), 0.6, -(k + 0.5) * seg), Vector3.new(0.8, 1.2, seg + 0.01), props)
+			end
+		else
+			Parts.block(lm, origin * CFrame.new(s * (W / 2 + 0.4), 0.6, -L / 2), Vector3.new(0.8, 1.2, L), style.Rail)
+			Parts.block(lm, origin * CFrame.new(s * (W / 2 + 0.4), 1.26, -L / 2), Vector3.new(0.5, 0.12, L), style.Cap)
+		end
+	end
+	Parts.block(lm, origin * CFrame.new(0, 1.5, -(L + 0.5)), Vector3.new(LANE_PITCH, 3, 1), style.Back)
+	local start = pad(lm, "StartPad", (origin * CFrame.new(0, 0, 3.5)).Position, 6, col)
+	local scr = screen(lm, "LaneScreen", along(R, x, 7.6, u0 - 0.6, TO_ENTRANCE), 7, 2.6, col)
+	return {
+		Origin = origin,
+		Length = L,
+		Width = W,
+		Minigame = id,
+		StartPad = start,
+		Props = Parts.folder(lm, "Props"),
+		Screen = scr,
+	}
+end
+
+-- Token hut: a striped-awning cabana with a counter (the shop prompt) and a crate on show.
+local function buildHut(parent: Instance, H: CFrame, id: string, col: Color3, rng: Random): (BasePart, BasePart)
+	local m = Parts.model(parent, "TokenHut")
+	local mg = Minigames.ById[id]
+	Parts.block(m, H * CFrame.new(0, 0.2, 0), Vector3.new(13, 0.4, 9), solid(WALNUT, "Deck"))
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			Parts.block(m, H * CFrame.new(sx * 6, 4.6, sz * 4), Vector3.new(0.5, 8.4, 0.5), solid(WALNUT_DARK, "Post"))
+		end
+	end
+	Parts.block(m, H * CFrame.new(0, 9, 0.3), Vector3.new(14.4, 0.6, 10), solid(WALNUT_DARK, "Roof"))
+	local fascia = Parts.block(m, H * CFrame.new(0, 8.4, -4.85), Vector3.new(14.4, 1.6, 0.3), { Name = "Fascia", Color = col, Material = M.SmoothPlastic })
+	text(m, fascia.CFrame * CFrame.new(0, 0, -0.2), 13, 1.3, string.upper(mg.Token) .. " SHOP", WHITE, WALNUT_DARK)
+	local stripes = 7
+	local sw = 14.4 / stripes
+	for k = 0, stripes - 1 do
+		local cx = -7.2 + (k + 0.5) * sw
+		Parts.block(m, H * CFrame.new(cx, 7.35, -5.9) * CFrame.Angles(math.rad(28), 0, 0), Vector3.new(sw + 0.01, 0.12, 2.6), deco(if k % 2 == 0 then col else QUARTZ, "Awning"))
+	end
+	-- Back wall with shelves showing this game's token balls.
+	Parts.block(m, H * CFrame.new(0, 4.6, 4.1), Vector3.new(12, 8, 0.4), solid(PLASTER, "BackWall"))
+	local shown = Skins.withSource("Token:" .. id)
+	for row = 0, 1 do
+		local y = 4.2 + row * 2.4
+		Parts.block(m, H * CFrame.new(0, y, 3.5), Vector3.new(9, 0.2, 1), solid(WALNUT, "Shelf"))
+		for k = 0, 1 do
+			local skin = shown[row * 2 + k + 1]
+			if skin then
+				Parts.ball(m, (H * CFrame.new((k - 0.5) * 4, y + 0.7, 3.5)).Position, 1.2, { Name = "TokenBall", Color = skin.Color, Material = skin.Material, CanCollide = false, CanQuery = false })
+			end
+		end
+	end
+	-- Counter and crate display.
+	Parts.roundedBox(m, H * CFrame.new(0, 1.8, -2.4), Vector3.new(10, 3.2, 1.8), 0.4, solid(WALNUT, "CounterBody"))
+	local counter = Parts.block(m, H * CFrame.new(0, 3.5, -2.4), Vector3.new(10.4, 0.2, 2.2), solid(QUARTZ, "Counter"))
+	Parts.block(m, H * CFrame.new(0, 2.6, -3.32), Vector3.new(9.6, 0.1, 0.06), deco(col, "Accent"))
+	local display = Parts.cylinder(m, H * CFrame.new(3.4, 3.85, -2.4), 0.5, 1.8, solid(BRASS, "CrateDisplay"))
+	display:SetAttribute("Radius", 0.9)
+	local a = Instance.new("Attachment")
+	a.Name = "Display"
+	a.Position = Vector3.new(1.6, 0, 0) -- cylinder's local X is world up
+	a.Parent = display
+	LobbyKit.pendant(m, (H * CFrame.new(-2, 0, 0.5)).Position, 8.7, 2.4, KIT, 14, true)
+	LobbyKit.planter(m, (H * CFrame.new(7.8, 0, -3.5)).Position, KIT, rng, 5.5)
+	return counter, display
+end
+
+local function buildSouth(room: Model, R: CFrame, W: number, D: number, rng: Random)
 	local m = Parts.model(room, "Practice")
 	local accent = C.South
-	local count = Config.Practice.Lanes
-	local W, L = 9, 48
-	local pitch = 10.6
-	local u0 = -21 -- lane start (Origin) in room coordinates
-	local half = count * pitch / 2
-	local lanesModel = Parts.model(m, "Lanes")
-
-	-- Gantry over the lane heads carrying the per-lane screens.
-	local gantry = Parts.model(lanesModel, "Gantry")
-	for k = 0, count do
-		Parts.roundedBox(gantry, along(R, -half + k * pitch, 5.5, u0 - 0.4), Vector3.new(0.9, 11, 0.9), 0.3, solid(WOOD, "Post"))
-	end
-	Parts.roundedBox(gantry, along(R, 0, 11.4, u0 - 0.4), Vector3.new(2 * half + 1.4, 0.8, 1.4), 0.4, solid(WOOD_DARK, "Beam"))
-	local beamGlow = Parts.block(gantry, along(R, 0, 11.1, u0 - 1.15), Vector3.new(2 * half - 1, 0.16, 0.12), deco(accent, "BeamGlow"))
-	Parts.light(beamGlow, accent, 16, 0.8)
-
+	local u0 = -(D - 18) -- lane start (Origin) in room coordinates
 	local lanes: { LobbyTypes.Lane } = {}
-	for i = 1, count do
-		local x = -half + (i - 0.5) * pitch
-		local lm = Parts.model(lanesModel, "Lane" .. i)
-		local origin = along(R, x, 0, u0)
-		Parts.block(lm, origin * CFrame.new(0, -0.09, -L / 2), Vector3.new(W, 0.22, L), solid(LANE_GREEN, "Turf"))
-		Parts.block(lm, origin * CFrame.new(0, 0.02, -0.2), Vector3.new(W - 0.02, 0.04, 0.3), deco(WHITE, "TeeLine"))
-		for _, s in { -1, 1 } do
-			Parts.block(lm, origin * CFrame.new(s * (W / 2 + 0.4), 0.6, -L / 2), Vector3.new(0.8, 1.2, L), solid(WHITE, "Rail"))
-			Parts.block(lm, origin * CFrame.new(s * (W / 2 + 0.4), 1.26, -L / 2), Vector3.new(0.5, 0.12, L), deco(accent, "RailGlow"))
+	local stations: { [string]: LobbyTypes.PracticeStation } = {}
+	for _, st in STATIONS do
+		local mg = Minigames.ById[st.Id]
+		local col = mg.Color
+		local style = laneStyle(st.Id)
+		local zm = Parts.model(m, st.Id .. "Station")
+		-- Station surround under the lanes.
+		local zw = 2 * LANE_PITCH + 4
+		Parts.block(zm, along(R, st.X, 0.02, u0 + LANE_L / 2 - 3), Vector3.new(zw, 0.06, LANE_L + 8), deco(style.Surround.Color :: Color3, "Surround"))
+		if st.Id == "Hazard" then
+			for _, sx in { -1, 1 } do
+				for k = 0, 13 do
+					local u = u0 - 6 + (k + 0.5) * (LANE_L + 8) / 14
+					Parts.block(zm, along(R, st.X + sx * (zw / 2 - 0.4), 0.05, u), Vector3.new(0.8, 0.06, (LANE_L + 8) / 14), deco(if k % 2 == 0 then HAZARD_YELLOW else HAZARD_BLACK, "Stripe"))
+				end
+			end
 		end
-		Parts.block(lm, origin * CFrame.new(0, 1.5, -(L + 0.5)), Vector3.new(pitch, 3, 1), solid(WOOD, "BackWall"))
-		Parts.block(lm, origin * CFrame.new(0, 3.06, -(L + 0.5)), Vector3.new(pitch, 0.12, 0.6), deco(accent, "BackGlow"))
-		local start = pad(lm, "StartPad", (origin * CFrame.new(0, 0, 3.5)).Position, 6, accent)
-		local scr = screen(lm, "LaneScreen", along(R, x, 9.2, u0 - 0.4, TO_ENTRANCE), 7, 2.6, accent)
-		text(lm, along(R, x, 11.45, u0 - 1.16, TO_ENTRANCE), 3, 0.6, "LANE " .. i, WHITE, nil, true, Config.FontBody)
-		local lane: LobbyTypes.Lane = {
-			Origin = origin,
-			Length = L,
-			Width = W,
-			StartPad = start,
-			Props = Parts.folder(lm, "Props"),
-			Screen = scr,
-		}
-		table.insert(lanes, lane)
+		-- Gantry over the lane heads: steel posts, an I-beam and the station header.
+		for _, sx in { -1, 1 } do
+			LobbyKit.column(zm, at(R, st.X + sx * 11.6, 0, u0 - 0.6), 10.4, 0.9, solid(STEEL, "GantryPost"))
+		end
+		LobbyKit.ibeam(zm, at(R, st.X - 12, 10, u0 - 0.6), at(R, st.X + 12, 10, u0 - 0.6), 1.2, 0.7, solid(STEEL, "GantryBeam"))
+		titlePlate(zm, along(R, st.X, 12, u0 - 0.9, TO_ENTRANCE), 18, 2.4, string.upper(mg.Name), col)
+		for k = 1, 2 do
+			local x = st.X + (k - 1.5) * LANE_PITCH
+			table.insert(lanes, buildLane(zm, R, #lanes + 1, x, u0, st.Id, col, style))
+		end
+		-- Station extras.
+		if st.Id == "Drive" then
+			for _, sx in { -1, 1 } do
+				Parts.block(zm, along(R, st.X + sx * 12, 6, u0 + LANE_L + 1.6), Vector3.new(0.6, 12, 0.6), solid(STEEL, "NetPost"))
+				local head = Parts.block(zm, along(R, st.X + sx * 6, 10.6, u0 - 0.6), Vector3.new(1.6, 0.8, 1.2), solid(STEEL, "Floodlight"))
+				Parts.block(zm, along(R, st.X + sx * 6, 10.15, u0 - 0.6), Vector3.new(1.4, 0.1, 1), lamp())
+				local spot = Parts.light(head, LAMP, 40, 1.4, "Spot") :: SpotLight
+				spot.Angle = 70
+			end
+			-- Catch net: a fine translucent mesh strung on steel cables.
+			Parts.block(zm, along(R, st.X, 7, u0 + LANE_L + 1.6), Vector3.new(24, 10, 0.06), { Name = "Net", Color = hex("#1F2226"), Material = M.Fabric, Transparency = 0.82, CanCollide = false, CanQuery = false, CastShadow = false })
+			for k = 0, 4 do
+				local y = 2 + k * 2.5
+				Parts.rod(zm, at(R, st.X - 12, y, u0 + LANE_L + 1.6), at(R, st.X + 12, y, u0 + LANE_L + 1.6), 0.08, deco(STEEL, "Cable"))
+			end
+		elseif st.Id == "Hazard" then
+			for _, sx in { -1, 1 } do
+				local beacon = Parts.ball(zm, at(R, st.X + sx * 11.6, 10.9, u0 - 0.6), 0.9, { Name = "LampBeacon", Color = hex("#FFA51F"), Material = NEON, CanCollide = false, CanQuery = false })
+				Parts.light(beacon, hex("#FFA51F"), 12, 0.8)
+			end
+		else
+			for _, sx in { -1, 1 } do
+				LobbyKit.planter(zm, at(R, st.X + sx * 13.6, 0, u0 - 4), KIT, rng, 5)
+			end
+		end
+		-- Token hut and the best-scores board above it.
+		local counter, display = buildHut(zm, along(R, st.X, 0, D - 6.5, TO_ENTRANCE), st.Id, col, rng)
+		local board = screen(zm, "BestScores" .. st.Id, along(R, st.X, 14.4, D - 0.7, TO_ENTRANCE), 14, 7.4, col)
+		titlePlate(zm, along(R, st.X, 19.3, D - 0.9, TO_ENTRANCE), 14, 1.9, "BEST SCORES", col)
+		stations[st.Id] = { Board = board, Counter = counter, Display = display }
 	end
 
-	-- Rotation sign on the back wall, above the lane ends.
-	heroPanel(m, along(R, 0, 13.2, ROOM_D - 0.55, TO_ENTRANCE), 34, 10.4, accent:Lerp(WALNUT_DARK, 0.55), WALNUT_DARK)
-	local rotation = screen(m, "RotationSign", along(R, 0, 13.3, ROOM_D - 0.8, TO_ENTRANCE), 28, 8, accent)
-
-	-- Token kiosk on the west (local +x) side.
-	local tm = Parts.model(m, "TokenKiosk")
-	local tokenScreen = screen(tm, "TokenScreen", along(R, ROOM_W - 0.6, 7.5, 6, TO_MINUS_X), 12, 6, accent)
-	titlePlate(tm, along(R, ROOM_W - 1, 12.4, 6, TO_MINUS_X), 12, 1.8, "TOKEN SHOP", accent)
-	Parts.trimmedSlab(tm, along(R, 38, 0.3, 6, TO_MINUS_X), Vector3.new(5.4, 0.6, 5.4), 1.2, WOOD_DARK, accent)
-	local tokenCrate = roundPedestal(tm, "TokenCrate", at(R, 38, 0.6, 6), accent, WOOD)
-	local tokenSkins: { BasePart } = {}
-	for i, u in { -8, -2.5, 14.5, 20 } do
-		table.insert(tokenSkins, roundPedestal(tm, "TokenSkin" .. i, at(R, 37.5, 0, u), accent))
-	end
-
-	-- Replay-tutorial pad near the entrance on the east (local -x) side, plus seating.
-	local tut = pad(m, "TutorialPad", at(R, -35, 0, -24), 8, accent)
-	titlePlate(m, along(R, -ROOM_W + 1, 7, -24, TO_PLUS_X), 10, 2.4, "REPLAY TUTORIAL", accent)
-	local badge = along(R, -ROOM_W + 0.5, 10.6, -24, TO_PLUS_X)
-	Parts.cylinder(m, badge * CFrame.Angles(PI / 2, 0, 0), 0.6, 3, solid(WOOD_DARK, "Badge"))
-	Parts.cylinder(m, badge * CFrame.new(0, 0, 0.1) * CFrame.Angles(PI / 2, 0, 0), 0.5, 3.4, deco(accent, "BadgeRing"))
-	text(m, badge * CFrame.new(0, 0, -0.4), 2.2, 2.2, "?", accent, WOOD_DARK)
-	for _, u in { 2, 14 } do
-		bench(m, along(R, -38, 0, u, TO_PLUS_X), accent)
+	-- Replay-tutorial pad by the entrance (left) and leather seating (right).
+	local tu = -(D - 8)
+	local tut = pad(m, "TutorialPad", at(R, -(W - 9), 0, tu), 8, accent)
+	titlePlate(m, along(R, -W + 1, 7, tu, TO_PLUS_X), 10, 2.4, "REPLAY TUTORIAL", accent)
+	local badge = along(R, -W + 0.5, 10.6, tu, TO_PLUS_X)
+	Parts.cylinder(m, badge * CFrame.Angles(PI / 2, 0, 0), 0.6, 3, solid(WALNUT_DARK, "Badge"))
+	Parts.cylinder(m, badge * CFrame.new(0, 0, 0.1) * CFrame.Angles(PI / 2, 0, 0), 0.5, 3.4, deco(BRASS, "BadgeRing"))
+	text(m, badge * CFrame.new(0, 0, -0.4), 2.2, 2.2, "?", BRASS:Lerp(WHITE, 0.25), WALNUT_DARK)
+	for _, u in { tu, tu + 9 } do
+		bench(m, along(R, W - 4, 0, u, TO_MINUS_X))
 	end
 
 	return {
 		Lanes = lanes,
-		RotationSign = rotation,
-		TokenKiosk = { Screen = tokenScreen, CratePedestal = tokenCrate, SkinPedestals = tokenSkins },
+		Stations = stations,
+		Bounds = R,
+		Size = Vector3.new(2 * W, 30, 2 * D),
 		TutorialPad = tut,
 	}
 end
@@ -1480,7 +1610,7 @@ function LobbyBuilder.build(): LobbyTypes.Lobby
 		},
 		North = buildNorth(northRoom, northR),
 		East = buildEast(eastRoom, eastR),
-		South = buildSouth(southRoom, southR),
+		South = buildSouth(southRoom, southR, QUADS[3].W, QUADS[3].D, rng),
 		West = buildWest(westRoom, westR),
 	}
 	naturalize(model)

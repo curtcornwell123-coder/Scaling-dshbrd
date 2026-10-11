@@ -201,8 +201,7 @@ Config.Leaderboards = {
 }
 
 Config.Practice = {
-	RotationSeconds = 20 * 60,
-	Lanes = 5,
+	Lanes = 6, -- two per minigame station
 }
 
 Config.Ranked = {

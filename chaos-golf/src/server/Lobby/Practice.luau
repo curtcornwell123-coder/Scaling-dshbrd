@@ -1,10 +1,11 @@
 --!strict
--- South room Practice Zone. Five lanes run the active minigame (Target Putting,
--- Velocity Long-Drive, Hazard Avoidance), rotating every 20 minutes on a clock
--- shared by all servers. Runs pay minigame-specific tokens that can't be bought
--- with Coins or Robux; the token kiosk sells the active minigame's crate and
--- skins only.
+-- South wing Practice Range: three permanent stations (Target Putting, Velocity
+-- Long-Drive, Hazard Avoidance), two lanes each. Runs pay that minigame's tokens
+-- (never sold for Coins or Robux), spent at the station's token hut, which opens the
+-- token shop panel. Personal bests feed each station's best-scores board. Players
+-- inside the range get the InPractice attribute so the HUD shows their tokens.
 
+local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -36,6 +37,7 @@ local RAMP_ANGLE = math.rad(28)
 
 type LaneState = {
 	Lane: LobbyTypes.Lane,
+	Def: Minigames.Minigame,
 	Index: number,
 	Player: Player?,
 	Shots: number,
@@ -48,10 +50,8 @@ type LaneState = {
 
 local lanes: { LaneState } = {}
 local byPlayer: { [Player]: LaneState } = {}
-local active: Minigames.Minigame = Minigames.List[1]
 local lobbyRef: LobbyTypes.Lobby
 local kioskFolder: Folder
-local signUi: { Title: TextLabel, Rules: TextLabel, Timer: TextLabel, Next: TextLabel }
 
 local function laneCF(state: LaneState, distance: number, y: number, x: number?): CFrame
 	return state.Lane.Origin * CFrame.new(x or 0, y, -distance)
@@ -74,11 +74,11 @@ local function buildProps(state: LaneState)
 	-- Back bumper so balls can't roll off the lane start.
 	Parts.block(folder, laneCF(state, -1.6, 0.7), Vector3.new(W, 1.4, 0.8), { Color = Color3.fromRGB(38, 44, 60), Name = "BackBumper" })
 
-	if active.Id == "Target" then
+	if state.Def.Id == "Target" then
 		local d = L - 12
 		for i = #TARGET_RINGS, 1, -1 do
 			local ring = TARGET_RINGS[i]
-			local color = if i == 1 then Color3.fromRGB(255, 70, 90) elseif i == 2 then Color3.fromRGB(255, 255, 255) else active.Color
+			local color = if i == 1 then Color3.fromRGB(255, 70, 90) elseif i == 2 then Color3.fromRGB(255, 255, 255) else state.Def.Color
 			local disc = Parts.cylinder(folder, laneCF(state, d, 0.02 + i * 0.01), 0.04, ring.Radius * 2, {
 				Color = color,
 				Material = if i == 1 then Enum.Material.Neon else Enum.Material.SmoothPlastic,
@@ -88,7 +88,7 @@ local function buildProps(state: LaneState)
 			})
 			disc.CastShadow = false
 		end
-	elseif active.Id == "Drive" then
+	elseif state.Def.Id == "Drive" then
 		local H = L - RAMP_START - 2
 		local slope = H / math.cos(RAMP_ANGLE)
 		local rise = H * math.tan(RAMP_ANGLE)
@@ -102,14 +102,14 @@ local function buildProps(state: LaneState)
 		Parts.block(folder, startCF * CFrame.new(0, rise + 2, -H - 0.4), Vector3.new(W, 5, 0.8), { Color = Color3.fromRGB(30, 34, 46), Name = "RampCap" })
 		for mark = 10, math.floor(slope), 10 do
 			local strip = Parts.block(folder, startCF * CFrame.Angles(RAMP_ANGLE, 0, 0) * CFrame.new(0, 0.03, -mark), Vector3.new(W - 1.8, 0.05, 0.3), {
-				Color = active.Color,
+				Color = state.Def.Color,
 				Material = Enum.Material.Neon,
 				CanCollide = false,
 				CanQuery = false,
 			})
 			Parts.label(strip, Enum.NormalId.Top, tostring(mark), { PixelsPerStud = 20, TextColor = T.Text })
 		end
-	elseif active.Id == "Hazard" then
+	elseif state.Def.Id == "Hazard" then
 		for i, d in { 14, 26, 38 } do
 			if d < L - 8 then
 				local hub = Parts.cylinder(folder, laneCF(state, d, 1), 2, 1.2, { Color = Color3.fromRGB(30, 34, 46), Name = "Hub" })
@@ -117,7 +117,7 @@ local function buildProps(state: LaneState)
 				bar.Name = "Sweeper"
 				bar.Size = Vector3.new(W - 2.2, 0.9, 0.7)
 				bar.CFrame = laneCF(state, d, 0.95)
-				bar.Color = active.Color
+				bar.Color = state.Def.Color
 				bar.Material = Enum.Material.Neon
 				bar.CustomPhysicalProperties = PhysicalProperties.new(60, 0.2, 0.5)
 				bar.Anchored = false
@@ -144,15 +144,145 @@ local function buildProps(state: LaneState)
 		state.Cup = cup
 		Parts.cylinder(folder, CFrame.new(cup + Vector3.new(0, 0.02, 0)), 0.04, Config.Physics.CupRadius * 2 + 0.2, { Color = Color3.fromRGB(14, 16, 22), CanCollide = false, CanQuery = false, Name = "Cup" })
 		Parts.rod(folder, cup + Vector3.new(1.4, 0, 0), cup + Vector3.new(1.4, 5, 0), 0.15, { Color = Color3.new(1, 1, 1), CanCollide = false, CanQuery = false })
-		Parts.block(folder, CFrame.new(cup + Vector3.new(2.2, 4.4, 0)), Vector3.new(1.6, 1, 0.1), { Color = active.Color, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false })
+		Parts.block(folder, CFrame.new(cup + Vector3.new(2.2, 4.4, 0)), Vector3.new(1.6, 1, 0.1), { Color = state.Def.Color, Material = Enum.Material.Neon, CanCollide = false, CanQuery = false })
 	end
-	setScreen(state, "LANE " .. state.Index .. "  ·  " .. string.upper(active.Name), "Step on the pad to play")
+	setScreen(state, "LANE " .. state.Index .. "  ·  " .. string.upper(state.Def.Name), "Step on the pad to play")
 end
 
 -- Runs -----------------------------------------------------------------------
 
 local function ballStart(state: LaneState): Vector3
 	return laneCF(state, 2.5, Config.Ball.Diameter / 2 + 0.1).Position
+end
+
+-- Best scores --------------------------------------------------------------------
+-- Ordered stores rank "higher is better"; Hazard strokes (1-4) are stored as 10 - strokes.
+
+export type BestEntry = { Name: string, Score: number }
+
+local boards: { [string]: { Rows: { TextLabel }, Mine: TextLabel? } } = {}
+local cache: { [string]: { BestEntry }? } = {}
+
+local function encode(id: string, score: number): number
+	return if id == "Hazard" then 10 - score else score
+end
+
+local function decode(id: string, value: number): number
+	return if id == "Hazard" then 10 - value else value
+end
+
+local function better(id: string, new: number, old: number): boolean
+	if new <= 0 then
+		return false
+	end
+	if id == "Hazard" then
+		return old <= 0 or new < old
+	end
+	return new > old
+end
+
+local function scoreLabel(id: string, score: number): string
+	if id == "Drive" then
+		return score .. " studs"
+	elseif id == "Hazard" then
+		return score .. (if score == 1 then " stroke" else " strokes")
+	end
+	return score .. " pts"
+end
+
+local function bestStore(id: string): OrderedDataStore?
+	if game.PlaceId == 0 then -- unpublished places have no DataStores
+		return nil
+	end
+	local ok, ds = pcall(function()
+		return DataStoreService:GetOrderedDataStore(Config.DataStoreName .. "_PB_" .. id)
+	end)
+	return if ok then ds else nil
+end
+
+-- Fallback when DataStores are unavailable: the personal bests of players in this server.
+local function localBest(id: string): { BestEntry }
+	local out: { BestEntry } = {}
+	for player, session in Data.sessions() do
+		local best = session.Loaded and session.Profile.PracticeBest[id] or 0
+		if best > 0 then
+			table.insert(out, { Name = player.DisplayName, Score = best })
+		end
+	end
+	table.sort(out, function(x, y)
+		return encode(id, x.Score) > encode(id, y.Score)
+	end)
+	return out
+end
+
+local function renderBoard(id: string)
+	local b = boards[id]
+	if not b then
+		return
+	end
+	local list = cache[id] or localBest(id)
+	for i, row in b.Rows do
+		local e = list[i]
+		row.Text = if e then string.format("%d.  %s  ·  %s", i, e.Name, scoreLabel(id, e.Score)) else (i .. ".  —")
+	end
+end
+
+local function refreshBoards()
+	for _, m in Minigames.List do
+		local ds = bestStore(m.Id)
+		local entries: { BestEntry }? = nil
+		if ds then
+			local ok, pages = pcall(function()
+				return ds:GetSortedAsync(false, 8)
+			end)
+			if ok and pages then
+				local pageOk, page = pcall(function()
+					return pages:GetCurrentPage()
+				end)
+				if pageOk then
+					entries = {}
+					for _, r in page do
+						local userId = tonumber(r.key)
+						if userId and type(r.value) == "number" then
+							local okName, name = pcall(function()
+								return Players:GetNameFromUserIdAsync(userId)
+							end)
+							table.insert(entries :: { BestEntry }, { Name = if okName then name else "Player", Score = decode(m.Id, r.value) })
+						end
+					end
+				end
+			end
+		end
+		cache[m.Id] = entries
+		renderBoard(m.Id)
+	end
+end
+
+local function recordBest(player: Player, id: string, score: number)
+	local profile = Data.profile(player)
+	if not profile or not better(id, score, profile.PracticeBest[id] or 0) then
+		return
+	end
+	profile.PracticeBest[id] = score
+	Data.markDirty(player)
+	Net.event("Toast"):FireClient(player, "New personal best: " .. scoreLabel(id, score) .. "!", Config.Colors.Gold)
+	renderBoard(id)
+	local ds = bestStore(id)
+	if ds then
+		task.spawn(function()
+			pcall(function()
+				local v = encode(id, score)
+				-- Returning nil keeps the stored value (the typings don't allow it, hence the cast).
+				local store: any = ds
+				store:UpdateAsync(tostring(player.UserId), function(old: any): number?
+					if type(old) == "number" and old >= v then
+						return nil -- keep the stored best
+					end
+					return v
+				end)
+			end)
+		end)
+	end
 end
 
 local function finish(state: LaneState, completed: boolean)
@@ -163,10 +293,13 @@ local function finish(state: LaneState, completed: boolean)
 	state.Player = nil
 	byPlayer[player] = nil
 	BallService.destroy(player)
-	local score = if active.Id == "Drive" then math.floor(state.Best) else state.Score
-	local tokens = if completed then Minigames.tokensFor(active.Id, score) else 0
+	local score = if state.Def.Id == "Drive" then math.floor(state.Best) else state.Score
+	local tokens = if completed then Minigames.tokensFor(state.Def.Id, score) else 0
 	if tokens > 0 then
-		Data.addTokens(player, active.Id, tokens)
+		Data.addTokens(player, state.Def.Id, tokens)
+	end
+	if completed then
+		recordBest(player, state.Def.Id, score)
 	end
 	if player.Parent == Players then
 		Activity.set(player, nil)
@@ -174,27 +307,27 @@ local function finish(state: LaneState, completed: boolean)
 		Activity.unpark(player, CFrame.lookAt(state.Lane.StartPad.Position + Vector3.new(0, 3, 0) - state.Lane.Origin.LookVector * 4, state.Lane.Origin.Position + Vector3.new(0, 3, 0)))
 		Net.event("BallAssigned"):FireClient(player, nil, { Context = "None" })
 		Net.event("Fx"):FireClient(player, "practice", {
-			Minigame = active.Name,
+			Minigame = state.Def.Name,
 			Score = score,
 			Tokens = tokens,
-			Token = active.Token,
+			Token = state.Def.Token,
 			Completed = completed,
 		})
 	end
-	local scoreText = if active.Id == "Drive" then score .. " studs" elseif active.Id == "Hazard" then (if score > 0 then score .. " strokes" else "missed") else score .. " pts"
-	setScreen(state, "LANE " .. state.Index .. "  ·  " .. string.upper(active.Name), player.DisplayName .. ": " .. scoreText .. "  ·  +" .. tokens .. " tokens")
+	local scoreText = if state.Def.Id == "Drive" then score .. " studs" elseif state.Def.Id == "Hazard" then (if score > 0 then score .. " strokes" else "missed") else score .. " pts"
+	setScreen(state, "LANE " .. state.Index .. "  ·  " .. string.upper(state.Def.Name), player.DisplayName .. ": " .. scoreText .. "  ·  +" .. tokens .. " tokens")
 end
 
 local function makeContext(state: LaneState): BallService.Context
 	return {
 		CanShoot = function(ball)
-			return state.Player == ball.Player and state.Shots < active.Shots
+			return state.Player == ball.Player and state.Shots < state.Def.Shots
 		end,
 		OnShot = function(_ball)
 			state.Shots += 1
 		end,
 		OnRest = function(ball)
-			if active.Id == "Target" then
+			if state.Def.Id == "Target" then
 				local center = laneCF(state, state.Lane.Length - 12, 0).Position
 				local d = Vector2.new(ball.Part.Position.X - center.X, ball.Part.Position.Z - center.Z).Magnitude
 				local pts = 0
@@ -206,21 +339,21 @@ local function makeContext(state: LaneState): BallService.Context
 				end
 				state.Score += pts
 				Net.event("Toast"):FireClient(ball.Player, if pts > 0 then "+" .. pts .. " points" else "Missed the rings", if pts >= 10 then Config.Colors.Gold else nil)
-				setScreen(state, "LANE " .. state.Index .. "  ·  TARGET", string.format("%s  ·  %d pts  ·  shot %d/%d", ball.Player.DisplayName, state.Score, state.Shots, active.Shots))
-			elseif active.Id == "Drive" then
+				setScreen(state, "LANE " .. state.Index .. "  ·  TARGET", string.format("%s  ·  %d pts  ·  shot %d/%d", ball.Player.DisplayName, state.Score, state.Shots, state.Def.Shots))
+			elseif state.Def.Id == "Drive" then
 				local best = math.floor(ball.MaxDistance)
 				state.Best = math.max(state.Best, ball.MaxDistance)
 				Net.event("Toast"):FireClient(ball.Player, best .. " studs up the ramp", nil)
-				setScreen(state, "LANE " .. state.Index .. "  ·  LONG-DRIVE", string.format("%s  ·  best %d studs  ·  drive %d/%d", ball.Player.DisplayName, math.floor(state.Best), state.Shots, active.Shots))
-			elseif active.Id == "Hazard" then
-				if state.Shots >= active.Shots then
+				setScreen(state, "LANE " .. state.Index .. "  ·  LONG-DRIVE", string.format("%s  ·  best %d studs  ·  drive %d/%d", ball.Player.DisplayName, math.floor(state.Best), state.Shots, state.Def.Shots))
+			elseif state.Def.Id == "Hazard" then
+				if state.Shots >= state.Def.Shots then
 					Net.event("Toast"):FireClient(ball.Player, "Out of strokes!", Config.Colors.Bad)
 					finish(state, true)
 					return
 				end
 				return -- play on from where it stopped
 			end
-			if state.Shots >= active.Shots then
+			if state.Shots >= state.Def.Shots then
 				task.delay(0.6, function()
 					if state.Player == ball.Player then
 						finish(state, true)
@@ -242,7 +375,7 @@ local function makeContext(state: LaneState): BallService.Context
 			BallService.place(ball, ballStart(state))
 		end,
 		Tick = function(ball, _dt)
-			if active.Id == "Drive" then
+			if state.Def.Id == "Drive" then
 				local start = laneCF(state, RAMP_START, 0)
 				local dir = (start * CFrame.Angles(RAMP_ANGLE, 0, 0)).LookVector
 				local along = (ball.Part.Position - start.Position):Dot(dir)
@@ -278,18 +411,18 @@ local function begin(state: LaneState, player: Player)
 	})
 	Net.event("BallAssigned"):FireClient(player, ball.Part, {
 		Context = "Practice",
-		Minigame = active.Id,
-		Title = active.Name,
-		Rules = active.Rules,
+		Minigame = state.Def.Id,
+		Title = state.Def.Name,
+		Rules = state.Def.Rules,
 		TeeLook = state.Lane.Origin.LookVector,
 		Cup = state.Cup,
 		PowerCycle = Config.Physics.PowerCycleSeconds * (1 + (profile.Upgrades.Control or 0) * 0.08),
 	})
-	Net.event("Toast"):FireClient(player, active.Rules, nil)
-	setScreen(state, "LANE " .. state.Index .. "  ·  " .. string.upper(active.Name), player.DisplayName .. " is playing")
+	Net.event("Toast"):FireClient(player, state.Def.Rules, nil)
+	setScreen(state, "LANE " .. state.Index .. "  ·  " .. string.upper(state.Def.Name), player.DisplayName .. " is playing")
 end
 
--- Token kiosk -------------------------------------------------------------------
+-- Token huts ----------------------------------------------------------------------
 
 local function buyTokenSkin(player: Player, id: string)
 	local skin = Skins.ById[id]
@@ -302,90 +435,46 @@ local function buyTokenSkin(player: Player, id: string)
 		Net.event("Fx"):FireClient(player, "shopResult", { Ok = true, Text = "Equipped " .. skin.Name })
 		return
 	end
-	if skin.Source ~= "Token:" .. active.Id then
-		Net.event("Fx"):FireClient(player, "shopResult", { Ok = false, Text = skin.Name .. " returns when its minigame is active" })
+	local mgId = string.match(skin.Source, "^Token:(.+)$")
+	local mg = mgId and Minigames.ById[mgId]
+	if not mgId or not mg then
 		return
 	end
 	local price = Crates.TokenDirectPrice[skin.Rarity] or 999
-	if (profile.Tokens[active.Id] or 0) < price then
-		Net.event("Fx"):FireClient(player, "shopResult", { Ok = false, Text = "Not enough " .. active.Token })
+	if (profile.Tokens[mgId] or 0) < price then
+		Net.event("Fx"):FireClient(player, "shopResult", { Ok = false, Text = "Not enough " .. mg.Token })
 		return
 	end
-	Data.addTokens(player, active.Id, -price)
+	Data.addTokens(player, mgId, -price)
 	Data.grant(player, "Skins", id)
 	Data.equip(player, "Skins", id)
 	Net.event("Fx"):FireClient(player, "shopResult", { Ok = true, Text = "Unlocked " .. skin.Name })
 end
 
-local function buildKiosk()
-	kioskFolder:ClearAllChildren()
-	local kiosk = lobbyRef.South.TokenKiosk
-	for _, child in kiosk.CratePedestal:GetChildren() do
-		if child:IsA("ProximityPrompt") then
-			child:Destroy()
+local function buildStations()
+	for id, station in lobbyRef.South.Stations do
+		local crate = Crates.get(id)
+		if crate then
+			Displays.bob(Displays.crate(kioskFolder, Displays.anchorPoint(station.Display), crate.Color, 2.4))
 		end
+		local mg = Minigames.ById[id]
+		local prompt = Parts.prompt(station.Counter, "Open shop", mg.Token, { Distance = 10, Name = "TokenShopPrompt" })
+		prompt:SetAttribute("Minigame", id)
+		prompt.Triggered:Connect(function(player)
+			Net.event("Fx"):FireClient(player, "tokenShop", { Minigame = id })
+		end)
+		-- Best-scores board.
+		local gui = UIKit.surface(station.Board, { PixelsPerStud = 40, Name = "BestScoresUI" })
+		local root = UIKit.screen(gui)
+		UIKit.list(root, 4)
+		UIKit.text({ Text = string.upper(mg.Name) .. "  ·  ALL-TIME", TextSize = 26, Font = T.FontHeavy, Size = UDim2.new(1, 0, 0, 34), Parent = root })
+		local rows: { TextLabel } = {}
+		for i = 1, 6 do
+			rows[i] = UIKit.text({ Text = i .. ".  —", TextSize = 22, Font = T.FontMedium, TextColor3 = if i == 1 then T.Gold else T.Text, Size = UDim2.new(1, 0, 0, 30), LayoutOrder = i, Parent = root })
+		end
+		boards[id] = { Rows = rows }
+		renderBoard(id)
 	end
-	local crate = Crates.get(active.Id) :: Crates.Crate
-	local model = Displays.crate(kioskFolder, Displays.anchorPoint(kiosk.CratePedestal), crate.Color)
-	Displays.bob(model)
-	local prompt = Parts.prompt(kiosk.CratePedestal, "Open · " .. crate.Price .. " tokens", crate.Name, { Hold = 0.3, Distance = 9 })
-	prompt:SetAttribute("CrateId", crate.Id)
-	prompt.Triggered:Connect(function(player)
-		Shop.openCrate(player, crate.Id)
-	end)
-	local skins = Skins.withSource("Token:" .. active.Id)
-	for i, pedestal in kiosk.SkinPedestals do
-		for _, child in pedestal:GetChildren() do
-			if child:IsA("ProximityPrompt") then
-				child:Destroy()
-			end
-		end
-		local skin = skins[i]
-		if skin then
-			local ball = Displays.ball(kioskFolder, Displays.anchorPoint(pedestal), skin.Id, 2.6)
-			local price = Crates.TokenDirectPrice[skin.Rarity] or 0
-			Displays.card(ball, 2.8, skin.Name, skin.Rarity .. " · " .. active.Name .. " exclusive", price .. " tokens", Skins.Rarities[skin.Rarity].Color)
-			local p = Parts.prompt(pedestal, "Unlock · " .. price .. " tokens", skin.Name, { Distance = 8 })
-			p:SetAttribute("SkinId", skin.Id)
-			p.Triggered:Connect(function(player)
-				buyTokenSkin(player, skin.Id)
-			end)
-		end
-	end
-end
-
-local function buildSign(part: BasePart)
-	local gui = UIKit.surface(part, { PixelsPerStud = 40, Name = "RotationUI" })
-	local root = UIKit.screen(gui)
-	UIKit.list(root, 8)
-	local title = UIKit.text({ Text = "", TextSize = 44, Font = T.FontHeavy, Size = UDim2.new(1, 0, 0, 52), Parent = root })
-	local rules = UIKit.text({ Text = "", TextSize = 22, Font = T.FontMedium, Size = UDim2.new(1, 0, 0, 56), Parent = root })
-	local timer = UIKit.text({ Text = "", TextSize = 26, TextColor3 = T.Primary, Size = UDim2.new(1, 0, 0, 32), Parent = root })
-	local nextText = UIKit.text({ Text = "", TextSize = 18, Font = T.FontMedium, TextColor3 = T.Muted, Size = UDim2.new(1, 0, 0, 48), Parent = root })
-	signUi = { Title = title, Rules = rules, Timer = timer, Next = nextText }
-end
-
-local function renderSign()
-	local m, remaining = Minigames.active(os.time())
-	local index = table.find(Minigames.List, m) or 1
-	local upcoming = Minigames.List[(index % #Minigames.List) + 1]
-	signUi.Title.Text = "NOW: " .. string.upper(m.Name)
-	signUi.Rules.Text = m.Rules
-	signUi.Timer.Text = "Rotates in " .. UIKit.formatTime(remaining)
-	signUi.Next.Text = "Next up: " .. upcoming.Name .. "  ·  Earn " .. m.Token .. " here; spend them at the kiosk on " .. m.Name .. "-exclusive skins. Tokens can't be bought."
-end
-
-local function rotate(m: Minigames.Minigame)
-	active = m
-	for _, state in lanes do
-		if state.Player then
-			Net.event("Toast"):FireClient(state.Player, "The practice zone is rotating to " .. m.Name .. "!", nil)
-			finish(state, false)
-		end
-		buildProps(state)
-	end
-	buildKiosk()
-	workspace:SetAttribute("PracticeMinigame", m.Id)
 end
 
 function Practice.leave(player: Player): boolean
@@ -397,19 +486,27 @@ function Practice.leave(player: Player): boolean
 	return true
 end
 
+local function inRange(pos: Vector3): boolean
+	local l = lobbyRef.South.Bounds:PointToObjectSpace(pos)
+	local half = lobbyRef.South.Size / 2
+	return math.abs(l.X) <= half.X and math.abs(l.Z) <= half.Z and l.Y > -2 and l.Y < half.Y
+end
+
 function Practice.start(lobby: LobbyTypes.Lobby)
 	lobbyRef = lobby
-	kioskFolder = Parts.folder(lobby.Model, "TokenKioskProps")
+	kioskFolder = Parts.folder(lobby.Model, "TokenHutProps")
 	for i, lane in lobby.South.Lanes do
 		local gui = UIKit.surface(lane.Screen, { PixelsPerStud = 50, Name = "LaneUI" })
 		local root = UIKit.screen(gui)
 		UIKit.list(root, 4)
 		local title = UIKit.text({ Text = "", TextSize = 20, Font = T.FontHeavy, Size = UDim2.new(1, 0, 0.45, 0), Parent = root })
 		local body = UIKit.text({ Text = "", TextSize = 16, Font = T.FontMedium, TextColor3 = T.Muted, Size = UDim2.new(1, 0, 0.5, 0), Parent = root })
-		table.insert(lanes, { Lane = lane, Index = i, Player = nil, Shots = 0, Score = 0, Best = 0, Cup = nil, Screen = { Title = title, Body = body }, Blocked = {} })
+		local def = Minigames.ById[lane.Minigame] or Minigames.List[1]
+		local state: LaneState = { Lane = lane, Def = def, Index = i, Player = nil, Shots = 0, Score = 0, Best = 0, Cup = nil, Screen = { Title = title, Body = body }, Blocked = {} }
+		table.insert(lanes, state)
+		buildProps(state)
 	end
-	buildSign(lobby.South.RotationSign)
-	rotate((Minigames.active(os.time())))
+	buildStations()
 
 	Shop.handle("buyTokenSkin", function(player, id)
 		if type(id) == "string" then
@@ -419,24 +516,26 @@ function Practice.start(lobby: LobbyTypes.Lobby)
 	Net.event("LeaveActivity").OnServerEvent:Connect(function(player)
 		Practice.leave(player)
 	end)
+	Data.Loaded:Connect(function(player)
+		for _, m in Minigames.List do
+			renderBoard(m.Id)
+		end
+		player:SetAttribute("InPractice", false)
+	end)
 	Players.PlayerRemoving:Connect(function(player)
 		local state = byPlayer[player]
 		if state then
 			state.Player = nil
 			byPlayer[player] = nil
 		end
-		for _, s in lanes do
-			s.Blocked[player] = nil
+		for _, st in lanes do
+			st.Blocked[player] = nil
 		end
 	end)
 
 	task.spawn(function()
 		while true do
 			task.wait(0.25)
-			local m = Minigames.active(os.time())
-			if m ~= active then
-				rotate(m)
-			end
 			for _, state in lanes do
 				for player in state.Blocked do
 					local root = Zones.rootOf(player)
@@ -455,12 +554,19 @@ function Practice.start(lobby: LobbyTypes.Lobby)
 					end
 				end
 			end
+			for _, player in Players:GetPlayers() do
+				local root = Zones.rootOf(player)
+				local inside = byPlayer[player] ~= nil or (root ~= nil and inRange(root.Position))
+				if player:GetAttribute("InPractice") ~= inside then
+					player:SetAttribute("InPractice", inside)
+				end
+			end
 		end
 	end)
 	task.spawn(function()
 		while true do
-			renderSign()
-			task.wait(1)
+			refreshBoards()
+			task.wait(60)
 		end
 	end)
 end

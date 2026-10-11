@@ -1,8 +1,6 @@
 --!strict
--- South room practice minigames. The active one rotates every 20 minutes on a
--- clock shared by every server (os.time based), so all servers agree.
-
-local Config = require(script.Parent:WaitForChild("Config"))
+-- Practice range minigames: each has its own permanent station (two lanes, a
+-- token hut and a best-scores board) in the South wing.
 
 local Minigames = {}
 
@@ -63,16 +61,6 @@ function Minigames.tokensFor(id: string, score: number): number
 		return if score == 1 then 6 elseif score == 2 then 4 elseif score == 3 then 3 elseif score == 4 then 2 else 0
 	end
 	return 0
-end
-
--- Rotation ----------------------------------------------------------------
-
-function Minigames.active(now: number): (Minigame, number)
-	local period = Config.Practice.RotationSeconds
-	local slot = math.floor(now / period)
-	local m = Minigames.List[(slot % #Minigames.List) + 1]
-	local remaining = period - (now % period)
-	return m, remaining
 end
 
 return Minigames

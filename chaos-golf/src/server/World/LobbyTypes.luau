@@ -28,9 +28,16 @@ export type Lane = {
 	Origin: CFrame, -- floor-level centre of the lane start, LookVector runs down the lane
 	Length: number,
 	Width: number,
+	Minigame: string, -- "Target" | "Drive" | "Hazard": this lane's permanent minigame
 	StartPad: BasePart, -- step on to play (attribute Radius); sits just behind Origin
-	Props: Folder, -- empty folder: Practice builds the active minigame's props in here
+	Props: Folder, -- empty folder: Practice builds the minigame's props in here
 	Screen: BasePart, -- small per-lane score screen
+}
+
+export type PracticeStation = {
+	Board: BasePart, -- best-scores leaderboard screen (Front face)
+	Counter: BasePart, -- token hut counter: the shop prompt goes here
+	Display: BasePart, -- crate showcase on the counter (Display attachment)
 }
 
 export type Board = {
@@ -76,9 +83,10 @@ export type Lobby = {
 		CoinPackPads: { [string]: BasePart }, -- keys "Coins1".."Coins4"
 	},
 	South: {
-		Lanes: { Lane },
-		RotationSign: BasePart, -- big screen: active minigame + countdown
-		TokenKiosk: { Screen: BasePart, CratePedestal: BasePart, SkinPedestals: { BasePart } }, -- 4 skin pedestals
+		Lanes: { Lane }, -- two per minigame
+		Stations: { [string]: PracticeStation }, -- keyed by minigame id
+		Bounds: CFrame, -- room centre (floor level); with Size: the practice area
+		Size: Vector3,
 		TutorialPad: BasePart, -- replay tutorial (attribute Radius)
 	},
 	West: {

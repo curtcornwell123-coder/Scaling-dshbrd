@@ -257,12 +257,12 @@ flow("tutorial replay from pad, all 3 holes completed", okTut and Data.owns(p1, 
 Sim.setRoot(p1, V(0, 3, -25))
 Sim.run(1)
 
--- E. minigame rotation -> Drive, Hazard (props, kiosk, a run each) ------------------------
+-- E. practice stations: a run on each minigame's lanes, tokens, best scores ------------
 e0 = errs()
-local function practiceRun(sinkIt)
-	local pad = find(lobbyModel, function(x, d)
-		return d.props.Name == "StartPad"
-	end)[2]
+local pads = find(lobbyModel, function(x, d)
+	return d.props.Name == "StartPad"
+end)
+local function practiceRun(pad, sinkIt)
 	Sim.setRoot(p1, pad.Position + V(0, 3, 0))
 	Sim.run(1)
 	local ok = Activity.get(p1) == "Practice"
@@ -294,17 +294,20 @@ local function practiceRun(sinkIt)
 	Sim.run(0.5)
 	return ok
 end
-local okT = practiceRun(false)
-Sim.EPOCH += 20 * 60
-Sim.run(1.5)
-local mg = Sim.workspace:GetAttribute("PracticeMinigame")
-local okD = practiceRun(false)
-Sim.EPOCH += 20 * 60
-Sim.run(1.5)
-local mg2 = Sim.workspace:GetAttribute("PracticeMinigame")
+local okT = practiceRun(pads[1], false)
+local okD = practiceRun(pads[3], false)
 local tokens0 = Data.profile(p1).Tokens.Hazard
-local okH = practiceRun(true)
-flow("practice rotation Target -> Drive -> Hazard, a run in each", okT and okD and okH and mg == "Drive" and mg2 == "Hazard" and errs() == e0, string.format("%s/%s tokens Hazard %d -> %d", tostring(mg), tostring(mg2), tokens0, Data.profile(p1).Tokens.Hazard))
+local okH = practiceRun(pads[5], true)
+local best = Data.profile(p1).PracticeBest
+flow("practice stations: a run on Target, Drive and Hazard lanes, tokens + best scores", okT and okD and okH and #pads == 6 and Data.profile(p1).Tokens.Hazard > tokens0 and best.Hazard > 0 and errs() == e0, string.format("pads=%d tokens Hazard %d -> %d best=%s/%s/%s", #pads, tokens0, Data.profile(p1).Tokens.Hazard, tostring(best.Target), tostring(best.Drive), tostring(best.Hazard)))
+-- in-range attribute for the token HUD
+local southRoom = lobbyModel:FindFirstChild("SouthRoom")
+Sim.setRoot(p1, pads[1].Position + V(0, 3, -6))
+Sim.run(0.6)
+local inRange = p1:GetAttribute("InPractice") == true
+Sim.setRoot(p1, V(0, 3, -25))
+Sim.run(0.6)
+flow("InPractice attribute in the range only", southRoom ~= nil and inRange and p1:GetAttribute("InPractice") == false, "")
 -- token kiosk purchases
 Data.addTokens(p1, "Hazard", 200)
 Sim.run(0.4)

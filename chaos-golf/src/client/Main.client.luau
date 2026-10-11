@@ -16,6 +16,7 @@ local order = {
 	"Guide",
 	"TutorialUi",
 	"RewardsUi",
+	"TokenShopUi",
 }
 
 for _, name in order do

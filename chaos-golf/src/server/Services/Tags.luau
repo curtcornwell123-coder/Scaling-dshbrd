@@ -30,7 +30,6 @@ function Tags.apply(lobby: LobbyTypes.Lobby)
 	tag(lobby.Stations.CreatorKiosk.Screen, "CreatorScreen")
 	tag(lobby.Daily.Screen, "DailyScreen")
 	tag(lobby.Daily.Button, "DailyButton")
-	tag(lobby.South.TokenKiosk.Screen, "TokenScreen")
 	tag(lobby.North.InviteKiosk, "InviteKiosk")
 	tag(lobby.Directory.Sign, "DirectorySign")
 	for i, sign in lobby.North.VoteSigns do

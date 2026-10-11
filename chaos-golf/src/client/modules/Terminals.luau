@@ -1,7 +1,7 @@
 --!strict
 -- Personal in-world terminal screens (SurfaceGuis in PlayerGui, so each
 -- player sees their own data and can click them): stat upgrades, creator
--- code kiosk, the 14-day Daily Rewards calendar and the practice token kiosk.
+-- code kiosk and the 14-day Daily Rewards calendar.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -9,9 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared:WaitForChild("Config"))
-local Crates = require(Shared:WaitForChild("Crates"))
 local DailyRewards = require(Shared:WaitForChild("DailyRewards"))
-local Minigames = require(Shared:WaitForChild("Minigames"))
 local Net = require(Shared:WaitForChild("Net"))
 local UIKit = require(Shared:WaitForChild("UIKit"))
 
@@ -241,41 +239,10 @@ local function daily(part: BasePart)
 	end)
 end
 
--- Token kiosk -----------------------------------------------------------------------------
-
-local function tokenKiosk(part: BasePart)
-	local _, root = surface(part, 620, "TokenSurface")
-	UIKit.list(root, 8)
-	local title = UIKit.text({ Text = "", TextSize = 24, Font = T.FontHeavy, Size = UDim2.new(1, 0, 0, 30), Parent = root })
-	local body = UIKit.text({ Text = "", TextSize = 14, Font = T.FontMedium, TextColor3 = T.Muted, Size = UDim2.new(1, 0, 0, 36), Parent = root })
-	local balances: { [string]: TextLabel } = {}
-	for i, m in Minigames.List do
-		local row = UIKit.card({ Size = UDim2.new(1, 0, 0, 34), LayoutOrder = 10 + i, Parent = root })
-		UIKit.padding(row, 0, 12)
-		UIKit.tag(m.Token, m.Color, { AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0, 0.5), Parent = row })
-		balances[m.Id] = UIKit.text({ Text = "0", TextSize = 18, TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.fromScale(1, 1), Parent = row })
-	end
-	local function render()
-		local active = Minigames.active(os.time())
-		local crate = Crates.get(active.Id)
-		title.Text = string.upper(active.Name) .. " KIOSK"
-		body.Text = string.format("Now selling the %s (%d tokens) and %s skins. Tokens are earned on the lanes only.", if crate then crate.Name else "crate", if crate then crate.Price else 0, active.Name)
-		local profile = State.Profile
-		for id, label in balances do
-			label.Text = tostring(if profile and profile.Tokens then profile.Tokens[id] or 0 else 0)
-		end
-	end
-	State.observe(function()
-		render()
-	end)
-	workspace:GetAttributeChangedSignal("PracticeMinigame"):Connect(render)
-end
-
 function Terminals.start()
 	onTagged("UpgradeScreen", upgrades)
 	onTagged("CreatorScreen", creator)
 	onTagged("DailyScreen", daily)
-	onTagged("TokenScreen", tokenKiosk)
 end
 
 return Terminals

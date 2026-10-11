@@ -105,8 +105,8 @@ local function revealAt(crateId: string): Vector3?
 		part = lobby.East.Mythic.Pedestal
 	elseif crateId == "Playtime" then
 		part = lobby.Daily.Button
-	elseif Crates.get(crateId) and (Crates.get(crateId) :: Crates.Crate).Currency ~= "Coins" then
-		part = lobby.South.TokenKiosk.CratePedestal
+	elseif lobby.South.Stations[crateId] then
+		part = lobby.South.Stations[crateId].Display
 	end
 	return if part then Displays.anchorPoint(part) else nil
 end
@@ -125,12 +125,10 @@ function Shop.openCrate(player: Player, crateId: string, free: boolean?): boolea
 
 	if not free then
 		local tokenId = string.match(crate.Currency, "^Tokens:(.+)$")
-		if tokenId then
-			local active = Minigames.active(os.time())
-			if active.Id ~= tokenId then
-				result(player, false, crate.Name .. " is only sold while " .. (Minigames.ById[tokenId] :: Minigames.Minigame).Name .. " is active")
-				return false
-			end
+		if crate.Currency == "Gift" then
+			result(player, false, "The " .. crate.Name .. " comes from playtime gifts")
+			return false
+		elseif tokenId then
 			if (profile.Tokens[tokenId] or 0) < crate.Price then
 				result(player, false, "Not enough " .. (Minigames.ById[tokenId] :: Minigames.Minigame).Token)
 				return false

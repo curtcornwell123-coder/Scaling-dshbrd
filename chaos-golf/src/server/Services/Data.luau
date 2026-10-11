@@ -32,6 +32,7 @@ export type Profile = {
 	TutorialDone: boolean,
 	DirectoryDone: boolean,
 	GroupClaimed: boolean, -- one-time Corny Games group reward
+	PracticeBest: { [string]: number }, -- per minigame: best points / studs / fewest strokes (0 = none)
 	Pity: { [string]: number },
 	Receipts: { string },
 	Lock: { Job: string, Time: number }?,
@@ -95,6 +96,7 @@ local function defaultProfile(): Profile
 		TutorialDone = false,
 		DirectoryDone = false,
 		GroupClaimed = false,
+		PracticeBest = { Target = 0, Drive = 0, Hazard = 0 },
 		Pity = {},
 		Receipts = {},
 		Lock = nil,
@@ -151,6 +153,7 @@ function Data.snapshot(session: Session): { [string]: any }
 		TutorialDone = p.TutorialDone,
 		DirectoryDone = p.DirectoryDone,
 		GroupClaimed = p.GroupClaimed,
+		PracticeBest = p.PracticeBest,
 		Pity = p.Pity,
 		Passes = session.Passes,
 	}

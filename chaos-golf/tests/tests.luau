@@ -85,10 +85,13 @@ for _, m in Minigames.List do
 	for _, s in list do check(Crates.TokenDirectPrice[s.Rarity] ~= nil, "token price " .. s.Id) end
 	check(Crates.get(m.Id) ~= nil, "token crate " .. m.Id)
 end
--- Minigame rotation
-local a = Minigames.active(0)
-check(a.Id == "Target", "rotation slot 0")
-check(Minigames.active(1200).Id == "Drive" and Minigames.active(2400).Id == "Hazard" and Minigames.active(3600).Id == "Target", "rotation cycle")
+-- Permanent stations: one per minigame; free crates and exclusive balls exist
+check(#Minigames.List == 3, "three practice minigames")
+check(Crates.get("Playtime") ~= nil and Crates.get("Playtime").Currency == "Gift", "playtime crate is gift-only")
+for _, skinId in Config.Leaderboards.Rewards do
+	check(Skins.get(skinId).Id == skinId, "leaderboard ball " .. skinId)
+end
+check(Skins.get(Config.Group.Skin).Id == Config.Group.Skin, "group reward ball")
 
 -- Catalog tabs build with a fake profile
 local profile = { Coins = 100, Keys = { Skins = 2 }, Owned = { Skins = { classic_white = true, ruby = true }, Trails = { none = true }, Knockouts = { pop = true }, Arrows = { classic = true } } }
