@@ -102,7 +102,8 @@ Sim.asSide("server", function()
 	end
 end)
 Sim.run(2)
-flow("CourseBuilder.build for all 12 maps", built == 12 and errs() == e0, string.format("built=%d holes=%d", built, holes))
+local Maps = Sim.module("server", "Maps")
+flow("CourseBuilder.build for all " .. #Maps.List .. " maps", built == #Maps.List and built >= 20 and errs() == e0, string.format("built=%d holes=%d", built, holes))
 
 -- B. Classic (turn-based) match ---------------------------------------------------------
 local function bubble(mode)

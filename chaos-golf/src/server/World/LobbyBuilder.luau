@@ -1178,7 +1178,8 @@ local function buildEast(room: Model, R: CFrame)
 	for i, key in Config.GamePassOrder do
 		local cf = along(R, -38, 0, -14 + (i - 1) * 9, TO_PLUS_X)
 		Parts.trimmedSlab(pm, cf * CFrame.new(0, 0.3, 0), Vector3.new(5, 0.6, 5), 1, WOOD_DARK, GOLD)
-		Parts.roundedBox(pm, cf * CFrame.new(0, 1.9, 0), Vector3.new(3.6, 2.6, 3.6), 0.8, solid(WALL, "Column"))
+		Parts.roundedBox(pm, cf * CFrame.new(0, 1.9, 0), Vector3.new(3.6, 2.6, 3.6), 0.8, solid(MARBLE, "Column"))
+		Parts.block(pm, cf * CFrame.new(0, 2.9, 0), Vector3.new(3.7, 0.12, 3.7), deco(BRASS, "Band"))
 		local cap = Parts.roundedBox(pm, cf * CFrame.new(0, 3.4, 0), Vector3.new(4.2, 0.4, 4.2), 0.9, solid(GOLD, "PassPedestal"))
 		cap.Name = "Pass" .. key
 		display(cap, (cf * CFrame.new(0, 6.1, 0)).Position)
@@ -1193,7 +1194,8 @@ local function buildEast(room: Model, R: CFrame)
 		local key = "Coins" .. i
 		local cf = along(R, 38.5, 0, -14 + (i - 1) * 9, TO_MINUS_X)
 		Parts.trimmedSlab(km, cf * CFrame.new(0, 0.3, 0), Vector3.new(5, 0.6, 4.4), 1, WOOD_DARK, GOLD)
-		local body = Parts.roundedBox(km, cf * CFrame.new(0, 2.1, 0), Vector3.new(4, 3, 3.4), 0.7, solid(WALL, key))
+		local body = Parts.roundedBox(km, cf * CFrame.new(0, 2.1, 0), Vector3.new(4, 3, 3.4), 0.7, solid(WALNUT, key))
+		Parts.roundedBox(km, cf * CFrame.new(0, 3.65, 0), Vector3.new(4.3, 0.12, 3.7), 0.75, solid(QUARTZ, "Top"))
 		body.Name = key
 		for c = 1, i + 1 do
 			local pos = (cf * CFrame.new(((c % 2) - 0.5) * 0.3, 3.6 + (c - 0.5) * 0.36, 0)).Position
@@ -1201,7 +1203,7 @@ local function buildEast(room: Model, R: CFrame)
 		end
 		local product: { Name: string, Coins: number? }? = (Config.DevProducts :: any)[key]
 		local label = if product then string.upper(product.Name) .. "\n" .. commas(product.Coins or 0) .. " COINS" else key
-		text(km, cf * CFrame.new(0, 2.2, -1.76), 3.4, 2.2, label, WOOD_DARK, nil, false)
+		text(km, cf * CFrame.new(0, 2.2, -1.76), 3.4, 2.2, label, BRASS:Lerp(WHITE, 0.3), WALNUT_DARK)
 		coinPads[key] = body
 	end
 	titlePlate(km, along(R, ROOM_W - 1, 13, -0.5, TO_MINUS_X), 26, 3.4, "COIN PACKS", GOLD)

@@ -89,8 +89,9 @@ local MIN_LEVEL, MAX_LEVEL, RAMP_STEP = -8, 12, 4
 local STRAIGHT_BIAS = 0.6
 local WALK_ATTEMPTS, STRICT_ATTEMPTS = 160, 100
 -- Major features are rolled in this order; the first eligible hit claims the tile.
-local FEATURE_ORDER = { "Spinner", "Pusher", "Bridge", "Boost", "Bumper", "Sand", "Ice" }
-local NEEDS_STRAIGHT_FLAT: { [string]: boolean } = { Spinner = true, Pusher = true, Bridge = true, Boost = true }
+local FEATURE_ORDER = { "Windmill", "Spinner", "Pusher", "Bridge", "Boost", "Hump", "Tunnel", "Bumper", "Sand", "Ice" }
+local NEEDS_STRAIGHT_FLAT: { [string]: boolean } = { Windmill = true, Spinner = true, Pusher = true, Bridge = true, Boost = true, Hump = true, Tunnel = true }
+local OBSTACLES: { [string]: boolean } = { Windmill = true, Spinner = true, Pusher = true, Bumper = true }
 
 export type TilePlan = {
 	X: number, -- cell coordinates
@@ -286,7 +287,7 @@ local function assignFeatures(rng: Random, tiles: { TilePlan }, hazards: { [stri
 	local spots: { TilePlan } = {}
 	for i = 2, n - 1 do
 		local f = tiles[i].Feature
-		if f == "Bumper" or f == "Spinner" or f == "Pusher" then
+		if f and OBSTACLES[f] then
 			any = true
 		elseif f == nil and not tiles[i].Ramp then
 			table.insert(spots, tiles[i])
@@ -312,7 +313,7 @@ local function finishPlan(tiles: { TilePlan }, fallback: boolean): HolePlan
 		if not t.Straight then
 			turns += 1
 		end
-		if t.Feature then
+		if t.Feature and t.Feature ~= "Tunnel" then -- tunnels are scenery
 			hazards += 1
 		end
 		minX, maxX = math.min(minX, t.X), math.max(maxX, t.X)
@@ -723,6 +724,125 @@ local function buildPusher(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3
 	table.insert(ctx.Unanchored, block)
 end
 
+-- Classic mini-golf windmill: a tower wall across the fairway with a doorway in the
+-- middle; motor-driven sails sweep down across the doorway, so putts must be timed.
+local function buildWindmill(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
+	local theme = ctx.Theme
+	local f = dirVec(t.Out)
+	local lat = Vector3.new(-f.Z, 0, f.X)
+	local inner = TILE - 2 * RAIL_W
+	local door, doorH, depth, wallH = 3.4, 2.6, 3, 7
+	local side = (inner - door) / 2
+	local function boxAt(pos: Vector3, sizeLat: number, h: number, d: number, props: Parts.Props): Part
+		return Parts.block(parent, CFrame.fromMatrix(pos, lat, Vector3.yAxis, -f), Vector3.new(sizeLat, h, d), props)
+	end
+	local wall: Parts.Props = { Name = "WindmillWall", Color = theme.Trim, Material = Enum.Material.Plaster }
+	for _, s in { -1, 1 } do
+		local part = boxAt(top + lat * (s * (door / 2 + side / 2)) + up(wallH / 2), side, wallH, depth, wall)
+		railLike(part)
+	end
+	local lintel = boxAt(top + up(doorH + (wallH - doorH) / 2), door, wallH - doorH, depth, wall)
+	railLike(lintel)
+	-- Timber framing, a pitched roof and a little window.
+	for _, s in { -1, 1 } do
+		boxAt(top + lat * (s * (inner / 2 - 0.3)) + up(wallH / 2) - f * (depth / 2 + 0.05), 0.5, wallH, 0.2, { Name = "Timber", Color = theme.Rail, Material = WOOD, CanCollide = false, CanQuery = false })
+		boxAt(top + lat * (s * (door / 2 + 0.25)) + up(doorH / 2) - f * (depth / 2 + 0.05), 0.4, doorH, 0.2, { Name = "Timber", Color = theme.Rail, Material = WOOD, CanCollide = false, CanQuery = false })
+	end
+	boxAt(top + up(doorH + 0.2) - f * (depth / 2 + 0.05), door + 0.8, 0.4, 0.2, { Name = "Timber", Color = theme.Rail, Material = WOOD, CanCollide = false, CanQuery = false })
+	boxAt(top + up(wallH - 1.6) + lat * 2.6 - f * (depth / 2 + 0.06), 1.4, 1.4, 0.15, { Name = "Window", Color = Color3.fromRGB(54, 72, 86), Material = Enum.Material.Glass, CanCollide = false, CanQuery = false })
+	local roofBase = top + up(wallH)
+	local ridge = up(3.2)
+	for _, s in { -1, 1 } do
+		Parts.triangle(parent, roofBase + lat * (s * (inner / 2 + 0.6)) - f * (depth / 2 + 0.4), roofBase + lat * (s * (inner / 2 + 0.6)) + f * (depth / 2 + 0.4), roofBase + ridge - f * 0 + lat * (s * (inner / 2 + 0.6)), 0.3, { Name = "Gable", Color = theme.Trim, Material = Enum.Material.Plaster, CanCollide = false, CanQuery = false })
+	end
+	local slope = math.sqrt((depth / 2 + 0.4) ^ 2 + 3.2 ^ 2)
+	for _, s in { -1, 1 } do
+		local mid = roofBase + up(1.6) + f * (s * (depth / 2 + 0.4) / 2)
+		local tilt = math.atan2(3.2, depth / 2 + 0.4)
+		local cf = CFrame.fromMatrix(mid, lat, Vector3.yAxis, f) * CFrame.Angles(s * tilt, 0, 0)
+		Parts.block(parent, cf, Vector3.new(inner + 1.6, 0.35, slope + 0.2), { Name = "Roof", Color = theme.Accent, Material = Enum.Material.WoodPlanks, CanCollide = false, CanQuery = false })
+	end
+	-- Sails: a hub on the front face with four blades, turned by a motor hinge.
+	local hubPos = top + up(5.3) - f * (depth / 2 + 0.55)
+	local axle = Parts.cylinder(parent, CFrame.fromMatrix(hubPos + f * 0.35, Vector3.yAxis, f), 0.7, 0.5, { Name = "Axle", Color = theme.Rail, Material = WOOD, CanCollide = false, CanQuery = false })
+	local hub = Parts.cylinder(parent, CFrame.fromMatrix(hubPos, Vector3.yAxis, f), 0.4, 1.2, { Name = "SailHub", Color = theme.Rail, Material = WOOD, Anchored = false, CanCollide = false })
+	hub.CustomPhysicalProperties = SPINNER_PHYS
+	for k = 0, 3 do
+		local a = k * math.pi / 2 + math.pi / 4
+		local dir = lat * math.cos(a) + Vector3.yAxis * math.sin(a)
+		local cf = CFrame.fromMatrix(hubPos + dir * 2.3, dir:Cross(f), dir)
+		local blade = Parts.block(parent, cf, Vector3.new(1.4, 4.4, 0.25), { Name = "Sail", Color = theme.Accent, Material = WOOD, Anchored = false })
+		blade.CustomPhysicalProperties = SPINNER_PHYS
+		weld(blade, hub)
+		local slat = Parts.block(parent, cf * CFrame.new(0, 0, -0.14), Vector3.new(0.2, 4.2, 0.06), { Name = "SailSlat", Color = theme.Trim, CanCollide = false, CanQuery = false, Anchored = false })
+		slat.Massless = true
+		weld(slat, blade)
+		local nc = Instance.new("NoCollisionConstraint")
+		nc.Part0 = blade
+		nc.Part1 = lintel
+		nc.Parent = blade
+	end
+	local axis = CFrame.fromMatrix(hubPos, f, Vector3.yAxis) -- hinge turns about X = f
+	local a0 = Instance.new("Attachment")
+	a0.Name = "SailAxis"
+	a0.CFrame = axle.CFrame:ToObjectSpace(axis)
+	a0.Parent = axle
+	local a1 = Instance.new("Attachment")
+	a1.Name = "SailAxis"
+	a1.CFrame = hub.CFrame:ToObjectSpace(axis)
+	a1.Parent = hub
+	local hinge = Instance.new("HingeConstraint")
+	hinge.Attachment0 = a0
+	hinge.Attachment1 = a1
+	hinge.ActuatorType = Enum.ActuatorType.Motor
+	hinge.AngularVelocity = if t.Phase == 0 then 0.9 else -0.9
+	hinge.MotorMaxTorque = 1e9
+	hinge.MotorMaxAcceleration = math.huge
+	hinge.Parent = hub
+	table.insert(ctx.Unanchored, hub)
+end
+
+-- A smooth hump across the fairway: a buried cylinder whose top rises 0.8 above the floor.
+local function buildHump(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
+	local theme = ctx.Theme
+	local f = dirVec(t.Out)
+	local lat = Vector3.new(-f.Z, 0, f.X)
+	local dia, rise = 10, 0.8
+	local inner = TILE - 2 * RAIL_W
+	local hump = Parts.cylinder(parent, CFrame.fromMatrix(top + up(rise - dia / 2), f, lat), inner, dia, { Name = "Hump", Color = theme.FloorAlt, Material = TURF })
+	hump.CustomPhysicalProperties = FLOOR_PHYS
+	Parts.block(parent, CFrame.fromMatrix(top + up(rise + 0.02), lat, Vector3.yAxis, -f), Vector3.new(inner - 0.2, 0.04, 0.3), { Name = "HumpLine", Color = theme.Trim, CanCollide = false, CanQuery = false })
+end
+
+-- Stone arches over the fairway with ivy (scenery: never in the ball's way).
+local function buildTunnel(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
+	local theme = ctx.Theme
+	local f = dirVec(t.Out)
+	local lat = Vector3.new(-f.Z, 0, f.X)
+	local stone: Parts.Props = { Name = "Arch", Color = theme.WallAlt, Material = Enum.Material.Cobblestone, CanCollide = false, CanQuery = false }
+	local r = HALF - 0.2
+	for _, k in { -3.6, 0, 3.6 } do
+		local centre = top + f * k + up(1.2)
+		for i = 0, 10 do
+			local a0 = math.pi * i / 11
+			local a1 = math.pi * (i + 1) / 11
+			local p0 = centre + lat * (math.cos(a0) * r) + up(math.sin(a0) * r)
+			local p1 = centre + lat * (math.cos(a1) * r) + up(math.sin(a1) * r)
+			Parts.beam(parent, p0, p1, 0.7, 1.1, stone, f)
+		end
+		for _, s in { -1, 1 } do
+			Parts.block(parent, CFrame.fromMatrix(top + f * k + lat * (s * r) + up(0.6), lat, Vector3.yAxis, -f), Vector3.new(0.8, 1.4, 1.1), stone)
+		end
+	end
+	local rng = Random.new(t.X * 131 + t.Z * 17)
+	for _ = 1, 8 do
+		local k = rng:NextNumber(-4, 4)
+		local a = rng:NextNumber(0.3, math.pi - 0.3)
+		local p = top + f * k + up(1.2) + lat * (math.cos(a) * (r + 0.2)) + up(math.sin(a) * (r + 0.2))
+		Parts.ball(parent, p, rng:NextNumber(0.8, 1.4), { Name = "Ivy", Color = theme.Foliage, Material = Enum.Material.LeafyGrass, CanCollide = false, CanQuery = false })
+	end
+end
+
 local function buildBoost(ctx: Ctx, parent: Instance, t: TilePlan, top: Vector3)
 	local f = dirVec(t.Out)
 	local lat = Vector3.new(-f.Z, 0, f.X)
@@ -940,6 +1060,12 @@ local function buildHole(ctx: Ctx, parent: Instance, index: number, plan: HolePl
 				buildBoost(ctx, features, t, tops[i])
 			elseif kind == "Bridge" then
 				buildBridge(ctx, features, t, c)
+			elseif kind == "Windmill" then
+				buildWindmill(ctx, features, t, tops[i])
+			elseif kind == "Hump" then
+				buildHump(ctx, features, t, tops[i])
+			elseif kind == "Tunnel" then
+				buildTunnel(ctx, features, t, tops[i])
 			end
 		end
 		if t.ChaosBox and ctx.ChaosBoxes then

@@ -647,7 +647,11 @@ _TEXT_MATS = {}
 
 def build_texts(scene):
     global _FONT
-    if _FONT is None or _FONT.name not in bpy.data.fonts:
+    try:
+        stale = _FONT is None or _FONT.name not in bpy.data.fonts
+    except ReferenceError:  # the previous scene's file was reset (read_factory_settings)
+        stale = True
+    if stale:
         _FONT = None
         for path in FONT_CANDIDATES:
             if os.path.exists(path):

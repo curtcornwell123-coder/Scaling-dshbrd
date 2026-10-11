@@ -151,10 +151,46 @@ Maps.Themes = {
 		Decor = "Tropical",
 		Foliage = hex("#3E9B4F"),
 	},
+	Autumn = {
+		Id = "Autumn",
+		Name = "Autumn Woods",
+		Floor = hex("#5E9E3F"),
+		FloorAlt = hex("#6AA947"),
+		Rail = hex("#7B4A2A"),
+		Trim = hex("#F2E6D0"),
+		Wall = hex("#6B4428"),
+		WallAlt = hex("#9A8C78"),
+		Ceiling = hex("#A9CBEA"),
+		Accent = hex("#B5332E"),
+		Water = hex("#3A8FB7"),
+		Sand = hex("#E4CC92"),
+		Ice = hex("#D6F0FF"),
+		Light = hex("#FFE7C2"),
+		Decor = "Meadow",
+		Foliage = hex("#D9822B"),
+	},
+	Blossom = {
+		Id = "Blossom",
+		Name = "Blossom Gardens",
+		Floor = hex("#58B25C"),
+		FloorAlt = hex("#63BD66"),
+		Rail = hex("#5A3E36"),
+		Trim = hex("#FFF5F8"),
+		Wall = hex("#6E4A42"),
+		WallAlt = hex("#B9AFA8"),
+		Ceiling = hex("#B6D9F2"),
+		Accent = hex("#D94F7A"),
+		Water = hex("#4FB3D9"),
+		Sand = hex("#F0DDB0"),
+		Ice = hex("#E2F6FF"),
+		Light = hex("#FFF0F4"),
+		Decor = "Meadow",
+		Foliage = hex("#F2A7C3"),
+	},
 } :: { [string]: Theme }
 
-local sprint = { Bumper = 0.3, Spinner = 0.2, Pusher = 0.16, Sand = 0.08, Ice = 0.06, Boost = 0.08, Bridge = 0.06, ChaosBox = 0.18 }
-local gauntlet = { Bumper = 0.32, Spinner = 0.28, Pusher = 0.24, Sand = 0.1, Ice = 0.1, Boost = 0.1, Bridge = 0.1, ChaosBox = 0.2 }
+local sprint = { Windmill = 0.06, Bumper = 0.3, Spinner = 0.2, Pusher = 0.16, Sand = 0.08, Ice = 0.06, Boost = 0.08, Bridge = 0.06, Hump = 0.08, Tunnel = 0.05, ChaosBox = 0.18 }
+local gauntlet = { Windmill = 0.1, Bumper = 0.32, Spinner = 0.28, Pusher = 0.24, Sand = 0.1, Ice = 0.1, Boost = 0.1, Bridge = 0.1, Hump = 0.1, Tunnel = 0.06, ChaosBox = 0.2 }
 
 local function map(id: string, name: string, theme: string, seed: number, gauntletMode: boolean, overrides: { [string]: number }?, blurb: string): MapDef
 	local hazards = table.clone(if gauntletMode then gauntlet else sprint)
@@ -190,6 +226,14 @@ Maps.List = {
 	map("jungle_gauntlet", "Lost Temple", "Jungle", 10391, true, { Sand = 0.16, Pusher = 0.14 }, "Stone pushers guard the idol"),
 	map("space_sprint", "Palm Beach", "Space", 12007, false, { Boost = 0.14, Ice = 0.1 }, "Breezy greens by the shore"),
 	map("space_gauntlet", "Shipwreck Shoals", "Space", 13931, true, { Boost = 0.14, Bridge = 0.14 }, "Bridges over the lagoon"),
+	map("autumn_sprint", "Maple Mile", "Autumn", 14411, false, { Hump = 0.16 }, "Rolling fairways under falling leaves"),
+	map("autumn_gauntlet", "Harvest Hollow", "Autumn", 15583, true, { Windmill = 0.16 }, "Windmills guard the old farm"),
+	map("blossom_sprint", "Petal Path", "Blossom", 16661, false, { Tunnel = 0.16, Bridge = 0.1 }, "Blossom arches over koi ponds"),
+	map("blossom_gauntlet", "Sakura Summit", "Blossom", 17779, true, { Windmill = 0.12, Hump = 0.12 }, "Hills, windmills and pink canopies"),
+	map("arcade_windmill", "Windmill Hollow", "Arcade", 18803, false, { Windmill = 0.22 }, "A windmill on almost every hole"),
+	map("candy_dunes", "Dune Drift", "Candy", 19927, false, { Hump = 0.22, Boost = 0.12 }, "Humps and boost pads through the dunes"),
+	map("frost_gate", "Glacier Gate", "Frost", 21149, true, { Windmill = 0.14, Ice = 0.16 }, "Icy windmill gates in the peaks"),
+	map("jungle_caves", "Canopy Caves", "Jungle", 22271, true, { Tunnel = 0.18, Hump = 0.1 }, "Ruined arches and rolling roots"),
 } :: { MapDef }
 
 local byId: { [string]: MapDef } = {}
