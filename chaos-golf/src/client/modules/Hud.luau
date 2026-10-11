@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
 local Net = require(Shared:WaitForChild("Net"))
 local UIKit = require(Shared:WaitForChild("UIKit"))
 
@@ -96,9 +97,9 @@ local function buildCounter()
 		Parent = frame,
 	})
 
-	boostTag = UIKit.tag("+15% FRIEND BOOST", T.Primary, {
+	boostTag = UIKit.tag("+10% FRIEND BOOST", T.Primary, {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(0.98, 0, 0.12, 48),
+		Position = UDim2.new(0.98, 0, 0.12, 92),
 		Visible = false,
 		ZIndex = 10,
 		Parent = gui,
@@ -107,7 +108,14 @@ local function buildCounter()
 end
 
 local function refreshBoost()
-	boostTag.Visible = player:GetAttribute("FriendBoost") == true
+	local n = player:GetAttribute("FriendCount")
+	local count = if type(n) == "number" then n else 0
+	boostTag.Visible = count > 0
+	local pct = math.floor(math.min(count * Config.FriendBoostPerFriend, Config.FriendBoostMax) * 100 + 0.5)
+	local label = boostTag:FindFirstChildWhichIsA("TextLabel", true)
+	if label then
+		label.Text = string.format("+%d%% FRIEND BOOST", pct)
+	end
 end
 
 -- In-world toasts -----------------------------------------------------------------
@@ -210,7 +218,7 @@ function Hud.start()
 	if State.Profile then
 		setCoins(State.Coins, false)
 	end
-	player:GetAttributeChangedSignal("FriendBoost"):Connect(refreshBoost)
+	player:GetAttributeChangedSignal("FriendCount"):Connect(refreshBoost)
 	refreshBoost()
 	Net.event("Toast").OnClientEvent:Connect(function(text: string, color: Color3?)
 		Hud.toast(text, color)

@@ -31,6 +31,7 @@ export type Profile = {
 	Creator: string?,
 	TutorialDone: boolean,
 	DirectoryDone: boolean,
+	GroupClaimed: boolean, -- one-time Corny Games group reward
 	Pity: { [string]: number },
 	Receipts: { string },
 	Lock: { Job: string, Time: number }?,
@@ -93,6 +94,7 @@ local function defaultProfile(): Profile
 		Creator = nil,
 		TutorialDone = false,
 		DirectoryDone = false,
+		GroupClaimed = false,
 		Pity = {},
 		Receipts = {},
 		Lock = nil,
@@ -148,6 +150,7 @@ function Data.snapshot(session: Session): { [string]: any }
 		Creator = p.Creator,
 		TutorialDone = p.TutorialDone,
 		DirectoryDone = p.DirectoryDone,
+		GroupClaimed = p.GroupClaimed,
 		Pity = p.Pity,
 		Passes = session.Passes,
 	}

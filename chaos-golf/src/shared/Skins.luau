@@ -22,7 +22,7 @@ export type Skin = {
 	Light: boolean?,
 	Aura: Color3?, -- built-in particle aura (Epic+ get one automatically)
 	AuraStyle: string?, -- "Sparkle" (default) | "Dawn" (exclusive day-14 rays + orbit sparks)
-	Source: string, -- "Starter" | "Shop" | "Featured" | "Token:<Minigame>" | "Ranked:<Tier>" | "Pass:<Id>" | "Creator" | "Achievement" | "Leaderboard:<Stat>"
+	Source: string, -- "Starter" | "Shop" | "Featured" | "Token:<Minigame>" | "Ranked:<Tier>" | "Pass:<Id>" | "Creator" | "Achievement" | "Leaderboard:<Stat>" | "Group"
 	Order: number,
 }
 
@@ -139,6 +139,7 @@ add("eternal_dawn", "Eternal Dawn", "Legendary", "#FFB547", M.Neon, "Login", {
 	Light = true,
 })
 add("ace", "Ace", "Epic", "#FFFFFF", M.Foil, "Achievement", { Aura = Color3.fromHex("#FFE066"), Light = true })
+add("kernel", "Kernel", "Epic", "#FFD447", M.SmoothPlastic, "Group", { Aura = Color3.fromHex("#FFE58A") })
 -- Leaderboard balls: weekly top 3 on each board (see Config.Leaderboards.Rewards).
 add("lb_champion", "Champion", "Legendary", "#F2C14E", M.Foil, "Leaderboard:Wins", { Aura = Color3.fromHex("#FFE08A"), Light = true })
 add("lb_tycoon", "Tycoon", "Legendary", "#D7E3F4", M.Foil, "Leaderboard:Coins", { Aura = Color3.fromHex("#9FE8C2") })

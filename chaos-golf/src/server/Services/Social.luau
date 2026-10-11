@@ -1,5 +1,5 @@
 --!strict
--- Friend synergy (+15% match coins while a Roblox friend is in the server),
+-- Friend synergy (+10% match coins per Roblox friend in the server, up to +40%),
 -- overhead nametags with rank / VIP, and the Invite Friends kiosk prompt.
 
 local Players = game:GetService("Players")
@@ -16,21 +16,28 @@ local Social = {}
 -- friends[a][b] = true when a and b are Roblox friends (symmetric).
 local friends: { [Player]: { [Player]: boolean } } = {}
 
-local function refreshBoost(player: Player)
-	player:SetAttribute("FriendBoost", Social.hasFriendInServer(player))
+-- Roblox friends of `player` currently in this server.
+function Social.friendCount(player: Player): number
+	local set = friends[player]
+	local n = 0
+	if set then
+		for other in set do
+			if other.Parent == Players then
+				n += 1
+			end
+		end
+	end
+	return n
 end
 
 function Social.hasFriendInServer(player: Player): boolean
-	local set = friends[player]
-	if not set then
-		return false
-	end
-	for other in set do
-		if other.Parent == Players then
-			return true
-		end
-	end
-	return false
+	return Social.friendCount(player) > 0
+end
+
+local function refreshBoost(player: Player)
+	local n = Social.friendCount(player)
+	player:SetAttribute("FriendBoost", n > 0)
+	player:SetAttribute("FriendCount", n)
 end
 
 local function onAdded(player: Player)

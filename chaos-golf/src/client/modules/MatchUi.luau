@@ -189,7 +189,7 @@ local function results(p: any)
 	local coins = p.Coins
 	local lines = { { "Match reward", "+" .. UIKit.formatNumber(coins.Base) } }
 	if coins.Friend then
-		table.insert(lines, { "Friend boost", "+15%" })
+		table.insert(lines, { "Friend boost", "+" .. tostring(coins.FriendPct or 10) .. "%" })
 	end
 	if coins.VIP then
 		table.insert(lines, { "VIP", "+10%" })

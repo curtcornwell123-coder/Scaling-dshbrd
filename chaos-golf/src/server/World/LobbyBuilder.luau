@@ -643,27 +643,29 @@ local function buildDirectory(parent: Instance): (BasePart, Vector3)
 	return sign, (cf * CFrame.new(0, 3, -5)).Position
 end
 
-local NEWS = {
-	"Power-ups: earn them by sinking holes and knockouts",
-	"More obstacles on every hole",
-	"The new clubhouse is open",
-	"Join Corny Games for updates",
-}
-
-local function buildNews(parent: Instance)
-	local m, cf = totem(parent, "WhatsNew", Vector3.new(-12.5, 0, -21.5), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
-	text(m, cf * CFrame.new(0, 11.2, -0.05), 5.6, 1.3, "WHAT'S NEW", BRASS:Lerp(WHITE, 0.25))
+-- Group reward totem (front-right of the spawn) with a claim button in front of it.
+local function buildGroup(parent: Instance): (BasePart, BasePart)
+	local m, cf = totem(parent, "GroupReward", Vector3.new(-12.5, 0, -21.5), Vector3.new(SPAWN_POS.X, 0, SPAWN_POS.Z))
+	local board = Parts.block(m, cf * CFrame.new(0, 6.5, 0.02), Vector3.new(6.2, 10.8, 0.1), { Name = "GroupBoard", Color = WALNUT, Transparency = 1, CanCollide = false })
+	text(m, cf * CFrame.new(0, 11.2, -0.05), 5.6, 1.3, "CORNY GAMES", BRASS:Lerp(WHITE, 0.25))
 	Parts.block(m, cf * CFrame.new(0, 10.35, -0.02), Vector3.new(3, 0.08, 0.06), deco(BRASS, "Rule"))
-	for i, line in NEWS do
-		local y = 10.1 - i * 2.05
-		Parts.ball(m, (cf * CFrame.new(-2.65, y + 0.3, -0.06)).Position, 0.22, deco(BRASS, "Bullet"))
-		local t = text(m, cf * CFrame.new(0.25, y, -0.06), 5.1, 1.7, line, WHITE, nil, false, Config.FontBody)
-		local label = t:FindFirstChildWhichIsA("SurfaceGui") and (t:FindFirstChildWhichIsA("SurfaceGui") :: SurfaceGui):FindFirstChildWhichIsA("TextLabel")
-		if label then
-			label.TextWrapped = true
-			label.TextXAlignment = Enum.TextXAlignment.Left
-		end
-	end
+	text(m, cf * CFrame.new(0, 9.3, -0.06), 5.6, 1.1, "GROUP REWARD", WHITE)
+	text(m, cf * CFrame.new(0, 7.7, -0.06), 5.6, 1.5, string.format("%d COINS", Config.Group.Coins), BRASS:Lerp(WHITE, 0.25))
+	text(m, cf * CFrame.new(0, 6.3, -0.06), 5.6, 1.1, "+ " .. string.upper(Skins.get(Config.Group.Skin).Name) .. " BALL", WHITE)
+	Parts.ball(m, (cf * CFrame.new(0, 4.4, -0.35)).Position, 1.4, solid(Skins.get(Config.Group.Skin).Color, "KernelBall"))
+	text(m, cf * CFrame.new(0, 2.6, -0.06), 5.6, 1.3, "Join the group, then claim", WHITE, nil, false, Config.FontBody)
+	-- Claim button on a small turned plinth toward the spawn.
+	local base = (cf * CFrame.new(0, 0, -3.2)).Position
+	LobbyKit.lathe(m, base, {
+		Vector2.new(1.2, 0),
+		Vector2.new(0.85, 0.5),
+		Vector2.new(0.8, 2.3),
+		Vector2.new(1.15, 2.7),
+	}, 18, 0.22, deco(MARBLE, "ButtonPlinth"))
+	Parts.cylinder(m, CFrame.new(base + UP * 1.35), 2.7, 1.7, solid(MARBLE, "ButtonCore"))
+	Parts.cylinder(m, CFrame.new(base + UP * 2.78), 0.1, 2.4, deco(BRASS, "ButtonRing"))
+	local button = Parts.cylinder(m, CFrame.new(base + UP * 2.95), 0.45, 1.8, solid(hex("#FFD447"), "GroupButton"))
+	return board, button
 end
 
 -- Stations ---------------------------------------------------------------------
@@ -823,7 +825,6 @@ local function buildAtrium(parent: Instance, rng: Random)
 	})
 	-- Invisible collider round the fountain so nobody wades through the water.
 	Parts.cylinder(hub, CFrame.new(0, 5, 0), 10, 31.2, { Name = "FountainCollider", Transparency = 1, CastShadow = false })
-	buildNews(hub)
 end
 
 -- Walkways -----------------------------------------------------------------------
@@ -1463,6 +1464,7 @@ function LobbyBuilder.build(): LobbyTypes.Lobby
 	local spawn = buildSpawn(model)
 	local sign, stand = buildDirectory(model)
 	local dailyScreen, dailyButton = buildDaily(stations, rng)
+	local groupBoard, groupButton = buildGroup(model)
 
 	local lobby: LobbyTypes.Lobby = {
 		Model = model,
@@ -1470,6 +1472,7 @@ function LobbyBuilder.build(): LobbyTypes.Lobby
 		SpawnCFrame = CFrame.lookAt(SPAWN_POS + Vector3.new(0, 2.5, 0), Vector3.new(0, 3, 0)),
 		Directory = { Sign = sign, StandPoint = stand },
 		Daily = { Screen = dailyScreen, Button = dailyButton },
+		Group = { Board = groupBoard, Button = groupButton },
 		Stations = {
 			Locker = buildLocker(stations, rng),
 			Upgrades = buildUpgrades(stations, rng),

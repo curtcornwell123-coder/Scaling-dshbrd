@@ -55,6 +55,7 @@ export type Lobby = {
 		StandPoint: Vector3, -- where the first-join arrow leads
 	},
 	Daily: { Screen: BasePart, Button: BasePart }, -- 14-day login calendar (atrium station)
+	Group: { Board: BasePart, Button: BasePart }, -- one-time group reward totem by the spawn
 	Stations: { -- service stations at the atrium edges
 		Locker: LockerStation,
 		Upgrades: UpgradeStation,

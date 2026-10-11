@@ -239,6 +239,19 @@ end
 PLY.methods.IsInGroup = function()
 	return false
 end
+PLY.methods.IsInGroupAsync = function()
+	Sim.task.wait(0.05)
+	return Sim.inGroup == true
+end
+Sim.groupPrompts = 0
+impl("GroupService").methods.PromptJoinAsync = function(self, groupId)
+	if currentSide() ~= "client" then
+		Sim.misuse("GroupService:PromptJoinAsync can only be called from the client")
+	end
+	Sim.groupPrompts += 1
+	Sim.task.wait(0.05)
+	return nil
+end
 
 -- RunService -----------------------------------------------------------------------
 local RS = getService("RunService")

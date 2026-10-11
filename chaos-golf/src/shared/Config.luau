@@ -162,7 +162,23 @@ Config.QueueRewards = {
 	{ UpTo = math.huge, Amount = 5, Every = 15 },
 }
 
-Config.FriendBoost = 0.15 -- +15% match coins while a Roblox friend is in the server
+Config.FriendBoostPerFriend = 0.1 -- +10% match coins per Roblox friend in the server...
+Config.FriendBoostMax = 0.4 -- ...up to +40%
+
+-- Playtime gifts: unlock as you play in one session, claim from the gift button.
+Config.Playtime = {
+	Tiers = {
+		{ Minutes = 5, Coins = 50 },
+		{ Minutes = 10, Coins = 75 },
+		{ Minutes = 15, Coins = 100 },
+		{ Minutes = 25, Crate = "Playtime" },
+		{ Minutes = 40, Coins = 250 },
+		{ Minutes = 60, Crate = "Playtime" },
+	} :: { { Minutes: number, Coins: number?, Crate: string? } },
+}
+
+-- One-time reward for members of the studio's Roblox group (claim at the lobby board).
+Config.Group = { Id = 187537803, Name = "Corny Games", Coins = 500, Skin = "kernel" }
 
 -- Lobby systems ------------------------------------------------------------
 

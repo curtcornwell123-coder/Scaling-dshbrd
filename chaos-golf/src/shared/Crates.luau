@@ -16,7 +16,7 @@ export type Crate = {
 	Name: string,
 	Category: string, -- Cosmetics category it drops
 	Pool: string, -- item Source it draws from
-	Currency: string, -- "Coins" | "Tokens:<Minigame>"
+	Currency: string, -- "Coins" | "Tokens:<Minigame>" | "Gift" (free from playtime gifts)
 	Price: number,
 	Keyed: boolean, -- can be opened with a crate key
 	Odds: { [string]: number }, -- rarity -> percent (sums to 100)
@@ -132,6 +132,21 @@ local crates: { [string]: Crate } = {
 		PityRarity = "Legendary",
 		Color = Color3.fromHex("#FFB703"),
 	},
+}
+
+-- Free crate from playtime gifts (never sold; duplicates refund coins against Price).
+crates.Playtime = {
+	Id = "Playtime",
+	Name = "Playtime Crate",
+	Category = "Skins",
+	Pool = "Shop",
+	Currency = "Gift",
+	Price = 600,
+	Keyed = false,
+	Odds = { Common = 58, Rare = 30, Epic = 10, Legendary = 2 },
+	PityAt = 999,
+	PityRarity = "Legendary",
+	Color = Color3.fromHex("#F2C14E"),
 }
 
 Crates.ById = crates

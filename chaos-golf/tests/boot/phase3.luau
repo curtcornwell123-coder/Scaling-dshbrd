@@ -138,6 +138,34 @@ local ended = Sim.run(120, function()
 end)
 flow("Classic: respawn while parked, opponent leaves mid-match, match finishes", errs() == e0 and launched and ended and reparked, string.format("launched=%s ended=%s reparked=%s", tostring(launched), tostring(ended), tostring(reparked)))
 
+-- c2. playtime gifts + group reward ------------------------------------------------------------
+e0 = errs()
+local fresh = newPlayer(1077, "Gina")
+local g0 = Data.profile(fresh) and Data.profile(fresh).Coins or -1
+Sim.fireServerAs(fresh, "ShopAction", "claimGift", 1)
+Sim.run(0.5)
+local early = Data.profile(fresh) ~= nil and Data.profile(fresh).Coins == g0
+local c0 = Data.profile(p1).Coins
+act("claimGift", 1)
+local gift = Data.profile(p1).Coins - c0 == Config.Playtime.Tiers[1].Coins
+act("claimGift", 1)
+local once = Data.profile(p1).Coins - c0 == Config.Playtime.Tiers[1].Coins
+local r0 = #Sim.clientEvents("CrateReveal", p1)
+act("claimGift", 4)
+local crate = #Sim.clientEvents("CrateReveal", p1) == r0 + 1
+flow("playtime gifts: locked early, coins once, Playtime Crate opens", errs() == e0 and early and gift and once and crate, string.format("early=%s gift=%s once=%s crate=%s", tostring(early), tostring(gift), tostring(once), tostring(crate)))
+e0 = errs()
+Sim.inGroup = false
+act("claimGroup")
+local refused = Data.profile(p1).GroupClaimed == false
+Sim.inGroup = true
+local k0 = Data.profile(p1).Coins
+act("claimGroup")
+act("claimGroup")
+local granted = Data.profile(p1).GroupClaimed == true and Data.owns(p1, "Skins", "kernel") and Data.profile(p1).Coins - k0 == Config.Group.Coins
+flow("group reward: refused for non-members, granted once to members", errs() == e0 and refused and granted, string.format("refused=%s granted=%s", tostring(refused), tostring(granted)))
+Sim.removePlayer(fresh)
+
 -- d. shutdown ---------------------------------------------------------------------------------
 e0 = errs()
 for _, fn in Sim.closeCallbacks do

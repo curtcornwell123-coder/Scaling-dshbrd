@@ -103,6 +103,8 @@ local function revealAt(crateId: string): Vector3?
 	local part = cratePedestals[crateId]
 	if crateId == "Featured" then
 		part = lobby.East.Mythic.Pedestal
+	elseif crateId == "Playtime" then
+		part = lobby.Daily.Button
 	elseif Crates.get(crateId) and (Crates.get(crateId) :: Crates.Crate).Currency ~= "Coins" then
 		part = lobby.South.TokenKiosk.CratePedestal
 	end
