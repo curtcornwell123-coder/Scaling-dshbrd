@@ -23,6 +23,8 @@ local MatchService = Sim.module("server", "MatchService")
 local Shop = Sim.module("server", "Shop")
 flow("server boot (Main.server through Data.start)", Data ~= nil and Sim.workspace:FindFirstChild("Lobby") ~= nil and errCount() == 0, "errors=" .. errCount())
 
+flow("character spawning re-enabled once the lobby is built", Sim.game:GetService("Players").CharacterAutoLoads == true, "")
+
 -- lobby contract (as built)
 local lobbyModel = Sim.workspace:FindFirstChild("Lobby")
 

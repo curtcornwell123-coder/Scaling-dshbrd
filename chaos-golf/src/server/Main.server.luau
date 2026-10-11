@@ -3,7 +3,12 @@
 -- then the lobby world and the systems that live in it, and player data last
 -- so every Data.Loaded listener is connected before the first profile loads.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- No characters until the lobby exists: an early spawn has no floor and falls into
+-- the void (the place file also ships with this off; this covers older copies).
+Players.CharacterAutoLoads = false
 
 local Net = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Net"))
 Net.setup()
@@ -69,5 +74,12 @@ Daily.start(lobby)
 Leaderboards.start(lobby)
 Practice.start(lobby)
 Tutorial.start(lobby)
+
+Players.CharacterAutoLoads = true
+for _, player in Players:GetPlayers() do
+	if not player.Character then
+		task.spawn(player.LoadCharacter, player)
+	end
+end
 
 Data.start()

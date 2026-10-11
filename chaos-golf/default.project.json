@@ -12,6 +12,11 @@
         "$path": "../studio-loading-screen/LoadingScreen.client.luau"
       }
     },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
