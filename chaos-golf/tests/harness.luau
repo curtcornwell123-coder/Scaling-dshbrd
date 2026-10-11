@@ -40,7 +40,14 @@ function Random.new(seed)
 	return r
 end
 
-game = { GetService = function(_, name) return setmetatable({}, { __index = function() return function() end end }) end }
+local stubSignal = { Connect = function() return { Disconnect = function() end } end }
+local SIGNAL_METHODS = { GetAttributeChangedSignal = true, GetPropertyChangedSignal = true }
+game = { GetService = function(_, name) return setmetatable({}, { __index = function(_, k)
+	if SIGNAL_METHODS[k] then
+		return function() return stubSignal end
+	end
+	return function() end
+end }) end }
 
 local function handle(name)
 	return { __module = name, WaitForChild = function(self, child) return handle(child) end, Parent = nil }

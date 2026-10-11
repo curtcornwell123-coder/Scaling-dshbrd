@@ -45,9 +45,26 @@ local s1, s2 = Data.get(p1), Data.get(p2)
 flow("profiles load offline (Studio fallback)", s1 ~= nil and s2 ~= nil and s1.Offline and s2.Offline, string.format("s1=%s s2=%s", tostring(s1 and s1.Offline), tostring(s2 and s2.Offline)))
 flow("client receives Profile + Coins", #Sim.clientEvents("Profile", p1) > 0 and #Sim.clientEvents("Coins", p1) > 0, "")
 
--- 3. tutorial
+-- 3. tutorial: new players land in the lobby with a one-time invite, then choose Play
 Sim.run(3.5)
-flow("tutorial begins for new players", Activity.get(p1) == "Tutorial" and Activity.get(p2) == "Tutorial", tostring(Activity.get(p1)) .. "/" .. tostring(Activity.get(p2)))
+local function invites(p)
+	local n = 0
+	for _, e in Sim.clientEvents("Tutorial", p) do
+		if e.args[1] == "invite" then
+			n += 1
+		end
+	end
+	return n
+end
+flow("new players land in the lobby with a tutorial invite", Activity.get(p1) == nil and Activity.get(p2) == nil and invites(p1) == 1 and invites(p2) == 1, string.format("act=%s/%s invites=%d/%d", tostring(Activity.get(p1)), tostring(Activity.get(p2)), invites(p1), invites(p2)))
+Sim.asSide("client", function()
+	RSt.UltimateGolfRemotes.TutorialChoice:FireServer("play")
+end)
+Sim.fireServerAs(p2, "TutorialChoice", "play")
+Sim.run(3.5)
+local steps1 = Sim.clientEvents("Tutorial", p1)
+local lastSteps = steps1[#steps1]
+flow("choosing Play starts the tutorial with on-screen steps", Activity.get(p1) == "Tutorial" and Activity.get(p2) == "Tutorial" and lastSteps ~= nil and lastSteps.args[1] == "steps" and lastSteps.args[2].Hole == 1 and #lastSteps.args[2].Steps == 4, tostring(Activity.get(p1)) .. "/" .. tostring(Activity.get(p2)))
 local tutBall = nil
 local function ballAssigned(p, ctx)
 	for i = #Sim.remoteLog, 1, -1 do
@@ -84,6 +101,18 @@ local sunk = BallService.get(p1) and BallService.get(p1).Sunk
 Sim.run(2.2)
 local _, info2 = ballAssigned(p1, "Tutorial")
 flow("tutorial shot + sink advances to hole 2", shotOk and sunk and info2 and info2.Hole == 2, string.format("shot=%s sunk=%s hole=%s", tostring(shotOk), tostring(sunk), tostring(info2 and info2.Hole)))
+local ticked = false
+for _, e in Sim.clientEvents("Tutorial", p1) do
+	local p = e.args[2]
+	if e.args[1] == "steps" and p.Hole == 1 then
+		local all = true
+		for _, st in p.Steps do
+			all = all and st.Done
+		end
+		ticked = ticked or all
+	end
+end
+flow("tutorial checklist ticks every hole-1 step", ticked, "")
 -- skip
 Sim.asSide("client", function()
 	RSt.UltimateGolfRemotes.LeaveActivity:FireServer()

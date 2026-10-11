@@ -16,10 +16,12 @@ local TweenService = game:GetService("TweenService")
 
 -- Settings -------------------------------------------------------------------------------
 
--- Corny Games logo, uploaded once per owner (Roblox only lets an image load in games
--- owned by the same account/group). Unknown owners fall back to a text wordmark.
-local LOGO_USER = "rbxassetid://85146512996278" -- your account's games
-local LOGO_GROUP = "rbxassetid://71441156027815" -- group 187537803's games
+-- Corny Games logo. The uploads are Decals, and a Decal id can't be used as an image
+-- directly; the thumbnail service serves the decal's picture in any game. If it doesn't
+-- load in time, a text wordmark shows instead.
+local LOGO_USER = "rbxthumb://type=Asset&id=85146512996278&w=420&h=420" -- uploaded by your account
+local LOGO_GROUP = "rbxthumb://type=Asset&id=71441156027815&w=420&h=420" -- uploaded by group 187537803
+local LOGO_WAIT = 3 -- seconds to wait for the logo before showing the wordmark
 local STUDIO_NAME = "Corny"
 local PRESENTS = STUDIO_NAME .. " presents..."
 local MIN_SECONDS = 5.5 -- never shorter than this, so the intro always plays
@@ -141,13 +143,21 @@ logo.Size = UDim2.fromOffset(320, 320)
 logo.ScaleType = Enum.ScaleType.Fit
 logo.Image = if game.CreatorType == Enum.CreatorType.Group then LOGO_GROUP else LOGO_USER
 logo.Parent = studio
+local function useWordmark()
+	logo.Visible = false
+	wordmark.Visible = true
+end
 task.spawn(function()
 	ContentProvider:PreloadAsync({ logo }, function(_, fetchStatus)
 		if fetchStatus ~= Enum.AssetFetchStatus.Success then
-			logo.Visible = false
-			wordmark.Visible = true
+			useWordmark()
 		end
 	end)
+end)
+task.delay(LOGO_WAIT, function()
+	if not logo.IsLoaded then
+		useWordmark()
+	end
 end)
 
 local presents = label(studio, "", 30, Enum.Font.GothamMedium, MUTED, 130)
@@ -225,7 +235,7 @@ gui.Parent = player:WaitForChild("PlayerGui")
 
 task.spawn(function()
 	local ok, info = pcall(function()
-		return MarketplaceService:GetProductInfo(game.PlaceId)
+		return MarketplaceService:GetProductInfoAsync(game.PlaceId)
 	end)
 	if ok and type(info) == "table" and type(info.Name) == "string" then
 		title.Text = info.Name

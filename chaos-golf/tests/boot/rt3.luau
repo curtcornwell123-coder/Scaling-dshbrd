@@ -155,6 +155,17 @@ TER.methods.GetMaterialColor = function(self, material)
 	return terrainColors[terrainMaterial(material, "GetMaterialColor")] or Color3.new(0.5, 0.5, 0.5)
 end
 Sim.terrainColors = terrainColors
+
+-- AssetService:CreateMeshPartAsync: a MeshPart whose MeshSize is the uploaded mesh's native size.
+impl("AssetService").methods.CreateMeshPartAsync = function(self, id)
+	if rawtype(id) ~= "string" then
+		Sim.misuse("CreateMeshPartAsync: Content id expected")
+	end
+	Sim.task.wait(0.3)
+	local mp = Sim.newInstance("MeshPart")
+	D[mp].props.MeshSize = Sim.types.Vector3.new(1.5, 1.5, 1.5)
+	return mp
+end
 local WS = impl("Workspace")
 WS.get.CurrentCamera = function()
 	return if currentSide() == "client" then clientCamera else serverCamera

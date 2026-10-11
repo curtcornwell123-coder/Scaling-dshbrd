@@ -1,8 +1,9 @@
 --!strict
--- First-join tutorial: a private 3-hole course (aim & power, banking, chaos
--- abilities) with in-world instruction signs. Skippable at any time. Replayable
--- from the pad in the Practice room. Afterwards, first-timers get a walking
--- arrow to the direction sign in front of spawn.
+-- Tutorial: a private 3-hole course (aim & power, banking, chaos abilities).
+-- New players spawn in the lobby and get a one-time invite (Play / Skip); the
+-- course explains itself on screen (a step checklist that ticks as you go) and
+-- on its signs. Skippable at any time, replayable from the pad in the Practice
+-- room. Afterwards, first-timers get a walking arrow to the direction sign.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -31,6 +32,14 @@ local INSTRUCTIONS = {
 	"HOLE 3 · CHAOS\nRoll through the glowing CHAOS BOX to grab an ability,\nthen press 1 (or tap its button) to use it. Try the Cup Magnet!",
 }
 
+-- On-screen lessons, one per hole. Step keys are worded per device by the client.
+local LESSONS = {
+	{ Title = "THE BASICS", Steps = { "aim", "charge", "release", "sink" } },
+	{ Title = "BANK SHOTS", Steps = { "bank", "sink" } },
+	{ Title = "CHAOS ABILITIES", Steps = { "box", "ability", "sink" } },
+}
+local SHOT_STEPS = { "aim", "charge", "release", "bank" } -- all done by the first putt
+
 type Run = {
 	Player: Player,
 	Course: CourseBuilder.Course?,
@@ -38,12 +47,49 @@ type Run = {
 	Slot: number,
 	Ended: boolean,
 	FirstTime: boolean,
+	Done: { [string]: boolean },
+	Strokes: number,
 }
 
 local runs: { [Player]: Run } = {}
 local slots: { [number]: boolean } = {}
 local lobby: LobbyTypes.Lobby
 local padBlocked: { [Player]: boolean } = {}
+local invited: { [Player]: boolean } = {}
+
+local function pushSteps(run: Run)
+	local lesson = LESSONS[run.Hole]
+	if not lesson or run.Ended then
+		return
+	end
+	local steps = {}
+	for _, key in lesson.Steps do
+		table.insert(steps, { Key = key, Done = run.Done[key] == true })
+	end
+	Net.event("Tutorial"):FireClient(run.Player, "steps", {
+		Hole = run.Hole,
+		Holes = #LESSONS,
+		Title = lesson.Title,
+		Steps = steps,
+	})
+end
+
+local function complete(run: Run, keys: { string })
+	local lesson = LESSONS[run.Hole]
+	if not lesson then
+		return
+	end
+	local changed = false
+	for _, key in keys do
+		if not run.Done[key] and table.find(lesson.Steps, key) then
+			run.Done[key] = true
+			changed = true
+		end
+	end
+	if changed then
+		pushSteps(run)
+	end
+end
 
 local function setSign(hole: CourseBuilder.Hole, text: string)
 	local sign = hole.Model:FindFirstChild("InstructionSign", true)
@@ -97,6 +143,7 @@ local function finish(run: Run, completed: boolean)
 	end
 	Activity.set(player, nil)
 	Activity.toLobby(player)
+	Net.event("Tutorial"):FireClient(player, "done")
 	Net.event("BallAssigned"):FireClient(player, nil, { Context = "None" })
 	Net.event("MatchEvent"):FireClient(player, "end", {})
 	padBlocked[player] = true
@@ -111,6 +158,8 @@ local function playHole(run: Run, index: number)
 		return
 	end
 	run.Hole = index
+	run.Done = {}
+	run.Strokes = 0
 	setSign(hole, INSTRUCTIONS[index] or "")
 	local player = run.Player
 	local gotBox = false
@@ -131,6 +180,7 @@ local function playHole(run: Run, index: number)
 				end
 			end,
 			OnSink = function(b)
+				complete(run, { "sink" })
 				Net.event("Toast"):FireClient(player, if b.Strokes <= hole.Par then "Nice! Sunk in " .. b.Strokes else "Sunk!", Config.Colors.Good)
 				task.delay(1.6, function()
 					if not run.Ended and run.Hole == index then
@@ -142,6 +192,10 @@ local function playHole(run: Run, index: number)
 				Net.event("Toast"):FireClient(player, "Out of bounds! Your ball goes back to its last spot.", Config.Colors.Bad)
 			end,
 			Tick = function(b, _dt)
+				if run.Hole == index and b.Strokes > run.Strokes then
+					run.Strokes = b.Strokes
+					complete(run, SHOT_STEPS)
+				end
 				if gotBox then
 					return
 				end
@@ -150,6 +204,7 @@ local function playHole(run: Run, index: number)
 						gotBox = true
 						box.Transparency = 1
 						AbilityService.give(player, "Magnet")
+						complete(run, { "box" })
 						Net.event("Fx"):FireClient(player, "pickup", { Position = box.Position, Player = player })
 						Net.event("Toast"):FireClient(player, "You got CUP MAGNET! Press 1 (or tap its button) before your next putt.", Config.Colors.Gold)
 					end
@@ -168,6 +223,7 @@ local function playHole(run: Run, index: number)
 		PowerCycle = Config.Physics.PowerCycleSeconds,
 	})
 	Net.event("MatchEvent"):FireClient(player, "hole", { Hole = index, Holes = #course.Holes, Par = hole.Par, Map = "Tutorial", Overview = hole.Overview })
+	pushSteps(run)
 end
 
 function Tutorial.begin(player: Player)
@@ -180,7 +236,17 @@ function Tutorial.begin(player: Player)
 		slot += 1
 	end
 	slots[slot] = true
-	local run: Run = { Player = player, Course = nil, Hole = 0, Slot = slot, Ended = false, FirstTime = not profile.TutorialDone }
+	invited[player] = nil
+	local run: Run = {
+		Player = player,
+		Course = nil,
+		Hole = 0,
+		Slot = slot,
+		Ended = false,
+		FirstTime = not profile.TutorialDone,
+		Done = {},
+		Strokes = 0,
+	}
 	runs[player] = run
 	Activity.set(player, "Tutorial")
 	local ok, err = pcall(function()
@@ -197,6 +263,9 @@ function Tutorial.begin(player: Player)
 	AbilityService.bind(player, {
 		Opponents = function()
 			return {}
+		end,
+		OnUsed = function()
+			complete(run, { "ability" })
 		end,
 	})
 	Net.event("MatchEvent"):FireClient(player, "intro", {
@@ -229,6 +298,24 @@ function Tutorial.start(l: LobbyTypes.Lobby)
 	Net.event("LeaveActivity").OnServerEvent:Connect(function(player)
 		Tutorial.leave(player)
 	end)
+	Net.event("TutorialChoice").OnServerEvent:Connect(function(player, choice)
+		if not invited[player] then
+			return
+		end
+		invited[player] = nil
+		if choice == "play" then
+			Tutorial.begin(player)
+			return
+		end
+		-- Skipped: don't ask again (the Practice room pad still replays it).
+		local profile = Data.profile(player)
+		if profile and not profile.TutorialDone then
+			profile.TutorialDone = true
+			Data.markDirty(player)
+			Data.push(player)
+		end
+		guide(player)
+	end)
 	Net.event("ClaimDirectory").OnServerEvent:Connect(function(player)
 		local profile = Data.profile(player)
 		if profile and not profile.DirectoryDone then
@@ -247,7 +334,9 @@ function Tutorial.start(l: LobbyTypes.Lobby)
 				return
 			end
 			if not session.Profile.TutorialDone then
-				Tutorial.begin(player)
+				-- New players land in the lobby and choose; nothing starts on its own.
+				invited[player] = true
+				Net.event("Tutorial"):FireClient(player, "invite", { Coins = REWARD_COINS })
 			else
 				guide(player)
 			end
@@ -259,6 +348,7 @@ function Tutorial.start(l: LobbyTypes.Lobby)
 			finish(run, false)
 		end
 		padBlocked[player] = nil
+		invited[player] = nil
 	end)
 	-- Replay pad in the Practice room.
 	task.spawn(function()

@@ -4,6 +4,7 @@
 -- sinking, out-of-bounds resets and validated shots. Whoever owns a ball (a
 -- match, a practice lane, the tutorial) supplies a Context with callbacks.
 
+local AssetService = game:GetService("AssetService")
 local Players = game:GetService("Players")
 local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -593,8 +594,29 @@ function BallService.tinyCup(ball: Ball, seconds: number, scale: number)
 	BallService.refresh(ball)
 end
 
+-- Native size of the dimpled ball mesh, read once from Roblox (a web call, so in the
+-- background) and shared with clients; Skins fits every ball's mesh from it.
+local function loadBallMesh()
+	if Config.Ball.MeshId == "" then
+		return
+	end
+	task.spawn(function()
+		local ok, result = pcall(function()
+			return AssetService:CreateMeshPartAsync(Config.Ball.MeshId)
+		end)
+		if ok and result then
+			local part = result :: MeshPart
+			ReplicatedStorage:SetAttribute("BallMeshSize", part.MeshSize)
+			part:Destroy()
+		else
+			warn("[UltimateGolf] golf ball mesh unavailable, using smooth balls:", result)
+		end
+	end)
+end
+
 function BallService.start()
 	registerGroups()
+	loadBallMesh()
 	folder = Instance.new("Folder")
 	folder.Name = "GolfBalls"
 	folder.Parent = workspace

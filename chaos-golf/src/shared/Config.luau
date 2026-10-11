@@ -11,10 +11,10 @@ Config.StartingCoins = 250
 
 Config.Ball = {
 	Diameter = 1.5,
-	-- Upload assets/mesh/golfball.obj (Studio > Asset Manager > Bulk Import) and paste the
-	-- asset id here, e.g. "rbxassetid://1234567890". Empty = smooth placeholder sphere.
-	MeshId = "",
-	MeshScale = Vector3.new(1, 1, 1),
+	-- Dimpled golf-ball mesh (assets/mesh/golfball.fbx, uploaded to the Corny Games group).
+	-- Its native size is read at boot (BallService) and published as the ReplicatedStorage
+	-- attribute "BallMeshSize"; until then balls show as smooth spheres. "" = never use it.
+	MeshId = "rbxassetid://99062873809491",
 	Density = 2.2,
 	Friction = 0.25,
 	Elasticity = 0.5,

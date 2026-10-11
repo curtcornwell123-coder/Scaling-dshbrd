@@ -3,6 +3,7 @@
 -- a skin only changes colour, material, glow, pulse and aura.
 
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(script.Parent:WaitForChild("Config"))
 
@@ -213,6 +214,42 @@ function Skins.effects(skin: Skin): (Color3?, boolean)
 	return aura, light
 end
 
+-- Dimpled golf-ball look for every ball (match balls, shop displays, previews). The mesh
+-- is scaled from its real native size, so it fits whatever size the importer gave it.
+local DIMPLED = "DimpledBall"
+
+local function meshSize(): Vector3?
+	local v = ReplicatedStorage:GetAttribute("BallMeshSize")
+	return if typeof(v) == "Vector3" and v.X > 0 then v else nil
+end
+
+function Skins.fitMesh(part: BasePart)
+	local native = meshSize()
+	if Config.Ball.MeshId == "" or not native then
+		return
+	end
+	local mesh = part:FindFirstChild("DimpleMesh") :: SpecialMesh?
+	if not mesh then
+		local newMesh = Instance.new("SpecialMesh")
+		newMesh.Name = "DimpleMesh"
+		newMesh.MeshType = Enum.MeshType.FileMesh
+		newMesh.MeshId = Config.Ball.MeshId
+		newMesh.Parent = part
+		mesh = newMesh
+	end
+	local d = math.min(part.Size.X, part.Size.Y, part.Size.Z)
+	local n = native :: Vector3;
+	(mesh :: SpecialMesh).Scale = Vector3.new(d / n.X, d / n.Y, d / n.Z)
+end
+
+ReplicatedStorage:GetAttributeChangedSignal("BallMeshSize"):Connect(function()
+	for _, inst in CollectionService:GetTagged(DIMPLED) do
+		if inst:IsA("BasePart") then
+			Skins.fitMesh(inst)
+		end
+	end
+end)
+
 function Skins.apply(part: BasePart, skinId: string?)
 	local skin = Skins.get(skinId)
 	local auraColor, hasLight = Skins.effects(skin)
@@ -225,19 +262,8 @@ function Skins.apply(part: BasePart, skinId: string?)
 	part:SetAttribute("SkinPulse", skin.Pulse)
 	part:SetAttribute("SkinRainbow", skin.Rainbow == true)
 
-	local mesh = part:FindFirstChild("DimpleMesh") :: SpecialMesh?
-	if Config.Ball.MeshId ~= "" then
-		if not mesh then
-			local newMesh = Instance.new("SpecialMesh")
-			newMesh.Name = "DimpleMesh"
-			newMesh.MeshType = Enum.MeshType.FileMesh
-			newMesh.MeshId = Config.Ball.MeshId
-			newMesh.Parent = part
-			mesh = newMesh
-		end
-		local m = mesh :: SpecialMesh
-		m.Scale = Config.Ball.MeshScale * (part.Size.X / Config.Ball.Diameter)
-	end
+	CollectionService:AddTag(part, DIMPLED)
+	Skins.fitMesh(part)
 
 	local light = part:FindFirstChild("SkinLight") :: PointLight?
 	if hasLight then

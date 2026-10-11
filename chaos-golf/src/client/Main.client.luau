@@ -14,6 +14,7 @@ local order = {
 	"Boards",
 	"Prompts",
 	"Guide",
+	"TutorialUi",
 }
 
 for _, name in order do

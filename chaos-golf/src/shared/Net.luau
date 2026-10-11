@@ -10,6 +10,7 @@
 --                                             "buyTokenSkin" | "celebration" | "buyPass" | "buyProduct" | "claimDaily"
 --   SubmitCreatorCode(code: string)
 --   ClaimDirectory()                          first-join arrow reached the sign
+--   TutorialChoice(choice: string)            answer to the first-join invite: "play" | "skip"
 -- Server -> client
 --   Profile(profile)                          full profile snapshot after any change
 --   Coins(coins: number, delta: number, reason: string?)
@@ -21,6 +22,7 @@
 --   Leaderboards(data)                        all boards (client pages them locally)
 --   Vote(choiceIndex: number?)                your current vote (for the local confirmation)
 --   Guide(target: Vector3?)                   first-join walking arrow
+--   Tutorial(kind: string, payload)           "invite" | "steps" {Hole, Holes, Title, Steps={{Key, Done}}} | "done"
 -- Functions
 --   GetProfile() -> profile
 
@@ -36,6 +38,7 @@ Net.Events = {
 	"ShopAction",
 	"SubmitCreatorCode",
 	"ClaimDirectory",
+	"TutorialChoice",
 	"Profile",
 	"Coins",
 	"BallAssigned",
@@ -46,6 +49,7 @@ Net.Events = {
 	"Leaderboards",
 	"Vote",
 	"Guide",
+	"Tutorial",
 }
 
 Net.Functions = {

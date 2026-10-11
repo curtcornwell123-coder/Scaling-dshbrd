@@ -73,6 +73,8 @@ e0 = errs()
 local courses = Sim.workspace:FindFirstChild("Courses")
 local nCourses0 = #courses:GetChildren()
 local p3 = newPlayer(1003, "Cara")
+Sim.fireServerAs(p3, "TutorialChoice", "play")
+Sim.run(1)
 local inTut = Activity.get(p3) == "Tutorial"
 Sim.removePlayer(p3)
 Sim.run(1)
