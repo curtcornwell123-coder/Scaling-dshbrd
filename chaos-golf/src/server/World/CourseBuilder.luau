@@ -390,7 +390,8 @@ local function planHole(map: Maps.MapDef, holeIndex: number): HolePlan
 		fallback = true
 	end
 	local tiles = tilesFromCells(finalCells, finalMoves)
-	assignElevation(rng, tiles, map.RampChance)
+	-- Courses lie on the ground like a real course: no ramps up onto plateaus.
+	assignElevation(rng, tiles, 0)
 	assignFeatures(rng, tiles, map.Hazards)
 	return finishPlan(tiles, fallback)
 end
@@ -449,6 +450,8 @@ type HoleInfo = {
 	HalfZ: number,
 	Rects: { { number } }, -- {x0, x1, z0, z1} areas decor must stay out of
 	Camera: Vector3,
+	Tiles: { { Centre: Vector3, Feature: string? } }, -- tile centres on the turf top
+	Cup: Vector3,
 }
 
 local TUTORIAL_THEME: Maps.Theme = table.clone(Maps.Themes.Arcade)
@@ -623,52 +626,17 @@ local function buildPost(ctx: Ctx, parent: Instance, x: number, z: number, level
 	railLike(Parts.ball(parent, Vector3.new(x, top, z), diameter + 0.25, { Name = "RailPost", Color = ctx.Theme.Trim }))
 end
 
+-- Courses lie on the ground (the turf floor sits on the earth, see groundCourse), so there is
+-- nothing to hold up - except a bridge, whose posts stand in the creek under it.
 local function buildSupport(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3)
-	local theme = ctx.Theme
-	local lo, hi = math.min(t.Entry, t.Exit), math.max(t.Entry, t.Exit)
-	local top = lo - 1
-	local floorRel = ctx.HallFloorY - ctx.Origin.Y
-	if t.Feature == "Bridge" then
-		-- Wooden piles down into the water/ground.
-		local f = dirVec(t.Out)
-		for _, k in { -1, 1 } do
-			local p = c + f * (k * HALF * 0.6)
-			local h = top - floorRel + 1
-			Parts.cylinder(parent, CFrame.new(p + up(top - h / 2)), h, 1.1, { Name = "Support", Color = theme.Rail:Lerp(BLACK, 0.2), Material = WOOD, CanQuery = false })
-		end
+	if t.Feature ~= "Bridge" then
 		return
 	end
-	if theme.Decor == "Ocean" then
-		-- Pier: a plank deck edge under the turf and four wooden piles into the sea floor.
-		local f = dirVec(t.Out)
-		if not t.Ramp then
-			Parts.block(parent, CFrame.new(c + up(top - 0.35)), alignedSize(t.Out, TILE - 0.3, 0.7, TILE - 0.3), { Name = "Support", Color = theme.WallAlt, Material = Enum.Material.WoodPlanks, CanQuery = false })
-		end
-		local pile: Parts.Props = { Name = "Support", Color = theme.Wall, Material = WOOD, CanQuery = false }
-		local bottom = floorRel - 7
-		for _, sx in { -1, 1 } do
-			for _, sz in { -1, 1 } do
-				local off = Vector3.new(sx * (HALF - 1.3), 0, sz * (HALF - 1.3))
-				local level = if t.Ramp and off:Dot(f) > 0 then hi else lo
-				local h = (level - 1) - bottom
-				Parts.cylinder(parent, CFrame.new(c + off + up(bottom + h / 2)), h, 1.1, pile)
-			end
-		end
-		return
-	end
-	local span = TILE - 0.3
-	local lip: Parts.Props = { Name = "Support", Color = theme.FloorAlt:Lerp(BLACK, 0.2), Material = Enum.Material.Grass, CanQuery = false }
-	local dirt: Parts.Props = { Name = "Support", Color = theme.Wall, Material = Enum.Material.Ground, CanQuery = false }
-	-- A grass lip right under the turf, then earth all the way down to the ground.
-	Parts.block(parent, CFrame.new(c + up(top - 0.5)), alignedSize(t.Out, span, 1, span), lip)
-	local h = (top - 1) - (floorRel - 1.5)
-	if h > 0.2 then
-		Parts.block(parent, CFrame.new(c + up(top - 1 - h / 2)), alignedSize(t.Out, span - 0.5, h, span - 0.5), dirt)
-	end
-	if t.Ramp then
-		local f = dirVec(t.Out)
-		local hiDir = if t.Exit > t.Entry then f else -f
-		slopeWedge(parent, c + up(top + (hi - lo) / 2), hiDir, span, hi - lo, TILE, dirt)
+	local f = dirVec(t.Out)
+	local top, bottom = t.Entry - 1, t.Entry - PIT_DEPTH - 0.5
+	for _, k in { -1, 1 } do
+		local p = c + f * (k * HALF * 0.6)
+		Parts.cylinder(parent, CFrame.new(p + up((top + bottom) / 2)), top - bottom, 1.1, { Name = "Support", Color = ctx.Theme.Rail:Lerp(BLACK, 0.2), Material = WOOD, CanQuery = false })
 	end
 end
 
@@ -989,15 +957,7 @@ local function buildBridge(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3)
 	local theme = ctx.Theme
 	local f = dirVec(t.Out)
 	local lat = Vector3.new(-f.Z, 0, f.X)
-	Parts.block(parent, CFrame.new(c + up(t.Entry - 3)), alignedSize(t.Out, TILE, 0.2, TILE - 2 * RAIL_W), {
-		Name = "Water",
-		Color = theme.Water,
-		Material = if theme.Decor == "Volcano" then NEON else Enum.Material.Glass,
-		Transparency = if theme.Decor == "Volcano" then 0 else 0.3,
-		CanCollide = false,
-		CanQuery = false,
-		CanTouch = false,
-	})
+	-- The creek under it is dug into the ground (groundCourse).
 	for _, s in { -1, 1 } do
 		Parts.block(parent, CFrame.new(c + lat * (s * (BRIDGE_W / 2 + 0.05)) + up(t.Entry - 0.22)), alignedSize(t.Out, TILE, 0.3, 0.1), {
 			Name = "BridgeTrim",
@@ -1275,6 +1235,10 @@ local function buildHole(ctx: Ctx, parent: Instance, index: number, plan: HolePl
 	local signArea = teeTop - look * 9
 	table.insert(rects, { signArea.X - 7, signArea.X + 7, signArea.Z - 7, signArea.Z + 7 })
 
+	local groundTiles: { { Centre: Vector3, Feature: string? } } = {}
+	for i, t in tiles do
+		table.insert(groundTiles, { Centre = centres[i] + up(t.Entry), Feature = t.Feature })
+	end
 	local floorY = ctx.Origin.Y + plan.MinLevel
 	local hole: Hole = {
 		Index = index,
@@ -1295,6 +1259,8 @@ local function buildHole(ctx: Ctx, parent: Instance, index: number, plan: HolePl
 		HalfZ = (plan.MaxZ - plan.MinZ + 1) * HALF,
 		Rects = rects,
 		Camera = overview.Position,
+		Tiles = groundTiles,
+		Cup = cup,
 	}
 	return hole, info
 end
@@ -1320,6 +1286,35 @@ local function clearOfHoles(infos: { HoleInfo }, x: number, z: number, r: number
 end
 
 -- Open-air landscape under and around the holes (terrain), instead of a hall.
+-- Seats every hole in the ground: earth (never grass, whose blades would poke through the
+-- turf) right under each tile, a creek dug under every jump gap and bridge (water, or lava on
+-- the volcano), and a pocket round each cup so the hole is clear to its bottom.
+local function groundCourse(ctx: Ctx, infos: { HoleInfo })
+	local terrain = workspace.Terrain
+	local under = CourseNature.underTurf(ctx.Theme.Decor)
+	local liquid = if ctx.Theme.Decor == "Volcano" then Enum.Material.CrackedLava else Enum.Material.Water
+	local function fill(cf: CFrame, size: Vector3, material: Enum.Material)
+		terrain:FillBlock(cf, size, material)
+		table.insert(ctx.Terrain, { CFrame = cf, Size = size })
+	end
+	for _, info in infos do
+		for _, t in info.Tiles do
+			if t.Feature ~= "JumpGap" and t.Feature ~= "Bridge" then
+				fill(CFrame.new(t.Centre - Vector3.new(0, 3, 0)), Vector3.new(TILE + 2, 4, TILE + 2), under)
+			end
+		end
+		for _, t in info.Tiles do
+			if t.Feature == "JumpGap" or t.Feature == "Bridge" then
+				local depth = PIT_DEPTH + 1.5
+				fill(CFrame.new(t.Centre + Vector3.new(0, 2 - depth / 2 - 1, 0)), Vector3.new(TILE, depth + 2, TILE), Enum.Material.Air)
+				fill(CFrame.new(t.Centre - Vector3.new(0, depth - 1.5, 0)), Vector3.new(TILE, 3, TILE), liquid)
+			end
+		end
+		-- Terrain is 4-stud voxels: clear a generous pocket (under the turf, hidden by it).
+		fill(CFrame.new(info.Cup - Vector3.new(0, 2, 0)), Vector3.new(8, 8, 8), Enum.Material.Air)
+	end
+end
+
 local function buildLandscape(ctx: Ctx, infos: { HoleInfo }, rng: Random)
 	local cx, cz = (ctx.X0 + ctx.X1) / 2, (ctx.Z0 + ctx.Z1) / 2
 	local boothTop = ctx.HallFloorY - 17
@@ -1333,6 +1328,7 @@ local function buildLandscape(ctx: Ctx, infos: { HoleInfo }, rng: Random)
 	}, rng, function(x, z, r)
 		return clearOfHoles(infos, x, z, r)
 	end, keep)
+	groundCourse(ctx, infos)
 end
 
 -- Decor ------------------------------------------------------------------------
@@ -1467,10 +1463,9 @@ local function assemble(theme: Maps.Theme, plans: { HolePlan }, origin: Vector3,
 	local ctx: Ctx = {
 		Theme = theme,
 		Origin = origin,
-		-- Below every hole's out-of-bounds line, with margin for the ball radius.
-		-- Ground level: just under every hole's out-of-bounds line (a ball resting on the
-		-- ground is already OOB), so greens sit on low natural plateaus.
-		HallFloorY = origin.Y + math.min(-10, lowest - Config.Physics.OOBDepth - 3),
+		-- The ground is at the course: its surface (HallFloorY - 0.5) is the turf floor's
+		-- underside, so the greens lie on the land rather than on plateaus.
+		HallFloorY = origin.Y + lowest - 0.5,
 		CeilingY = origin.Y + CEILING,
 		X0 = origin.X - SLOT / 2 - HALL_END,
 		X1 = origin.X + (n - 1) * SLOT + SLOT / 2 + HALL_END,

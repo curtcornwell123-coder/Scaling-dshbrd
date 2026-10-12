@@ -99,10 +99,11 @@ function CourseNature.landscape(biomeId: string, area: Area, rng: Random, avoid:
 	local gy = area.GroundY
 	local margin = 70
 	if biomeId == "Ocean" then
-		-- Open sea everywhere (the course stands on piers): a sand sea floor, water up to
-		-- the ground line, sand bars in clear spots and rocky islands on the horizon.
-		fill(regions, CFrame.new(mx, gy - 9, mz), Vector3.new(w + margin * 2, 6, d + margin * 2), Enum.Material.Sand)
-		fill(regions, CFrame.new(mx, gy - 3, mz), Vector3.new(w + margin * 2, 6, d + margin * 2), Enum.Material.Water)
+		-- Open sea at the course's feet: a sand sea floor and water lapping just below the
+		-- turf (the course lies on sand banks laid under every tile, see CourseBuilder),
+		-- sand bars in clear spots and rocky islands on the horizon.
+		fill(regions, CFrame.new(mx, gy - 9.5, mz), Vector3.new(w + margin * 2, 6, d + margin * 2), Enum.Material.Sand)
+		fill(regions, CFrame.new(mx, gy - 3.5, mz), Vector3.new(w + margin * 2, 6, d + margin * 2), Enum.Material.Water)
 		for _ = 1, 40 do
 			local r = rng:NextNumber(5, 9)
 			local x, z = rng:NextNumber(area.X0 - 30, area.X1 + 30), rng:NextNumber(area.Z0 - 30, area.Z1 + 30)
@@ -185,6 +186,13 @@ function CourseNature.landscape(biomeId: string, area: Area, rng: Random, avoid:
 		workspace.Terrain:FillBlock(r.CFrame, r.Size, Enum.Material.Air)
 	end
 	return regions
+end
+
+-- What lies right under the turf: the biome's ground, but never grass (its blades would
+-- grow up through the floor).
+function CourseNature.underTurf(biomeId: string): Enum.Material
+	local b = CourseNature.Biomes[biomeId] or CourseNature.Biomes.Meadow
+	return if b.Ground == Enum.Material.Grass or b.Ground == Enum.Material.LeafyGrass then Enum.Material.Ground else b.Ground
 end
 
 function CourseNature.clear(regions: { Region })

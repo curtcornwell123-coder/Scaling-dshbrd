@@ -121,9 +121,10 @@ Everyone starts **Unranked**: win 3 Ranked games to place (the results screen co
 22 maps (Sprint / Gauntlet) across 9 worlds: Meadow Greens, Sunset Canyon, Frost, Lava, Jungle, Tropical Cove, Autumn Woods, Blossom Gardens and **Ocean Piers**. Each map's holes are generated deterministically from its seed (`World/CourseBuilder`), so a map always plays the same and can be learned:
 
 - 12-stud tiles on an 8×8 grid; a self-avoiding path of 4–7 (Sprint) or 7–10 (Gauntlet) tiles (Ocean maps favour long straight piers).
-- ±4-stud ramps, bumpers, spinners (hinge motors), pushers (prismatic servos), windmills, humps, tunnels, sand, ice, boost pads, narrow bridges and Chaos Boxes. Every hole has at least one obstacle.
+- Holes lie on the ground like a real course (no plateaus or ramps): the turf floor sits on the earth, jump gaps and bridges cross creeks dug into it (water, lava on the volcano), and a ball that ends up on the land, in a creek or in the sea is out of bounds (stroke, back to where it was played).
+- Bumpers, spinners (hinge motors), pushers (prismatic servos), windmills, humps, tunnels, sand, ice, boost pads, narrow bridges and Chaos Boxes. Every hole has at least one obstacle.
 - **Boost jumps** (`Jump` = per-hole chance): a launch tile (a boost lane that pulls any ball to 70 studs/s, then an 18° kicker), an open gap with no floor, and a sandy landing tile. About 19 studs of flight over the 12-stud gap; falling short is out of bounds (+1 stroke). Both Ocean maps (Coral Cove, Leviathan Leap) are full of them, and seven other maps have a few.
-- **Ocean Piers**: the holes are piers on wooden piles over open sea (terrain water), with sand islets and palms, lighthouses, sea stacks, buoys and sailboats.
+- **Ocean Piers**: the holes lie on sand banks at sea level with the water lapping just below the turf, with sand islets and palms, lighthouses, sea stacks, buoys and sailboats.
 - Rails close every non-connected edge (no shortcuts); par comes from length, turns and hazards.
 - Boost feel: pads have a glass top, LED strips and chasing chevrons. Boosting plays an FOV kick, radial speed lines, a light blur, edge glow, a "BOOST!" pop and a whoosh for you, and a streak burst others can see.
 

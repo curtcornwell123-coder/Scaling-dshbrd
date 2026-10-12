@@ -540,6 +540,12 @@ local function step(ball: Ball, dt: number)
 	local hit = workspace:Raycast(pos, Vector3.new(0, -(Config.Ball.Diameter / 2 + 0.45), 0), rayParams)
 	local grounded = hit ~= nil
 	local surface = if hit then hit.Instance:GetAttribute("Surface") else nil
+	-- Courses lie on the land: a ball that ends up on it (over a rail, into a creek, into the
+	-- sea) is out of bounds, as on a real course - stroke and back to where it was played.
+	if hit and hit.Instance:IsA("Terrain") then
+		outOfBounds(ball)
+		return
+	end
 
 	if ball.AtRest then
 		-- A resting ball inside the cup (e.g. Tiny Cup just wore off) drops in; one left
