@@ -312,6 +312,32 @@ local touchIn, _, touchBall = putt(CR + 0.6, 0, 0, 2)
 flow("flat cup physics: centre putt drops, fast putt hops with a lip-out, half-on ball tips in", errs() == e0 and slowIn and not fastIn and lipped == 1 and hopY > 0.05 and pastCup and edgeIn and not touchIn and touchBall.AtRest,
 	string.format("slow=%s fast=%s lipFx=%d hop=%.2f past=%s half=%s touch=%s", tostring(slowIn), tostring(fastIn), lipped, hopY, tostring(pastCup), tostring(edgeIn), tostring(touchIn)))
 
+-- c2b. a struck ball skids, then rolls true: the spin builds up and then matches its speed
+e0 = errs()
+local spinBall
+Sim.asSide("server", function()
+	spinBall = BallService.create(golfer, {
+		Position = V(-40, 900.75, 12),
+		Context = { CanShoot = function() return true end },
+		Cup = cupAt,
+		OOBY = 880,
+	})
+end)
+Sim.run(0.3)
+Sim.fireServerAs(golfer, "Shoot", V(1, 0, 0), 0.35)
+local function rollRatio()
+	local v = spinBall.Part.AssemblyLinearVelocity
+	local w = spinBall.Part.AssemblyAngularVelocity
+	local hv = Vector3.new(v.X, 0, v.Z).Magnitude
+	return if hv > 0.5 then w.Magnitude * (Config.Ball.Diameter / 2) / hv else -1
+end
+Sim.run(0.05)
+local early = rollRatio()
+Sim.run(0.5)
+local late = rollRatio()
+flow("ball physics: a struck ball skids, then rolls true (spin matches speed)", errs() == e0 and early >= 0 and early < 0.6 and math.abs(late - 1) < 0.05,
+	string.format("skid=%.2f roll=%.2f", early, late))
+
 -- c3. a real cup (CupHole) cut through a two-layer green: the opening is clear down to the
 -- bottom, the green is solid round it, balls drop in for real, Tiny-Cup balls ride the lid --
 e0 = errs()

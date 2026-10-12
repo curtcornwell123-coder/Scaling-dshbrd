@@ -48,6 +48,8 @@ export type Ball = {
 	TinyCupUntil: number,
 	CupState: CupPhysics.State, -- running over / hanging on the lip of the cup
 	RealCup: boolean, -- the cup is a real hole (CupHole): physics drops the ball in
+	Airborne: boolean, -- off the ground last step
+	FallSpeed: number, -- fastest downward speed while airborne (for the landing check)
 	PrevPos: Vector3?, -- position last step (the cup test sweeps the path between)
 	OOBY: number,
 	Upgrades: { [string]: number },
@@ -245,6 +247,8 @@ function BallService.create(player: Player, opts: CreateOpts): Ball
 		TinyCupUntil = 0,
 		CupState = CupPhysics.newState(),
 		RealCup = opts.Cup ~= nil and CupHole.lidAt(opts.Cup) ~= nil,
+		Airborne = false,
+		FallSpeed = 0,
 		PrevPos = nil,
 		OOBY = opts.OOBY,
 		Upgrades = upgrades,
@@ -573,6 +577,14 @@ local function step(ball: Ball, dt: number)
 	local horizontal = Vector3.new(vel.X, 0, vel.Z)
 	local speed = horizontal.Magnitude
 
+	-- Turf takes some pace off a ball that comes down hard (off a jump or a kicker).
+	if grounded and ball.Airborne and ball.FallSpeed < -12 then
+		horizontal *= P.LandingKeep
+		speed = horizontal.Magnitude
+	end
+	ball.Airborne = not grounded
+	ball.FallSpeed = if grounded then 0 else math.min(ball.FallSpeed, vel.Y)
+
 	if grounded and hit then
 		local control = ball.Upgrades.Control or 0
 		local mult = 1
@@ -584,7 +596,9 @@ local function step(ball: Ball, dt: number)
 		if ball.ShotFrost then
 			mult = math.min(mult, P.IceMultiplier)
 		end
-		local decel = (P.RollResistance + P.Drag * speed) * mult
+		-- A struck ball skids before it rolls (a little more grip while it does).
+		local skid = math.clamp((os.clock() - ball.LastShot) / P.SkidTime, 0, 1) -- 0 = just struck, 1 = rolling
+		local decel = (P.RollResistance + P.Drag * speed) * mult * (1 + (1 - skid) * P.SkidGrip)
 		if hit.Normal.Y < 0.985 then
 			decel += control * 0.08 * P.RollResistance -- extra grip on slopes
 		end
@@ -626,7 +640,17 @@ local function step(ball: Ball, dt: number)
 				speed = horizontal.Magnitude
 			end
 		end
-		part.AssemblyLinearVelocity = Vector3.new(horizontal.X, vel.Y, horizontal.Z)
+		-- Seams between floor pieces can kick a rolling ball into tiny hops: on level turf
+		-- it stays down (real landings bounce harder than this and keep their bounce).
+		local vy = vel.Y
+		if hit.Normal.Y > 0.995 and vy > 0 and vy < 3.5 then
+			vy = 0
+		end
+		part.AssemblyLinearVelocity = Vector3.new(horizontal.X, vy, horizontal.Z)
+		-- Rolling like a real ball: no spin as it leaves the face, building to a true roll
+		-- through the skid - after that the spin matches the ground exactly, so the print on
+		-- the ball turns with it rather than sliding.
+		part.AssemblyAngularVelocity = hit.Normal:Cross(horizontal) / (Config.Ball.Diameter / 2) * skid
 	end
 
 	-- The cup. A real hole (CupHole): physics drops the ball in, or it hits the far rim and
