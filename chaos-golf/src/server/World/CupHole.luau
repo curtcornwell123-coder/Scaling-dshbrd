@@ -1,10 +1,11 @@
 --!strict
 -- A real golf cup: a round hole cut into the green, lined in white with a dark bottom, so
--- the ball drops, rattles, hops the hole or lips out with real physics. The hole (radius
--- Config.Physics.CupRadius, Depth deep) is cut through every upright floor block it passes
--- through - each is rebuilt as blocks round a square plus wedge fans for the round edge
--- (a 24-sided opening) - and gets a collidable liner and bottom of its own, so it also
--- works over an open well. An invisible lid flush with the green blocks only Tiny-Cup balls
+-- the ball drops, rattles, rides the lip, hops the hole or lips out with real physics. The
+-- hole (radius Config.Physics.CupRadius, Depth deep) is cut through every upright floor block
+-- it passes through. The green's top skin gets the true round edge - blocks round a square
+-- plus wedge fans, a 48-sided opening so a ball riding the lip runs smoothly round it, in a
+-- dead turf that doesn't kick - and everything below gets a plain square cut hidden behind
+-- the cup's own collidable liner and bottom (so it also works over an open well). An invisible lid flush with the green blocks only Tiny-Cup balls
 -- (BallService judges them on the flat, see CupPhysics) and characters (feet don't catch).
 
 local PhysicsService = game:GetService("PhysicsService")
@@ -16,8 +17,9 @@ local Parts = require(script.Parent:WaitForChild("Parts"))
 local CupHole = {}
 
 CupHole.Depth = 1.9 -- rim to bottom: the ball (1.5) sits fully below the green
-CupHole.Segments = 24
+CupHole.Segments = 48
 CupHole.RimInset = 0.2 -- band of turf/soil above the liner, as on a real green
+CupHole.Skin = 0.25 -- thickness of the green's top layer that carries the round edge
 CupHole.LidGroup = "GolfCupLid"
 
 local WHITE = Color3.fromRGB(246, 246, 242)
@@ -26,6 +28,14 @@ local BOTTOM = Color3.fromRGB(30, 28, 26)
 -- A plastic cup set in soil: a dead knock, little bounce.
 local LINER_PHYS = PhysicalProperties.new(1.5, 0.4, 0.2, 1, 1)
 local BOTTOM_PHYS = PhysicalProperties.new(1.5, 0.6, 0.1, 1, 1)
+-- The rim: turf over soil - grips a ball riding round the lip and barely kicks one that
+-- clips it (the weight makes it dominate the ball's own bounce).
+local RIM_PHYS = PhysicalProperties.new(0.7, 0.45, 0.05, 1, 3)
+
+local function squareHalf(): number
+	-- Below the skin the opening is a square just clear of the liner's outside.
+	return Config.Physics.CupRadius + 0.2
+end
 
 local lids: { [string]: BasePart } = {}
 
@@ -77,23 +87,15 @@ local function crosses(part: BasePart, cup: Vector3): boolean
 	end
 	local half = part.Size / 2
 	local l = part.CFrame:PointToObjectSpace(cup)
-	local R = Config.Physics.CupRadius
+	local Q = squareHalf()
 	local top, bottom = part.Position.Y + half.Y, part.Position.Y - half.Y
-	return bottom < cup.Y - 1e-3 and top > cup.Y - CupHole.Depth + 1e-3 and math.abs(l.X) + R < half.X and math.abs(l.Z) + R < half.Z
+	return bottom < cup.Y - 1e-3 and top > cup.Y - CupHole.Depth + 1e-3 and math.abs(l.X) + Q < half.X and math.abs(l.Z) + Q < half.Z
 end
 
--- Cuts the hole through `part`: it is replaced by four blocks round a square and four wedge
--- fans filling the square's corners up to the round edge. Returns the pieces.
-function CupHole.cut(part: BasePart, cup: Vector3): { BasePart }
-	if not crosses(part, cup) then
-		return { part }
-	end
+-- Four blocks round a square opening of half-size q (part-local centre lx, lz).
+local function rects(part: BasePart, lx: number, lz: number, q: number, pieces: { BasePart })
 	local cf, size = part.CFrame, part.Size
-	local l = cf:PointToObjectSpace(cup)
-	local R = Config.Physics.CupRadius
 	local hx, hz = size.X / 2, size.Z / 2
-	local parent = part.Parent
-	local pieces: { BasePart } = {}
 	local function rect(x0: number, x1: number, z0: number, z1: number)
 		if x1 - x0 < 0.01 or z1 - z0 < 0.01 then
 			return
@@ -102,13 +104,33 @@ function CupHole.cut(part: BasePart, cup: Vector3): { BasePart }
 		p:ClearAllChildren()
 		p.Size = Vector3.new(x1 - x0, size.Y, z1 - z0)
 		p.CFrame = cf * CFrame.new((x0 + x1) / 2, 0, (z0 + z1) / 2)
-		p.Parent = parent
+		p.Parent = part.Parent
 		table.insert(pieces, p)
 	end
-	rect(-hx, l.X - R, -hz, hz)
-	rect(l.X + R, hx, -hz, hz)
-	rect(l.X - R, l.X + R, -hz, l.Z - R)
-	rect(l.X - R, l.X + R, l.Z + R, hz)
+	rect(-hx, lx - q, -hz, hz)
+	rect(lx + q, hx, -hz, hz)
+	rect(lx - q, lx + q, -hz, lz - q)
+	rect(lx - q, lx + q, lz + q, hz)
+end
+
+-- A layer under the skin: a square opening behind the liner.
+local function cutSquare(part: BasePart, cup: Vector3): { BasePart }
+	local l = part.CFrame:PointToObjectSpace(cup)
+	local pieces: { BasePart } = {}
+	rects(part, l.X, l.Z, squareHalf(), pieces)
+	part:Destroy()
+	return pieces
+end
+
+-- The top skin: the true round edge - blocks round the inscribing square and wedge fans
+-- filling its corners up to the rim, which gets the dead turf.
+local function cutRound(part: BasePart, cup: Vector3): { BasePart }
+	local cf, size = part.CFrame, part.Size
+	local l = cf:PointToObjectSpace(cup)
+	local R = Config.Physics.CupRadius
+	local parent = part.Parent
+	local pieces: { BasePart } = {}
+	rects(part, l.X, l.Z, R, pieces)
 	local N = CupHole.Segments
 	local function rim(i: number): Vector3
 		local a = i / N * math.pi * 2
@@ -119,11 +141,44 @@ function CupHole.cut(part: BasePart, cup: Vector3): { BasePart }
 		for i = q * N // 4, (q + 1) * N // 4 - 1 do
 			for _, w in Parts.triangle(parent :: Instance, corner, rim(i), rim(i + 1), size.Y) do
 				copyLook(part, w)
+				w.CustomPhysicalProperties = RIM_PHYS
 				table.insert(pieces, w)
 			end
 		end
 	end
 	part:Destroy()
+	return pieces
+end
+
+-- Cuts the hole through `part` and returns the pieces. A block at the green's surface is split:
+-- its top Skin carries the round edge, the rest a square cut behind the liner.
+function CupHole.cut(part: BasePart, cup: Vector3): { BasePart }
+	if not crosses(part, cup) then
+		return { part }
+	end
+	local top = part.Position.Y + part.Size.Y / 2
+	if math.abs(top - cup.Y) > 0.05 then
+		return cutSquare(part, cup)
+	end
+	local skinT = CupHole.Skin
+	if part.Size.Y <= skinT + 0.02 then
+		return cutRound(part, cup)
+	end
+	local skin = part:Clone()
+	skin:ClearAllChildren()
+	skin.Size = Vector3.new(part.Size.X, skinT, part.Size.Z)
+	skin.CFrame = part.CFrame * CFrame.new(0, (part.Size.Y - skinT) / 2, 0)
+	skin.Parent = part.Parent
+	local body = part:Clone()
+	body:ClearAllChildren()
+	body.Size = Vector3.new(part.Size.X, part.Size.Y - skinT, part.Size.Z)
+	body.CFrame = part.CFrame * CFrame.new(0, -skinT / 2, 0)
+	body.Parent = part.Parent
+	part:Destroy()
+	local pieces = cutRound(skin, cup)
+	for _, p in cutSquare(body, cup) do
+		table.insert(pieces, p)
+	end
 	return pieces
 end
 

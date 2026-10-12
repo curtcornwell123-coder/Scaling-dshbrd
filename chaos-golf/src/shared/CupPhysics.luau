@@ -120,16 +120,32 @@ function CupPhysics.step(s: State, x0: number, z0: number, x1: number, z1: numbe
 	return false, nvx, nvz, 0, lip
 end
 
--- Half on the hole: a slow, grounded ball whose centre is within the lip zone past the rim is
--- drawn in (harder the further it hangs over); one that stops right on the lip teeters for
--- CupLipHang seconds first. Returns new vx, vz and whether it is on the lip (keep it from
--- coming to rest).
+-- Round the rim, as on a real green:
+--   * edge break: the turf round a hole is worn a touch low, so any rolling ball whose edge
+--     hangs over the rim curls toward the hole - harder the further it hangs over, less the
+--     faster it's going (a firm putt barely bends, a dying one is pulled round to the cup);
+--   * half on the hole: a slow ball whose centre is within the lip zone is drawn in; one that
+--     stops right on the lip teeters for CupLipHang seconds first.
+-- Returns new vx, vz and whether it is on the lip (keep it from coming to rest).
 function CupPhysics.lip(s: State, x: number, z: number, vx: number, vz: number, grounded: boolean, dt: number, now: number, R: number): (number, number, boolean)
 	local P = Config.Physics
+	local r = Config.Ball.Diameter / 2
 	local speed = math.sqrt(vx * vx + vz * vz)
 	local dist = math.sqrt(x * x + z * z)
+	if not grounded or dist < R or dist >= R + r then
+		s.Hang = 0
+		return vx, vz, false
+	end
+	local ix, iz = -x / dist, -z / dist -- toward the cup
+	local over = (R + r - dist) / r -- how far the ball hangs over the rim (0-1)
+	local edge = P.CupEdgeBreak * over * over * math.clamp(1 - speed / P.CupEdgeBreakSpeed, 0, 1)
+	-- A resting ball only moves if the break beats rolling resistance.
+	if speed > 0.5 or edge > P.RollResistance then
+		vx += ix * edge * dt
+		vz += iz * edge * dt
+	end
 	local zone = CupPhysics.lipZone(R)
-	if grounded and dist >= R and dist < R + zone and speed < P.CupLipSpeed then
+	if dist < R + zone and speed < P.CupLipSpeed then
 		if s.Hang == 0 and speed < 1.2 then
 			s.Hang = now + P.CupLipHang
 		end
@@ -137,8 +153,8 @@ function CupPhysics.lip(s: State, x: number, z: number, vx: number, vz: number, 
 			return vx * 0.5, vz * 0.5, true -- teetering on the edge
 		end
 		local k = 1 - (dist - R) / zone
-		local pull = (30 + 40 * k) * (1 - speed / P.CupLipSpeed) * dt / dist
-		return vx - x * pull, vz - z * pull, true
+		local pull = (30 + 40 * k) * (1 - speed / P.CupLipSpeed) * dt
+		return vx + ix * pull, vz + iz * pull, true
 	end
 	s.Hang = 0
 	return vx, vz, false

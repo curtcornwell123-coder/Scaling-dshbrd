@@ -208,6 +208,8 @@ local r8 = roll(-3, CR + 0.15, 8.5, 0, 1 / 60, 3)
 check(r8 == "sink", "cup: slow ball dying past the lip curls in (" .. r8 .. ")")
 local r9 = roll(-6, CR + 0.15, 20, 0, 1 / 60, 3)
 check(r9 == "miss", "cup: brisk ball past the lip rolls on (" .. r9 .. ")")
+local r10, _, _, z10 = roll(-6, CR + 0.4, 14, 0, 1 / 60, 3)
+check(r10 == "sink" or z10 < CR + 0.4 - 0.02, string.format("cup: a ball whose edge rolls over the rim curls toward the hole (%s z=%.3f)", r10, z10))
 check(Cup.captureSpeed(0, CR) == Config.Physics.MaxSinkSpeed and Cup.captureSpeed(CR, CR) < Cup.captureSpeed(0.5 * CR, CR), "cup: capture speed falls toward the rim")
 -- Fastest putt that still drops, by line (dead centre .. grazing).
 local caps = {}

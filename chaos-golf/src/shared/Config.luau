@@ -48,6 +48,8 @@ Config.Physics = {
 	CupLipZone = 0.3, -- studs past the rim where a slow ball hanging over the hole tips in
 	CupLipSpeed = 9, -- slower than this on the lip and the ball is drawn in
 	CupLipHang = 0.35, -- seconds a ball that stops on the lip teeters before it drops
+	CupEdgeBreak = 16, -- curl toward the hole (studs/s^2) for a ball hanging fully over the rim
+	CupEdgeBreakSpeed = 28, -- the break fades out by this speed
 	OOBDepth = 7, -- falling this far below the lowest floor of a hole = out of bounds
 	PowerCycleSeconds = 1.6, -- full 0 -> 1 -> 0 sweep of the power meter
 }

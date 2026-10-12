@@ -393,40 +393,50 @@ local function shoot(player: Player, dir: any, power: any)
 	end
 end
 
+-- Hides a holed ball where it lies: the ball and its printed plates fade, then it stops colliding.
+local function fadeOut(part: BasePart, seconds: number)
+	part.Anchored = true
+	local info = TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	for _, d in part:GetDescendants() do
+		if d:IsA("BasePart") then
+			TweenService:Create(d, info, { Transparency = 1 }):Play()
+		elseif d:IsA("LayerCollector") then
+			d.Enabled = false
+		end
+	end
+	TweenService:Create(part, info, { Transparency = 1 }):Play()
+	task.delay(seconds, function()
+		part.CanCollide = false
+	end)
+end
+
 local function sink(ball: Ball)
 	ball.Sunk = true
 	ball.AtRest = true
 	local part = ball.Part
-	part.Anchored = true
-	part.AssemblyLinearVelocity = Vector3.zero
 	local cup = ball.Cup :: Vector3
-	part.CanCollide = false
 	ball.PrevPos = nil
 	local r = Config.Ball.Diameter / 2
 	if CupHole.lidAt(cup) then
-		-- A real hole: settle on the bottom (sliding to the centre first if it was judged on
-		-- the lid), stay in the cup for a moment, then slip away under the bottom.
-		local from = part.Position
-		local dropFrom = if from.Y > cup.Y then Vector3.new(cup.X, cup.Y + r - 0.2, cup.Z) else from
-		local floorPos = Vector3.new(from.X + (cup.X - from.X) * 0.4, cup.Y - CupHole.Depth + r, from.Z + (cup.Z - from.Z) * 0.4)
-		local slide = if from.Y > cup.Y then 0.1 else 0
-		if slide > 0 then
-			TweenService:Create(part, TweenInfo.new(slide, Enum.EasingStyle.Linear), { CFrame = CFrame.new(dropFrom) }):Play()
+		-- A real hole: nothing is moved by script - physics carries the ball down and it rattles
+		-- to rest on the bottom, as on a real green (a Tiny-Cup ball judged on the lid drops
+		-- through it once it's back in its normal group). It sits in the cup for a moment, then
+		-- fades where it lies.
+		if ball.CupScale < 1 then
+			setTiny(ball, false)
+			local toCup = Vector3.new(cup.X - part.Position.X, 0, cup.Z - part.Position.Z)
+			part.AssemblyLinearVelocity = toCup * 4 + Vector3.new(0, -2, 0)
 		end
-		task.delay(slide, function()
-			if part.Parent then
-				TweenService:Create(part, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { CFrame = CFrame.new(floorPos) }):Play()
-			end
-		end)
-		task.delay(slide + 1.6, function()
-			if part.Parent then
-				TweenService:Create(part, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-					CFrame = CFrame.new(floorPos - Vector3.new(0, 1.8, 0)),
-				}):Play()
+		task.delay(1.8, function()
+			if part.Parent and ball.Sunk then
+				fadeOut(part, 0.35)
 			end
 		end)
 	else
-		-- Painted cup: over the centre and dipping, then down and away.
+		-- Painted cup (no hole to fall into): over the centre and dipping, then down and away.
+		part.Anchored = true
+		part.AssemblyLinearVelocity = Vector3.zero
+		part.CanCollide = false
 		local lip = Vector3.new(cup.X, cup.Y + r - 0.3, cup.Z)
 		TweenService:Create(part, TweenInfo.new(0.1, Enum.EasingStyle.Linear), { CFrame = CFrame.new(lip) }):Play()
 		task.delay(0.1, function()
