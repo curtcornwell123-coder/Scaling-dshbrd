@@ -271,12 +271,13 @@ Config.GamePasses = {
 	Celebrations = { Id = 0, Robux = 149, Name = "Celebration Pack", Desc = "3 exclusive cup-sink celebrations" },
 	Founder = { Id = 0, Robux = 99, Name = "Founder", Desc = "Founder skin + Founder title (launch only)" },
 	-- Cosmetic only: looks, never an edge.
+	BallStudio = { Id = 0, Robux = 199, Name = "Ball Studio", Desc = "Paint your own ball: 24 colours, 4 finishes, 6 print inks" },
 	TourCollection = { Id = 0, Robux = 299, Name = "Tour Collection", Desc = "3 tour balls: Tour Black, Tour Pearl, Tour Graphite" },
 	Heritage = { Id = 0, Robux = 249, Name = "Heritage Collection", Desc = "3 pinstriped club balls: Cream, Forest, Oxblood" },
 	MembersClub = { Id = 0, Robux = 199, Name = "Members Club", Desc = "Members Contrail trail, Members Line aim, MEMBER nametag" },
 } :: { [string]: PassDef }
 
-Config.GamePassOrder = { "TourCollection", "Heritage", "MembersClub", "VIP", "Celebrations", "DoubleCoins", "Founder" }
+Config.GamePassOrder = { "BallStudio", "TourCollection", "Heritage", "MembersClub", "VIP", "Celebrations", "DoubleCoins", "Founder" }
 
 -- Cup-sink celebrations. Everything except Default needs the Celebrations pass.
 Config.Celebrations = { "Default", "Fireworks", "Galaxy", "Confetti" }

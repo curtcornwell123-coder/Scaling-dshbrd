@@ -454,6 +454,52 @@ flow("ranks: new players are Unranked, 3 Ranked wins place them in Bronze", errs
 		and stat1 == "BRONZE III" and tag1 ~= nil and string.find(tag1, "BRONZE III") ~= nil,
 	string.format("start=%s/%s mmr=%s match=%q placed=%s/%s", tostring(stat0), tostring(tag0), tostring(mmr0), tostring(reported), tostring(stat1), tostring(tag1)))
 
+-- c5. Ball Studio pass: locked (offers the pass) without it; with it the player paints their
+-- ball (colour / finish / ink, only from the studio lists) and wears it into a match ------------
+e0 = errs()
+Config.GamePasses.BallStudio.Id = 444
+local ShopCatalog = Sim.module("client", "ShopCatalog")
+local painter = newPlayer(1091, "Mia")
+local pp = Data.profile(painter)
+local prompts0 = #Sim.prompts
+Sim.fireServerAs(painter, "ShopAction", "studio", "Color", "#1F5BFF")
+Sim.run(0.5)
+local lockedOffer = #Sim.prompts > prompts0 and Sim.prompts[#Sim.prompts][2] == 444
+local untouched = pp.Custom.Color == "#F4F6FA"
+local studioCards = 0
+for _, tab in ShopCatalog.Tabs do
+	if tab.Id == "Locker" then
+		for _, item in tab.Items(pp) do
+			if item.Category == "Studio" then
+				studioCards += 1
+			end
+		end
+	end
+end
+Sim.fireEvent(Sim.game:GetService("MarketplaceService"), "PromptGamePassPurchaseFinished", painter, 444, true)
+Sim.run(0.5)
+-- (shop actions are rate-limited per player, so space them out)
+Sim.fireServerAs(painter, "ShopAction", "studio", "Color", "#1F5BFF")
+Sim.run(0.6)
+Sim.fireServerAs(painter, "ShopAction", "studio", "Finish", "Metallic")
+Sim.run(0.6)
+Sim.fireServerAs(painter, "ShopAction", "studio", "Color", "#123456") -- not on the palette
+Sim.run(0.6)
+local look = Data.loadout(painter)
+local painted
+Sim.asSide("server", function()
+	local b = BallService.create(painter, { Position = V(0, 650, 0), Context = { CanShoot = function() return false end }, OOBY = 600, Loadout = look })
+	painted = b.Part
+end)
+local okColour = painted.Color == Color3.fromHex("#1F5BFF") and painted.Material == Enum.Material.Foil
+Sim.asSide("server", function()
+	BallService.destroy(painter)
+end)
+Sim.removePlayer(painter)
+flow("Ball Studio pass: locked offers the pass, owners paint their ball (palette only) and wear it", errs() == e0 and lockedOffer and untouched and studioCards == 35
+		and pp.Custom.Color == "#1F5BFF" and pp.Custom.Finish == "Metallic" and pp.Equipped.Skins == "studio" and look.Custom ~= nil and okColour,
+	string.format("offer=%s cards=%d look=%s/%s/%s wearing=%s ball=%s", tostring(lockedOffer), studioCards, pp.Custom.Color, pp.Custom.Finish, pp.Custom.Ink, tostring(pp.Equipped.Skins), tostring(okColour)))
+
 -- d. shutdown ---------------------------------------------------------------------------------
 e0 = errs()
 for _, fn in Sim.closeCallbacks do

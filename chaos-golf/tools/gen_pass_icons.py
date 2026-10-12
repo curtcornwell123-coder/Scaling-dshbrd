@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ultimate Golf - icons for the cosmetic passes (Tour, Heritage, Members Club).
+"""Ultimate Golf - icons for the cosmetic passes (Ball Studio, Tour, Heritage, Members Club).
 
 Composites transparent ball renders (tools/render_balls.py --transparent) onto a club-style
 badge. Content stays inside the central circle (Roblox crops pass icons to a circle).
@@ -106,6 +106,34 @@ def members():
     return img
 
 
+def tinted(renders, ball_id, size, rgb):
+    """The white ball render dyed a colour (multiply keeps the dimple shading)."""
+    b = ball(renders, ball_id, size)
+    r, g, bl, a = b.split()
+    tint = Image.new("RGB", b.size, rgb)
+    from PIL import ImageChops
+    dyed = ImageChops.multiply(Image.merge("RGB", (r, g, bl)), tint)
+    dyed.putalpha(a)
+    return dyed
+
+
+def studio(renders):
+    img = badge((38, 40, 46), (12, 13, 15), (226, 185, 91))
+    colours = [(31, 91, 255), (200, 16, 46), (232, 240, 50), (46, 139, 87)]
+    spots = [(S * 0.25, S * 0.47, 250), (S * 0.75, S * 0.47, 250), (S * 0.36, S * 0.36, 230), (S * 0.64, S * 0.36, 230)]
+    for (x, y, size), rgb in zip([spots[2], spots[3], spots[0], spots[1]], colours):
+        b = tinted(renders, "tour_pearl", size, rgb)
+        img.alpha_composite(b, (int(x - b.size[0] / 2), int(y - b.size[1] / 2)))
+    centre = ball(renders, "tour_pearl", 400)
+    shadow(img, (S * 0.5, S * 0.55 + 190), 400)
+    img.alpha_composite(centre, (int(S * 0.5 - centre.size[0] / 2), int(S * 0.55 - centre.size[1] / 2)))
+    dr = ImageDraw.Draw(img)
+    f = font(FONT, 92)
+    w = dr.textlength("STUDIO", font=f)
+    dr.text(((S - w) / 2, S * 0.78), "STUDIO", font=f, fill=(236, 238, 242, 255))
+    return img
+
+
 def main():
     renders = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", "renders", "balls")
     os.makedirs(OUT, exist_ok=True)
@@ -113,6 +141,7 @@ def main():
         "pass_tour.png": trio(renders, ["tour_black", "tour_pearl", "tour_graphite"], (40, 42, 47), (12, 13, 15), (226, 185, 91), "TOUR", (236, 238, 242)),
         "pass_heritage.png": trio(renders, ["heritage_cream", "heritage_forest", "heritage_oxblood"], (28, 74, 55), (11, 32, 24), (226, 185, 91), "HERITAGE", (239, 230, 207)),
         "pass_members.png": members(),
+        "pass_studio.png": studio(renders),
     }
     for name, img in icons.items():
         img.resize((FINAL, FINAL), Image.LANCZOS).save(os.path.join(OUT, name))

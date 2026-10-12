@@ -69,6 +69,32 @@ function Previews.ball(skinId: string): Frame
 	return f
 end
 
+-- A Ball Studio look: ref = "#color|Finish|#ink".
+function Previews.custom(ref: string): Frame
+	local color, finish, ink = string.match(ref, "^(#%x+)|(%a+)|(#%x+)$")
+	local f = base()
+	local vp = Instance.new("ViewportFrame")
+	vp.Size = UDim2.fromScale(1, 1)
+	vp.BackgroundTransparency = 1
+	vp.Ambient = Color3.fromRGB(150, 155, 170)
+	vp.LightColor = Color3.new(1, 1, 1)
+	vp.LightDirection = Vector3.new(-0.6, -1, -0.4)
+	local ball = Instance.new("Part")
+	ball.Shape = Enum.PartType.Ball
+	ball.Size = Vector3.one * 3
+	ball.CFrame = CFrame.new()
+	ball.Anchored = true
+	Skins.apply(ball, Skins.Studio.Id, nil, { Color = color or "", Finish = finish or "", Ink = ink or "" })
+	ball.Parent = vp
+	local cam = Instance.new("Camera")
+	cam.FieldOfView = 30
+	cam.CFrame = CFrame.lookAt(Vector3.new(0, 1.2, 7.2), Vector3.zero)
+	cam.Parent = vp
+	vp.CurrentCamera = cam
+	vp.Parent = f
+	return f
+end
+
 function Previews.trail(id: string): Frame
 	local f = base()
 	local def = Cosmetics.get("Trails", id)
@@ -210,6 +236,7 @@ end
 
 -- Cosmetic passes show what they unlock.
 local PASS_SHOWS: { [string]: { Kind: string, Ref: string } } = {
+	BallStudio = { Kind = "Custom", Ref = "#1F5BFF|Pearl|#F5F3EE" },
 	TourCollection = { Kind = "Ball", Ref = "tour_pearl" },
 	Heritage = { Kind = "Ball", Ref = "heritage_forest" },
 	MembersClub = { Kind = "Trail", Ref = "members_contrail" },
@@ -218,6 +245,9 @@ local PASS_SHOWS: { [string]: { Kind: string, Ref: string } } = {
 function Previews.pass(key: string): Frame
 	local show = PASS_SHOWS[key]
 	if show then
+		if show.Kind == "Custom" then
+			return Previews.custom(show.Ref)
+		end
 		return if show.Kind == "Ball" then Previews.ball(show.Ref) else Previews.trail(show.Ref)
 	end
 	local f = base()
@@ -250,6 +280,8 @@ function Previews.make(kind: string, ref: string): Frame
 		return Previews.crate(ref)
 	elseif kind == "Pass" then
 		return Previews.pass(ref)
+	elseif kind == "Custom" then
+		return Previews.custom(ref)
 	elseif kind == "Coins" then
 		return Previews.coins(ref)
 	end

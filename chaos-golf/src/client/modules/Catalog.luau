@@ -72,7 +72,7 @@ local function showOnPedestal(skinId: string)
 	ball.CFrame = CFrame.new(at)
 	local profile = State.Profile
 	local serials = profile and (profile :: any).Serials
-	Skins.apply(ball, skinId, if type(serials) == "table" then serials[skinId] else nil)
+	Skins.apply(ball, skinId, if type(serials) == "table" then serials[skinId] else nil, profile and (profile :: any).Custom)
 end
 
 local function ownedSkins(): { string }
@@ -101,6 +101,21 @@ end
 -- Cards ---------------------------------------------------------------------------
 
 local function ctaFor(item: ShopCatalog.Item): (string, UIKit.ButtonVariant)
+	if item.Action == "studio" then
+		-- Seen by everyone, locked without the pass (the button then offers it).
+		if not player:GetAttribute("Pass_BallStudio") then
+			local pass = Config.GamePasses.BallStudio
+			return if pass.Id ~= 0 then "Unlock · " .. pass.Robux .. " R$" else "Ball Studio pass", if pass.Id ~= 0 then "Secondary" else "Disabled"
+		end
+		local profile = State.Profile
+		local look = Skins.validCustom(profile and (profile :: any).Custom)
+		local wearing = State.equipped("Skins") == Skins.Studio.Id
+		local current = (item.A == "Equip" and wearing) or (item.A ~= "Equip" and wearing and (look :: any)[item.A] == item.B)
+		if current then
+			return if item.A == "Equip" then "Wearing" else "Selected", "Disabled"
+		end
+		return if item.A == "Equip" then "Wear" else "Use", "Primary"
+	end
 	if item.Action == "celebration" then
 		local profile = State.Profile
 		if profile and profile.Celebration == item.A then
@@ -198,6 +213,8 @@ local function card(item: ShopCatalog.Item, order: number): Frame
 	}, function()
 		if (item.Action == "buySkin" or item.Action == "buyLimited") and item.ItemId and State.owns("Skins", item.ItemId) then
 			Net.event("ShopAction"):FireServer("equip", "Skins", item.ItemId)
+		elseif item.Action == "studio" and not player:GetAttribute("Pass_BallStudio") then
+			Net.event("ShopAction"):FireServer("buyPass", "BallStudio")
 		else
 			Net.event("ShopAction"):FireServer(item.Action, item.A, item.B)
 		end

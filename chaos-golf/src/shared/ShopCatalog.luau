@@ -142,6 +142,37 @@ ShopCatalog.Tabs = {
 					end
 				end
 			end
+			-- Ball Studio: shown to everyone (locked without the pass), each card a ball in
+			-- that colour / finish / ink on top of the current look.
+			local look = Skins.validCustom(profile and profile.Custom)
+			local function ref(color: string, finish: string, ink: string): string
+				return color .. "|" .. finish .. "|" .. ink
+			end
+			local function studio(key: string, title: string, subtitle: string, preview: string, kind: string, value: string?)
+				table.insert(out, {
+					Key = "studio:" .. key,
+					Title = title,
+					Subtitle = subtitle,
+					Accent = Config.Colors.Gold,
+					Price = nil,
+					Preview = { Kind = "Custom", Ref = preview },
+					Action = "studio",
+					A = kind,
+					B = value,
+					Category = "Studio",
+					ItemId = value,
+				})
+			end
+			studio("ball", "Your Studio Ball", "Wear your custom ball", ref(look.Color, look.Finish, look.Ink), "Equip", nil)
+			for _, c in Skins.Studio.Colors do
+				studio("color:" .. c[2], c[1], "Ball colour", ref(c[2], look.Finish, look.Ink), "Color", c[2])
+			end
+			for _, f in Skins.Studio.Finishes do
+				studio("finish:" .. f[1], f[1] .. " finish", f[2], ref(look.Color, f[1], look.Ink), "Finish", f[1])
+			end
+			for _, k in Skins.Studio.Inks do
+				studio("ink:" .. k[2], k[1] .. " print", "Logo and number ink", ref(look.Color, look.Finish, k[2]), "Ink", k[2])
+			end
 			for _, id in Config.Celebrations do
 				table.insert(out, {
 					Key = "celebration:" .. id,
@@ -197,6 +228,6 @@ ShopCatalog.Tabs = {
 } :: { Tab }
 
 -- Locker sub-filters shown as chips above the grid.
-ShopCatalog.LockerFilters = { "All", "Skins", "Trails", "Knockouts", "Arrows", "Celebrations" }
+ShopCatalog.LockerFilters = { "All", "Skins", "Studio", "Trails", "Knockouts", "Arrows", "Celebrations" }
 
 return ShopCatalog

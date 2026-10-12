@@ -14,6 +14,7 @@ local Cosmetics = require(Shared:WaitForChild("Cosmetics"))
 local Minigames = require(Shared:WaitForChild("Minigames"))
 local Net = require(Shared:WaitForChild("Net"))
 local Ranks = require(Shared:WaitForChild("Ranks"))
+local Skins = require(Shared:WaitForChild("Skins"))
 
 local Data = {}
 
@@ -26,6 +27,7 @@ export type Profile = {
 	Keys: { [string]: number }, -- crate id -> unopened crate keys
 	Login: { Day: number, LastClaim: number }, -- 14-day calendar (next day to claim)
 	Celebration: string,
+	Custom: { Color: string, Finish: string, Ink: string }, -- Ball Studio look (pass)
 	Upgrades: { [string]: number },
 	Stats: { [string]: number },
 	Ranked: { MMR: number, Wins: number, Losses: number, Draws: number, Played: number, Peak: number, V: number },
@@ -100,6 +102,7 @@ local function defaultProfile(): Profile
 		Keys = { Skins = 0, Trails = 0, Knockouts = 0, Arrows = 0 },
 		Login = { Day = 1, LastClaim = 0 },
 		Celebration = "Default",
+		Custom = table.clone(Skins.Studio.Default),
 		Upgrades = { Power = 0, Control = 0, Bounce = 0 },
 		Stats = { Wins = 0, Matches = 0, Sabotages = 0, Knockouts = 0, CoinsEarned = 0, HoleInOnes = 0, Holes = 0 },
 		Ranked = { MMR = Config.Ranked.StartMMR, Wins = 0, Losses = 0, Draws = 0, Played = 0, Peak = Config.Ranked.StartMMR, V = 2 },
@@ -168,6 +171,7 @@ function Data.snapshot(session: Session): { [string]: any }
 		Keys = p.Keys,
 		Login = p.Login,
 		Celebration = p.Celebration,
+		Custom = p.Custom,
 		Upgrades = p.Upgrades,
 		Stats = p.Stats,
 		Ranked = p.Ranked,
@@ -344,13 +348,14 @@ function Data.equip(player: Player, category: string, id: string): boolean
 end
 
 -- Equipped cosmetics as a flat table for ball spawning.
-function Data.loadout(player: Player): { Skin: string, Trail: string, Knockout: string, Arrow: string, Serial: number? }
+function Data.loadout(player: Player): { Skin: string, Trail: string, Knockout: string, Arrow: string, Serial: number?, Custom: Skins.Custom? }
 	local p = Data.profile(player)
 	local e = if p then p.Equipped else Cosmetics.Defaults
 	local skin = e.Skins or Cosmetics.Defaults.Skins
 	return {
 		Skin = skin,
 		Serial = if p and p.Serials then p.Serials[skin] else nil,
+		Custom = if p and skin == Skins.Studio.Id then Skins.validCustom(p.Custom) else nil,
 		Trail = e.Trails or Cosmetics.Defaults.Trails,
 		Knockout = e.Knockouts or Cosmetics.Defaults.Knockouts,
 		Arrow = e.Arrows or Cosmetics.Defaults.Arrows,

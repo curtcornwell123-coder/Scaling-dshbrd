@@ -67,7 +67,7 @@ export type Ball = {
 	Data: { [string]: any }, -- owner scratch space
 }
 
-export type Loadout = { Skin: string, Trail: string, Knockout: string, Arrow: string, Serial: number? }
+export type Loadout = { Skin: string, Trail: string, Knockout: string, Arrow: string, Serial: number?, Custom: Skins.Custom? }
 
 local HIT_SPEED = 14 -- relative speed that counts as a hit
 local KNOCKOUT_WINDOW = 5 -- seconds after a hit in which going out of bounds is a knockout
@@ -201,7 +201,7 @@ function BallService.create(player: Player, opts: CreateOpts): Ball
 	-- Equipped cosmetics: the skin (with its built-in aura) is applied here; the
 	-- trail, knockout effect and arrow skin are read by clients from attributes.
 	local loadout = opts.Loadout
-	Skins.apply(part, loadout and loadout.Skin, loadout and loadout.Serial)
+	Skins.apply(part, loadout and loadout.Skin, loadout and loadout.Serial, loadout and loadout.Custom)
 	part:SetAttribute("Trail", loadout and loadout.Trail or "none")
 	part:SetAttribute("Knockout", loadout and loadout.Knockout or "pop")
 	part:SetAttribute("Arrow", loadout and loadout.Arrow or "classic")

@@ -135,13 +135,13 @@ Adding a map is one line in `src/shared/Maps.luau`.
 
 | Category | Count | Built-in effects | Sources |
 |---|---|---|---|
-| Ball Skins | 76 | Epic+ auto aura; Legendary+ glow; pulse/rainbow animation | Coin Shop, Skin Crate, Mythic Featured, tokens, Ranked tiers, passes, creator code, achievements, Day 14 |
+| Ball Skins | 77 | Epic+ auto aura; Legendary+ glow; pulse/rainbow animation | Coin Shop, Skin Crate, Mythic Featured, tokens, Ranked tiers, passes, creator code, achievements, Day 14 |
 | Trails | 14 | Glow + sparks on Epic+ | Trail Crate, login |
 | Knockout Effects | 11 | 9 styles (Burst, Stars, Ring, Confetti, Shatter, Lightning, Flames, Vortex, Nova) | Knockout Crate, login |
 | Arrow Skins | 12 | 6 styles, pulse on Epic+ | Arrow Crate, login |
 | Celebrations | 4 | Cup-sink effect | Celebration Pack pass |
 
-**Game passes** (Store tab; set up with `tools/setup_monetization.py`, icons in `assets/icons`): the cosmetic passes lead, classy and never an edge: **Tour Collection** (299: Tour Black, Tour Pearl, Tour Graphite balls), **Heritage Collection** (249: pinstriped Cream, Forest and Oxblood club balls), **Members Club** (199: Members Contrail trail, Members Line aim, MEMBER nametag); then VIP (+10% coins, VIP Aurum, gold name), Celebration Pack, 2x Coins and Founder. Ball upgrades stay off in Ranked and power-ups are never sold.
+**Game passes** (Store tab; set up with `tools/setup_monetization.py`, icons in `assets/icons`): the cosmetic passes lead, classy and never an edge: **Ball Studio** (199: paint your own ball in the Locker's Studio section - 24 colours, gloss/matte/pearl/metallic finishes and 6 print inks; everyone sees the Studio cards, locked ones offer the pass; the look is saved and worn into every match), **Tour Collection** (299: Tour Black, Tour Pearl, Tour Graphite balls), **Heritage Collection** (249: pinstriped Cream, Forest and Oxblood club balls), **Members Club** (199: Members Contrail trail, Members Line aim, MEMBER nametag); then VIP (+10% coins, VIP Aurum, gold name), Celebration Pack, 2x Coins and Founder. Ball upgrades stay off in Ranked and power-ups are never sold.
 
 **14-day login calendar** (claim at the Rewards station; missing a day restarts the streak): coins, keys for all four crates, the Daily Spark trail, Sunrise Chevron arrow, Daily Fireworks knockout, and on **Day 14 the exclusive Legendary "Eternal Dawn" ball** (unique golden ray aura) plus 1,500 coins.
 

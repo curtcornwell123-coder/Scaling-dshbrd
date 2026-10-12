@@ -279,6 +279,38 @@ function Shop.celebration(player: Player, id: string)
 	result(player, true, "Celebration set: " .. id)
 end
 
+-- Ball Studio (pass) -------------------------------------------------------------
+-- kind "Color" | "Finish" | "Ink" sets that part of the look; "Equip" just puts the custom
+-- ball on. Any change equips it.
+function Shop.studio(player: Player, kind: string, value: any)
+	local session = Data.get(player)
+	if not session then
+		return
+	end
+	if not session.Passes.BallStudio then
+		Shop.promptPass(player, "BallStudio")
+		return
+	end
+	local p = session.Profile
+	local look = Skins.validCustom(p.Custom)
+	if kind == "Color" or kind == "Finish" or kind == "Ink" then
+		local candidate = table.clone(look) :: any
+		candidate[kind] = value
+		local checked = Skins.validCustom(candidate)
+		if (checked :: any)[kind] ~= value then
+			return
+		end
+		look = checked
+	elseif kind ~= "Equip" then
+		return
+	end
+	p.Custom = look
+	Data.markDirty(player)
+	Data.equip(player, "Skins", Skins.Studio.Id)
+	Data.push(player)
+	result(player, true, "Ball Studio: your ball is updated")
+end
+
 -- Robux prompts -----------------------------------------------------------------
 
 function Shop.promptPass(player: Player, key: string)
@@ -333,6 +365,11 @@ local handlers: { [string]: (Player, any, any) -> () } = {
 	upgrade = function(p, a)
 		if type(a) == "string" then
 			Shop.upgrade(p, a)
+		end
+	end,
+	studio = function(p, a, b)
+		if type(a) == "string" then
+			Shop.studio(p, a, b)
 		end
 	end,
 	celebration = function(p, a)

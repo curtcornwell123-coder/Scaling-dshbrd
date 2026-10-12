@@ -32,6 +32,7 @@ local passGrants: { [string]: { [string]: { string } } } = {
 	TourCollection = { Skins = { "tour_black", "tour_pearl", "tour_graphite" } },
 	Heritage = { Skins = { "heritage_cream", "heritage_forest", "heritage_oxblood" } },
 	MembersClub = { Trails = { "members_contrail" }, Arrows = { "members_line" } },
+	BallStudio = { Skins = { "studio" } },
 }
 Monetization.PassGrants = passGrants
 

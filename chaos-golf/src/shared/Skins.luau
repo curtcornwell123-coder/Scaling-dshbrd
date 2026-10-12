@@ -182,6 +182,8 @@ local HERITAGE_CREAM, HERITAGE_GREEN = hex("#EFE6CF"), hex("#1F4D3A")
 add("heritage_cream", "Heritage Cream", "Epic", "#EFE6CF", M.SmoothPlastic, "Pass:Heritage", { Design = { Pattern = "Pinstripe", Model = "HERITAGE", Number = "1", Ink = HERITAGE_GREEN, Accent = HERITAGE_GREEN, Club = "HERITAGE G.C." } })
 add("heritage_forest", "Heritage Forest", "Epic", "#1F4D3A", M.SmoothPlastic, "Pass:Heritage", { Design = { Pattern = "Pinstripe", Model = "HERITAGE", Number = "2", Ink = HERITAGE_CREAM, Accent = GOLD_INK, Club = "HERITAGE G.C.", Metallic = true } })
 add("heritage_oxblood", "Heritage Oxblood", "Epic", "#5A1A1F", M.SmoothPlastic, "Pass:Heritage", { Design = { Pattern = "Pinstripe", Model = "HERITAGE", Number = "3", Ink = HERITAGE_CREAM, Accent = GOLD_INK, Club = "HERITAGE G.C.", Metallic = true } })
+-- Ball Studio (pass): the owner paints this ball themselves (Skins.Studio).
+add("studio", "Studio Custom", "Rare", "#F4F6FA", M.SmoothPlastic, "Pass:BallStudio", { Design = { Pattern = "Classic", Model = "STUDIO", Number = "7" } })
 add(Config.CreatorFanSkin, "Creator Fan", "Rare", "#FF5CA8", M.SmoothPlastic, "Creator", { Light = true, Design = { Emblem = "♥" } })
 add("rookie", "Rookie", "Common", "#7AE582", M.SmoothPlastic, "Achievement", { Design = { Number = "1" } })
 
@@ -450,9 +452,80 @@ ReplicatedStorage:GetAttributeChangedSignal("BallMeshSize"):Connect(function()
 	end
 end)
 
+-- Ball Studio ---------------------------------------------------------------------------
+-- The Ball Studio pass's custom ball: the owner picks its colour, finish and print ink.
+
+export type Custom = { Color: string, Finish: string, Ink: string }
+
+Skins.Studio = {
+	Id = "studio",
+	Colors = {
+		{ "Tour White", "#F4F6FA" }, { "Ivory", "#F3EDDD" }, { "Optic Yellow", "#E8F032" }, { "Sun Gold", "#F2B705" },
+		{ "Tangerine", "#FF8A1F" }, { "Coral", "#FF6F61" }, { "Tour Red", "#C8102E" }, { "Oxblood", "#5A1A1F" },
+		{ "Blush", "#F7B6C8" }, { "Magenta", "#D6247A" }, { "Lavender", "#B9A6F2" }, { "Royal Purple", "#5B2A86" },
+		{ "Navy", "#1B2A4A" }, { "Royal Blue", "#1F5BFF" }, { "Sky", "#8FD3FF" }, { "Teal", "#0F8B8D" },
+		{ "Mint", "#9BEFC9" }, { "Fairway", "#2E8B57" }, { "Forest", "#1F4D3A" }, { "Olive", "#6B7A2A" },
+		{ "Sand", "#D9C49A" }, { "Silver", "#C9CED6" }, { "Graphite", "#4A4E55" }, { "Matte Black", "#17181B" },
+	} :: { { string } },
+	Finishes = {
+		{ "Gloss", "Shiny tour coat" }, { "Matte", "Soft, no shine" }, { "Pearl", "Pearlescent sheen" }, { "Metallic", "Brushed metal" },
+	} :: { { string } },
+	Inks = {
+		{ "Black", "#17191E" }, { "White", "#F5F3EE" }, { "Gold", "#E2B95B" }, { "Silver", "#C9D1DC" }, { "Red", "#C8102E" }, { "Navy", "#1B2A4A" },
+	} :: { { string } },
+	Default = { Color = "#F4F6FA", Finish = "Gloss", Ink = "#17191E" } :: Custom,
+}
+
+local function inList(list: { { string } }, value: any, at: number): boolean
+	for _, e in list do
+		if e[at] == value then
+			return true
+		end
+	end
+	return false
+end
+
+-- A safe custom look: anything not on the studio lists falls back to the default.
+function Skins.validCustom(c: any): Custom
+	local d = Skins.Studio.Default
+	if type(c) ~= "table" then
+		return table.clone(d)
+	end
+	return {
+		Color = if inList(Skins.Studio.Colors, c.Color, 2) then c.Color else d.Color,
+		Finish = if inList(Skins.Studio.Finishes, c.Finish, 1) then c.Finish else d.Finish,
+		Ink = if inList(Skins.Studio.Inks, c.Ink, 2) then c.Ink else d.Ink,
+	}
+end
+
+local function studioFinish(finish: string): (Enum.Material, number)
+	if finish == "Matte" then
+		return M.SmoothPlastic, 0
+	elseif finish == "Pearl" then
+		return M.SmoothPlastic, 0.2
+	elseif finish == "Metallic" then
+		return M.Foil, 0.22
+	end
+	return M.SmoothPlastic, 0.07
+end
+
 -- `serial`: the owner's copy number on limited balls (printed on the back).
-function Skins.apply(part: BasePart, skinId: string?, serial: number?)
+-- `custom`: the Ball Studio look, for the "studio" skin.
+function Skins.apply(part: BasePart, skinId: string?, serial: number?, custom: Custom?)
 	local skin = Skins.get(skinId)
+	local studio: Custom? = if skin.Id == Skins.Studio.Id then Skins.validCustom(custom) else nil
+	if studio then
+		local look = table.clone(skin) :: any
+		look.Color = Color3.fromHex(studio.Color)
+		look.Material, look.Reflect = studioFinish(studio.Finish)
+		local ink = Color3.fromHex(studio.Ink)
+		look.Design = table.clone(skin.Design or {})
+		look.Design.Ink = ink
+		look.Design.Accent = ink
+		look.Design.NumberInk = if luminance(look.Color) > 0.8 and luminance(ink) < 0.3 then NUMBER_RED else ink
+		look.Design.Metallic = studio.Finish == "Metallic"
+		skin = look
+	end
 	local auraColor, hasLight = Skins.effects(skin)
 	local material, reflectance, transparency = Skins.finish(skin)
 	part.Color = skin.Color
@@ -469,7 +542,7 @@ function Skins.apply(part: BasePart, skinId: string?, serial: number?)
 
 	-- Printing: rebuilt only when the skin, size or serial changes.
 	local d = math.min(part.Size.X, part.Size.Y, part.Size.Z)
-	local key = string.format("%s|%.3f|%s", skin.Id, d, tostring(serial or ""))
+	local key = string.format("%s|%.3f|%s|%s", skin.Id, d, tostring(serial or ""), if studio then studio.Color .. studio.Finish .. studio.Ink else "")
 	if part:GetAttribute("PrintKey") ~= key then
 		local old = part:FindFirstChild(BallPrints.FolderName)
 		if old then
