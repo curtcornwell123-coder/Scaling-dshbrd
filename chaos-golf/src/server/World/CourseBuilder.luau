@@ -1097,7 +1097,7 @@ local function buildTee(ctx: Ctx, holeModel: Model, parent: Instance, teeTop: Ve
 end
 
 -- A real cup cut into the green (CupHole: the floor and the layers under it are cut round
--- it, a white liner and a dark bottom), the flag just behind it.
+-- it, a white liner and a dark bottom) with the pin standing in it.
 local function buildCup(ctx: Ctx, hole: Instance, parent: Instance, cup: Vector3, approach: Vector3)
 	local theme = ctx.Theme
 	local d = 2 * CUP_R + 0.2
@@ -1107,13 +1107,7 @@ local function buildCup(ctx: Ctx, hole: Instance, parent: Instance, cup: Vector3
 		-- Not on a flat floor block (never for generated holes): painted cup, judged on the flat.
 		Parts.disc(parent, cup + up(0.04), d, 0.02, { Name = "Cup", Color = Color3.fromRGB(8, 8, 12), CanCollide = false, CanQuery = false, CastShadow = false })
 	end
-	local pole = cup + approach * (d / 2 + 0.15)
-	local flagProps: Parts.Props = { Name = "Flag", Color = theme.Accent, Material = Enum.Material.Fabric, CanCollide = false, CanQuery = false }
-	Parts.cylinder(parent, CFrame.new(pole + up(3.6)), 7.2, 0.18, { Name = "FlagPole", Color = Color3.fromRGB(240, 240, 245), CanCollide = false, CanQuery = false })
-	local side = Vector3.new(-approach.Z, 0, approach.X)
-	local flagPos = pole + up(6.3) + side * 1.32
-	Parts.block(parent, CFrame.lookAt(flagPos, flagPos + approach), Vector3.new(2.5, 1.6, 0.08), flagProps)
-	Parts.ball(parent, pole + up(7.3), 0.42, { Name = "FlagTip", Color = Color3.fromRGB(230, 190, 80), Material = Enum.Material.Metal, CanCollide = false, CanQuery = false })
+	CupHole.flagstick(parent, cup, theme.Accent, approach)
 end
 
 local function overviewFor(ctx: Ctx, tops: { Vector3 }, tee: Vector3, look: Vector3): CFrame

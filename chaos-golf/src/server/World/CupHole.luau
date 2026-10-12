@@ -8,6 +8,7 @@
 -- the cup's own collidable liner and bottom (so it also works over an open well). An invisible lid flush with the green blocks only Tiny-Cup balls
 -- (BallService judges them on the flat, see CupPhysics) and characters (feet don't catch).
 
+local CollectionService = game:GetService("CollectionService")
 local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -303,6 +304,48 @@ function CupHole.build(parent: Instance, cup: Vector3): Model
 	})
 	lid.CollisionGroup = CupHole.LidGroup
 	lids[key(cup)] = lid
+	return m
+end
+
+-- The flagstick: a pin standing in the middle of the cup down to its bottom, the flag near
+-- the top (out to the side of the line the ball comes in on, facing it). Tagged "CupFlag"
+-- (attributes Cup, Lift): clients pull it just clear of the hole while a ball is near it,
+-- as a caddie tends the pin (see client CupFlags).
+CupHole.FlagTag = "CupFlag"
+CupHole.PinHeight = 7.2 -- above the green
+
+function CupHole.flagstick(parent: Instance, cup: Vector3, color: Color3, approach: Vector3): Model
+	local m = Instance.new("Model")
+	m.Name = "Flagstick"
+	local D, H = CupHole.Depth, CupHole.PinHeight
+	local pin = Parts.cylinder(m, CFrame.new(cup + Vector3.new(0, (H - D) / 2, 0)), H + D, 0.16, {
+		Name = "FlagPole",
+		Color = Color3.fromRGB(244, 244, 240),
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+	})
+	-- A dark band near the foot, like the ferrule end of a real pin.
+	Parts.cylinder(m, CFrame.new(cup + Vector3.new(0, -D + 0.2, 0)), 0.4, 0.18, { Name = "Ferrule", Color = Color3.fromRGB(40, 40, 44), CanCollide = false, CanQuery = false, CanTouch = false })
+	local dir = Vector3.new(approach.X, 0, approach.Z)
+	dir = if dir.Magnitude > 1e-3 then dir.Unit else Vector3.new(0, 0, 1)
+	local side = Vector3.new(-dir.Z, 0, dir.X)
+	local flagPos = cup + Vector3.new(0, H - 0.95, 0) + side * 1.3
+	Parts.block(m, CFrame.lookAt(flagPos, flagPos + dir), Vector3.new(2.5, 1.6, 0.06), {
+		Name = "Flag",
+		Color = color,
+		Material = Enum.Material.Fabric,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+	})
+	Parts.ball(m, cup + Vector3.new(0, H + 0.1, 0), 0.3, { Name = "FlagTip", Color = Color3.fromRGB(230, 190, 80), Material = Enum.Material.Metal, CanCollide = false, CanQuery = false, CanTouch = false })
+	m.PrimaryPart = pin
+	m:SetAttribute("Cup", cup)
+	m:SetAttribute("Lift", D + 0.5) -- just clear of the cup, held there
+	CollectionService:AddTag(m, CupHole.FlagTag)
+	m.Parent = parent
 	return m
 end
 

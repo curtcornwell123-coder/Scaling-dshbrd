@@ -317,7 +317,7 @@ flow("flat cup physics: centre putt drops, fast putt hops with a lip-out, half-o
 e0 = errs()
 local CupHole = Sim.module("server", "CupHole")
 local realAt = V(0, 700, 0)
-local turf, soil, cutN, holeModel
+local turf, soil, cutN, holeModel, pin
 Sim.asSide("server", function()
 	turf = Instance.new("Part")
 	turf.Name = "RealTestTurf"
@@ -336,8 +336,19 @@ Sim.asSide("server", function()
 	soil.Parent = holder
 	cutN = CupHole.carve(holder, realAt)
 	holeModel = CupHole.build(holder, realAt)
+	pin = CupHole.flagstick(holder, realAt, Sim.types.Color3.new(1, 0, 0), V(1, 0, 0))
 	green = holder
 end)
+Sim.run(0.2)
+-- The lift is client-side (local animation), so read the pin as a client sees it.
+local function pinY()
+	local y = 0
+	Sim.asSide("client", function()
+		y = pin:GetPivot().Position.Y
+	end)
+	return y
+end
+local pinBase = pinY()
 local function down(x, z, group)
 	local p = RaycastParams.new()
 	p.CollisionGroup = group or "Default"
@@ -355,6 +366,7 @@ for _, x in Sim.descendants(green) do
 end
 lip0 = lipOuts()
 local realSlow = putt(-6, 0, 14, 2, realAt)
+local pinUp = pinY() - pinBase
 local realFast = putt(-6, 0, 42, 0.8, realAt)
 local realLip = lipOuts() - lip0
 local realHalf = putt(CR + 0.12, 0, 0, 2, realAt)
@@ -363,9 +375,15 @@ local tinyIn, _, _, tinyLow = putt(-6, 0, 14, 2, realAt, 0.45)
 local tinyOff, _, _, offLow = putt(-6, 0.9, 14, 2, realAt, 0.45)
 Sim.asSide("server", function()
 	BallService.destroy(golfer)
+end)
+Sim.run(4)
+local pinBack = pinY() - pinBase
+Sim.asSide("server", function()
 	green:Destroy()
 end)
 Sim.removePlayer(golfer)
+flow("flagstick: stands in the cup, lifted just clear while a ball is near, set back after", errs() == e0 and math.abs(pin:GetAttribute("Lift") - pinUp) < 0.3 and math.abs(pinBack) < 0.05,
+	string.format("up=%.2f (lift %.2f) back=%.3f", pinUp, pin:GetAttribute("Lift"), pinBack))
 flow("real cup: hole cut clear to the bottom, real drops and lip-outs, Tiny Cup rides the lid", errs() == e0 and cutN == 2 and pieces >= 40
 		and centreName == "CupBottom" and centreY and centreY < -1.8 and rimY and math.abs(rimY) < 0.01 and lidY and math.abs(lidY) < 0.01
 		and realSlow and not realFast and realLip == 1 and realHalf and not realTouch and tinyIn and tinyLow > -0.2 and not tinyOff and offLow > -0.2,

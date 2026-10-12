@@ -89,7 +89,7 @@ local function showLaneEnd(lane: LobbyTypes.Lane, on: boolean)
 end
 
 -- A real cup (CupHole) at a cup spot of this game: the lane end is swapped for a copy with
--- the hole cut in (over the well beneath), the flag beside it. Returns the rim centre.
+-- the hole cut in (over the well beneath), the pin standing in it. Returns the rim centre.
 local function cup(state: LaneState, spot: { D: number, X: number }, flag: Color3): Vector3
 	local lane = state.Lane
 	local folder = lane.Props
@@ -101,8 +101,7 @@ local function cup(state: LaneState, spot: { D: number, X: number }, flag: Color
 	showLaneEnd(lane, false)
 	CupHole.cut(live, pos)
 	CupHole.build(folder, pos)
-	Parts.rod(folder, pos + Vector3.new(1.4, 0, 0), pos + Vector3.new(1.4, 5, 0), 0.15, { Color = Color3.new(1, 1, 1), CanCollide = false, CanQuery = false })
-	Parts.block(folder, CFrame.new(pos + Vector3.new(2.2, 4.4, 0)), Vector3.new(1.6, 1, 0.1), { Color = flag, CanCollide = false, CanQuery = false, Name = "Flag" })
+	CupHole.flagstick(folder, pos, flag, lane.Origin.LookVector)
 	return pos
 end
 
