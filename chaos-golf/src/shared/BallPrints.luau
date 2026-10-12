@@ -315,6 +315,11 @@ local function ring(ctx: Ctx, latDeg: number, thickness: number, color: Color3, 
 	attach(ctx, p, CFrame.new(0, y0, 0) * CFrame.Angles(0, 0, math.pi / 2))
 end
 
+-- Colour of a glowing ball's inner light for a shell of `shell` and a skin core of `core`.
+function BallPrints.coreColor(shell: Color3, core: Color3): Color3
+	return shell:Lerp(core, 0.45):Lerp(Color3.new(0, 0, 0), 0.2)
+end
+
 -- Builds the markings for `design` on `ball` (diameter d). Returns the folder.
 function BallPrints.build(ball: BasePart, design: Design, d: number): Folder
 	local folder = Instance.new("Folder")
@@ -328,8 +333,12 @@ function BallPrints.build(ball: BasePart, design: Design, d: number): Folder
 		local core = Instance.new("Part")
 		core.Name = BallPrints.CoreName
 		core.Shape = Enum.PartType.Ball
-		core.Size = Vector3.one * d * 0.84
-		core.Color = design.Core
+		-- The inner light: nearly fills the shell (no "ball in a ball" ring) and takes its hue
+		-- from the shell, warmed by the skin's core colour and dimmed - a soft even glow, not a
+		-- white-hot disc.
+		core.Size = Vector3.one * d * 0.9
+		core.Color = BallPrints.coreColor(ball.Color, design.Core)
+		core:SetAttribute("Tint", design.Core) -- pulsing shells re-tint it (WorldFx)
 		core.Material = Enum.Material.Neon
 		core.TopSurface = Enum.SurfaceType.Smooth
 		core.BottomSurface = Enum.SurfaceType.Smooth

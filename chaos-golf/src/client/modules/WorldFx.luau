@@ -520,7 +520,7 @@ function WorldFx.start()
 			else
 				local color: Color3? = nil
 				if part:GetAttribute("SkinRainbow") then
-					color = Color3.fromHSV((t * 0.15) % 1, 0.75, 1)
+					color = Color3.fromHSV((t * 0.12) % 1, 0.6, 0.95)
 				else
 					local a = part:GetAttribute("SkinBase") :: Color3?
 					local b = part:GetAttribute("SkinPulse") :: Color3?
@@ -530,11 +530,11 @@ function WorldFx.start()
 				end
 				if color then
 					part.Color = color
-					-- Glowing skins: the neon core follows the shell, a touch brighter.
+					-- Glowing skins: the soft inner light follows the shell.
 					local prints = part:FindFirstChild(BallPrints.FolderName)
 					local core = prints and prints:FindFirstChild(BallPrints.CoreName) :: BasePart?
 					if core then
-						core.Color = color:Lerp(Color3.new(1, 1, 1), 0.25)
+						core.Color = BallPrints.coreColor(color, (core:GetAttribute("Tint") :: Color3?) or color)
 					end
 				end
 			end

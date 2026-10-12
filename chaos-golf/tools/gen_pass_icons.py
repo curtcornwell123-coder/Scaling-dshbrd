@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Ultimate Golf - icons for the cosmetic passes (Ball Studio, Tour, Heritage, Members Club).
+"""Ultimate Golf - icons for the cosmetic passes (Ball Studio, Tour, Heritage, Members Club)
+and the limited Corny Games Studio ball product.
 
 Composites transparent ball renders (tools/render_balls.py --transparent) onto a club-style
 badge. Content stays inside the central circle (Roblox crops pass icons to a circle).
 
 Usage:
   tests/boot/dump_balls.sh <luau> <defs> balls.txt
-  python tools/render_balls.py balls.txt --only tour_black,tour_pearl,tour_graphite,heritage_cream,heritage_forest,heritage_oxblood \
+  python tools/render_balls.py balls.txt --only tour_black,tour_pearl,tour_graphite,heritage_cream,heritage_forest,heritage_oxblood,corny_studio \
       --views three --transparent --res 900x900 --out RENDERS
-  python3 tools/gen_pass_icons.py RENDERS
+  python3 tools/gen_pass_icons.py RENDERS [icon.png ...]
 """
 import math
 import os
@@ -119,12 +120,13 @@ def tinted(renders, ball_id, size, rgb):
 
 def studio(renders):
     img = badge((38, 40, 46), (12, 13, 15), (226, 185, 91))
-    colours = [(31, 91, 255), (200, 16, 46), (232, 240, 50), (46, 139, 87)]
+    # The studio-only shades (Skins.Studio.Colors): Mulberry, Cornflower, Peach, Bronze Olive.
+    colours = [(122, 46, 78), (122, 156, 217), (246, 193, 160), (122, 106, 46)]
     spots = [(S * 0.25, S * 0.47, 250), (S * 0.75, S * 0.47, 250), (S * 0.36, S * 0.36, 230), (S * 0.64, S * 0.36, 230)]
     for (x, y, size), rgb in zip([spots[2], spots[3], spots[0], spots[1]], colours):
         b = tinted(renders, "tour_pearl", size, rgb)
         img.alpha_composite(b, (int(x - b.size[0] / 2), int(y - b.size[1] / 2)))
-    centre = ball(renders, "tour_pearl", 400)
+    centre = tinted(renders, "tour_pearl", 400, (156, 175, 136))  # Sage
     shadow(img, (S * 0.5, S * 0.55 + 190), 400)
     img.alpha_composite(centre, (int(S * 0.5 - centre.size[0] / 2), int(S * 0.55 - centre.size[1] / 2)))
     dr = ImageDraw.Draw(img)
@@ -134,17 +136,37 @@ def studio(renders):
     return img
 
 
+def limited(renders):
+    gold = (226, 185, 91)
+    img = badge((34, 32, 30), (8, 8, 9), gold)
+    b = ball(renders, "corny_studio", 520)
+    shadow(img, (S * 0.5, S * 0.47 + 250), 520, 140)
+    img.alpha_composite(b, (int(S * 0.5 - b.size[0] / 2), int(S * 0.47 - b.size[1] / 2)))
+    dr = ImageDraw.Draw(img)
+    f = font(FONT, 84)
+    w = dr.textlength("LIMITED", font=f)
+    dr.text(((S - w) / 2, S * 0.76), "LIMITED", font=f, fill=gold + (255,))
+    f2 = font(FONT_SEMI, 40)
+    w2 = dr.textlength("500 EVER MADE", font=f2)
+    dr.text(((S - w2) / 2, S * 0.855), "500 EVER MADE", font=f2, fill=(236, 238, 242, 255))
+    return img
+
+
 def main():
     renders = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", "renders", "balls")
     os.makedirs(OUT, exist_ok=True)
+    only = set(sys.argv[2:])  # optional: just these icons, e.g. pass_studio.png
     icons = {
-        "pass_tour.png": trio(renders, ["tour_black", "tour_pearl", "tour_graphite"], (40, 42, 47), (12, 13, 15), (226, 185, 91), "TOUR", (236, 238, 242)),
-        "pass_heritage.png": trio(renders, ["heritage_cream", "heritage_forest", "heritage_oxblood"], (28, 74, 55), (11, 32, 24), (226, 185, 91), "HERITAGE", (239, 230, 207)),
-        "pass_members.png": members(),
-        "pass_studio.png": studio(renders),
+        "pass_tour.png": lambda: trio(renders, ["tour_black", "tour_pearl", "tour_graphite"], (40, 42, 47), (12, 13, 15), (226, 185, 91), "TOUR", (236, 238, 242)),
+        "pass_heritage.png": lambda: trio(renders, ["heritage_cream", "heritage_forest", "heritage_oxblood"], (28, 74, 55), (11, 32, 24), (226, 185, 91), "HERITAGE", (239, 230, 207)),
+        "pass_members.png": members,
+        "pass_studio.png": lambda: studio(renders),
+        "product_limited_ball.png": lambda: limited(renders),
     }
-    for name, img in icons.items():
-        img.resize((FINAL, FINAL), Image.LANCZOS).save(os.path.join(OUT, name))
+    for name, make in icons.items():
+        if only and name not in only:
+            continue
+        make().resize((FINAL, FINAL), Image.LANCZOS).save(os.path.join(OUT, name))
         print("wrote", os.path.join(OUT, name))
 
 

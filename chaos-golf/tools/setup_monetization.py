@@ -24,7 +24,7 @@ PASSES = [  # (Config key, name, price, description, icon, for sale)
      "pass_celebrations.png", True),
     ("Founder", "Founder", 99, "Founder Epic skin and the FOUNDER title. Launch only!", "pass_founder.png", True),
     ("BallStudio", "Ball Studio", 199,
-     "Paint your own ball in the Locker: 24 colours, 4 finishes (gloss, matte, pearl, metallic) and 6 print inks. Cosmetic only.",
+     "Paint your own ball in the Locker: 6 shades no other ball has (Sage, Mauve, Cornflower, Peach, Mulberry, Bronze Olive), 4 finishes and 4 print inks. Cosmetic only.",
      "pass_studio.png", True),
     ("TourCollection", "Tour Collection", 299,
      "Three tour balls for your locker: Tour Black, Tour Pearl and Tour Graphite. Cosmetic only.", "pass_tour.png", True),
@@ -41,6 +41,9 @@ PRODUCTS = [  # (Config key, name, price, description, icon)
     ("MythicCrate", "Mythic Featured Crate", 99,
      "Open 1 Mythic Featured Crate (odds shown in game). If the global stock is sold out you get 6,000 coins instead.",
      "product_mythic_crate.png"),
+    ("LimitedBall", "Corny Games Studio Ball", 9,
+     "One numbered Corny Games Studio ball (500 ever made). If the last copy sells first you get 200 coins instead.",
+     "product_limited_ball.png"),
 ]
 
 

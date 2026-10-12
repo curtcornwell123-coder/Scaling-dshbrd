@@ -105,6 +105,18 @@ for _, skin in Skins.List do
 	check(m ~= Enum.Material.Neon, "no flat neon balls " .. skin.Id)
 	if d.Core then check(tr > 0 or m == Enum.Material.ForceField, "core shows through " .. skin.Id) end
 end
+-- Ball Studio shades are exclusive: no other ball comes close to any of them.
+check(#Skins.Studio.Colors == 6 and #Skins.Studio.Inks == 4, "small studio palette")
+for _, c in Skins.Studio.Colors do
+	local sc = Color3.fromHex(c[2])
+	for _, skin in Skins.List do
+		if skin.Id ~= Skins.Studio.Id then
+			local d = math.sqrt((sc.R - skin.Color.R) ^ 2 + (sc.G - skin.Color.G) ^ 2 + (sc.B - skin.Color.B) ^ 2) * 255
+			check(d >= 45, "studio " .. c[1] .. " is exclusive (near " .. skin.Id .. ")")
+		end
+	end
+end
+check(Skins.validCustom({ Color = "#1F5BFF", Finish = "Pearl", Ink = "#C8102E" }).Color == Skins.Studio.Default.Color, "retired studio shade falls back")
 -- Limited edition: exists, never sold in rotation or crates, serial printed on the back.
 local ltd = Skins.get(Config.Limited.Skin)
 check(ltd.Id == Config.Limited.Skin and ltd.Source == "Limited", "limited skin")

@@ -183,7 +183,7 @@ add("heritage_cream", "Heritage Cream", "Epic", "#EFE6CF", M.SmoothPlastic, "Pas
 add("heritage_forest", "Heritage Forest", "Epic", "#1F4D3A", M.SmoothPlastic, "Pass:Heritage", { Design = { Pattern = "Pinstripe", Model = "HERITAGE", Number = "2", Ink = HERITAGE_CREAM, Accent = GOLD_INK, Club = "HERITAGE G.C.", Metallic = true } })
 add("heritage_oxblood", "Heritage Oxblood", "Epic", "#5A1A1F", M.SmoothPlastic, "Pass:Heritage", { Design = { Pattern = "Pinstripe", Model = "HERITAGE", Number = "3", Ink = HERITAGE_CREAM, Accent = GOLD_INK, Club = "HERITAGE G.C.", Metallic = true } })
 -- Ball Studio (pass): the owner paints this ball themselves (Skins.Studio).
-add("studio", "Studio Custom", "Rare", "#F4F6FA", M.SmoothPlastic, "Pass:BallStudio", { Design = { Pattern = "Classic", Model = "STUDIO", Number = "7" } })
+add("studio", "Studio Custom", "Rare", "#9CAF88", M.SmoothPlastic, "Pass:BallStudio", { Design = { Pattern = "Classic", Model = "STUDIO", Number = "7" } })
 add(Config.CreatorFanSkin, "Creator Fan", "Rare", "#FF5CA8", M.SmoothPlastic, "Creator", { Light = true, Design = { Emblem = "♥" } })
 add("rookie", "Rookie", "Common", "#7AE582", M.SmoothPlastic, "Achievement", { Design = { Number = "1" } })
 
@@ -380,7 +380,9 @@ function Skins.finish(skin: Skin): (Enum.Material, number, number)
 		if skin.Material == M.ForceField then
 			return M.ForceField, 0, 0
 		end
-		return M.Glass, 0.06, 0.4
+		-- A lit ball, not a neon disc: the coloured shell stays mostly opaque (its dimples read)
+		-- and only lets a soft share of the core's light through.
+		return M.Glass, 0.06, 0.22
 	end
 	local m = skin.Material
 	if m == M.Foil then
@@ -459,21 +461,19 @@ export type Custom = { Color: string, Finish: string, Ink: string }
 
 Skins.Studio = {
 	Id = "studio",
+	-- Six shades no other ball in the game wears (a unit test keeps every other skin well
+	-- clear of them), so a Studio ball is the only way to get one.
 	Colors = {
-		{ "Tour White", "#F4F6FA" }, { "Ivory", "#F3EDDD" }, { "Optic Yellow", "#E8F032" }, { "Sun Gold", "#F2B705" },
-		{ "Tangerine", "#FF8A1F" }, { "Coral", "#FF6F61" }, { "Tour Red", "#C8102E" }, { "Oxblood", "#5A1A1F" },
-		{ "Blush", "#F7B6C8" }, { "Magenta", "#D6247A" }, { "Lavender", "#B9A6F2" }, { "Royal Purple", "#5B2A86" },
-		{ "Navy", "#1B2A4A" }, { "Royal Blue", "#1F5BFF" }, { "Sky", "#8FD3FF" }, { "Teal", "#0F8B8D" },
-		{ "Mint", "#9BEFC9" }, { "Fairway", "#2E8B57" }, { "Forest", "#1F4D3A" }, { "Olive", "#6B7A2A" },
-		{ "Sand", "#D9C49A" }, { "Silver", "#C9CED6" }, { "Graphite", "#4A4E55" }, { "Matte Black", "#17181B" },
+		{ "Sage", "#9CAF88" }, { "Mauve", "#9C7A97" }, { "Cornflower", "#7A9CD9" },
+		{ "Peach", "#F6C1A0" }, { "Mulberry", "#7A2E4E" }, { "Bronze Olive", "#7A6A2E" },
 	} :: { { string } },
 	Finishes = {
 		{ "Gloss", "Shiny tour coat" }, { "Matte", "Soft, no shine" }, { "Pearl", "Pearlescent sheen" }, { "Metallic", "Brushed metal" },
 	} :: { { string } },
 	Inks = {
-		{ "Black", "#17191E" }, { "White", "#F5F3EE" }, { "Gold", "#E2B95B" }, { "Silver", "#C9D1DC" }, { "Red", "#C8102E" }, { "Navy", "#1B2A4A" },
+		{ "Black", "#17191E" }, { "White", "#F5F3EE" }, { "Gold", "#E2B95B" }, { "Silver", "#C9D1DC" },
 	} :: { { string } },
-	Default = { Color = "#F4F6FA", Finish = "Gloss", Ink = "#17191E" } :: Custom,
+	Default = { Color = "#9CAF88", Finish = "Gloss", Ink = "#17191E" } :: Custom,
 }
 
 local function inList(list: { { string } }, value: any, at: number): boolean
@@ -557,8 +557,8 @@ function Skins.apply(part: BasePart, skinId: string?, serial: number?, custom: C
 		if not light then
 			local newLight = Instance.new("PointLight")
 			newLight.Name = "SkinLight"
-			newLight.Range = 7
-			newLight.Brightness = 1.6
+			newLight.Range = 5
+			newLight.Brightness = 0.75
 			newLight.Shadows = false
 			newLight.Parent = part
 			light = newLight
@@ -574,14 +574,14 @@ function Skins.apply(part: BasePart, skinId: string?, serial: number?, custom: C
 			local e = Instance.new("ParticleEmitter")
 			e.Name = "SkinAura"
 			e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-			e.LightEmission = 1
+			e.LightEmission = 0.6
 			e.LightInfluence = 0
-			e.Rate = 10
+			e.Rate = 4
 			e.Lifetime = NumberRange.new(0.5, 0.9)
-			e.Speed = NumberRange.new(0.4, 1.2)
+			e.Speed = NumberRange.new(0.3, 0.9)
 			e.SpreadAngle = Vector2.new(180, 180)
 			e.Transparency = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 0.2),
+				NumberSequenceKeypoint.new(0, 0.4),
 				NumberSequenceKeypoint.new(1, 1),
 			})
 			e.Parent = part
@@ -589,9 +589,9 @@ function Skins.apply(part: BasePart, skinId: string?, serial: number?, custom: C
 		end
 		local e = aura :: ParticleEmitter
 		e.Color = ColorSequence.new(auraColor)
-		e.Rate = if Skins.Rarities[skin.Rarity].Order >= Skins.Rarities.Legendary.Order then 16 else 10
+		e.Rate = if Skins.Rarities[skin.Rarity].Order >= Skins.Rarities.Legendary.Order then 7 else 4
 		e.Size = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.25 * part.Size.X / Config.Ball.Diameter),
+			NumberSequenceKeypoint.new(0, 0.18 * part.Size.X / Config.Ball.Diameter),
 			NumberSequenceKeypoint.new(1, 0),
 		})
 	elseif aura then

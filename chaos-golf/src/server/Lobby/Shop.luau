@@ -84,15 +84,12 @@ function Shop.buySkin(player: Player, id: string)
 	result(player, true, "Bought & equipped " .. skin.Name)
 end
 
--- Limited edition: reserve a copy worldwide first (its number is the buyer's serial),
--- then take the coins; give the copy back if the payment fails.
-local buying: { [Player]: boolean } = {}
-
+-- Limited edition: a small Robux buy. Owners just wear it; otherwise the purchase prompt
+-- opens, and Monetization reserves the copy (its number is the serial) once it's paid.
 function Shop.buyLimited(player: Player)
 	local id = Config.Limited.Skin
 	local skin = Skins.ById[id]
-	local session = Data.get(player)
-	if not skin or not session or buying[player] then
+	if not skin or not Data.get(player) then
 		return
 	end
 	if Data.owns(player, "Skins", id) then
@@ -104,34 +101,7 @@ function Shop.buyLimited(player: Player)
 		result(player, false, skin.Name .. " is sold out")
 		return
 	end
-	local price = Config.Limited.Price
-	if session.Profile.Coins < price then
-		result(player, false, "Not enough coins")
-		return
-	end
-	buying[player] = true
-	local ok, serial = LimitedStock.reserve()
-	buying[player] = nil
-	if not ok then
-		result(player, false, if LimitedStock.remaining() <= 0 then skin.Name .. " just sold out" else "Couldn't reserve a copy, try again")
-		return
-	end
-	if not player.Parent or not Data.spend(player, price) then
-		LimitedStock.release()
-		result(player, false, "Not enough coins")
-		return
-	end
-	session.Profile.Serials[id] = serial
-	Data.grant(player, "Skins", id)
-	Data.equip(player, "Skins", id)
-	Data.markDirty(player)
-	Data.push(player)
-	CreatorCodes.record(player, price, 0)
-	result(player, true, string.format("%s No. %d of %d is yours", skin.Name, serial, LimitedStock.Cap))
-	Net.event("Fx"):FireAllClients("announce", {
-		Text = string.format("%s just bought %s No. %d of %d!", player.DisplayName, skin.Name, serial, LimitedStock.Cap),
-		Color = Config.Colors.Gold,
-	})
+	Shop.promptProduct(player, Config.Limited.Product)
 end
 
 function Shop.equip(player: Player, category: string, id: string)
@@ -338,6 +308,10 @@ function Shop.promptProduct(player: Player, key: string)
 		result(player, false, "Sold out")
 		return
 	end
+	if key == Config.Limited.Product and (LimitedStock.remaining() <= 0 or Data.owns(player, "Skins", Config.Limited.Skin)) then
+		Shop.buyLimited(player)
+		return
+	end
 	MarketplaceService:PromptProductPurchase(player, product.Id)
 end
 
@@ -499,7 +473,7 @@ local function buildLimited()
 	local skin = Skins.get(Config.Limited.Skin)
 	local ball = Displays.ball(propsFolder, Displays.anchorPoint(vault.Pedestal), skin.Id, 3)
 	ball:SetAttribute("SpinSpeed", 0.6)
-	local price = UIKit.formatNumber(Config.Limited.Price) .. " coins"
+	local price = Config.DevProducts[Config.Limited.Product].Robux .. " R$"
 	local sub, left = plaque(vault.Plaque, skin.Name, "Limited edition · " .. LimitedStock.Cap .. " ever made", Skins.Rarities.Mythic.Color, "")
 	local prompt = Parts.prompt(vault.Pedestal, "Buy · " .. price, skin.Name .. " (Limited)", { Name = "LimitedPrompt", Hold = 0.8, Distance = 9 })
 	prompt.Triggered:Connect(function(player)

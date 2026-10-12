@@ -241,11 +241,14 @@ Config.Mythic = {
 }
 
 -- Limited-edition balls: only Stock copies ever exist worldwide (shared DataStore counter),
--- each printed with its serial ("137 OF 500"). Sold for coins at the shop's vault case.
+-- each printed with its serial ("137 OF 500"). A small Robux buy (DevProducts.LimitedBall)
+-- at the shop's vault case; a copy is only reserved once the purchase goes through, and if
+-- the last one sold in the meantime the buyer gets RefundCoins instead.
 Config.Limited = {
 	Skin = "corny_studio",
 	Stock = 500,
-	Price = 10000,
+	Product = "LimitedBall",
+	RefundCoins = 200,
 	Key = "LimitedSold_corny_studio",
 	StockRefresh = 45,
 }
@@ -263,6 +266,7 @@ Config.DevProducts = {
 	Coins3 = { Id = 0, Robux = 399, Coins = 10000, Name = "Coin Chest" },
 	Coins4 = { Id = 0, Robux = 999, Coins = 28000, Name = "Coin Vault" },
 	MythicCrate = { Id = 0, Robux = 99, Name = "Mythic Featured Crate" },
+	LimitedBall = { Id = 0, Robux = 9, Name = "Corny Games Studio Ball" },
 } :: { [string]: ProductDef }
 
 Config.GamePasses = {
@@ -271,7 +275,7 @@ Config.GamePasses = {
 	Celebrations = { Id = 0, Robux = 149, Name = "Celebration Pack", Desc = "3 exclusive cup-sink celebrations" },
 	Founder = { Id = 0, Robux = 99, Name = "Founder", Desc = "Founder skin + Founder title (launch only)" },
 	-- Cosmetic only: looks, never an edge.
-	BallStudio = { Id = 0, Robux = 199, Name = "Ball Studio", Desc = "Paint your own ball: 24 colours, 4 finishes, 6 print inks" },
+	BallStudio = { Id = 0, Robux = 199, Name = "Ball Studio", Desc = "Paint your own ball: 6 shades no other ball has, 4 finishes, 4 print inks" },
 	TourCollection = { Id = 0, Robux = 299, Name = "Tour Collection", Desc = "3 tour balls: Tour Black, Tour Pearl, Tour Graphite" },
 	Heritage = { Id = 0, Robux = 249, Name = "Heritage Collection", Desc = "3 pinstriped club balls: Cream, Forest, Oxblood" },
 	MembersClub = { Id = 0, Robux = 199, Name = "Members Club", Desc = "Members Contrail trail, Members Line aim, MEMBER nametag" },

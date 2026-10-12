@@ -50,7 +50,7 @@ A circular marble-and-walnut atrium (radius 56) under an oak ceiling on black-st
 ### East: Pro Shop
 
 - **Ball collection**: 12 balls in jewellery-style glass cases (walnut plinths, brass edges, velvet decks, engraved plaques). A balanced set (5 Common, 4 Rare, 2 Epic, 1 Legendary) every 10 minutes, the same in every server; the hanging board by the entrance counts down.
-- **Limited vault** in the middle of the runner: the **Corny Games Studio** ball, 500 ever made (global stock), each printed with its serial, behind velvet ropes.
+- **Limited vault** in the middle of the runner: the **Corny Games Studio** ball, 500 ever made (global stock), each printed with its serial, behind velvet ropes. It's a small **9 R$** buy (developer product `LimitedBall`): the copy is reserved when the receipt comes in, and if the last one sold in the meantime the buyer gets 200 coins instead.
 - **Four category crates** (Ball Skins, Trails, Knockout Effects, Arrow Skins) with odds boards and pity; the **Mythic Featured shrine** with its global stock counter; pass pedestals and coin-pack kiosks.
 - **Catalog terminal**: data-driven grid (`ShopCatalog`): Rotation / Crates / Locker / Passes.
 
@@ -135,13 +135,13 @@ Adding a map is one line in `src/shared/Maps.luau`.
 
 | Category | Count | Built-in effects | Sources |
 |---|---|---|---|
-| Ball Skins | 77 | Epic+ auto aura; Legendary+ glow; pulse/rainbow animation | Coin Shop, Skin Crate, Mythic Featured, tokens, Ranked tiers, passes, creator code, achievements, Day 14 |
+| Ball Skins | 77 | Epic+ auto aura; Legendary+ glow; pulse/rainbow animation. Glowing balls are lit from inside: a mostly opaque tinted shell (dimples still read) over an inner light that nearly fills it and takes the shell's hue, a soft point light and a sparse aura - an even glow, never a white-hot disc | Coin Shop, Skin Crate, Mythic Featured, tokens, Ranked tiers, passes, creator code, achievements, Day 14 |
 | Trails | 14 | Glow + sparks on Epic+ | Trail Crate, login |
 | Knockout Effects | 11 | 9 styles (Burst, Stars, Ring, Confetti, Shatter, Lightning, Flames, Vortex, Nova) | Knockout Crate, login |
 | Arrow Skins | 12 | 6 styles, pulse on Epic+ | Arrow Crate, login |
 | Celebrations | 4 | Cup-sink effect | Celebration Pack pass |
 
-**Game passes** (Store tab; set up with `tools/setup_monetization.py`, icons in `assets/icons`): the cosmetic passes lead, classy and never an edge: **Ball Studio** (199: paint your own ball in the Locker's Studio section - 24 colours, gloss/matte/pearl/metallic finishes and 6 print inks; everyone sees the Studio cards, locked ones offer the pass; the look is saved and worn into every match), **Tour Collection** (299: Tour Black, Tour Pearl, Tour Graphite balls), **Heritage Collection** (249: pinstriped Cream, Forest and Oxblood club balls), **Members Club** (199: Members Contrail trail, Members Line aim, MEMBER nametag); then VIP (+10% coins, VIP Aurum, gold name), Celebration Pack, 2x Coins and Founder. Ball upgrades stay off in Ranked and power-ups are never sold.
+**Game passes** (Store tab; set up with `tools/setup_monetization.py`, icons in `assets/icons`): the cosmetic passes lead, classy and never an edge: **Ball Studio** (199: paint your own ball in the Locker's Studio section - six shades no other ball has (Sage, Mauve, Cornflower, Peach, Mulberry, Bronze Olive; a unit test keeps every other skin clear of them), gloss/matte/pearl/metallic finishes and 4 print inks (black, white, gold, silver); everyone sees the Studio cards, locked ones offer the pass; the look is saved and worn into every match), **Tour Collection** (299: Tour Black, Tour Pearl, Tour Graphite balls), **Heritage Collection** (249: pinstriped Cream, Forest and Oxblood club balls), **Members Club** (199: Members Contrail trail, Members Line aim, MEMBER nametag); then VIP (+10% coins, VIP Aurum, gold name), Celebration Pack, 2x Coins and Founder. Ball upgrades stay off in Ranked and power-ups are never sold.
 
 **14-day login calendar** (claim at the Rewards station; missing a day restarts the streak): coins, keys for all four crates, the Daily Spark trail, Sunrise Chevron arrow, Daily Fireworks knockout, and on **Day 14 the exclusive Legendary "Eternal Dawn" ball** (unique golden ray aura) plus 1,500 coins.
 

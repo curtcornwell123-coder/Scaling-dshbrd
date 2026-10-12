@@ -194,7 +194,7 @@ local function balls(): { Section }
 			b("Pro Shop cases") .. string.format(": a new set of 12 every %d minutes (1 Legendary, 2 Epic).", math.floor(Skins.RotationSeconds / 60)),
 			b("Ball Skin Crate") .. ": odds are on the screen behind it, with a guaranteed Legendary if you get unlucky.",
 			b("Mythic Featured Crate") .. string.format(": limited worldwide stock (%s per season).", n(Config.Mythic.GlobalCap)),
-			b(Skins.get(Config.Limited.Skin).Name) .. string.format(": only %d will ever exist, %s coins, each printed with its own number. In the vault in the middle of the shop.", Config.Limited.Stock, n(Config.Limited.Price)),
+			b(Skins.get(Config.Limited.Skin).Name) .. string.format(": only %d will ever exist, %d R$, each printed with its own number. In the vault in the middle of the shop.", Config.Limited.Stock, Config.DevProducts[Config.Limited.Product].Robux),
 			b("Leaderboard balls") .. ": finish weekly top " .. Config.Leaderboards.RewardTop .. " on a board to unlock its ball: " .. table.concat(boards, ", ") .. ".",
 			b("Practice tokens") .. ", " .. b("Ranked tiers") .. ", the " .. b("day-14 login prize") .. " and the " .. b("Corny Games group") .. " reward give exclusive balls too.",
 		} },

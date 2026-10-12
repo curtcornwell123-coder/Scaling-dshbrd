@@ -84,7 +84,7 @@ ShopCatalog.Tabs = {
 					Subtitle = "Limited edition · " .. Config.Limited.Stock .. " worldwide",
 					Rarity = limited.Rarity,
 					Accent = rarityColor(limited.Rarity),
-					Price = { Amount = Config.Limited.Price, Currency = "Coins" },
+					Price = { Amount = Config.DevProducts[Config.Limited.Product].Robux, Currency = "Robux" },
 					Preview = { Kind = "Ball", Ref = limited.Id },
 					Action = "buyLimited",
 					Category = "Skins",
@@ -165,7 +165,7 @@ ShopCatalog.Tabs = {
 			end
 			studio("ball", "Your Studio Ball", "Wear your custom ball", ref(look.Color, look.Finish, look.Ink), "Equip", nil)
 			for _, c in Skins.Studio.Colors do
-				studio("color:" .. c[2], c[1], "Ball colour", ref(c[2], look.Finish, look.Ink), "Color", c[2])
+				studio("color:" .. c[2], c[1], "Studio-only shade", ref(c[2], look.Finish, look.Ink), "Color", c[2])
 			end
 			for _, f in Skins.Studio.Finishes do
 				studio("finish:" .. f[1], f[1] .. " finish", f[2], ref(look.Color, f[1], look.Ink), "Finish", f[1])

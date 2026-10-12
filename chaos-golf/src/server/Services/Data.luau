@@ -145,6 +145,8 @@ local function reconcile(saved: any): Profile
 			end
 		end
 	end
+	-- Ball Studio looks keep to the current palette (a retired shade falls back to the default).
+	saved.Custom = Skins.validCustom(saved.Custom)
 	for _, category in Cosmetics.Categories do
 		saved.Owned[category] = saved.Owned[category] or {}
 		saved.Owned[category][Cosmetics.Defaults[category]] = true

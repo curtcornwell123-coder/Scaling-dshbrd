@@ -236,7 +236,7 @@ end
 
 -- Cosmetic passes show what they unlock.
 local PASS_SHOWS: { [string]: { Kind: string, Ref: string } } = {
-	BallStudio = { Kind = "Custom", Ref = "#1F5BFF|Pearl|#F5F3EE" },
+	BallStudio = { Kind = "Custom", Ref = "#7A9CD9|Pearl|#F5F3EE" },
 	TourCollection = { Kind = "Ball", Ref = "tour_pearl" },
 	Heritage = { Kind = "Ball", Ref = "heritage_forest" },
 	MembersClub = { Kind = "Trail", Ref = "members_contrail" },

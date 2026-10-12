@@ -14,6 +14,7 @@ local Net = require(Shared:WaitForChild("Net"))
 local Data = require(script.Parent:WaitForChild("Data"))
 local CreatorCodes = require(script.Parent:WaitForChild("CreatorCodes"))
 local MythicStock = require(script.Parent:WaitForChild("MythicStock"))
+local LimitedStock = require(script.Parent:WaitForChild("LimitedStock"))
 local Social = require(script.Parent:WaitForChild("Social"))
 
 local Monetization = {}
@@ -79,6 +80,36 @@ local function productByAsset(id: number): (string?, any)
 	return nil, nil
 end
 
+-- The limited ball: reserve the next copy worldwide (its number is the buyer's serial). A
+-- second copy, or one bought as the last sold elsewhere, pays coins so nothing is lost.
+local function grantLimited(player: Player)
+	local id = Config.Limited.Skin
+	local session = Data.get(player)
+	local ok, serial = false, 0
+	if session and not Data.owns(player, "Skins", id) then
+		ok, serial = LimitedStock.reserve()
+	end
+	if not session or not ok then
+		Data.addCoins(player, Config.Limited.RefundCoins, "refund")
+		local reason = if session and Data.owns(player, "Skins", id) then "You already own this ball"
+			elseif LimitedStock.remaining() <= 0 then "The last copy just sold"
+			else "Couldn't reserve a copy right now"
+		Net.event("Toast"):FireClient(player, reason .. ". You received " .. Config.Limited.RefundCoins .. " coins instead.", Config.Colors.Gold)
+		return
+	end
+	local name = Config.DevProducts[Config.Limited.Product].Name
+	session.Profile.Serials[id] = serial
+	Data.grant(player, "Skins", id)
+	Data.equip(player, "Skins", id)
+	Data.markDirty(player)
+	Data.push(player)
+	Net.event("Toast"):FireClient(player, string.format("%s No. %d of %d is yours", name, serial, LimitedStock.Cap), Config.Colors.Gold)
+	Net.event("Fx"):FireAllClients("announce", {
+		Text = string.format("%s just got %s No. %d of %d!", player.DisplayName, name, serial, LimitedStock.Cap),
+		Color = Config.Colors.Gold,
+	})
+end
+
 local function processReceipt(info: any): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(info.PlayerId)
 	if not player then
@@ -109,6 +140,8 @@ local function processReceipt(info: any): Enum.ProductPurchaseDecision
 			local reason = if MythicStock.remaining() <= 0 then "The Mythic crate just sold out" else "Couldn't reserve a Mythic crate right now"
 			Net.event("Toast"):FireClient(player, reason .. ". You received " .. Config.Mythic.CoinPrice .. " coins instead.", Config.Colors.Gold)
 		end
+	elseif key == Config.Limited.Product then
+		grantLimited(player)
 	elseif product.Coins then
 		Data.addCoins(player, product.Coins, "purchase")
 		Net.event("Fx"):FireClient(player, "coins", { Amount = product.Coins })

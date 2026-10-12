@@ -197,27 +197,42 @@ local function buyAs(p)
 	Sim.fireServerAs(p, "ShopAction", "buyLimited")
 	Sim.run(0.6)
 end
+-- A paid 9 R$ purchase: the vault opens the product prompt, the receipt reserves the copy.
+Config.DevProducts.LimitedBall.Id = 555
+local receipts = 0
+local function pay(p)
+	receipts += 1
+	local res
+	Sim.asSide("server", function()
+		res = cb({ PlayerId = p.UserId, PurchaseId = "ltd-" .. receipts, ProductId = 555, CurrencySpent = 9 })
+	end)
+	Sim.run(0.3)
+	return res
+end
 local prof = Data.profile(collector)
-prof.Coins += 25000
-local l0 = prof.Coins
 local left0 = LimitedStock.remaining()
+local pr0 = #Sim.prompts
 buyAs(collector)
-local owned = Data.owns(collector, "Skins", Config.Limited.Skin) and prof.Serials[Config.Limited.Skin] == Config.Limited.Stock - left0 + 1
-local charged = l0 - prof.Coins == Config.Limited.Price
-buyAs(collector)
-local once = l0 - prof.Coins == Config.Limited.Price and LimitedStock.remaining() == left0 - 1
+local prompted = #Sim.prompts == pr0 + 1 and Sim.prompts[#Sim.prompts][1] == "product" and Sim.prompts[#Sim.prompts][2] == 555
+local granted = pay(collector) == Enum.ProductPurchaseDecision.PurchaseGranted
+local owned = granted and Data.owns(collector, "Skins", Config.Limited.Skin) and prof.Serials[Config.Limited.Skin] == Config.Limited.Stock - left0 + 1
+local charged = prompted -- Robux are taken by Roblox's prompt, not by the game
+buyAs(collector) -- owners just wear it: no second prompt, no second copy
+local once = #Sim.prompts == pr0 + 1 and LimitedStock.remaining() == left0 - 1 and Data.profile(collector).Equipped.Skins == Config.Limited.Skin
 local serialOnBall = Data.loadout(collector).Serial == prof.Serials[Config.Limited.Skin]
 while LimitedStock.remaining() > 0 do
 	LimitedStock.reserve()
 end
 local buyer = newPlayer(1088, "Hana")
-Data.profile(buyer).Coins += 25000
 local b0 = Data.profile(buyer).Coins
-buyAs(buyer)
-local soldOut = Data.profile(buyer).Coins == b0 and not Data.owns(buyer, "Skins", Config.Limited.Skin)
+local pr1 = #Sim.prompts
+buyAs(buyer) -- sold out: no prompt
+-- ...and a receipt that lands after the last copy sold pays coins instead of losing the Robux.
+local late = pay(buyer) == Enum.ProductPurchaseDecision.PurchaseGranted
+local soldOut = #Sim.prompts == pr1 and late and Data.profile(buyer).Coins == b0 + Config.Limited.RefundCoins and not Data.owns(buyer, "Skins", Config.Limited.Skin)
 local announced = false
 for _, e in Sim.clientEvents("Fx", p1) do
-	if e.args[1] == "announce" and string.find(tostring(e.args[2].Text), "Ivy just bought Corny Games Studio No.", 1, true) then
+	if e.args[1] == "announce" and string.find(tostring(e.args[2].Text), "Ivy just got Corny Games Studio Ball No.", 1, true) then
 		announced = true
 	end
 end
@@ -462,10 +477,10 @@ local ShopCatalog = Sim.module("client", "ShopCatalog")
 local painter = newPlayer(1091, "Mia")
 local pp = Data.profile(painter)
 local prompts0 = #Sim.prompts
-Sim.fireServerAs(painter, "ShopAction", "studio", "Color", "#1F5BFF")
+Sim.fireServerAs(painter, "ShopAction", "studio", "Color", "#7A9CD9")
 Sim.run(0.5)
 local lockedOffer = #Sim.prompts > prompts0 and Sim.prompts[#Sim.prompts][2] == 444
-local untouched = pp.Custom.Color == "#F4F6FA"
+local untouched = pp.Custom.Color == "#9CAF88"
 local studioCards = 0
 for _, tab in ShopCatalog.Tabs do
 	if tab.Id == "Locker" then
@@ -479,11 +494,11 @@ end
 Sim.fireEvent(Sim.game:GetService("MarketplaceService"), "PromptGamePassPurchaseFinished", painter, 444, true)
 Sim.run(0.5)
 -- (shop actions are rate-limited per player, so space them out)
-Sim.fireServerAs(painter, "ShopAction", "studio", "Color", "#1F5BFF")
+Sim.fireServerAs(painter, "ShopAction", "studio", "Color", "#7A9CD9")
 Sim.run(0.6)
 Sim.fireServerAs(painter, "ShopAction", "studio", "Finish", "Metallic")
 Sim.run(0.6)
-Sim.fireServerAs(painter, "ShopAction", "studio", "Color", "#123456") -- not on the palette
+Sim.fireServerAs(painter, "ShopAction", "studio", "Color", "#1F5BFF") -- Sapphire's blue: not on the palette
 Sim.run(0.6)
 local look = Data.loadout(painter)
 local painted
@@ -491,13 +506,13 @@ Sim.asSide("server", function()
 	local b = BallService.create(painter, { Position = V(0, 650, 0), Context = { CanShoot = function() return false end }, OOBY = 600, Loadout = look })
 	painted = b.Part
 end)
-local okColour = painted.Color == Color3.fromHex("#1F5BFF") and painted.Material == Enum.Material.Foil
+local okColour = painted.Color == Color3.fromHex("#7A9CD9") and painted.Material == Enum.Material.Foil
 Sim.asSide("server", function()
 	BallService.destroy(painter)
 end)
 Sim.removePlayer(painter)
-flow("Ball Studio pass: locked offers the pass, owners paint their ball (palette only) and wear it", errs() == e0 and lockedOffer and untouched and studioCards == 35
-		and pp.Custom.Color == "#1F5BFF" and pp.Custom.Finish == "Metallic" and pp.Equipped.Skins == "studio" and look.Custom ~= nil and okColour,
+flow("Ball Studio pass: locked offers the pass, owners paint their ball (palette only) and wear it", errs() == e0 and lockedOffer and untouched and studioCards == 15
+		and pp.Custom.Color == "#7A9CD9" and pp.Custom.Finish == "Metallic" and pp.Equipped.Skins == "studio" and look.Custom ~= nil and okColour,
 	string.format("offer=%s cards=%d look=%s/%s/%s wearing=%s ball=%s", tostring(lockedOffer), studioCards, pp.Custom.Color, pp.Custom.Finish, pp.Custom.Ink, tostring(pp.Equipped.Skins), tostring(okColour)))
 
 -- d. shutdown ---------------------------------------------------------------------------------

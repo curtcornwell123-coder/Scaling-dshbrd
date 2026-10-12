@@ -151,6 +151,8 @@ local function ctaFor(item: ShopCatalog.Item): (string, UIKit.ButtonVariant)
 			end
 		elseif item.Action == "buyProduct" then
 			configured = Config.DevProducts[item.A].Id ~= 0
+		elseif item.Action == "buyLimited" then
+			configured = Config.DevProducts[Config.Limited.Product].Id ~= 0
 		end
 		return if configured then price.Amount .. " Robux" else "Coming soon", if configured then "Secondary" else "Disabled"
 	end
