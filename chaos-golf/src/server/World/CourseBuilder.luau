@@ -536,9 +536,19 @@ end
 
 -- Track ------------------------------------------------------------------
 
-local function buildFloor(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3): BasePart
+-- Fairway turf (no feature surface) gets mowing stripes; the cup tile is the green.
+local TURF_FEATURES: { [string]: boolean } = { Bumper = true, Spinner = true, Pusher = true, Windmill = true, Hump = true, Tunnel = true }
+
+local function plainTurf(t: TilePlan): boolean
+	return t.Feature == nil or TURF_FEATURES[t.Feature] == true
+end
+
+local function buildFloor(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3, green: boolean?): BasePart
 	local theme = ctx.Theme
 	local color = if (t.X + t.Z) % 2 == 0 then theme.Floor else theme.FloorAlt
+	if green then
+		color = theme.Floor:Lerp(WHITE, 0.1) -- the putting green: cut finer and lighter
+	end
 	if t.Feature == "Sand" then
 		color = theme.Sand
 	elseif t.Feature == "Ice" then
@@ -587,6 +597,27 @@ local function buildFloor(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3): 
 		floor:SetAttribute("Surface", "Sand")
 	end
 	return floor
+end
+
+-- Mowing stripes, as on a real fairway: lighter bands along the line of play (decals: the
+-- ball rolls on the turf under them).
+local function mowStripes(ctx: Ctx, parent: Instance, t: TilePlan, c: Vector3)
+	local f = dirVec(t.Out)
+	local lat = Vector3.new(-f.Z, 0, f.X)
+	local top = c + up(t.Entry + 0.012)
+	local color = ctx.Theme.Floor:Lerp(WHITE, 0.08)
+	for _, off in { -3.75, 1.25 } do
+		local p = top + lat * off
+		Parts.block(parent, CFrame.lookAt(p, p + f), Vector3.new(2.5, 0.02, TILE), {
+			Name = "MowStripe",
+			Color = color,
+			Material = TURF,
+			CanCollide = false,
+			CanQuery = false,
+			CanTouch = false,
+			CastShadow = false,
+		})
+	end
 end
 
 -- Rail on edge `d` of a tile, inset inside the tile (so two adjacent but
@@ -1030,6 +1061,13 @@ local function buildTee(ctx: Ctx, holeModel: Model, parent: Instance, teeTop: Ve
 		CanQuery = false,
 		CastShadow = false,
 	})
+	-- Tee markers either side of the tee box, as on a real course.
+	local side = Vector3.new(-look.Z, 0, look.X)
+	for _, s in { -1, 1 } do
+		local m = teeTop + side * (s * 3.4) - look * 0.6 + up(0.3)
+		Parts.ball(parent, m, 0.6, { Name = "TeeMarker", Color = WHITE, Material = Enum.Material.SmoothPlastic, CanCollide = false, CanQuery = false, CanTouch = false })
+		Parts.disc(parent, m - up(0.24), 0.62, 0.12, { Name = "TeeMarker", Color = theme.Accent, CanCollide = false, CanQuery = false, CanTouch = false })
+	end
 	if not backFree then
 		return
 	end
@@ -1131,7 +1169,10 @@ local function buildHole(ctx: Ctx, parent: Instance, index: number, plan: HolePl
 		local c = centres[i]
 		local gap = t.Feature == "JumpGap"
 		if not gap then
-			buildFloor(ctx, track, t, c)
+			buildFloor(ctx, track, t, c, i == n)
+			if i ~= n and not t.Ramp and plainTurf(t) then
+				mowStripes(ctx, dressing, t, c)
+			end
 			buildSupport(ctx, supports, t, c)
 			for d = 1, 4 do
 				if not opens[i][d] then
