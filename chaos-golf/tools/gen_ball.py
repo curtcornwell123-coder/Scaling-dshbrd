@@ -6,14 +6,15 @@ Writes
   assets/mesh/golfball_preview.png  512x512 software-rendered preview
 
 Construction
-  * 252 dimples on an icosahedral geodesic layout (frequency 5: 12 five-neighbour and
-    240 six-neighbour dimples), the even spacing real tour balls use.
-  * Every dimple is ROUND: a spherical-cup profile (depth = DEPTH * (1 - (rho/rho_d)^2))
-    sampled on two rings of SEGMENTS points, then a flat land band out to the dimple's
+  * 362 dimples on an icosahedral geodesic layout (frequency 6: 12 five-neighbour and
+    350 six-neighbour dimples), the even spacing and count of a real tour ball.
+  * Every dimple is ROUND and shallow: a spherical-cup profile (depth = DEPTH * (1 -
+    (rho/rho_d)^2)) fanned from its centre to a rim of 15-18 points (3 per cell edge) with
+    analytic normals, so it shades as a smooth bowl; then a flat land band out to the dimple's
     spherical-Voronoi cell edge. Land is exactly on the sphere, so neighbouring dimples
     are separated by narrow ridges and small triangular land patches at the cell corners,
     like a real ball.
-  * Cell edges are subdivided once and shared between neighbours -> watertight.
+  * Cell edges are subdivided into thirds and shared between neighbours -> watertight.
   * Normals are analytic: the cup's true surface normal inside the dimple, radial on the
     land, split at the rim so each dimple has a crisp edge that catches the light.
   * UVs: cube projection per dimple cell (no pole pinching), so part materials (Foil,
@@ -36,10 +37,10 @@ OBJ_PATH = os.path.join(OUT_DIR, "golfball.obj")
 PREVIEW_PATH = os.path.join(OUT_DIR, "golfball_preview.png")
 
 RADIUS = 0.75        # studs -> diameter 1.5 == Config.Ball.Diameter
-FREQ = 5             # geodesic frequency: 10 * FREQ^2 + 2 dimples (252)
-DIMPLE_FILL = 0.86   # dimple radius as a share of the cell's inradius (rest = land)
-DEPTH = 0.024        # dimple depth at its centre (studs)
-INNER_RING = 0.58    # middle ring of the cup, as a share of the dimple radius
+FREQ = 6             # geodesic frequency: 10 * FREQ^2 + 2 dimples (362, like a tour ball)
+DIMPLE_FILL = 0.9    # dimple radius as a share of the cell's inradius (rest = narrow land)
+DEPTH = 0.016        # dimple depth at its centre (studs): shallow, as on a real ball
+EDGE_POINTS = 3      # rim points per cell edge (corner + 2 between): 15-18 point round rims
 MAX_TRIS = 20000     # Roblox mesh import limit
 
 
@@ -123,9 +124,9 @@ def build():
         boundary = []
         for k in range(m):
             a, b = corners[k], corners[(k + 1) % m]
-            mid = a + b
-            boundary.append(a / np.linalg.norm(a))
-            boundary.append(mid / np.linalg.norm(mid))
+            for e in range(EDGE_POINTS):
+                q = a + (b - a) * (e / EDGE_POINTS)
+                boundary.append(q / np.linalg.norm(q))
         S = len(boundary)
         # Inradius: angular distance from the centre to the nearest cell edge (great circle).
         inr = math.inf
@@ -156,21 +157,20 @@ def build():
         centre_v = vid(c * (RADIUS - DEPTH))
         centre_n = nid(c)
         centre_uv = uvid(c * RADIUS, axis)
-        ring1, ring2, rim_land, edge = [], [], [], []
+        # The cup is a fan from its centre to a round rim: the analytic normals (radial at the
+        # centre, the cup's slope at the rim) shade it as a smooth bowl, which leaves the
+        # triangle budget for more, rounder dimples.
+        ring2, rim_land, edge = [], [], []
         for j in range(S):
             t = tangents[j]
-            p1, n1 = cup_vertex(t, INNER_RING * rho_d)
             p2, n2 = cup_vertex(t, rho_d)
-            ring1.append((vid(p1), uvid(p1, axis), nid(n1)))
             ring2.append((vid(p2), uvid(p2, axis), nid(n2)))
             rim_land.append((ring2[-1][0], ring2[-1][1], nid(p2)))  # same point, land normal
             bp = boundary[j] * RADIUS
             edge.append((vid(bp), uvid(bp, axis), nid(bp)))
         for j in range(S):
             k = (j + 1) % S
-            faces.append([(centre_v, centre_uv, centre_n), ring1[j], ring1[k]])
-            faces.append([ring1[j], ring2[j], ring2[k]])
-            faces.append([ring1[j], ring2[k], ring1[k]])
+            faces.append([(centre_v, centre_uv, centre_n), ring2[j], ring2[k]])
             faces.append([rim_land[j], edge[j], edge[k]])
             faces.append([rim_land[j], edge[k], rim_land[k]])
 

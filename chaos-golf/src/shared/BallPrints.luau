@@ -17,6 +17,8 @@ export type Design = {
 	Model: string,
 	Number: string,
 	SubNumber: string?,
+	NumberInk: Color3, -- the play number under the brand (red on white balls, as real ones)
+	Club: string, -- the ribbon on the club crest on the back
 	Ink: Color3,
 	Accent: Color3,
 	BrandFont: Enum.Font,
@@ -250,6 +252,51 @@ local function emblem(ctx: Ctx, latDeg: number, lonDeg: number, size: number, gl
 	end
 end
 
+-- Club crest, like a course logo ball: a green diamond with a thin border, a red pin flag in
+-- it and a cream ribbon across the bottom carrying the club's name.
+local CREST_GREEN = Color3.fromHex("#1F6B4E")
+local CREST_RED = Color3.fromHex("#C8282E")
+local CREST_CREAM = Color3.fromHex("#F3EDDD")
+
+local function crest(ctx: Ctx, latDeg: number, lonDeg: number, size: number, ink: Color3, club: string)
+	local s = size * ctx.S
+	local root = plate(ctx, math.rad(latDeg), math.rad(lonDeg), s * 1.25, s, 96)
+	local function box(parent: Instance, x: number, y: number, w: number, h: number, color: Color3, rot: number?): Frame
+		local f = Instance.new("Frame")
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(x, y)
+		f.Size = UDim2.fromScale(w, h)
+		f.BackgroundColor3 = color
+		f.BorderSizePixel = 0
+		f.Rotation = rot or 0
+		f.Parent = parent
+		return f
+	end
+	-- The diamond is a square turned 45 degrees (sized on the plate's height).
+	local d = box(root, 0.5, 0.44, 0.56 / 1.25, 0.56, CREST_GREEN, 45)
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 2.5
+	stroke.Color = ink
+	stroke.Parent = d
+	box(root, 0.47, 0.42, 0.025, 0.42, CREST_CREAM) -- pin
+	box(root, 0.535, 0.29, 0.1, 0.12, CREST_RED) -- flag
+	local ribbon = box(root, 0.5, 0.8, 0.98, 0.24, CREST_CREAM)
+	local rs = Instance.new("UIStroke")
+	rs.Thickness = 1.5
+	rs.Color = ink
+	rs.Parent = ribbon
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Size = UDim2.fromScale(0.92, 0.8)
+	t.AnchorPoint = Vector2.new(0.5, 0.5)
+	t.Position = UDim2.fromScale(0.5, 0.5)
+	t.Text = club
+	t.Font = Enum.Font.GothamBold
+	t.TextScaled = true
+	t.TextColor3 = Color3.fromHex("#2B2620")
+	t.Parent = ribbon
+end
+
 -- Thin ring round the ball at a latitude: a hair-thin cylinder just outside the surface.
 local function ring(ctx: Ctx, latDeg: number, thickness: number, color: Color3, metallic: boolean?)
 	local t = thickness * ctx.S
@@ -289,17 +336,19 @@ function BallPrints.build(ball: BasePart, design: Design, d: number): Folder
 		attach(ctx, core, CFrame.new())
 	end
 
-	-- Front: brand stamp and model line.
-	local brandH = if (utf8.len(design.Brand) or 0) > 9 then 0.13 else 0.155
-	arcText(ctx, design.Brand, 8.5, 0, brandH, design.BrandFont, ink, 1, 0.07)
-	arcText(ctx, design.Model, -9.5, 0, 0.068, design.TextFont, if pattern == "Classic" then ink else accent, 1, 0.14)
-
-	-- Back: play number (and the edition line on limited balls).
-	local numH = if #design.Number > 2 then 0.2 else 0.3
-	arcText(ctx, design.Number, if design.SubNumber then 4 else 1, 180, numH, design.BrandFont, ink, 1, 0.04)
+	-- Front, as on a real ball: the brand wordmark printed flat in ink, the play number
+	-- under it (or a limited ball's copy number and edition line).
+	local brandH = if (utf8.len(design.Brand) or 0) > 9 then 0.115 else 0.135
+	arcText(ctx, design.Brand, 7, 0, brandH, design.BrandFont, ink, 1, 0.05)
+	local numH = if #design.Number > 2 then 0.1 else 0.15
+	arcText(ctx, design.Number, -12, 0, numH, Enum.Font.GothamBlack, design.NumberInk, 1, 0.04)
 	if design.SubNumber then
-		arcText(ctx, design.SubNumber, -11.5, 180, 0.06, design.TextFont, accent, 1, 0.16)
+		arcText(ctx, design.SubNumber, -21, 0, 0.055, design.TextFont, accent, 1, 0.16)
 	end
+
+	-- Back: the club crest and the model line under it.
+	crest(ctx, 7, 180, 0.3, ink, design.Club)
+	arcText(ctx, design.Model, -16, 180, 0.062, design.TextFont, if pattern == "Classic" then ink else accent, 1, 0.14)
 
 	-- Sides: alignment aid on the left (-X), emblem on the right (+X).
 	local sideKind = if pattern == "Track" then "Track" elseif pattern == "Hazard" then "Hazard" else "Line"

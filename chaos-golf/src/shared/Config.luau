@@ -17,8 +17,8 @@ Config.Ball = {
 	-- BallService loads one at boot and publishes "BallMeshId" + "BallMeshSize" on
 	-- ReplicatedStorage; until then balls show as smooth spheres.
 	MeshIds = {
-		Group = "rbxassetid://108440465413524",
-		User = "rbxassetid://140361458276465",
+		Group = "rbxassetid://99676582570882",
+		User = "rbxassetid://103002225781025",
 	},
 	Density = 2.2,
 	Friction = 0.25,

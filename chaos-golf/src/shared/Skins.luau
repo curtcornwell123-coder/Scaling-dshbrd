@@ -28,6 +28,7 @@ export type DesignSpec = {
 	Emblem: string?,
 	Core: Color3?,
 	Metallic: boolean?,
+	Club: string?, -- crest ribbon (default "ULTIMATE G.C.")
 }
 
 export type Skin = {
@@ -198,6 +199,7 @@ add("corny_studio", "Corny Games Studio", "Mythic", "#0E0E12", M.SmoothPlastic, 
 		Pattern = "Pinstripe",
 		Brand = "CORNY GAMES",
 		Model = "STUDIO",
+		Club = "CORNY GAMES STUDIO",
 		Ink = GOLD_INK,
 		Accent = GOLD_INK,
 		Emblem = "★",
@@ -298,6 +300,7 @@ end
 
 local INK_DARK = hex("#17191E")
 local INK_LIGHT = hex("#F5F3EE")
+local NUMBER_RED = hex("#C8102E") -- play numbers on white balls are red, like real ones
 
 local function luminance(c: Color3): number
 	return 0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B
@@ -339,15 +342,18 @@ function Skins.design(skin: Skin, serial: number?): BallPrints.Design
 		number = if serial then tostring(serial) else "LTD"
 		sub = "OF " .. cap
 	end
+	local whiteBall = luminance(skin.Color) > 0.8
 	return {
 		Pattern = spec.Pattern or PATTERN_BY_RARITY[skin.Rarity] or "Classic",
 		Brand = spec.Brand or "ULTIMATE",
 		Model = spec.Model or string.upper(skin.Name),
 		Number = number :: string,
 		SubNumber = sub,
+		NumberInk = if whiteBall and not premium then NUMBER_RED else ink,
+		Club = spec.Club or "ULTIMATE G.C.",
 		Ink = ink,
 		Accent = accent :: Color3,
-		BrandFont = spec.BrandFont or Enum.Font.GothamBlack,
+		BrandFont = spec.BrandFont or Enum.Font.GothamBold,
 		TextFont = spec.TextFont or Enum.Font.GothamBold,
 		Emblem = spec.Emblem or (if premium then "★" else nil),
 		Core = spec.Core,
