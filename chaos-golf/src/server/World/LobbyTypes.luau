@@ -1,0 +1,108 @@
+--!strict
+-- Contract between LobbyBuilder (geometry) and the lobby services (behaviour).
+-- LobbyBuilder only builds parts; services add prompts, SurfaceGuis and logic.
+--
+-- Conventions
+--  * Lobby floor top surface is Y = 0. Fountain centre is (0, 0, 0).
+--  * Compass: North = -Z, South = +Z, East = +X, West = -X.
+--  * "Screen" parts: the display face is Enum.NormalId.Front (the part's
+--    LookVector points toward the viewer standing in front of it).
+--  * Pedestals / podiums contain an Attachment named "Display" whose
+--    WorldPosition is where the showcased ball (3 studs wide) is centred.
+--  * Pads / bubbles carry a number attribute "Radius"; a player is inside when
+--    their HumanoidRootPart is within Radius (horizontal distance) of the part's
+--    Position and less than 10 studs above it (bubbles: 3D distance < Radius).
+--  * Buttons are plain parts; services parent ProximityPrompts to them.
+
+export type Portal = {
+	Bubble: BasePart, -- queue zone (attribute Radius)
+	Sign: BasePart, -- status screen above the portal
+}
+
+export type VoteSign = {
+	Display: BasePart, -- holographic screen
+	Pad: BasePart, -- floor pad in front (attribute Radius)
+}
+
+export type Lane = {
+	Origin: CFrame, -- floor-level centre of the lane start, LookVector runs down the lane
+	Length: number,
+	Width: number,
+	StartPad: BasePart, -- step on to play (attribute Radius); sits just behind Origin
+	Props: Folder, -- empty folder: Practice builds the live minigame's props in here
+	Screen: BasePart, -- small per-lane score screen
+	Surface: BasePart, -- lane floor (restyled per biome; attribute Surface = "Ice" on the rink)
+	End: BasePart, -- the lane floor's last stretch, over the cup wells; cup games swap in a copy with the cup cut in
+	Rails: { BasePart }, -- side rails (restyled per biome)
+	Caps: { BasePart }, -- rail caps
+	Back: BasePart, -- end wall
+}
+
+export type TokenHut = {
+	Counter: BasePart, -- the token shop prompt goes here
+	Display: BasePart, -- crate showcase on the counter (Display attachment)
+	Shelf: { BasePart }, -- four ball spots on the back shelves (Display attachments)
+}
+
+export type Board = {
+	Panel: BasePart, -- leaderboard screen (Front face)
+	Prev: BasePart, -- arrow buttons
+	Next: BasePart,
+	Period: BasePart, -- Daily / Weekly / All-Time toggle
+	Podium: BasePart, -- spinning showcase of the leader's ball (Display attachment)
+	Nameplate: BasePart, -- screen under the podium for the leader's name
+}
+
+export type LockerStation = { Pedestal: BasePart, Screen: BasePart, Prev: BasePart, Next: BasePart, Equip: BasePart } -- Screen ≈14x8: catalog terminal
+export type UpgradeStation = { Screen: BasePart, Buttons: { [string]: BasePart } } -- buttons: "Power", "Control", "Bounce"
+export type CreatorStation = { Screen: BasePart }
+
+export type Lobby = {
+	Model: Model,
+	Spawn: SpawnLocation,
+	SpawnCFrame: CFrame, -- character CFrame on spawn, facing south toward the fountain
+	Daily: { Screen: BasePart, Button: BasePart }, -- 14-day login calendar (atrium station)
+	Group: { Board: BasePart, Button: BasePart }, -- one-time group reward at the Rewards station (Board has a Display attachment)
+	Stations: { -- service stations at the atrium edges
+		Locker: LockerStation,
+		Upgrades: UpgradeStation,
+		CreatorKiosk: CreatorStation,
+	},
+	North: {
+		Portals: { [string]: Portal }, -- keys: "Ranked", "Classic", "Race"
+		VoteSigns: { VoteSign }, -- exactly 3
+		VoteHeader: BasePart, -- screen above the vote signs (round timer / title)
+		InviteKiosk: BasePart, -- Invite Friends terminal
+	},
+	East: {
+		SkinPedestals: { BasePart }, -- 12 coin-shop display-case cups (Display attachment)
+		SkinPlaques: { BasePart }, -- price plaque on each case (text on Front), same order
+		Limited: { Pedestal: BasePart, Plaque: BasePart }, -- limited-edition vault case
+		RotationBoard: BasePart, -- hanging board: next rotation countdown (Front and Back)
+		CratePedestals: { [string]: BasePart }, -- "Skins", "Trails", "Knockouts", "Arrows"
+		CrateScreens: { [string]: BasePart }, -- odds boards behind each crate pedestal (same keys)
+		Mythic: { Pedestal: BasePart, Counter: BasePart, OddsBoard: BasePart },
+		PassPedestals: { [string]: BasePart }, -- keys = Config.GamePassOrder (Display attachment)
+		CoinPackPads: { [string]: BasePart }, -- keys "Coins1".."Coins4"
+	},
+	South: {
+		Lanes: { Lane }, -- six lanes, all playing the live minigame
+		Header: BasePart, -- gantry screen over the lane heads: the live game (Front)
+		TV: BasePart, -- broadcast TV over the lanes: now / next / countdown (Front faces the lane heads)
+		LobbyTVs: { BasePart }, -- signs hung in the atrium's Practice doorway, left = live now (Front faces the hub)
+		Ground: BasePart, -- floor slab under the whole range, restyled per biome (one of GroundParts)
+		GroundParts: { BasePart }, -- the slab is in strips round the cup wells
+		Backdrop: BasePart, -- back wall panel (Front faces the lanes), restyled per biome
+		Biome: Folder, -- runtime biome dressing (PracticeBiomes)
+		Hut: TokenHut,
+		Board: BasePart, -- best-scores screen for the live game (Front)
+		Bounds: CFrame, -- room centre (floor level); with Size: the practice area
+		Size: Vector3,
+		TutorialPad: BasePart, -- replay tutorial (attribute Radius)
+	},
+	West: {
+		Boards: { [string]: Board }, -- keys "Wins", "Coins", "Sabotages"
+	},
+}
+
+return {}

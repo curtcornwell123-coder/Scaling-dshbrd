@@ -1,0 +1,6 @@
+{
+  "name": "CornyLoadingScreen",
+  "tree": {
+    "$path": "LoadingScreen.client.luau"
+  }
+}

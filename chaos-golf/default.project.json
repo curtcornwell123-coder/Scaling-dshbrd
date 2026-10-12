@@ -1,0 +1,124 @@
+{
+  "name": "UltimateGolf",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ReplicatedFirst": {
+      "CornyLoadingScreen": {
+        "$path": "../studio-loading-screen/LoadingScreen.client.luau"
+      }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future",
+        "Ambient": [
+          0.36,
+          0.38,
+          0.42
+        ],
+        "OutdoorAmbient": [
+          0.5,
+          0.53,
+          0.58
+        ],
+        "Brightness": 2.8,
+        "ClockTime": 14.2,
+        "GeographicLatitude": 35,
+        "EnvironmentDiffuseScale": 1,
+        "EnvironmentSpecularScale": 0.8,
+        "ExposureCompensation": 0.1,
+        "ShadowSoftness": 0.25,
+        "GlobalShadows": true
+      },
+      "Atmosphere": {
+        "$className": "Atmosphere",
+        "$properties": {
+          "Density": 0.28,
+          "Offset": 0.22,
+          "Color": [
+            0.78,
+            0.85,
+            0.92
+          ],
+          "Decay": [
+            0.45,
+            0.55,
+            0.65
+          ],
+          "Glare": 0.12,
+          "Haze": 1.1
+        }
+      },
+      "Bloom": {
+        "$className": "BloomEffect",
+        "$properties": {
+          "Intensity": 0.3,
+          "Size": 24,
+          "Threshold": 1.8
+        }
+      },
+      "ColorCorrection": {
+        "$className": "ColorCorrectionEffect",
+        "$properties": {
+          "Saturation": 0.12,
+          "Contrast": 0.06,
+          "Brightness": 0.01
+        }
+      },
+      "SunRays": {
+        "$className": "SunRaysEffect",
+        "$properties": {
+          "Intensity": 0.05,
+          "Spread": 0.55
+        }
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "FallenPartsDestroyHeight": -400,
+        "StreamingEnabled": false
+      },
+      "Terrain": {
+        "$properties": {
+          "Decoration": true,
+          "WaterColor": [
+            0.1,
+            0.45,
+            0.55
+          ],
+          "WaterWaveSize": 0.12,
+          "WaterTransparency": 0.6,
+          "WaterReflectance": 0.35
+        },
+        "Clouds": {
+          "$className": "Clouds",
+          "$properties": {
+            "Cover": 0.5,
+            "Density": 0.55
+          }
+        }
+      }
+    }
+  }
+}
