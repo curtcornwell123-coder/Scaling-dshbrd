@@ -141,6 +141,9 @@ function Social.updateNametag(player: Player)
 	if session and session.Passes.Founder then
 		table.insert(tags, "FOUNDER")
 	end
+	if session and session.Passes.MembersClub then
+		table.insert(tags, "MEMBER")
+	end
 	if info.Ranked then
 		table.insert(tags, info.Label)
 	end

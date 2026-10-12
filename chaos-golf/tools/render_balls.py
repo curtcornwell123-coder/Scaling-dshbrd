@@ -384,15 +384,18 @@ def render_sheet(balls, out, cols, yaw_deg, res, samples):
     print("wrote", out)
 
 
-def render_closeups(b, views, res, samples, outdir):
+def render_closeups(b, views, res, samples, outdir, transparent=False):
     for view in views:
         bpy.ops.wm.read_factory_settings(use_empty=True)
         setup_scene(res, samples)
+        if transparent:
+            bpy.context.scene.render.film_transparent = True
         mesh = load_mesh()
         tmp = tempfile.mkdtemp()
         base = Matrix.Rotation(math.radians(180 + VIEW_YAW[view]), 4, "Z") @ Matrix.Rotation(math.radians(10), 4, "X") @ Matrix.Diagonal((1.5 / b["d"],) * 3 + (1,))
         build_ball(b, mesh, base, tmp)
-        floor(-0.76)
+        if not transparent:
+            floor(-0.76)
         camera((0, -6.2, 0.9), (0, 0, 0.02), lens=85)
         add_lights(Vector((0, 0, 0)), 1.2)
         out = os.path.join(outdir, f"{b['id']}_{view}.png")
@@ -413,6 +416,7 @@ def main():
     ap.add_argument("--samples", type=int, default=48)
     ap.add_argument("--res", default="1600x1000")
     ap.add_argument("--out", default=OUT)
+    ap.add_argument("--transparent", action="store_true", help="no floor, transparent background (icons)")
     args = ap.parse_args(argv)
     os.makedirs(args.out, exist_ok=True)
     balls = parse(args.dump)
@@ -425,7 +429,7 @@ def main():
         want = set(args.only.split(","))
         for b in balls:
             if b["id"] in want:
-                render_closeups(b, args.views.split(","), res, args.samples, args.out)
+                render_closeups(b, args.views.split(","), res, args.samples, args.out, args.transparent)
 
 
 if __name__ == "__main__":

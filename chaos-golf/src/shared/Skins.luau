@@ -29,6 +29,7 @@ export type DesignSpec = {
 	Core: Color3?,
 	Metallic: boolean?,
 	Club: string?, -- crest ribbon (default "ULTIMATE G.C.")
+	NumberInk: Color3?, -- play number colour (default: red on white balls, else the ink)
 }
 
 export type Skin = {
@@ -172,6 +173,15 @@ add("rank_legend", "Chaos Legend", "Mythic", "#FF0066", M.Glass, "Ranked:Chaos L
 -- Passes, creator codes, achievements -----------------------------------------
 add("vip_aurum", "VIP Aurum", "Legendary", "#FFD45E", M.Foil, "Pass:VIP", { Light = true, Aura = hex("#FFF0B8"), Design = { Number = "VIP" } })
 add("founder", "Founder", "Epic", "#2B2D42", M.SmoothPlastic, "Pass:Founder", { Pulse = hex("#EF233C"), Reflect = 0.1, Design = { Number = "01", Accent = hex("#EF233C") } })
+-- Cosmetic passes: tour and heritage collections, the look of a real ball (no gameplay edge).
+local TOUR_CLUB = "ULTIMATE TOUR"
+add("tour_black", "Tour Black", "Legendary", "#17181B", M.SmoothPlastic, "Pass:TourCollection", { Reflect = 0.04, Design = { Pattern = "Classic", Brand = "ULTIMATE", Model = "TOUR BLACK", Number = "1", Ink = SILVER_INK, Accent = SILVER_INK, Club = TOUR_CLUB, Metallic = false } })
+add("tour_pearl", "Tour Pearl", "Legendary", "#F4F1E8", M.SmoothPlastic, "Pass:TourCollection", { Reflect = 0.14, Design = { Pattern = "Classic", Brand = "ULTIMATE", Model = "TOUR PEARL", Number = "2", Ink = hex("#17191E"), Accent = GOLD_INK, Club = TOUR_CLUB, Metallic = false } })
+add("tour_graphite", "Tour Graphite", "Legendary", "#5B6069", M.Foil, "Pass:TourCollection", { Reflect = 0.2, Design = { Pattern = "Classic", Brand = "ULTIMATE", Model = "TOUR GRAPHITE", Number = "3", Ink = hex("#F2F3F5"), Accent = hex("#C8102E"), NumberInk = hex("#E0323A"), Club = TOUR_CLUB, Metallic = false } })
+local HERITAGE_CREAM, HERITAGE_GREEN = hex("#EFE6CF"), hex("#1F4D3A")
+add("heritage_cream", "Heritage Cream", "Epic", "#EFE6CF", M.SmoothPlastic, "Pass:Heritage", { Design = { Pattern = "Pinstripe", Model = "HERITAGE", Number = "1", Ink = HERITAGE_GREEN, Accent = HERITAGE_GREEN, Club = "HERITAGE G.C." } })
+add("heritage_forest", "Heritage Forest", "Epic", "#1F4D3A", M.SmoothPlastic, "Pass:Heritage", { Design = { Pattern = "Pinstripe", Model = "HERITAGE", Number = "2", Ink = HERITAGE_CREAM, Accent = GOLD_INK, Club = "HERITAGE G.C.", Metallic = true } })
+add("heritage_oxblood", "Heritage Oxblood", "Epic", "#5A1A1F", M.SmoothPlastic, "Pass:Heritage", { Design = { Pattern = "Pinstripe", Model = "HERITAGE", Number = "3", Ink = HERITAGE_CREAM, Accent = GOLD_INK, Club = "HERITAGE G.C.", Metallic = true } })
 add(Config.CreatorFanSkin, "Creator Fan", "Rare", "#FF5CA8", M.SmoothPlastic, "Creator", { Light = true, Design = { Emblem = "♥" } })
 add("rookie", "Rookie", "Common", "#7AE582", M.SmoothPlastic, "Achievement", { Design = { Number = "1" } })
 
@@ -349,7 +359,7 @@ function Skins.design(skin: Skin, serial: number?): BallPrints.Design
 		Model = spec.Model or string.upper(skin.Name),
 		Number = number :: string,
 		SubNumber = sub,
-		NumberInk = if whiteBall and not premium then NUMBER_RED else ink,
+		NumberInk = spec.NumberInk or (if whiteBall and not premium then NUMBER_RED else ink),
 		Club = spec.Club or "ULTIMATE G.C.",
 		Ink = ink,
 		Accent = accent :: Color3,

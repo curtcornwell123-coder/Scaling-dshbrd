@@ -23,6 +23,12 @@ PASSES = [  # (Config key, name, price, description, icon, for sale)
     ("Celebrations", "Celebration Pack", 149, "3 exclusive cup-sink celebrations: Fireworks, Galaxy and Confetti.",
      "pass_celebrations.png", True),
     ("Founder", "Founder", 99, "Founder Epic skin and the FOUNDER title. Launch only!", "pass_founder.png", True),
+    ("TourCollection", "Tour Collection", 299,
+     "Three tour balls for your locker: Tour Black, Tour Pearl and Tour Graphite. Cosmetic only.", "pass_tour.png", True),
+    ("Heritage", "Heritage Collection", 249,
+     "Three pinstriped club balls: Heritage Cream, Forest and Oxblood. Cosmetic only.", "pass_heritage.png", True),
+    ("MembersClub", "Members Club", 199,
+     "The Members Contrail trail, the Members Line aim and a MEMBER nametag. Cosmetic only.", "pass_members.png", True),
 ]
 PRODUCTS = [  # (Config key, name, price, description, icon)
     ("Coins1", "Coin Pouch", 49, "1,000 coins.", "product_coins_1.png"),

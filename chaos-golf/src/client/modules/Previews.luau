@@ -208,7 +208,18 @@ function Previews.crate(id: string): Frame
 	return f
 end
 
+-- Cosmetic passes show what they unlock.
+local PASS_SHOWS: { [string]: { Kind: string, Ref: string } } = {
+	TourCollection = { Kind = "Ball", Ref = "tour_pearl" },
+	Heritage = { Kind = "Ball", Ref = "heritage_forest" },
+	MembersClub = { Kind = "Trail", Ref = "members_contrail" },
+}
+
 function Previews.pass(key: string): Frame
+	local show = PASS_SHOWS[key]
+	if show then
+		return if show.Kind == "Ball" then Previews.ball(show.Ref) else Previews.trail(show.Ref)
+	end
 	local f = base()
 	local glyph = ({ VIP = "VIP", DoubleCoins = "2X", Celebrations = "✦", Founder = "F" })[key] or "★"
 	circle(f, 64, T.Gold, UDim2.fromScale(0.5, 0.5), 0.75)

@@ -81,6 +81,7 @@ trail("rainbow_road", "Rainbow Road", "Legendary", "Crate", { "#FF0055", "#FF9A0
 trail("comet_tail", "Comet Tail", "Legendary", "Crate", { "#FFFFFF", "#FFE08A", "#FF9A3C" }, 1.1, 0.85, 1, true)
 trail("chaos_rift", "Chaos Rift", "Mythic", "Crate", { "#FF0033", "#B000FF", "#14001F" }, 1.2, 1, 1, true)
 trail("daily_spark", "Daily Spark", "Rare", "Login", { "#FFB347", "#FFE7A3" }, 0.65, 0.55, 0.9, true)
+trail("members_contrail", "Members Contrail", "Legendary", "Pass:MembersClub", { "#FFFFFF", "#EDE6D3" }, 0.32, 0.6, 0.15)
 
 -- Knockout effects ---------------------------------------------------------------
 local function knockout(id: string, name: string, rarity: string, source: string, style: string, color: string, scale: number)
@@ -116,6 +117,7 @@ arrow("comet_path", "Comet Path", "Legendary", "Crate", "Comet", "#FFFFFF", "#FF
 arrow("rainbow_guide", "Rainbow Guide", "Legendary", "Crate", "Rainbow", "#FF0055", "#00B0FF", true, true)
 arrow("chaos_pointer", "Chaos Pointer", "Mythic", "Crate", "Chevron", "#FF0033", "#FFB000", true, true)
 arrow("sunrise_chevron", "Sunrise Chevron", "Epic", "Login", "Chevron", "#FF8A00", "#FFE14D", true, true)
+arrow("members_line", "Members Line", "Legendary", "Pass:MembersClub", "Dotted", "#F3EDDD", "#1F6B4E", false)
 
 -- Registry -------------------------------------------------------------------
 

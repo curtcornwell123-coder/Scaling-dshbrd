@@ -25,7 +25,15 @@ function Monetization.setCrateOpener(fn: (Player) -> boolean)
 	openFeaturedCrate = fn
 end
 
-local passSkins = { VIP = "vip_aurum", Founder = "founder" }
+-- What each pass unlocks (category -> item ids). Everything here is cosmetic.
+local passGrants: { [string]: { [string]: { string } } } = {
+	VIP = { Skins = { "vip_aurum" } },
+	Founder = { Skins = { "founder" } },
+	TourCollection = { Skins = { "tour_black", "tour_pearl", "tour_graphite" } },
+	Heritage = { Skins = { "heritage_cream", "heritage_forest", "heritage_oxblood" } },
+	MembersClub = { Trails = { "members_contrail" }, Arrows = { "members_line" } },
+}
+Monetization.PassGrants = passGrants
 
 local function applyPass(player: Player, key: string)
 	local session = Data.get(player)
@@ -34,9 +42,15 @@ local function applyPass(player: Player, key: string)
 	end
 	session.Passes[key] = true
 	player:SetAttribute("Pass_" .. key, true)
-	local skin = passSkins[key]
-	if skin then
-		Data.grantSkin(player, skin)
+	local grants: { [string]: { string } } = passGrants[key] or {}
+	for category, ids in grants do
+		for _, id in ids do
+			if category == "Skins" then
+				Data.grantSkin(player, id)
+			else
+				Data.grant(player, category, id)
+			end
+		end
 	end
 	Data.push(player)
 	Social.updateNametag(player)
